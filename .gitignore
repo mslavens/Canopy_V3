@@ -1,0 +1,31 @@
+# Dependencies
+/canopy-ui/node_modules
+
+# Build output
+/canopy-ui/dist
+/canopy-ui/dist-electron
+release/
+.npm/
+
+# Go backend executable
+/canopy-core/canopy-core
+/canopy-core/canopy-core.exe
+/canopy-core/canopy-core-linux
+*.log
+
+# SQLite Database Files
+/canopy-core/CanopyData/
+*.db
+*.db-shm
+*.db-wal
+
+# Patching & Rollback Artifacts
+*.cpatch
+*.old
+/canopy-core/backups/
+/canopy-core/snapshots/
+
+# macOS & IDE specific
+.DS_Store
+**/.DS_Store
+.vscode/

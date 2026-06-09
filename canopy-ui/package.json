@@ -1,0 +1,74 @@
+{
+  "name": "canopy-ui",
+  "version": "0.16.0",
+  "description": "Canopy Security Framework UI",
+  "private": true,
+  "main": "main/index.js",
+  "author": "Layered Blue",
+  "scripts": {
+    "start": "vite",
+    "build": "tsc && vite build --base=./",
+    "electron": "electron ./main/index.js",
+    "dev": "concurrently \"npm run start\" \"npx wait-on http://localhost:5173 && npm run electron\"",
+    "package": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "lucide-react": "^0.378.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.9",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11",
+    "wait-on": "^7.2.0",
+    "electron-builder": "^24.13.3"
+  }
+  ,
+  "build": {
+    "appId": "com.layeredblue.canopy",
+    "productName": "Canopy",
+    "asarUnpack": [
+      "dist/docs/manual/**/*.md",
+      "dist/docs/changelog.md"
+    ],
+    "files": [
+      "**/*",
+      "!src",
+      "!public"
+    ],
+    "directories": {
+      "output": "dist-electron"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "extraResources": [{
+        "from": "../canopy-core/canopy-core",
+        "to": "."
+      }]
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "extraResources": [{
+        "from": "../canopy-core/canopy-core.exe",
+        "to": "."
+      }]
+    },
+    "linux": {
+      "extraResources": [{
+        "from": "../canopy-core/canopy-core-linux",
+        "to": "."
+      }]
+    }
+  }
+}

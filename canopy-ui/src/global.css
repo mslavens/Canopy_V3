@@ -1,0 +1,338 @@
+/* ==========================================================================================
+   CANOPY V2.0 GLOBAL STYLESHEET
+   ========================================================================================== */
+
+/* 1. Global Viewport Boundary Lock (Section 4 Compliance) */
+html, 
+body, 
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden; /* Stops the native Electron window-level scrolling bounce */
+  box-sizing: border-box;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Force border-box calculation sizing across all elements globally */
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* Custom Scrollbar Theming */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-main);
+  border-radius: 10px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-sub);
+}
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+/* Custom Focus Ring for Keyboard Accessibility (Overrides Chromium Defaults) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Pull the focus ring inward for nav tabs and dropdown options so it isn't clipped by overflow containers */
+.nav-tab:focus-visible,
+.dropdown-option:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Elevate tightly packed stepper buttons on focus so their outline isn't painted over by siblings */
+.stepper-btn:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+/* ==========================================================================================
+   2. SEMANTIC DESIGN TOKENS (Section 6 Compliance)
+   ========================================================================================== */
+
+/* BASELINE TOKENS (Defaults to Dark Mode / Catppuccin Mocha Palette abstractions) */
+:root {
+  --bg-app: #1e1e2e;
+  --bg-surface: #181825;
+  --bg-element: #313244;
+  --border-main: #313244;
+  --border-accent: #cba6f7;
+  
+  --text-main: #cdd6f4;
+  --text-muted: #a6adc8;
+  --text-sub: #565f89;
+  
+  --accent-blue: #89b4fa;
+  --accent-purple: #b4befe;
+  --status-green: #a6e3a1;
+  --status-red: #f38ba8;
+  --status-warn: #f9e2af;
+}
+
+/* LIGHT MODE OVERRIDE TOKENS (Triggered explicitly via data-theme attribute class) */
+html[data-theme="light"] {
+  --bg-app: #f2f3f5;
+  --bg-surface: #ffffff;
+  --bg-element: #e3e5e8;
+  --border-main: #e3e5e8;
+  --border-accent: #5865f2;
+  
+  --text-main: #2e3338;
+  --text-muted: #4f5660;
+  --text-sub: #747f8d;
+  
+  --accent-blue: #0067c0;
+  --accent-purple: #4752c4;
+  --status-green: #248046;
+  --status-red: #da373c;
+  --status-warn: #df8000;
+}
+
+/* ==========================================================================================
+   3. GENERAL COMPONENT TRANSITION ANCHORS
+   ========================================================================================== */
+
+/* Ensure theme toggles are completely instant across all properties (backgrounds, borders, text).
+   Only apply transitions to interactive elements for hover states. */
+button {
+  transition: opacity 0.1s ease, transform 0.1s ease !important;
+}
+button:hover:not(:disabled) {
+  opacity: 0.75 !important;
+  cursor: pointer !important;
+}
+button:active:not(:disabled) {
+  opacity: 0.8;
+  transform: scale(0.97);
+}
+button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Custom Native File Selector Button */
+input[type="file"]::file-selector-button {
+  background-color: var(--bg-element);
+  color: var(--text-main);
+  border: 1px solid var(--border-main);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  margin-right: 15px;
+  transition: opacity 0.1s ease, transform 0.1s ease !important;
+  cursor: pointer;
+}
+input[type="file"]:not(:disabled)::file-selector-button:hover {
+  opacity: 0.75 !important;
+}
+input[type="file"]:not(:disabled)::file-selector-button:active {
+  opacity: 0.8;
+  transform: scale(0.97);
+}
+input[type="file"]:disabled::file-selector-button {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Custom Loading & Tailing Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin-animation {
+  animation: spin 2s linear infinite;
+}
+
+/* Delayed Fade-In for Loaders (Prevents fast-flicker on local networks) */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in-delayed {
+  opacity: 0;
+  animation: fadeIn 0.2s ease-in forwards;
+  animation-delay: 150ms;
+}
+
+/* ==========================================================================================
+   4. HELP MODAL STYLES
+   ========================================================================================== */
+.help-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+.help-modal-container {
+  background: var(--bg-app);
+  border: 1px solid var(--border-main);
+  border-radius: 8px;
+  width: 80%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-main);
+}
+.help-modal-close-btn {
+  background: transparent; border: none;
+  color: var(--text-muted); 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center;
+}
+.help-modal-body {
+  padding: 30px; overflow-y: auto; color: var(--text-main); line-height: 1.6;
+}
+
+/* ==========================================================================================
+   5. MARKDOWN RENDERER STYLES
+   ========================================================================================== */
+.markdown-content { font-size: 13px; }
+.markdown-content h1, .markdown-content h2, .markdown-content h3 { color: var(--accent-blue); margin-top: 0; }
+.markdown-content h1 { border-bottom: 1px solid var(--border-main); padding-bottom: 8px; margin-bottom: 16px; font-size: 20px; }
+.markdown-content h2 { border-bottom: 1px solid var(--border-main); padding-bottom: 6px; margin-top: 24px; font-size: 15px; }
+.markdown-content code { background: var(--bg-element); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+.markdown-content pre { background: var(--bg-app); border: 1px solid var(--border-main); padding: 12px; border-radius: 6px; overflow-x: auto; }
+.markdown-content pre code { background: transparent; padding: 0; }
+.markdown-content ul, .markdown-content ol { padding-left: 20px; }
+.markdown-content li { margin-bottom: 6px; }
+.markdown-content hr { border: none; border-top: 1px solid var(--border-main); margin: 20px 0; }
+
+/* ==========================================================================================
+   6. COMPONENT CLASSES (Design System)
+   ========================================================================================== */
+.btn-primary {
+  background-color: var(--accent-blue);
+  color: var(--bg-app);
+  border: 1px solid transparent;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.btn-secondary {
+  background-color: var(--bg-surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-main);
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 13px;
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-element);
+}
+.btn-danger {
+  background-color: transparent;
+  color: var(--status-red);
+  border: 1px solid var(--status-red);
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 13px;
+}
+.btn-success {
+  background-color: var(--status-green);
+  color: var(--bg-app);
+  border: 1px solid transparent;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Size Modifiers */
+.btn-sm {
+  padding: 6px 15px;
+  font-size: 12px;
+}
+
+/* Form Elements */
+.input-text {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-main);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.input-text:focus {
+  border-color: var(--accent-blue);
+}
+.no-spinners::-webkit-inner-spin-button, 
+.no-spinners::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  appearance: none;
+  margin: 0; 
+}
+.no-spinners { 
+  -moz-appearance: textfield; 
+  appearance: textfield;
+}
+
+/* Custom Dropdown Options */
+.dropdown-option {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+  background-color: transparent;
+  transition: background-color 0.1s ease;
+}
+.dropdown-option:hover, .dropdown-option.active {
+  background-color: var(--bg-element);
+}
+
+/* ==========================================================================================
+   7. DATA TABLE STYLES
+   ========================================================================================== */
+.table-row {
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+.table-row:hover {
+  background-color: color-mix(in srgb, var(--text-muted) 10%, transparent);
+}
+.table-row-active {
+  background-color: color-mix(in srgb, var(--accent-blue) 12%, transparent) !important;
+}
+/* Prominent left-border anchor for active selections */
+.table-row-active > td:first-child {
+  box-shadow: inset 3px 0 0 0 var(--accent-blue);
+}

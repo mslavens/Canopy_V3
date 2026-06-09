@@ -1,0 +1,70 @@
+= Canopy v2.0 System Architecture Specification
+:description: Structural multi-process boundaries and storage schema routing layout.
+
+[abstract]
+This specification maps the process boundaries, secure loopback transportation hooks, and dual-engine data storage constraints across the application runtime environment.
+
+== 1. Process Topography Diagram
+
+[listing]
+----
+==========================================================================================
+                     CANOPY V2.0 MULTI-PROCESS SYSTEM ARCHITECTURE
+==========================================================================================
+
+ +---------------------------------------------------------------------------------------+
+ |                               ELECTRON PRESENTATION LAYER                             |
+ |                                                                                       |
+ |  [ React.js UI Shell ]  <-- (60 FPS Performance Target / Pure Presentational)         |
+ |        |                                                                              |
+ |        v (Injects Design Tokens)                                                      |
+ |  [ Semantic Theme Engine ] ---> (var(--bg-app), var(--bg-surface), var(--text-main))  |
+ +-------------------------------------------+-------------------------------------------+
+                                             |
+                                  IPC Secure Token Handshake
+                             (Authorization: Bearer <token>)
+                                             |
+                                             v
+ +---------------------------------------------------------------------------------------+
+ |                              HEADLESS GO CORE ENGINE DAEMON                           |
+ |                                                                                       |
+ |  [ 127.0.0.1:8080 Listener ] <--- Bound Strictly to Local Loopback Interface          |
+ |        |                                                                              |
+ |        +---> [ Middleware 1: Global CORS Filter ] ----> Edge Short-Circuit (OPTIONS)  |
+ |        |                                                                              |
+ |        +---> [ Middleware 2: Token Auth Filter ] ----> Validates Session Bearer Block |
+ |                                                                                       |
+ |  [ Bitwise Route Solver ] <--- Handles High-Performance CIDR Subnet Intersection      |
+ +-------------------------------------------+-------------------------------------------+
+                                             |
+                               Dynamic Base Directory Resolution
+                        ( os.UserConfigDir() -> ~/Library/Application Support/ )
+                                             |
+                      +----------------------+----------------------+
+                      |                                             |
+                      v                                             v
+ +-------------------------------------------+ +-------------------------------------------+
+ |       RELATIONAL STATE PERSISTENCE        | |        VECTORIZED ANALYTICS ENGINE        |
+ |          (SQLite - app_state.db)          | |           (DuckDB - logs.duckdb)          |
+ |                                           | |                                           |
+ |  - Journaling Mode: WAL Enabled           | |  - Concurrency: Strict Single-Process Lock|
+ |  - Write Execution: Mutex Lock Synchronized| |  - Ingestion Loop: Vector Appender API   |
+ |  - Read Execution: Parallel Scale Pools   | |  - Data Target: Columnar Storage Blocks   |
+ +-------------------------------------------+ +-------------------------------------------+
+
+==========================================================================================
+                     SECURITY CORE & HARDWARE VALIDATION MATRIX
+==========================================================================================
+
+      [ Outbound Client ] -----> [ System Environment Proxies ] -----> [ Remote Vault ]
+               |
+               v
+      [ Hardware ID Fingerprint ] ---> [ SHA-256 Validation Hash ] <--- [ Lemon Squeezy ]
+                                                                        (Signed Token)
+==========================================================================================
+----
+
+[NOTE]
+====
+This diagram maps directly to the programmatic boundaries detailed inside \`CONSTRAINTS.md\` and the column-level formats written in \`STORAGE_SCHEMA.md\`.
+====
