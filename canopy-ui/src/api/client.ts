@@ -77,4 +77,24 @@ export class CanopyApiClient {
 
   // Audit Logs
   public getAuditLogs = () => this.request<any[]>('/api/audit/logs');
+
+  // Device Groups CRUD
+  public createDeviceGroup = (name: string, parentId: number | null) => this.request<any>('/api/device-groups/create', { method: 'POST', body: JSON.stringify({ name, parent_id: parentId }) });
+  public updateDeviceGroup = (id: number, name: string, parentId: number | null) => this.request<any>('/api/device-groups/update', { method: 'POST', body: JSON.stringify({ id, name, parent_id: parentId }) });
+  public deleteDeviceGroup = (id: number) => this.request<any>('/api/device-groups/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Templates CRUD
+  public createTemplate = (name: string) => this.request<any>('/api/templates/create', { method: 'POST', body: JSON.stringify({ name }) });
+  public updateTemplate = (id: number, name: string) => this.request<any>('/api/templates/update', { method: 'POST', body: JSON.stringify({ id, name }) });
+  public deleteTemplate = (id: number) => this.request<any>('/api/templates/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Template Stacks CRUD
+  public createTemplateStack = (name: string, templateIds: number[]) => this.request<any>('/api/template-stacks/create', { method: 'POST', body: JSON.stringify({ name, template_ids: templateIds }) });
+  public updateTemplateStack = (id: number, name: string, templateIds: number[]) => this.request<any>('/api/template-stacks/update', { method: 'POST', body: JSON.stringify({ id, name, template_ids: templateIds }) });
+  public deleteTemplateStack = (id: number) => this.request<any>('/api/template-stacks/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Devices CRUD
+  public createDevice = (name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/create', { method: 'POST', body: JSON.stringify({ name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
+  public updateDevice = (id: number, name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/update', { method: 'POST', body: JSON.stringify({ id, name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
+  public deleteDevice = (id: number) => this.request<any>('/api/devices/delete', { method: 'POST', body: JSON.stringify({ id }) });
 }

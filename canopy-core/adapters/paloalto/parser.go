@@ -1919,6 +1919,19 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 		// 4. Process Device Groups (Pass 1 - Insert DG and Scopes)
+		// Register default implicit "shared" root device group context
+		clearDeviceTables(tx, "paloalto-dg-shared")
+		resShared, err := dgStmt.Exec(sharedUUID, "paloalto-dg-shared", "shared", nil)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to register root shared device group: %w", err)
+		}
+		sharedDgID, _ := resShared.LastInsertId()
+		dgNameToID["shared"] = sharedDgID
+
+		if _, err := scopeStmt.Exec("paloalto-dg-shared", "device-group", sharedDgID, "shared", nil); err != nil {
+			return 0, 0, fmt.Errorf("failed to register root shared device group scope: %w", err)
+		}
+
 		for _, dg := range allDeviceGroups {
 			dgUUID := "paloalto-dg-" + dg.Name
 			clearDeviceTables(tx, dgUUID)
@@ -1977,8 +1990,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		// Device Groups (Pass 2 - Resolve parent relationships)
 		for _, dg := range allDeviceGroups {
 			dgID := dgNameToID[dg.Name]
-			var parentID interface{}
-			var parentScopeUUID interface{}
+			// Default to parent group "shared" if no explicit parent group is configured in the XML
+			var parentID interface{} = sharedDgID
+			var parentScopeUUID interface{} = "paloalto-dg-shared"
+
 			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
 				if pid, ok := dgNameToID[parentName]; ok {
 					parentID = pid
@@ -1990,10 +2005,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 					parentScopeUUID = "paloalto-dg-" + dg.Parent
 				}
 			}
-			if parentID != nil {
-				tx.Exec("UPDATE device_groups SET parent_id = ? WHERE id = ?", parentID, dgID)
-				tx.Exec("UPDATE scopes SET parent_uuid = ? WHERE type = 'device-group' AND reference_id = ?", parentScopeUUID, dgID)
-			}
+			tx.Exec("UPDATE device_groups SET parent_id = ? WHERE id = ?", parentID, dgID)
+			tx.Exec("UPDATE scopes SET parent_uuid = ? WHERE type = 'device-group' AND reference_id = ?", parentScopeUUID, dgID)
 		}
 
 		// 5. Write shared rules
@@ -2425,6 +2438,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 					var mdevID int64
 					if err := tx.QueryRow("SELECT id FROM managed_devices_raw WHERE serial = ?", serial).Scan(&mdevID); err == nil {
 						tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
+					}
+					// If the device name changed (resulting in a new UUID), clean up the old scope context
+					if existingDeviceUUID != deviceUUID {
+						tx.Exec("DELETE FROM scopes WHERE uuid = ?", existingDeviceUUID)
 					}
 				} else {
 					parentCtxUUID := deviceUUID

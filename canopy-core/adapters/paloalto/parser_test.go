@@ -311,10 +311,6 @@ func TestParser(t *testing.T) {
 			UNIQUE(type, reference_id),
 			FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 		);`,
-		`CREATE VIEW IF NOT EXISTS devices AS 
-		SELECT uuid, name, 'PaloAlto' AS vendor, parent_uuid, created_at FROM (
-			SELECT uuid, name, parent_uuid, CURRENT_TIMESTAMP as created_at FROM scopes
-		);`,
 		`CREATE TABLE IF NOT EXISTS device_groups (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			device_uuid TEXT NOT NULL,
@@ -687,7 +683,7 @@ func TestParser(t *testing.T) {
 
 		// Verify database rows
 		var name, vendor string
-		err = db.DB().QueryRow("SELECT name, vendor FROM devices WHERE uuid = 'paloalto-fw-fw-standalone-test-0123456789'").Scan(&name, &vendor)
+		err = db.DB().QueryRow("SELECT name, 'PaloAlto' AS vendor FROM scopes WHERE uuid = 'paloalto-fw-fw-standalone-test-0123456789'").Scan(&name, &vendor)
 		if err != nil {
 			t.Fatalf("failed to scan device: %v", err)
 		}
@@ -731,7 +727,7 @@ func TestParser(t *testing.T) {
 
 		// Verify database rows for template device
 		var name, vendor string
-		err = db.DB().QueryRow("SELECT name, vendor FROM devices WHERE uuid = 'panorama-tmpl-TemplateCorp'").Scan(&name, &vendor)
+		err = db.DB().QueryRow("SELECT name, 'PaloAlto' AS vendor FROM scopes WHERE uuid = 'panorama-tmpl-TemplateCorp'").Scan(&name, &vendor)
 		if err != nil {
 			t.Fatalf("failed to scan device: %v", err)
 		}
@@ -751,7 +747,7 @@ func TestParser(t *testing.T) {
 
 		// Verify template stack and stack members
 		var stackUUID, stackName string
-		err = db.DB().QueryRow("SELECT uuid, name FROM devices WHERE uuid = 'panorama-stack-CorpStack'").Scan(&stackUUID, &stackName)
+		err = db.DB().QueryRow("SELECT uuid, name FROM scopes WHERE uuid = 'panorama-stack-CorpStack'").Scan(&stackUUID, &stackName)
 		if err != nil {
 			t.Fatalf("failed to query template stack device: %v", err)
 		}
@@ -890,7 +886,7 @@ func TestParser(t *testing.T) {
 
 		// Verify database rows for template device
 		var name, vendor string
-		err = db.DB().QueryRow("SELECT name, vendor FROM devices WHERE uuid = 'panorama-tmpl-NestedTemplateCorp'").Scan(&name, &vendor)
+		err = db.DB().QueryRow("SELECT name, 'PaloAlto' AS vendor FROM scopes WHERE uuid = 'panorama-tmpl-NestedTemplateCorp'").Scan(&name, &vendor)
 		if err != nil {
 			t.Fatalf("failed to scan nested template device: %v", err)
 		}
@@ -924,9 +920,9 @@ func TestParser(t *testing.T) {
 			t.Fatalf("failed to import standalone config after Panorama: %v", err)
 		}
 
-		// Verify standalone device in devices table now has parent_uuid set to the device group NestCorpDG
+		// Verify standalone device in scopes table now has parent_uuid set to the device group NestCorpDG
 		var parentUUID string
-		err = db.DB().QueryRow("SELECT parent_uuid FROM devices WHERE uuid = 'paloalto-fw-nested-fw-branch-updated-0123456789'").Scan(&parentUUID)
+		err = db.DB().QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = 'paloalto-fw-nested-fw-branch-updated-0123456789'").Scan(&parentUUID)
 		if err != nil {
 			t.Fatalf("failed to query standalone device after import: %v", err)
 		}
@@ -980,14 +976,24 @@ func TestParser(t *testing.T) {
 			t.Fatalf("ParseAndStore Panorama failed: %v", err)
 		}
 
-		// Verify standalone device in devices table now has parent_uuid updated to point to the device group CorpDG
+		// Verify standalone device in scopes table now has parent_uuid updated to point to the device group CorpDG
 		var parentUUID string
-		err = db.DB().QueryRow("SELECT parent_uuid FROM devices WHERE uuid = 'paloalto-fw-fw-corp-branch-9876543210'").Scan(&parentUUID)
+		err = db.DB().QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = 'paloalto-fw-fw-corp-branch-9876543210'").Scan(&parentUUID)
 		if err != nil {
 			t.Fatalf("failed to query standalone device parent_uuid: %v", err)
 		}
 		if parentUUID != "paloalto-dg-CorpDG" {
 			t.Errorf("expected parent_uuid to be 'paloalto-dg-CorpDG', got %q", parentUUID)
+		}
+
+		// Verify device group CorpDG parent_uuid is set to paloalto-dg-shared
+		var dgParentUUID string
+		err = db.DB().QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = 'paloalto-dg-CorpDG'").Scan(&dgParentUUID)
+		if err != nil {
+			t.Fatalf("failed to query device group CorpDG parent_uuid: %v", err)
+		}
+		if dgParentUUID != "paloalto-dg-shared" {
+			t.Errorf("expected CorpDG parent_uuid to be 'paloalto-dg-shared', got %q", dgParentUUID)
 		}
 
 		// Verify the hostname in managed_devices has been updated to fw-corp-branch

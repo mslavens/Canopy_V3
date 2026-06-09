@@ -29,8 +29,8 @@ interface TableCategory {
 }
 
 export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, addToast }) => {
-  const [selectedTable, setSelectedTable] = useState<string>('devices');
-  const [query, setQuery] = useState("SELECT * FROM devices;");
+  const [selectedTable, setSelectedTable] = useState<string>('scopes');
+  const [query, setQuery] = useState("SELECT * FROM scopes;");
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
   
   const [data, setData] = useState<DBResponse | null>(null);
@@ -44,7 +44,6 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
     {
       categoryName: "Infrastructure & Topology",
       tables: [
-        { tableName: "devices", label: "Appliance Catalog (View)", description: "All registered standalone firewalls, Panorama servers, device-groups, and template stacks.", icon: <Server size={14} /> },
         { tableName: "scopes", label: "Scopes Registry", description: "Unified administrative scope registry (shared, device-group, template, stack, firewall).", icon: <Layers size={14} /> },
         { tableName: "device_groups", label: "Device Groups", description: "Panorama device groups hierarchy and parent relationships.", icon: <Layers size={14} /> },
         { tableName: "templates", label: "Base Templates", description: "Panorama templates catalog.", icon: <Layers size={14} /> },

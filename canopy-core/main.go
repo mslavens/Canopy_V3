@@ -69,10 +69,6 @@ var actSchema = `
 		UNIQUE(type, reference_id),
 		FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 	);
-	CREATE VIEW IF NOT EXISTS devices AS 
-	SELECT uuid, name, 'PaloAlto' AS vendor, parent_uuid, created_at FROM (
-		SELECT uuid, name, parent_uuid, CURRENT_TIMESTAMP as created_at FROM scopes
-	);
 	CREATE TABLE IF NOT EXISTS device_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -740,13 +736,13 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	if exists > 0 {
 		var version int
 		err := db.QueryRow("SELECT schema_version FROM framework_metadata LIMIT 1").Scan(&version)
-		if err == nil && version < 2 {
+		if err == nil && version < 3 {
 			runMigration = true
 		}
 	}
 
 	if runMigration {
-		slog.Info("Migrating workspace database schema to version 2 (dropping legacy tables/views)")
+		slog.Info("Migrating workspace database schema to version 3 (dropping legacy tables/views)")
 		// Drop views first
 		legacyViews := []string{"devices", "managed_devices", "template_stack_members"}
 		for _, name := range legacyViews {
@@ -862,7 +858,7 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 	if _, err := activeDB.DB().Exec(actSchema); err != nil {
 		slog.Error("Failed to initialize workspace schema", slog.String("error", err.Error()))
 	}
-	activeDB.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
+	activeDB.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 	activeDB.WriteUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1435,7 +1431,7 @@ func main() {
 		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
 			slog.Error("Failed to initialize workspace schema on creation", slog.String("error", err.Error()))
 		}
-		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
+		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 		newSpoke.WriteUnlock()
 		newSpoke.Close()
 
@@ -1501,7 +1497,7 @@ func main() {
 		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
 			slog.Error("Failed to initialize workspace schema on switch", slog.String("error", err.Error()))
 		}
-		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
+		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 		newSpoke.WriteUnlock()
 
 		activeDB = newSpoke
@@ -2019,6 +2015,1122 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"secret_value": secretValue})
+	})
+
+	// --- DEVICE MANAGEMENT CRUD ENDPOINTS ---
+
+	// Device Groups: Create
+	mux.HandleFunc("/api/device-groups/create", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Name     string `json:"name"`
+			ParentID *int   `json:"parent_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Name is required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		uuid := "paloalto-dg-" + name
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify uniqueness
+		var exists int
+		err := dbConn.QueryRow("SELECT COUNT(*) FROM device_groups WHERE name = ? OR uuid = ?", name, uuid).Scan(&exists)
+		if err == nil && exists > 0 {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A device group with this name or UUID already exists."})
+			return
+		}
+
+		// Resolve parent details
+		var parentID interface{}
+		parentUUID := "paloalto-dg-shared"
+
+		if req.ParentID != nil && *req.ParentID > 0 {
+			var pUUID string
+			err := dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.ParentID).Scan(&pUUID)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Parent device group not found."})
+				return
+			}
+			parentID = *req.ParentID
+			parentUUID = pUUID
+		} else {
+			// Find shared parent ID
+			var sharedID int
+			err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+			if err == nil {
+				parentID = sharedID
+			} else {
+				parentID = nil
+			}
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, parent_id) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, parentID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device group: " + err.Error()})
+			return
+		}
+		dgID, _ := res.LastInsertId()
+
+		_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'device-group', ?, ?, ?)", uuid, dgID, name+" (Device Group)", parentUUID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to register scope: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Device Group Created", "Network", "Added new device group: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": dgID, "uuid": uuid})
+	})
+
+	// Device Groups: Update
+	mux.HandleFunc("/api/device-groups/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID       int    `json:"id"`
+			Name     string `json:"name"`
+			ParentID *int   `json:"parent_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID and Name are required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Get current group details
+		var currentUUID, currentName string
+		err := dbConn.QueryRow("SELECT uuid, name FROM device_groups WHERE id = ?", req.ID).Scan(&currentUUID, &currentName)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Device group not found."})
+			return
+		}
+
+		// Check name collision
+		if name != currentName {
+			var collision int
+			dbConn.QueryRow("SELECT COUNT(*) FROM device_groups WHERE name = ? AND id != ?", name, req.ID).Scan(&collision)
+			if collision > 0 {
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A device group with this name already exists."})
+				return
+			}
+		}
+
+		// Prevent circular dependency in parent hierarchy
+		if req.ParentID != nil && *req.ParentID > 0 {
+			if *req.ParentID == req.ID {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A device group cannot be its own parent."})
+				return
+			}
+			currParent := *req.ParentID
+			for {
+				var nextParent *int
+				err := dbConn.QueryRow("SELECT parent_id FROM device_groups WHERE id = ?", currParent).Scan(&nextParent)
+				if err != nil {
+					break
+				}
+				if nextParent == nil {
+					break
+				}
+				if *nextParent == req.ID {
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(map[string]string{"error": "Circular parent-child relationship detected."})
+					return
+				}
+				currParent = *nextParent
+			}
+		}
+
+		// Resolve new parent Details
+		var parentID interface{}
+		parentUUID := "paloalto-dg-shared"
+
+		if req.ParentID != nil && *req.ParentID > 0 {
+			var pUUID string
+			err := dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.ParentID).Scan(&pUUID)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Parent group not found."})
+				return
+			}
+			parentID = *req.ParentID
+			parentUUID = pUUID
+		} else {
+			// Find shared parent ID
+			var sharedID int
+			err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+			if err == nil {
+				parentID = sharedID
+			} else {
+				parentID = nil
+			}
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		// Update device group name and parent
+		_, err = tx.Exec("UPDATE device_groups SET name = ?, parent_id = ? WHERE id = ?", name, parentID, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update device group: " + err.Error()})
+			return
+		}
+
+		// Update scopes name and parent_uuid
+		_, err = tx.Exec("UPDATE scopes SET name = ?, parent_uuid = ? WHERE type = 'device-group' AND reference_id = ?", name+" (Device Group)", parentUUID, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update scope: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Device Group Updated", "Network", "Renamed or updated device group parent context: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Device Groups: Delete
+	mux.HandleFunc("/api/device-groups/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID int `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID is required."})
+			return
+		}
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Get current group details
+		var uuid, name string
+		err := dbConn.QueryRow("SELECT uuid, name FROM device_groups WHERE id = ?", req.ID).Scan(&uuid, &name)
+		if err != nil {
+			// Idempotent success
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+
+		if uuid == "paloalto-dg-shared" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete the root 'shared' device group context."})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		// Manually orphan child groups back to shared root rather than deleting them
+		var sharedID int
+		err = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+		if err == nil {
+			tx.Exec("UPDATE device_groups SET parent_id = ? WHERE parent_id = ?", sharedID, req.ID)
+			tx.Exec("UPDATE scopes SET parent_uuid = 'paloalto-dg-shared' WHERE parent_uuid = ?", uuid)
+		} else {
+			tx.Exec("UPDATE device_groups SET parent_id = NULL WHERE parent_id = ?", req.ID)
+			tx.Exec("UPDATE scopes SET parent_uuid = NULL WHERE parent_uuid = ?", uuid)
+		}
+
+		// Delete the group context's scope (triggers SQLite cascading delete on objects/rules belonging to this group)
+		_, err = tx.Exec("DELETE FROM scopes WHERE uuid = ?", uuid)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete scope hierarchy: " + err.Error()})
+			return
+		}
+
+		// Delete from physical device groups
+		_, err = tx.Exec("DELETE FROM device_groups WHERE id = ?", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete device group: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Device Group Deleted", "Network", "Removed device group: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Base Templates: Create
+	mux.HandleFunc("/api/templates/create", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Name is required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		uuid := "panorama-tmpl-" + name
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify uniqueness
+		var exists int
+		err := dbConn.QueryRow("SELECT COUNT(*) FROM templates WHERE name = ? OR uuid = ?", name, uuid).Scan(&exists)
+		if err == nil && exists > 0 {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A template with this name or UUID already exists."})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name) VALUES ('paloalto-panorama-global', ?, ?)", uuid, name)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template: " + err.Error()})
+			return
+		}
+		tmplID, _ := res.LastInsertId()
+
+		_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template', ?, ?, NULL)", uuid, tmplID, name+" (Panorama)")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to register scope: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Created", "Network", "Added base template: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": tmplID, "uuid": uuid})
+	})
+
+	// Base Templates: Update
+	mux.HandleFunc("/api/templates/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID   int    `json:"id"`
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID and Name are required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify exists
+		var currentName string
+		err := dbConn.QueryRow("SELECT name FROM templates WHERE id = ?", req.ID).Scan(&currentName)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Template not found."})
+			return
+		}
+
+		if name != currentName {
+			var collision int
+			dbConn.QueryRow("SELECT COUNT(*) FROM templates WHERE name = ? AND id != ?", name, req.ID).Scan(&collision)
+			if collision > 0 {
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A template with this name already exists."})
+				return
+			}
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec("UPDATE templates SET name = ? WHERE id = ?", name, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update template: " + err.Error()})
+			return
+		}
+
+		_, err = tx.Exec("UPDATE scopes SET name = ? WHERE type = 'template' AND reference_id = ?", name+" (Panorama)", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update scope: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Updated", "Network", "Renamed template: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Base Templates: Delete
+	mux.HandleFunc("/api/templates/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID int `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID is required."})
+			return
+		}
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		var uuid, name string
+		err := dbConn.QueryRow("SELECT uuid, name FROM templates WHERE id = ?", req.ID).Scan(&uuid, &name)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec("DELETE FROM scopes WHERE uuid = ?", uuid)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete template scope: " + err.Error()})
+			return
+		}
+
+		_, err = tx.Exec("DELETE FROM templates WHERE id = ?", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete template: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Deleted", "Network", "Removed template: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Template Stacks: Create
+	mux.HandleFunc("/api/template-stacks/create", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Name        string `json:"name"`
+			TemplateIDs []int  `json:"template_ids"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Name is required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		uuid := "panorama-stack-" + name
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify uniqueness
+		var exists int
+		err := dbConn.QueryRow("SELECT COUNT(*) FROM template_stacks WHERE name = ? OR uuid = ?", name, uuid).Scan(&exists)
+		if err == nil && exists > 0 {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A template stack with this name or UUID already exists."})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name) VALUES ('paloalto-panorama-global', ?, ?)", uuid, name)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template stack: " + err.Error()})
+			return
+		}
+		stackID, _ := res.LastInsertId()
+
+		_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template-stack', ?, ?, NULL)", uuid, stackID, name+" (Template Stack)")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to register scope: " + err.Error()})
+			return
+		}
+
+		// Insert member sequence
+		for seq, tmplID := range req.TemplateIDs {
+			_, err = tx.Exec("INSERT INTO template_stack_members_raw (stack_id, template_id, sequence) VALUES (?, ?, ?)", stackID, tmplID, seq+1)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert stack member template ID: " + err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Stack Created", "Network", "Created template stack: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": stackID, "uuid": uuid})
+	})
+
+	// Template Stacks: Update
+	mux.HandleFunc("/api/template-stacks/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID          int    `json:"id"`
+			Name        string `json:"name"`
+			TemplateIDs []int  `json:"template_ids"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID and Name are required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify exists
+		var currentName string
+		err := dbConn.QueryRow("SELECT name FROM template_stacks WHERE id = ?", req.ID).Scan(&currentName)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Template stack not found."})
+			return
+		}
+
+		if name != currentName {
+			var collision int
+			dbConn.QueryRow("SELECT COUNT(*) FROM template_stacks WHERE name = ? AND id != ?", name, req.ID).Scan(&collision)
+			if collision > 0 {
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A template stack with this name already exists."})
+				return
+			}
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec("UPDATE template_stacks SET name = ? WHERE id = ?", name, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update stack: " + err.Error()})
+			return
+		}
+
+		_, err = tx.Exec("UPDATE scopes SET name = ? WHERE type = 'template-stack' AND reference_id = ?", name+" (Template Stack)", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update scope: " + err.Error()})
+			return
+		}
+
+		// Rebuild stack members sequence
+		_, err = tx.Exec("DELETE FROM template_stack_members_raw WHERE stack_id = ?", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to clean old stack members: " + err.Error()})
+			return
+		}
+
+		for seq, tmplID := range req.TemplateIDs {
+			_, err = tx.Exec("INSERT INTO template_stack_members_raw (stack_id, template_id, sequence) VALUES (?, ?, ?)", req.ID, tmplID, seq+1)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert updated stack member: " + err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Stack Updated", "Network", "Updated template stack context: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Template Stacks: Delete
+	mux.HandleFunc("/api/template-stacks/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID int `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID is required."})
+			return
+		}
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		var uuid, name string
+		err := dbConn.QueryRow("SELECT uuid, name FROM template_stacks WHERE id = ?", req.ID).Scan(&uuid, &name)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		_, err = tx.Exec("DELETE FROM scopes WHERE uuid = ?", uuid)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete stack scope: " + err.Error()})
+			return
+		}
+
+		_, err = tx.Exec("DELETE FROM template_stacks WHERE id = ?", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete stack: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Template Stack Deleted", "Network", "Removed template stack: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Devices: Create
+	mux.HandleFunc("/api/devices/create", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			Name            string `json:"name"`
+			Serial          string `json:"serial"`
+			IPAddress       string `json:"ip_address"`
+			DeviceGroupID   *int   `json:"device_group_id"`
+			TemplateStackID *int   `json:"template_stack_id"`
+			TemplateID      *int   `json:"template_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Serial) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Name and Serial Number are required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		serial := strings.TrimSpace(req.Serial)
+		ipAddress := strings.TrimSpace(req.IPAddress)
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify uniqueness of serial
+		var exists int
+		err := dbConn.QueryRow("SELECT COUNT(*) FROM managed_devices_raw WHERE serial = ?", serial).Scan(&exists)
+		if err == nil && exists > 0 {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "A device with this serial number is already registered."})
+			return
+		}
+
+		// Determine parent scope UUID
+		var parentScopeUUID interface{}
+		if req.DeviceGroupID != nil && *req.DeviceGroupID > 0 {
+			var dgUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID)
+			if err == nil {
+				parentScopeUUID = dgUUID
+			}
+		} else if req.TemplateStackID != nil && *req.TemplateStackID > 0 {
+			var stackUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID)
+			if err == nil {
+				parentScopeUUID = stackUUID
+			}
+		} else if req.TemplateID != nil && *req.TemplateID > 0 {
+			var tmplUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID)
+			if err == nil {
+				parentScopeUUID = tmplUUID
+			}
+		}
+
+		deviceUUID := "paloalto-fw-" + name + "-" + serial
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		// Insert into scopes first (to satisfy managed_devices_raw FK constraint on device_uuid)
+		// We insert with reference_id = NULL first, and update it to the ID after insertion.
+		_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'firewall', NULL, ?, ?)", deviceUUID, name, parentScopeUUID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create scope context: " + err.Error()})
+			return
+		}
+
+		res, err := tx.Exec(`
+			INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, deviceUUID, serial, name, ipAddress, req.DeviceGroupID, req.TemplateStackID, req.TemplateID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device record: " + err.Error()})
+			return
+		}
+		mdevID, _ := res.LastInsertId()
+
+		// Update reference_id in scopes
+		_, err = tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update scope reference: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Device Created", "Network", "Registered managed device: "+name+" (S/N: "+serial+")")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": mdevID, "uuid": deviceUUID})
+	})
+
+	// Devices: Update
+	mux.HandleFunc("/api/devices/update", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID              int    `json:"id"`
+			Name            string `json:"name"`
+			Serial          string `json:"serial"`
+			IPAddress       string `json:"ip_address"`
+			DeviceGroupID   *int   `json:"device_group_id"`
+			TemplateStackID *int   `json:"template_stack_id"`
+			TemplateID      *int   `json:"template_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.Serial) == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID, Name and Serial Number are required."})
+			return
+		}
+		name := strings.TrimSpace(req.Name)
+		serial := strings.TrimSpace(req.Serial)
+		ipAddress := strings.TrimSpace(req.IPAddress)
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		// Verify exists and check serial uniqueness
+		var oldSerial, oldDeviceUUID string
+		err := dbConn.QueryRow("SELECT serial, device_uuid FROM managed_devices_raw WHERE id = ?", req.ID).Scan(&oldSerial, &oldDeviceUUID)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Device not found."})
+			return
+		}
+
+		if serial != oldSerial {
+			var collision int
+			dbConn.QueryRow("SELECT COUNT(*) FROM managed_devices_raw WHERE serial = ? AND id != ?", serial, req.ID).Scan(&collision)
+			if collision > 0 {
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "A device with this serial number is already registered."})
+				return
+			}
+		}
+
+		// Determine parent scope UUID
+		var parentScopeUUID interface{}
+		if req.DeviceGroupID != nil && *req.DeviceGroupID > 0 {
+			var dgUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID)
+			if err == nil {
+				parentScopeUUID = dgUUID
+			}
+		} else if req.TemplateStackID != nil && *req.TemplateStackID > 0 {
+			var stackUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID)
+			if err == nil {
+				parentScopeUUID = stackUUID
+			}
+		} else if req.TemplateID != nil && *req.TemplateID > 0 {
+			var tmplUUID string
+			err = dbConn.QueryRow("SELECT uuid FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID)
+			if err == nil {
+				parentScopeUUID = tmplUUID
+			}
+		}
+
+		ctx := r.Context()
+		conn, err := dbConn.Conn(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to acquire database connection: " + err.Error()})
+			return
+		}
+		defer conn.Close()
+
+		// Temporarily disable foreign keys for this connection
+		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF;"); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to disable foreign keys: " + err.Error()})
+			return
+		}
+		// Ensure we restore foreign keys when the connection returns to the pool
+		defer conn.ExecContext(ctx, "PRAGMA foreign_keys = ON;")
+
+		tx, err := conn.BeginTx(ctx, nil)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction: " + err.Error()})
+			return
+		}
+		defer tx.Rollback()
+
+		// If the name or serial changed, we can update the scope's UUID to reflect the new name & serial
+		newDeviceUUID := "paloalto-fw-" + name + "-" + serial
+
+		// Update managed_devices_raw
+		_, err = tx.ExecContext(ctx, `
+			UPDATE managed_devices_raw 
+			SET device_uuid = ?, serial = ?, name = ?, ip_address = ?, device_group_id = ?, template_stack_id = ?, template_id = ?
+			WHERE id = ?
+		`, newDeviceUUID, serial, name, ipAddress, req.DeviceGroupID, req.TemplateStackID, req.TemplateID, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update device record: " + err.Error()})
+			return
+		}
+
+		// Since scopes.uuid is UNIQUE and reference_id links them, update both UUID, name, and parent_uuid
+		_, err = tx.ExecContext(ctx, `
+			UPDATE scopes 
+			SET uuid = ?, name = ?, parent_uuid = ?
+			WHERE type = 'firewall' AND reference_id = ?
+		`, newDeviceUUID, name, parentScopeUUID, req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update scope context: " + err.Error()})
+			return
+		}
+
+		// Cascade device_uuid update to all referencing tables
+		referencingTables := []string{
+			"device_groups", "templates", "template_stacks", "network_topology",
+			"address_objects", "address_groups", "service_objects", "service_groups",
+			"application_objects", "regions", "schedules", "tags",
+			"security_profiles", "security_rules", "nat_rules", "qos_rules",
+			"pbf_rules", "decryption_rules", "application_override_rules",
+			"tunnel_inspection_rules", "static_routes",
+		}
+		for _, table := range referencingTables {
+			_, err = tx.ExecContext(ctx, fmt.Sprintf("UPDATE %s SET device_uuid = ? WHERE device_uuid = ?", table), newDeviceUUID, oldDeviceUUID)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to cascade device UUID update to %s: %s", table, err.Error())})
+				return
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed: " + err.Error()})
+			return
+		}
+
+		logAuditSafe("Device Updated", "Network", "Updated managed device: "+name+" (S/N: "+serial+")")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	})
+
+	// Devices: Delete
+	mux.HandleFunc("/api/devices/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			ID int `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Valid ID is required."})
+			return
+		}
+
+		vaultMutex.Lock()
+		if activeDB == nil {
+			vaultMutex.Unlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB.DB()
+		vaultMutex.Unlock()
+
+		var deviceUUID, name string
+		err := dbConn.QueryRow("SELECT device_uuid, name FROM managed_devices_raw WHERE id = ?", req.ID).Scan(&deviceUUID, &name)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+			return
+		}
+
+		tx, err := dbConn.Begin()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction."})
+			return
+		}
+		defer tx.Rollback()
+
+		// Delete scope first (deletes any child interfaces, static routes, zones, rules etc.)
+		_, err = tx.Exec("DELETE FROM scopes WHERE uuid = ?", deviceUUID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete device scope: " + err.Error()})
+			return
+		}
+
+		// Delete firewall raw record
+		_, err = tx.Exec("DELETE FROM managed_devices_raw WHERE id = ?", req.ID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete device record: " + err.Error()})
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Transaction commit failed."})
+			return
+		}
+
+		logAuditSafe("Device Deleted", "Network", "Removed managed device: "+name)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 	})
 
 	// Pathfinding Evaluation Endpoint

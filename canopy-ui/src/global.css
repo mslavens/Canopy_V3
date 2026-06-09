@@ -3,6 +3,12 @@
    ========================================================================================== */
 
 /* 1. Global Viewport Boundary Lock (Section 4 Compliance) */
+html {
+  color-scheme: dark;
+}
+html[data-theme="light"] {
+  color-scheme: light;
+}
 html, 
 body, 
 #root {
@@ -294,6 +300,27 @@ input[type="file"]:disabled::file-selector-button {
 }
 .input-text:focus {
   border-color: var(--accent-blue);
+}
+select.input-text {
+  background-color: var(--bg-surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-main);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6adc8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+html[data-theme="light"] select.input-text {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f5660' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+select.input-text option {
+  background-color: var(--bg-surface);
+  color: var(--text-main);
 }
 .no-spinners::-webkit-inner-spin-button, 
 .no-spinners::-webkit-outer-spin-button { 

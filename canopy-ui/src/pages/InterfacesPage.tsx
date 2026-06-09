@@ -27,9 +27,9 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     try {
       setLoading(true);
       const res = await apiClient.queryDb(`
-        SELECT t.interface_name, t.network_cidr, t.zone_name, t.vendor_metadata, d.name AS device_name, d.vendor 
+        SELECT t.interface_name, t.network_cidr, t.zone_name, t.vendor_metadata, d.name AS device_name, 'PaloAlto' AS vendor 
         FROM network_topology t 
-        JOIN devices d ON t.device_uuid = d.uuid 
+        JOIN scopes d ON t.device_uuid = d.uuid 
         ORDER BY d.name ASC, t.interface_name ASC
       `);
       setInterfaces(res.rows || []);
