@@ -44,12 +44,17 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
     {
       categoryName: "Infrastructure & Topology",
       tables: [
-        { tableName: "devices", label: "Appliance Catalog", description: "All registered standalone firewalls, Panorama servers, device-groups, and template stacks.", icon: <Server size={14} /> },
+        { tableName: "devices", label: "Appliance Catalog (View)", description: "All registered standalone firewalls, Panorama servers, device-groups, and template stacks.", icon: <Server size={14} /> },
+        { tableName: "scopes", label: "Scopes Registry", description: "Unified administrative scope registry (shared, device-group, template, stack, firewall).", icon: <Layers size={14} /> },
+        { tableName: "device_groups", label: "Device Groups", description: "Panorama device groups hierarchy and parent relationships.", icon: <Layers size={14} /> },
+        { tableName: "templates", label: "Base Templates", description: "Panorama templates catalog.", icon: <Layers size={14} /> },
+        { tableName: "template_stacks", label: "Template Stacks", description: "Ledger of Panorama template stacks.", icon: <Layers size={14} /> },
+        { tableName: "template_stack_members", label: "Stack Members (View)", description: "Sequential list of member templates inside stacks.", icon: <Layers size={14} /> },
+        { tableName: "template_stack_members_raw", label: "Stack Members (Raw)", description: "Underlying raw sequential template stack membership records.", icon: <Layers size={14} /> },
         { tableName: "network_topology", label: "Interface Mappings", description: "Platform-blind physical/logical network interfaces, subnets, and zone mappings.", icon: <Layers size={14} /> },
         { tableName: "static_routes", label: "Static Routing Tables", description: "Virtual Router static route entries including exit interfaces and next-hops.", icon: <Layers size={14} /> },
-        { tableName: "managed_devices", label: "Managed Inventory", description: "Complete ledger of managed firewalls and their serials discovered via Panorama.", icon: <Server size={14} /> },
-        { tableName: "template_stacks", label: "Template Stacks", description: "Ledger of Panorama template stacks.", icon: <Layers size={14} /> },
-        { tableName: "template_stack_members", label: "Stack Members", description: "Sequential mapping list of member templates inside template stacks.", icon: <Layers size={14} /> }
+        { tableName: "managed_devices", label: "Managed Inventory (View)", description: "Complete ledger of managed firewalls and their serials discovered via Panorama.", icon: <Server size={14} /> },
+        { tableName: "managed_devices_raw", label: "Managed Inventory (Raw)", description: "Physical ledger of managed appliances (underlying raw normalized storage).", icon: <Server size={14} /> }
       ]
     },
     {

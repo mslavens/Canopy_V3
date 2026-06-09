@@ -59,21 +59,69 @@ var (
 )
 
 var actSchema = `
-	CREATE TABLE IF NOT EXISTS devices (
-		uuid TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		vendor TEXT NOT NULL,
-		parent_uuid TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (parent_uuid) REFERENCES devices(uuid) ON DELETE SET NULL
+	CREATE TABLE IF NOT EXISTS scopes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		uuid TEXT UNIQUE NOT NULL,
+		type TEXT NOT NULL,          -- 'shared', 'device-group', 'template', 'template-stack', 'firewall'
+		reference_id INTEGER,        -- References ID of device_groups, templates, template_stacks, or managed_devices
+		name TEXT NOT NULL,          -- Cached name for fast lookup
+		parent_uuid TEXT,            -- Optional parent scope UUID
+		UNIQUE(type, reference_id),
+		FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 	);
+	CREATE VIEW IF NOT EXISTS devices AS 
+	SELECT uuid, name, 'PaloAlto' AS vendor, parent_uuid, created_at FROM (
+		SELECT uuid, name, parent_uuid, CURRENT_TIMESTAMP as created_at FROM scopes
+	);
+	CREATE TABLE IF NOT EXISTS device_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		uuid TEXT UNIQUE NOT NULL,
+		name TEXT UNIQUE NOT NULL,
+		parent_id INTEGER,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (parent_id) REFERENCES device_groups(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS templates (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		uuid TEXT UNIQUE NOT NULL,
+		name TEXT UNIQUE NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS template_stacks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		uuid TEXT UNIQUE NOT NULL,
+		name TEXT UNIQUE NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS template_stack_members_raw (
+		stack_id INTEGER NOT NULL,
+		template_id INTEGER NOT NULL,
+		sequence INTEGER NOT NULL,
+		PRIMARY KEY (stack_id, template_id),
+		FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE,
+		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+	);
+	CREATE VIEW IF NOT EXISTS template_stack_members AS
+	SELECT 
+		tsm.stack_id,
+		t.name AS template_name,
+		tsm.sequence
+	FROM template_stack_members_raw tsm
+	JOIN templates t ON tsm.template_id = t.id;
 	CREATE TABLE IF NOT EXISTS network_topology (
 		device_uuid TEXT,
 		interface_name TEXT,
 		network_cidr TEXT,
 		zone_name TEXT,
 		vendor_metadata TEXT,
-		PRIMARY KEY (device_uuid, interface_name)
+		PRIMARY KEY (device_uuid, interface_name),
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS framework_metadata (
 		app_id TEXT PRIMARY KEY,
@@ -93,19 +141,6 @@ var actSchema = `
 		secret_value TEXT NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
-	CREATE TABLE IF NOT EXISTS template_stacks (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		device_uuid TEXT NOT NULL,
-		name TEXT NOT NULL,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
-	);
-	CREATE TABLE IF NOT EXISTS template_stack_members (
-		stack_id INTEGER NOT NULL,
-		template_name TEXT NOT NULL,
-		sequence INTEGER NOT NULL,
-		PRIMARY KEY (stack_id, template_name),
-		FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE
-	);
 	CREATE TABLE IF NOT EXISTS address_objects (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -114,7 +149,7 @@ var actSchema = `
 		type TEXT NOT NULL,
 		value TEXT NOT NULL,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS address_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,7 +157,7 @@ var actSchema = `
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS address_group_members (
 		group_id INTEGER NOT NULL,
@@ -148,7 +183,7 @@ var actSchema = `
 		source_port TEXT,
 		destination_port TEXT NOT NULL,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS service_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,7 +191,7 @@ var actSchema = `
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS service_group_members (
 		group_id INTEGER NOT NULL,
@@ -184,7 +219,7 @@ var actSchema = `
 		risk INTEGER DEFAULT 1,
 		ports TEXT,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS regions (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,7 +229,7 @@ var actSchema = `
 		latitude REAL,
 		longitude REAL,
 		addresses TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS schedules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -203,7 +238,7 @@ var actSchema = `
 		name TEXT NOT NULL,
 		schedule_type TEXT,
 		schedule_details TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS tags (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,7 +247,7 @@ var actSchema = `
 		name TEXT NOT NULL,
 		color TEXT,
 		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS security_profiles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,7 +255,7 @@ var actSchema = `
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		type TEXT NOT NULL,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS security_rules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -233,7 +268,7 @@ var actSchema = `
 		profile_type TEXT,
 		profile_group TEXT,
 		schedule_id INTEGER,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS nat_rules (
@@ -251,7 +286,7 @@ var actSchema = `
 		source_translation_address TEXT,
 		destination_translation_address TEXT,
 		destination_translation_port TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE SET NULL,
 		FOREIGN KEY (service_group_id) REFERENCES service_groups(id) ON DELETE SET NULL
 	);
@@ -265,7 +300,7 @@ var actSchema = `
 		qos_class TEXT NOT NULL,
 		dscp_tos_marking TEXT,
 		schedule_id INTEGER,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS pbf_rules (
@@ -280,7 +315,7 @@ var actSchema = `
 		forward_next_hop TEXT,
 		monitor_profile TEXT,
 		schedule_id INTEGER,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS decryption_rules (
@@ -294,7 +329,7 @@ var actSchema = `
 		decryption_type TEXT,
 		decryption_profile TEXT,
 		schedule_id INTEGER,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS application_override_rules (
@@ -308,7 +343,7 @@ var actSchema = `
 		port TEXT NOT NULL,
 		custom_app_id INTEGER,
 		predefined_app_name TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS tunnel_inspection_rules (
@@ -320,7 +355,7 @@ var actSchema = `
 		disabled INTEGER DEFAULT 0,
 		protocols TEXT,
 		action_profile TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS static_routes (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -332,18 +367,37 @@ var actSchema = `
 		interface TEXT,
 		metric INTEGER DEFAULT 10,
 		admin_distance INTEGER DEFAULT 10,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
-	CREATE TABLE IF NOT EXISTS managed_devices (
+	CREATE TABLE IF NOT EXISTS managed_devices_raw (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		serial TEXT UNIQUE NOT NULL,
 		name TEXT NOT NULL,
 		ip_address TEXT,
-		device_group TEXT,
-		template_stack TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		device_group_id INTEGER,
+		template_stack_id INTEGER,
+		template_id INTEGER,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (device_group_id) REFERENCES device_groups(id) ON DELETE SET NULL,
+		FOREIGN KEY (template_stack_id) REFERENCES template_stacks(id) ON DELETE SET NULL,
+		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
 	);
+	CREATE VIEW IF NOT EXISTS managed_devices AS
+	SELECT 
+		m.id,
+		m.device_uuid,
+		m.serial,
+		m.name,
+		m.ip_address,
+		dg.name AS device_group,
+		COALESCE(ts.name, t.name) AS template_stack,
+		m.created_at
+	FROM managed_devices_raw m
+	LEFT JOIN device_groups dg ON m.device_group_id = dg.id
+	LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id
+	LEFT JOIN templates t ON m.template_id = t.id;
 	CREATE TABLE IF NOT EXISTS rule_address_mappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_type TEXT NOT NULL,
@@ -677,6 +731,45 @@ func cleanupPatchArtifacts() {
 	})
 }
 
+func migrateWorkspaceDatabase(db *sql.DB) {
+	// Check if framework_metadata table exists
+	var exists int
+	db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'framework_metadata'").Scan(&exists)
+
+	runMigration := false
+	if exists > 0 {
+		var version int
+		err := db.QueryRow("SELECT schema_version FROM framework_metadata LIMIT 1").Scan(&version)
+		if err == nil && version < 2 {
+			runMigration = true
+		}
+	}
+
+	if runMigration {
+		slog.Info("Migrating workspace database schema to version 2 (dropping legacy tables/views)")
+		// Drop views first
+		legacyViews := []string{"devices", "managed_devices", "template_stack_members"}
+		for _, name := range legacyViews {
+			db.Exec(fmt.Sprintf("DROP VIEW IF EXISTS %s", name))
+		}
+		// Drop tables
+		legacyTables := []string{
+			"template_stack_members_raw",
+			"template_stacks",
+			"templates",
+			"device_groups",
+			"managed_devices_raw",
+			"scopes",
+			"devices",
+			"managed_devices",
+			"template_stack_members",
+		}
+		for _, name := range legacyTables {
+			db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", name))
+		}
+	}
+}
+
 // mountAndSeedVault securely opens the encrypted SQLite databases, asserts the schemas, and mounts the active workspace.
 // It assumes vaultMutex is already locked by the caller.
 func mountAndSeedVault(password string, w http.ResponseWriter) {
@@ -765,12 +858,11 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 
 	// 2. Workspace Schema
 	activeDB.WriteLock()
+	migrateWorkspaceDatabase(activeDB.DB())
 	if _, err := activeDB.DB().Exec(actSchema); err != nil {
 		slog.Error("Failed to initialize workspace schema", slog.String("error", err.Error()))
 	}
-	// Migration: Add parent_uuid to devices table if it doesn't exist (fails safely if column/table already exists)
-	_, _ = activeDB.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
-	activeDB.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
+	activeDB.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
 	activeDB.WriteUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1339,8 +1431,11 @@ func main() {
 		}
 
 		newSpoke.WriteLock()
-		newSpoke.DB().Exec(actSchema)
-		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
+		migrateWorkspaceDatabase(newSpoke.DB())
+		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
+			slog.Error("Failed to initialize workspace schema on creation", slog.String("error", err.Error()))
+		}
+		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
 		newSpoke.WriteUnlock()
 		newSpoke.Close()
 
@@ -1402,12 +1497,11 @@ func main() {
 		}
 
 		newSpoke.WriteLock()
+		migrateWorkspaceDatabase(newSpoke.DB())
 		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
 			slog.Error("Failed to initialize workspace schema on switch", slog.String("error", err.Error()))
 		}
-		// Migration: Add parent_uuid to devices table if it doesn't exist (fails safely if column/table already exists)
-		_, _ = newSpoke.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
-		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
+		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 2)", AppBundleID))
 		newSpoke.WriteUnlock()
 
 		activeDB = newSpoke
@@ -2090,27 +2184,40 @@ func main() {
 		results := make([]SearchResult, 0)
 		searchTerm := "%" + query + "%"
 
-		// 1. Search Devices
-		devRows, err := dbConn.Query("SELECT uuid, name, vendor FROM devices WHERE name LIKE ? OR vendor LIKE ? LIMIT 5", searchTerm, searchTerm)
+		// 1. Search Scopes/Devices
+		devRows, err := dbConn.Query("SELECT uuid, name, type FROM scopes WHERE name LIKE ? OR type LIKE ? LIMIT 5", searchTerm, searchTerm)
 		if err != nil {
-			slog.Error("Search query failed on devices", slog.String("error", err.Error()))
+			slog.Error("Search query failed on scopes", slog.String("error", err.Error()))
 		} else {
 			defer devRows.Close()
 			for devRows.Next() {
 				var uuid string
-				var name, vendor sql.NullString
-				if err := devRows.Scan(&uuid, &name, &vendor); err == nil {
+				var name, scopeType sql.NullString
+				if err := devRows.Scan(&uuid, &name, &scopeType); err == nil {
 					n := ""
-					v := ""
+					t := "Scope"
 					if name.Valid {
 						n = name.String
 					}
-					if vendor.Valid {
-						v = vendor.String
+					if scopeType.Valid {
+						switch scopeType.String {
+						case "shared":
+							t = "Shared Context"
+						case "device-group":
+							t = "Device Group"
+						case "template":
+							t = "Template"
+						case "template-stack":
+							t = "Template Stack"
+						case "firewall":
+							t = "Firewall"
+						default:
+							t = scopeType.String
+						}
 					}
-					results = append(results, SearchResult{ID: uuid, Type: "device", Label: fmt.Sprintf("%s (%s)", n, v), Module: "System", Submodule: "Database Browser"})
+					results = append(results, SearchResult{ID: uuid, Type: "device", Label: fmt.Sprintf("%s (%s)", n, t), Module: "System", Submodule: "Database Browser"})
 				} else {
-					slog.Error("Search row scan failed on devices", slog.String("error", err.Error()))
+					slog.Error("Search row scan failed on scopes", slog.String("error", err.Error()))
 				}
 			}
 		}

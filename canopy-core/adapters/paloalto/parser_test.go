@@ -301,34 +301,69 @@ func TestParser(t *testing.T) {
 
 	// Provision tables
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS devices (
-			uuid TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS scopes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			uuid TEXT UNIQUE NOT NULL,
+			type TEXT NOT NULL,
+			reference_id INTEGER,
 			name TEXT NOT NULL,
-			vendor TEXT NOT NULL,
 			parent_uuid TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (parent_uuid) REFERENCES devices(uuid) ON DELETE SET NULL
+			UNIQUE(type, reference_id),
+			FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 		);`,
+		`CREATE VIEW IF NOT EXISTS devices AS 
+		SELECT uuid, name, 'PaloAlto' AS vendor, parent_uuid, created_at FROM (
+			SELECT uuid, name, parent_uuid, CURRENT_TIMESTAMP as created_at FROM scopes
+		);`,
+		`CREATE TABLE IF NOT EXISTS device_groups (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			uuid TEXT UNIQUE NOT NULL,
+			name TEXT UNIQUE NOT NULL,
+			parent_id INTEGER,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (parent_id) REFERENCES device_groups(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS templates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			uuid TEXT UNIQUE NOT NULL,
+			name TEXT UNIQUE NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS template_stacks (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			uuid TEXT UNIQUE NOT NULL,
+			name TEXT UNIQUE NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS template_stack_members_raw (
+			stack_id INTEGER NOT NULL,
+			template_id INTEGER NOT NULL,
+			sequence INTEGER NOT NULL,
+			PRIMARY KEY (stack_id, template_id),
+			FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE,
+			FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+		);`,
+		`CREATE VIEW IF NOT EXISTS template_stack_members AS
+		SELECT 
+			tsm.stack_id,
+			t.name AS template_name,
+			tsm.sequence
+		FROM template_stack_members_raw tsm
+		JOIN templates t ON tsm.template_id = t.id;`,
 		`CREATE TABLE IF NOT EXISTS network_topology (
 			device_uuid TEXT,
 			interface_name TEXT,
 			network_cidr TEXT,
 			zone_name TEXT,
 			vendor_metadata TEXT,
-			PRIMARY KEY (device_uuid, interface_name)
-		);`,
-		`CREATE TABLE IF NOT EXISTS template_stacks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			device_uuid TEXT NOT NULL,
-			name TEXT NOT NULL,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
-		);`,
-		`CREATE TABLE IF NOT EXISTS template_stack_members (
-			stack_id INTEGER NOT NULL,
-			template_name TEXT NOT NULL,
-			sequence INTEGER NOT NULL,
-			PRIMARY KEY (stack_id, template_name),
-			FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE
+			PRIMARY KEY (device_uuid, interface_name),
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS address_objects (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -338,7 +373,7 @@ func TestParser(t *testing.T) {
 			type TEXT NOT NULL,
 			value TEXT NOT NULL,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS address_groups (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -346,7 +381,7 @@ func TestParser(t *testing.T) {
 			scope TEXT NOT NULL,
 			name TEXT NOT NULL,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS address_group_members (
 			group_id INTEGER NOT NULL,
@@ -367,7 +402,7 @@ func TestParser(t *testing.T) {
 			source_port TEXT,
 			destination_port TEXT NOT NULL,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS service_groups (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -375,7 +410,7 @@ func TestParser(t *testing.T) {
 			scope TEXT NOT NULL,
 			name TEXT NOT NULL,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS service_group_members (
 			group_id INTEGER NOT NULL,
@@ -398,7 +433,7 @@ func TestParser(t *testing.T) {
 			risk INTEGER DEFAULT 1,
 			ports TEXT,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS regions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -408,7 +443,7 @@ func TestParser(t *testing.T) {
 			latitude REAL,
 			longitude REAL,
 			addresses TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS schedules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -417,7 +452,7 @@ func TestParser(t *testing.T) {
 			name TEXT NOT NULL,
 			schedule_type TEXT,
 			schedule_details TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS tags (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -426,7 +461,7 @@ func TestParser(t *testing.T) {
 			name TEXT NOT NULL,
 			color TEXT,
 			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS security_profiles (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -434,7 +469,7 @@ func TestParser(t *testing.T) {
 			scope TEXT NOT NULL,
 			name TEXT NOT NULL,
 			type TEXT NOT NULL,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS security_rules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -447,7 +482,7 @@ func TestParser(t *testing.T) {
 			profile_type TEXT,
 			profile_group TEXT,
 			schedule_id INTEGER,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS nat_rules (
@@ -465,7 +500,7 @@ func TestParser(t *testing.T) {
 			source_translation_address TEXT,
 			destination_translation_address TEXT,
 			destination_translation_port TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE SET NULL,
 			FOREIGN KEY (service_group_id) REFERENCES service_groups(id) ON DELETE SET NULL
 		);`,
@@ -479,7 +514,7 @@ func TestParser(t *testing.T) {
 			qos_class TEXT NOT NULL,
 			dscp_tos_marking TEXT,
 			schedule_id INTEGER,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS pbf_rules (
@@ -494,7 +529,7 @@ func TestParser(t *testing.T) {
 			forward_next_hop TEXT,
 			monitor_profile TEXT,
 			schedule_id INTEGER,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS decryption_rules (
@@ -508,7 +543,7 @@ func TestParser(t *testing.T) {
 			decryption_type TEXT,
 			decryption_profile TEXT,
 			schedule_id INTEGER,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS application_override_rules (
@@ -522,7 +557,7 @@ func TestParser(t *testing.T) {
 			port TEXT NOT NULL,
 			custom_app_id INTEGER,
 			predefined_app_name TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 			FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS tunnel_inspection_rules (
@@ -534,7 +569,7 @@ func TestParser(t *testing.T) {
 			disabled INTEGER DEFAULT 0,
 			protocols TEXT,
 			action_profile TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS static_routes (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -546,18 +581,37 @@ func TestParser(t *testing.T) {
 			interface TEXT,
 			metric INTEGER DEFAULT 10,
 			admin_distance INTEGER DEFAULT 10,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS managed_devices (
+		`CREATE TABLE IF NOT EXISTS managed_devices_raw (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			device_uuid TEXT NOT NULL,
 			serial TEXT UNIQUE NOT NULL,
 			name TEXT NOT NULL,
 			ip_address TEXT,
-			device_group TEXT,
-			template_stack TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			device_group_id INTEGER,
+			template_stack_id INTEGER,
+			template_id INTEGER,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (device_group_id) REFERENCES device_groups(id) ON DELETE SET NULL,
+			FOREIGN KEY (template_stack_id) REFERENCES template_stacks(id) ON DELETE SET NULL,
+			FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
 		);`,
+		`CREATE VIEW IF NOT EXISTS managed_devices AS
+		SELECT 
+			m.id,
+			m.device_uuid,
+			m.serial,
+			m.name,
+			m.ip_address,
+			dg.name AS device_group,
+			COALESCE(ts.name, t.name) AS template_stack,
+			m.created_at
+		FROM managed_devices_raw m
+		LEFT JOIN device_groups dg ON m.device_group_id = dg.id
+		LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id
+		LEFT JOIN templates t ON m.template_id = t.id;`,
 		`CREATE TABLE IF NOT EXISTS rule_address_mappings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			rule_type TEXT NOT NULL,

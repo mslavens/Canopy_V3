@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"canopy-core/storage"
@@ -711,37 +712,29 @@ func getScopesForDG(dgName string, parentMap map[string]string) []string {
 }
 
 func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
-	tx.Exec("DELETE FROM network_topology WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM address_group_members WHERE group_id IN (SELECT id FROM address_groups WHERE device_uuid = ?)", deviceUUID)
-	tx.Exec("DELETE FROM address_groups WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM address_objects WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM service_group_members WHERE group_id IN (SELECT id FROM service_groups WHERE device_uuid = ?)", deviceUUID)
-	tx.Exec("DELETE FROM service_groups WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM service_objects WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM application_objects WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM regions WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM schedules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM security_profiles WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM tags WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM template_stack_members WHERE stack_id IN (SELECT id FROM template_stacks WHERE device_uuid = ?)", deviceUUID)
-	tx.Exec("DELETE FROM template_stacks WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM managed_devices WHERE device_uuid = ?", deviceUUID)
+	// 1. Delete specific structural entities
+	tx.Exec("DELETE FROM device_groups WHERE uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM templates WHERE uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM template_stacks WHERE uuid = ?", deviceUUID)
+	
+	if strings.HasPrefix(deviceUUID, "paloalto-fw-") {
+		parts := strings.Split(deviceUUID, "-")
+		if len(parts) > 2 {
+			serial := parts[len(parts)-1]
+			tx.Exec("DELETE FROM managed_devices_raw WHERE serial = ?", serial)
+		}
+	}
 
-	tx.Exec("DELETE FROM security_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM nat_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM qos_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM pbf_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM decryption_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM application_override_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM tunnel_inspection_rules WHERE device_uuid = ?", deviceUUID)
+	// 2. Delete the scope which automatically cascade-deletes objects, rules, topology, and static routes
+	tx.Exec("DELETE FROM scopes WHERE uuid = ?", deviceUUID)
 
+	// 3. Clean up orphaned mapping tables
 	tx.Exec("DELETE FROM rule_address_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
 	tx.Exec("DELETE FROM rule_service_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules)")
 	tx.Exec("DELETE FROM rule_application_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules)")
 	tx.Exec("DELETE FROM rule_zone_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
 	tx.Exec("DELETE FROM entity_tag_mappings WHERE tag_id NOT IN (SELECT id FROM tags)")
 	tx.Exec("DELETE FROM security_rule_profiles WHERE rule_id NOT IN (SELECT id FROM security_rules)")
-	tx.Exec("DELETE FROM static_routes WHERE device_uuid = ?", deviceUUID)
 }
 
 func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry, reg *registry) error {
@@ -1713,14 +1706,41 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 	}
 	defer tx.Rollback()
 
-	deviceStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO devices (uuid, name, vendor, parent_uuid)
-		VALUES (?, ?, 'PaloAlto', ?)
+	scopeStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO scopes (uuid, type, reference_id, name, parent_uuid)
+		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to prepare device statement: %w", err)
+		return 0, 0, fmt.Errorf("failed to prepare scope statement: %w", err)
 	}
-	defer deviceStmt.Close()
+	defer scopeStmt.Close()
+
+	dgStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO device_groups (device_uuid, uuid, name, parent_id)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare device group statement: %w", err)
+	}
+	defer dgStmt.Close()
+
+	tmplStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO templates (device_uuid, uuid, name)
+		VALUES (?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare template statement: %w", err)
+	}
+	defer tmplStmt.Close()
+
+	stackStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO template_stacks (device_uuid, uuid, name)
+		VALUES (?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare template stack statement: %w", err)
+	}
+	defer stackStmt.Close()
 
 	topologyStmt, err := tx.Prepare(`
 		INSERT OR REPLACE INTO network_topology (device_uuid, interface_name, network_cidr, zone_name, vendor_metadata)
@@ -1738,23 +1758,35 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 	reg := newRegistry()
 	dgParentMap := buildDGInheritance(allDeviceGroups, &config)
 
+	// Keep track of internal primary keys to build references
+	templateNameToID := make(map[string]int64)
+	stackNameToID := make(map[string]int64)
+	dgNameToID := make(map[string]int64)
+
 	if isPanorama {
 		sharedUUID := "paloalto-panorama-global"
 		clearDeviceTables(tx, sharedUUID)
-		if _, err := deviceStmt.Exec(sharedUUID, "Panorama Global / Shared", nil); err != nil {
-			return 0, 0, fmt.Errorf("failed to register shared panorama global: %w", err)
+		
+		// Register shared scope
+		if _, err := scopeStmt.Exec(sharedUUID, "shared", nil, "Shared", nil); err != nil {
+			return 0, 0, fmt.Errorf("failed to register shared panorama global scope: %w", err)
 		}
 		devicesImported++
 
 		// 1. Process templates (network only)
 		for _, tmpl := range allTemplates {
 			deviceUUID := "panorama-tmpl-" + tmpl.Name
-			deviceName := tmpl.Name + " (Panorama)"
-
 			clearDeviceTables(tx, deviceUUID)
 
-			if _, err := deviceStmt.Exec(deviceUUID, deviceName, nil); err != nil {
-				return 0, 0, fmt.Errorf("failed to register panorama template device %s: %w", tmpl.Name, err)
+			res, err := tmplStmt.Exec(sharedUUID, deviceUUID, tmpl.Name)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to register template %s: %w", tmpl.Name, err)
+			}
+			tmplID, _ := res.LastInsertId()
+			templateNameToID[tmpl.Name] = tmplID
+
+			if _, err := scopeStmt.Exec(deviceUUID, "template", tmplID, tmpl.Name + " (Panorama)", nil); err != nil {
+				return 0, 0, fmt.Errorf("failed to register template scope %s: %w", tmpl.Name, err)
 			}
 			devicesImported++
 
@@ -1811,23 +1843,37 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		// 2. Process template stacks
 		for _, stack := range allTemplateStacks {
 			stackUUID := "panorama-stack-" + stack.Name
-			stackName := stack.Name + " (Template Stack)"
-
 			clearDeviceTables(tx, stackUUID)
 
-			if _, err := deviceStmt.Exec(stackUUID, stackName, nil); err != nil {
-				return 0, 0, fmt.Errorf("failed to register template stack: %w", err)
+			res, err := stackStmt.Exec(sharedUUID, stackUUID, stack.Name)
+			if err != nil {
+				return 0, 0, fmt.Errorf("failed to register template stack %s: %w", stack.Name, err)
+			}
+			stackID, _ := res.LastInsertId()
+			stackNameToID[stack.Name] = stackID
+
+			if _, err := scopeStmt.Exec(stackUUID, "template-stack", stackID, stack.Name + " (Template Stack)", nil); err != nil {
+				return 0, 0, fmt.Errorf("failed to register template stack scope %s: %w", stack.Name, err)
 			}
 			devicesImported++
 
-			res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, name) VALUES ('paloalto-panorama-global', ?)", stack.Name)
-			if err != nil {
-				return 0, 0, fmt.Errorf("failed to insert template stack record: %w", err)
-			}
-			stackID, _ := res.LastInsertId()
-
 			for idx, tmplMember := range stack.Templates {
-				if _, err := tx.Exec("INSERT INTO template_stack_members (stack_id, template_name, sequence) VALUES (?, ?, ?)", stackID, tmplMember, idx); err != nil {
+				tmplID, ok := templateNameToID[tmplMember]
+				if !ok {
+					// Create a placeholder template record to preserve references
+					res, err := tmplStmt.Exec(sharedUUID, "panorama-tmpl-"+tmplMember, tmplMember)
+					if err != nil {
+						return 0, 0, fmt.Errorf("failed to register placeholder template %s: %w", tmplMember, err)
+					}
+					tmplID, _ = res.LastInsertId()
+					templateNameToID[tmplMember] = tmplID
+
+					if _, err := scopeStmt.Exec("panorama-tmpl-"+tmplMember, "template", tmplID, tmplMember + " (Panorama)", nil); err != nil {
+						return 0, 0, fmt.Errorf("failed to register placeholder template scope: %w", err)
+					}
+				}
+
+				if _, err := tx.Exec("INSERT INTO template_stack_members_raw (stack_id, template_id, sequence) VALUES (?, ?, ?)", stackID, tmplID, idx); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert template stack member: %w", err)
 				}
 			}
@@ -1872,22 +1918,20 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			return 0, 0, fmt.Errorf("failed to resolve shared service group members: %w", err)
 		}
 
-		// 4. Process Device Groups
+		// 4. Process Device Groups (Pass 1 - Insert DG and Scopes)
 		for _, dg := range allDeviceGroups {
 			dgUUID := "paloalto-dg-" + dg.Name
-			dgName := dg.Name + " (Device Group)"
-
 			clearDeviceTables(tx, dgUUID)
 
-			var parentUUID interface{}
-			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
-				parentUUID = "paloalto-dg-" + parentName
-			} else if dg.Parent != "" {
-				parentUUID = "paloalto-dg-" + dg.Parent
-			}
-
-			if _, err := deviceStmt.Exec(dgUUID, dgName, parentUUID); err != nil {
+			res, err := dgStmt.Exec(sharedUUID, dgUUID, dg.Name, nil)
+			if err != nil {
 				return 0, 0, fmt.Errorf("failed to register device group %s: %w", dg.Name, err)
+			}
+			dgID, _ := res.LastInsertId()
+			dgNameToID[dg.Name] = dgID
+
+			if _, err := scopeStmt.Exec(dgUUID, "device-group", dgID, dg.Name + " (Device Group)", nil); err != nil {
+				return 0, 0, fmt.Errorf("failed to register device group scope %s: %w", dg.Name, err)
 			}
 			devicesImported++
 
@@ -1927,6 +1971,28 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 			if err := insertServiceGroupsPass2(tx, dg.Name, dg.ServiceGroup, reg, dgParentMap); err != nil {
 				return 0, 0, fmt.Errorf("failed to resolve dg service group members for %s: %w", dg.Name, err)
+			}
+		}
+
+		// Device Groups (Pass 2 - Resolve parent relationships)
+		for _, dg := range allDeviceGroups {
+			dgID := dgNameToID[dg.Name]
+			var parentID interface{}
+			var parentScopeUUID interface{}
+			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
+				if pid, ok := dgNameToID[parentName]; ok {
+					parentID = pid
+					parentScopeUUID = "paloalto-dg-" + parentName
+				}
+			} else if dg.Parent != "" {
+				if pid, ok := dgNameToID[dg.Parent]; ok {
+					parentID = pid
+					parentScopeUUID = "paloalto-dg-" + dg.Parent
+				}
+			}
+			if parentID != nil {
+				tx.Exec("UPDATE device_groups SET parent_id = ? WHERE id = ?", parentID, dgID)
+				tx.Exec("UPDATE scopes SET parent_uuid = ? WHERE type = 'device-group' AND reference_id = ?", parentScopeUUID, dgID)
 			}
 		}
 
@@ -2117,8 +2183,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 		managedDevStmt, err := tx.Prepare(`
-			INSERT OR REPLACE INTO managed_devices (device_uuid, serial, name, ip_address, device_group, template_stack)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT OR REPLACE INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err == nil {
 			defer managedDevStmt.Close()
@@ -2166,7 +2232,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				name := mdev.Hostname
 				if name == "" {
 					var existingName string
-					err := tx.QueryRow("SELECT name FROM devices WHERE uuid LIKE ?", "%-"+mdev.Serial).Scan(&existingName)
+					err := tx.QueryRow("SELECT name FROM scopes WHERE uuid LIKE ?", "%-"+mdev.Serial).Scan(&existingName)
 					if err == nil && existingName != "" {
 						name = existingName
 					} else {
@@ -2185,7 +2251,25 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 						ipAddr = existingIP
 					}
 				}
-				managedDevStmt.Exec(sharedUUID, mdev.Serial, name, ipAddr, dgName, stackName)
+
+				var dgID, stackID, tmplID interface{}
+				if dgName != "" {
+					if id, ok := dgNameToID[dgName]; ok {
+						dgID = id
+					}
+				}
+				if stackName != "" {
+					if id, ok := stackNameToID[stackName]; ok {
+						stackID = id
+					} else if id, ok := templateNameToID[stackName]; ok {
+						tmplID = id
+					}
+				}
+
+				_, err = managedDevStmt.Exec(sharedUUID, mdev.Serial, name, ipAddr, dgID, stackID, tmplID)
+				if err != nil {
+					slog.Error("Failed to insert managed device", slog.String("error", err.Error()))
+				}
 			}
 		}
 
@@ -2234,7 +2318,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				parentUUID = "panorama-stack-" + stackName
 			}
 			if parentUUID != nil {
-				tx.Exec("UPDATE devices SET parent_uuid = ? WHERE uuid LIKE ?", parentUUID, "%-"+mdev.Serial)
+				tx.Exec("UPDATE scopes SET parent_uuid = ? WHERE uuid LIKE ?", parentUUID, "%-"+mdev.Serial)
 			}
 		}
 
@@ -2301,50 +2385,58 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				deviceUUID = "paloalto-fw-" + deviceName + "-" + serial
 			}
 
-			clearDeviceTables(tx, deviceUUID)
-
-			var parentUUID interface{}
+			var parentScopeUUID interface{}
 			if serial != "" {
-				var dgName, stackName string
-				err := tx.QueryRow("SELECT device_group, template_stack FROM managed_devices WHERE serial = ?", serial).Scan(&dgName, &stackName)
+				var dgID, stackID sql.NullInt64
+				err := tx.QueryRow("SELECT device_group_id, template_stack_id FROM managed_devices_raw WHERE serial = ?", serial).Scan(&dgID, &stackID)
 				if err == nil {
-					if dgName != "" {
-						parentUUID = "paloalto-dg-" + dgName
-					} else if stackName != "" {
-						parentUUID = "panorama-stack-" + stackName
+					if dgID.Valid {
+						var dgUUID string
+						if err := tx.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", dgID.Int64).Scan(&dgUUID); err == nil {
+							parentScopeUUID = dgUUID
+						}
+					} else if stackID.Valid {
+						var stackUUID string
+						if err := tx.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", stackID.Int64).Scan(&stackUUID); err == nil {
+							parentScopeUUID = stackUUID
+						}
 					}
 				}
 			}
 
-			if _, err := deviceStmt.Exec(deviceUUID, deviceName, parentUUID); err != nil {
-				return 0, 0, fmt.Errorf("failed to register standalone firewall device %s: %w", deviceName, err)
+			clearDeviceTables(tx, deviceUUID)
+
+			// Register scope
+			if _, err := scopeStmt.Exec(deviceUUID, "firewall", nil, deviceName, parentScopeUUID); err != nil {
+				return 0, 0, fmt.Errorf("failed to register standalone firewall scope: %w", err)
 			}
 			devicesImported++
 
 			if serial != "" {
 				var existingDeviceUUID string
-				err := tx.QueryRow("SELECT device_uuid FROM managed_devices WHERE serial = ?", serial).Scan(&existingDeviceUUID)
+				err := tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", serial).Scan(&existingDeviceUUID)
 				if err == nil {
 					if mgmtIP != "" {
-						tx.Exec("UPDATE managed_devices SET name = ?, ip_address = ? WHERE serial = ?", deviceName, mgmtIP, serial)
+						tx.Exec("UPDATE managed_devices_raw SET name = ?, ip_address = ?, device_uuid = ? WHERE serial = ?", deviceName, mgmtIP, deviceUUID, serial)
 					} else {
-						tx.Exec("UPDATE managed_devices SET name = ? WHERE serial = ?", deviceName, serial)
+						tx.Exec("UPDATE managed_devices_raw SET name = ?, device_uuid = ? WHERE serial = ?", deviceName, deviceUUID, serial)
+					}
+					// Update scope reference ID
+					var mdevID int64
+					if err := tx.QueryRow("SELECT id FROM managed_devices_raw WHERE serial = ?", serial).Scan(&mdevID); err == nil {
+						tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
 					}
 				} else {
 					parentCtxUUID := deviceUUID
-					var existsGlobal int
-					tx.QueryRow("SELECT COUNT(*) FROM devices WHERE uuid = 'paloalto-panorama-global'").Scan(&existsGlobal)
-					if existsGlobal > 0 {
-						parentCtxUUID = "paloalto-panorama-global"
-					}
-
-					_, err := tx.Exec(`
-						INSERT OR REPLACE INTO managed_devices (device_uuid, serial, name, ip_address, device_group, template_stack)
-						VALUES (?, ?, ?, ?, NULL, NULL)
+					res, err := tx.Exec(`
+						INSERT OR REPLACE INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+						VALUES (?, ?, ?, ?, NULL, NULL, NULL)
 					`, parentCtxUUID, serial, deviceName, mgmtIP)
 					if err != nil {
 						return 0, 0, fmt.Errorf("failed to insert managed device: %w", err)
 					}
+					mdevID, _ := res.LastInsertId()
+					tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
 				}
 			}
 
