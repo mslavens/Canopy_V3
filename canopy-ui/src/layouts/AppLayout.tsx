@@ -43,8 +43,9 @@ interface AppLayoutProps {
 }
 
 // Navigation configurations
-const mainTabs = ['Dashboard', 'Policies', 'Objects', 'Network', 'XML Import', 'Analytics', 'System'];
+const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'XML Import', 'Analytics', 'System'];
 const subTabsMap: Record<string, string[]> = {
+  'Device Management': ['Inventory', 'Device Groups', 'Templates'],
   'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],

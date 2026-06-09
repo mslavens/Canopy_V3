@@ -318,13 +318,19 @@ type XMLDeviceConfig struct {
 	} `xml:"system"`
 }
 
+type XMLReadOnlyDGEntry struct {
+	Name     string `xml:"name,attr"`
+	ParentDG string `xml:"parent-dg"`
+}
+
 type XMLManagedDeviceEntry struct {
-	Serial        string `xml:"name,attr"`
-	IPAddress     string `xml:"ip-address"`
-	IP            string `xml:"ip"`
-	Hostname      string `xml:"hostname"`
-	TemplateStack string `xml:"template-stack"`
-	Template      string `xml:"template"`
+	Serial        string               `xml:"name,attr"`
+	IPAddress     string               `xml:"ip-address"`
+	IP            string               `xml:"ip"`
+	Hostname      string               `xml:"hostname"`
+	TemplateStack string               `xml:"template-stack"`
+	Template      string               `xml:"template"`
+	DeviceGroups  []XMLReadOnlyDGEntry `xml:"device-group>entry"`
 }
 
 type XMLMgtConfig struct {
@@ -670,8 +676,17 @@ func (r *registry) resolveProfile(scopes []string, name string) (id int64, found
 	return 0, false
 }
 
-func buildDGInheritance(deviceGroups []XMLDeviceGroup) map[string]string {
+func buildDGInheritance(deviceGroups []XMLDeviceGroup, config *PaloAltoConfig) map[string]string {
 	parentMap := make(map[string]string)
+	if config != nil && config.ReadOnly != nil {
+		for _, dev := range config.ReadOnly.Devices {
+			for _, dg := range dev.DeviceGroups {
+				if dg.ParentDG != "" {
+					parentMap[dg.Name] = dg.ParentDG
+				}
+			}
+		}
+	}
 	for _, dg := range deviceGroups {
 		if dg.Parent != "" {
 			parentMap[dg.Name] = dg.Parent
@@ -1721,7 +1736,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 
 	// Instantiate the scope ID registry
 	reg := newRegistry()
-	dgParentMap := buildDGInheritance(allDeviceGroups)
+	dgParentMap := buildDGInheritance(allDeviceGroups, &config)
 
 	if isPanorama {
 		sharedUUID := "paloalto-panorama-global"
@@ -1865,7 +1880,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			clearDeviceTables(tx, dgUUID)
 
 			var parentUUID interface{}
-			if dg.Parent != "" {
+			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
+				parentUUID = "paloalto-dg-" + parentName
+			} else if dg.Parent != "" {
 				parentUUID = "paloalto-dg-" + dg.Parent
 			}
 

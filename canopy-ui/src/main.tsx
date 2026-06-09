@@ -7,6 +7,7 @@ import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { PathResolutionPage } from './pages/PathResolutionPage';
 import { InterfacesPage } from './pages/InterfacesPage';
 import { XMLImportPage } from './pages/XMLImportPage';
+import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { ChangelogPage } from './pages/ChangelogPage';
 import { DatabaseBrowserPage } from './pages/DatabaseBrowserPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -189,6 +190,9 @@ const App = () => {
   const renderActivePage = () => {
     if (activeMainTab === 'Network' && activeSubTab === 'Interfaces') {
       return <InterfacesPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'Device Management') {
+      return <DeviceManagementPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
     if (activeMainTab === 'XML Import') {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;
