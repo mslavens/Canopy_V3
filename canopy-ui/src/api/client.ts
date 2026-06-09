@@ -50,6 +50,7 @@ export class CanopyApiClient {
   public inspectPatch = (formData: FormData) => this.request<any>('/api/system/patch/inspect', { method: 'POST', body: formData });
   public applyPatch = (formData: FormData) => this.request<any>('/api/system/patch', { method: 'POST', body: formData });
   public rollbackSystem = () => this.request<any>('/api/system/rollback', { method: 'POST' });
+  public importDeviceXml = (formData: FormData, preview: boolean = false) => this.request<any>(`/api/devices/import?preview=${preview}`, { method: 'POST', body: formData });
 
   // Workspaces
   public getWorkspaces = () => this.request<any[]>('/api/workspaces');

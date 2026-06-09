@@ -1,8 +1,10 @@
 package main
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -23,6 +25,7 @@ import (
 
 	"canopy-core/engine"
 	"canopy-core/storage"
+	"canopy-core/adapters/paloalto"
 
 	"golang.org/x/term"
 )
@@ -54,6 +57,177 @@ var (
 	masterKey   string
 	vaultMutex  sync.RWMutex
 )
+
+var actSchema = `
+	CREATE TABLE IF NOT EXISTS devices (
+		uuid TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		vendor TEXT NOT NULL,
+		parent_uuid TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (parent_uuid) REFERENCES devices(uuid) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS network_topology (
+		device_uuid TEXT,
+		interface_name TEXT,
+		network_cidr TEXT,
+		zone_name TEXT,
+		vendor_metadata TEXT,
+		PRIMARY KEY (device_uuid, interface_name)
+	);
+	CREATE TABLE IF NOT EXISTS framework_metadata (
+		app_id TEXT PRIMARY KEY,
+		schema_version INTEGER
+	);
+	CREATE TABLE IF NOT EXISTS license_vault (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		license_key TEXT NOT NULL,
+		hwid_hash TEXT NOT NULL,
+		activation_token TEXT NOT NULL,
+		expires_at DATETIME NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS secrets_vault (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		description TEXT,
+		secret_value TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE TABLE IF NOT EXISTS template_stacks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		name TEXT NOT NULL,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS template_stack_members (
+		stack_id INTEGER NOT NULL,
+		template_name TEXT NOT NULL,
+		sequence INTEGER NOT NULL,
+		PRIMARY KEY (stack_id, template_name),
+		FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS address_objects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		value TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS address_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS address_group_members (
+		group_id INTEGER,
+		member_name TEXT NOT NULL,
+		PRIMARY KEY (group_id, member_name),
+		FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS service_objects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		protocol TEXT NOT NULL,
+		source_port TEXT,
+		destination_port TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS service_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS service_group_members (
+		group_id INTEGER,
+		member_name TEXT NOT NULL,
+		PRIMARY KEY (group_id, member_name),
+		FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS security_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		action TEXT NOT NULL,
+		disabled INTEGER DEFAULT 0,
+		from_zones TEXT,
+		to_zones TEXT,
+		source_addresses TEXT,
+		destination_addresses TEXT,
+		services TEXT,
+		applications TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS nat_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		from_zones TEXT,
+		to_zone TEXT,
+		source_addresses TEXT,
+		destination_addresses TEXT,
+		service TEXT,
+		source_translation_type TEXT,
+		source_translation_address TEXT,
+		destination_translation_address TEXT,
+		destination_translation_port TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS static_routes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		vr_name TEXT NOT NULL,
+		route_name TEXT NOT NULL,
+		destination TEXT NOT NULL,
+		nexthop TEXT,
+		interface TEXT,
+		metric INTEGER DEFAULT 10,
+		admin_distance INTEGER DEFAULT 10,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS managed_devices (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		serial TEXT UNIQUE NOT NULL,
+		name TEXT NOT NULL,
+		ip_address TEXT,
+		device_group TEXT,
+		template_stack TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS tags (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		color TEXT,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS security_profiles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
 func globalCORSMiddleware(next http.Handler) http.Handler {
@@ -411,38 +585,9 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 
 	// 2. Workspace Schema
 	activeDB.WriteLock()
-	actSchema := `
-	CREATE TABLE IF NOT EXISTS devices (
-		uuid TEXT PRIMARY KEY,
-		name TEXT,
-		vendor TEXT
-	);
-	CREATE TABLE IF NOT EXISTS network_topology (
-		device_uuid TEXT,
-		interface_name TEXT,
-		network_cidr TEXT,
-		zone_name TEXT,
-		vendor_metadata TEXT,
-		PRIMARY KEY (device_uuid, interface_name)
-	);
-	CREATE TABLE IF NOT EXISTS framework_metadata (
-		app_id TEXT PRIMARY KEY,
-		schema_version INTEGER
-	);
-	CREATE TABLE IF NOT EXISTS license_vault (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		license_key TEXT NOT NULL,
-		hwid_hash TEXT NOT NULL,
-		activation_token TEXT NOT NULL,
-		expires_at DATETIME NOT NULL
-	);
-	CREATE TABLE IF NOT EXISTS secrets_vault (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT UNIQUE NOT NULL,
-		description TEXT,
-		secret_value TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
+	// Migration: Add parent_uuid to devices table if it doesn't exist
+	_, _ = activeDB.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
+
 	if _, err := activeDB.DB().Exec(actSchema); err != nil {
 		slog.Error("Failed to initialize workspace schema", slog.String("error", err.Error()))
 	}
@@ -1026,38 +1171,6 @@ func main() {
 		}
 
 		newSpoke.WriteLock()
-		actSchema := `
-		CREATE TABLE IF NOT EXISTS devices (
-			uuid TEXT PRIMARY KEY,
-			name TEXT,
-			vendor TEXT
-		);
-		CREATE TABLE IF NOT EXISTS network_topology (
-			device_uuid TEXT,
-			interface_name TEXT,
-			network_cidr TEXT,
-			zone_name TEXT,
-			vendor_metadata TEXT,
-			PRIMARY KEY (device_uuid, interface_name)
-		);
-		CREATE TABLE IF NOT EXISTS framework_metadata (
-			app_id TEXT PRIMARY KEY,
-			schema_version INTEGER
-		);
-		CREATE TABLE IF NOT EXISTS license_vault (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			license_key TEXT NOT NULL,
-			hwid_hash TEXT NOT NULL,
-			activation_token TEXT NOT NULL,
-			expires_at DATETIME NOT NULL
-		);
-		CREATE TABLE IF NOT EXISTS secrets_vault (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT UNIQUE NOT NULL,
-			description TEXT,
-			secret_value TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);`
 		newSpoke.DB().Exec(actSchema)
 		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
 		newSpoke.WriteUnlock()
@@ -1119,6 +1232,15 @@ func main() {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to mount target workspace database."})
 			return
 		}
+
+		newSpoke.WriteLock()
+		// Migration: Add parent_uuid to devices table if it doesn't exist
+		_, _ = newSpoke.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
+		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
+			slog.Error("Failed to initialize workspace schema on switch", slog.String("error", err.Error()))
+		}
+		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
+		newSpoke.WriteUnlock()
 
 		activeDB = newSpoke
 		logAuditSafe("Workspace Switched", "System", "Switched active workspace to: "+name)
@@ -2626,6 +2748,198 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{"files": files})
+	})
+
+	// Device Configuration XML Import Endpoint
+	mux.HandleFunc("/api/devices/import", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		vaultMutex.RLock()
+		if activeDB == nil {
+			vaultMutex.RUnlock()
+			w.WriteHeader(http.StatusLocked)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+			return
+		}
+		dbConn := activeDB
+		vaultMutex.RUnlock()
+
+		file, header, err := r.FormFile("xml")
+		if err != nil {
+			// fallback to form field "file"
+			file, header, err = r.FormFile("file")
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "No file found in payload."})
+				return
+			}
+		}
+		defer file.Close()
+
+		fileBytes, err := io.ReadAll(file)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read uploaded file."})
+			return
+		}
+
+		type xmlFile struct {
+			Name string
+			Data []byte
+		}
+		var xmlFiles []xmlFile
+		// Sniff gzip magic bytes: 0x1f 0x8b
+		isGzip := len(fileBytes) >= 2 && fileBytes[0] == 0x1f && fileBytes[1] == 0x8b
+
+		if isGzip {
+			gzipReader, err := gzip.NewReader(bytes.NewReader(fileBytes))
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to initialize gzip decompressor: " + err.Error()})
+				return
+			}
+			defer gzipReader.Close()
+
+			tarReader := tar.NewReader(gzipReader)
+			for {
+				tarHeader, err := tarReader.Next()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read tar archive: " + err.Error()})
+					return
+				}
+
+				if !tarHeader.FileInfo().IsDir() && strings.HasSuffix(strings.ToLower(tarHeader.Name), ".xml") {
+					data, err := io.ReadAll(tarReader)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read XML file from tar archive: " + err.Error()})
+						return
+					}
+					xmlFiles = append(xmlFiles, xmlFile{
+						Name: tarHeader.Name,
+						Data: data,
+					})
+					slog.Info("Extracted config file from archive bundle", slog.String("filename", tarHeader.Name))
+				}
+			}
+
+			if len(xmlFiles) == 0 {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{"error": "No XML configuration files found inside the tar bundle."})
+				return
+			}
+		} else {
+			var filename string
+			if header != nil {
+				filename = header.Filename
+			} else {
+				filename = "uploaded_config.xml"
+			}
+			xmlFiles = append(xmlFiles, xmlFile{
+				Name: filename,
+				Data: fileBytes,
+			})
+		}
+
+		concreteDB, ok := dbConn.(*storage.AppStateDB)
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Internal database connection type mismatch."})
+			return
+		}
+
+		adapter := paloalto.NewAdapter(concreteDB)
+
+		preview := r.URL.Query().Get("preview") == "true"
+		if preview {
+			var combinedStats paloalto.IngestionStats
+			combinedStats.Devices = []string{}
+			validConfigsCount := 0
+
+			for _, f := range xmlFiles {
+				stats, err := adapter.Analyze(f.Data, f.Name)
+				if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
+					continue
+				}
+
+				if combinedStats.ConfigType == "" || stats.ConfigType == "Panorama" {
+					combinedStats.ConfigType = stats.ConfigType
+				}
+				combinedStats.Devices = append(combinedStats.Devices, stats.Devices...)
+				combinedStats.TemplatesCount += stats.TemplatesCount
+				combinedStats.DevicesCount += stats.DevicesCount
+				combinedStats.InterfacesCount += stats.InterfacesCount
+				combinedStats.ZonesCount += stats.ZonesCount
+				combinedStats.VirtualRoutersCount += stats.VirtualRoutersCount
+				validConfigsCount++
+			}
+
+			if validConfigsCount == 0 {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{"error": "No valid Palo Alto configurations found inside the uploaded payload."})
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"preview":     true,
+				"config_type": combinedStats.ConfigType,
+				"devices":     combinedStats.Devices,
+				"stats": map[string]int{
+					"templates_count":       combinedStats.TemplatesCount,
+					"devices_count":         combinedStats.DevicesCount,
+					"interfaces_count":      combinedStats.InterfacesCount,
+					"zones_count":           combinedStats.ZonesCount,
+					"virtual_routers_count": combinedStats.VirtualRoutersCount,
+				},
+			})
+			return
+		}
+
+		totalDevCount := 0
+		totalTopoCount := 0
+		validConfigsCount := 0
+
+		for _, f := range xmlFiles {
+			stats, err := adapter.Analyze(f.Data, f.Name)
+			if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
+				continue
+			}
+
+			devCount, topoCount, err := adapter.ParseAndStore(f.Data, f.Name)
+			if err != nil {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Import failure: %v", err)})
+				return
+			}
+			totalDevCount += devCount
+			totalTopoCount += topoCount
+			validConfigsCount++
+		}
+
+		if validConfigsCount == 0 {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(map[string]string{"error": "No valid configurations found to import."})
+			return
+		}
+
+		logAuditSafe("Device XML Imported", "Network", fmt.Sprintf("Imported %d devices/templates and %d interface topology routes.", totalDevCount, totalTopoCount))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":             true,
+			"devices_imported":   totalDevCount,
+			"topologies_imported": totalTopoCount,
+		})
 	})
 
 	// System Rollback Endpoint

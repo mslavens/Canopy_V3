@@ -5,6 +5,8 @@ import './global.css';
 import { AppLayout } from './layouts/AppLayout';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { PathResolutionPage } from './pages/PathResolutionPage';
+import { InterfacesPage } from './pages/InterfacesPage';
+import { XMLImportPage } from './pages/XMLImportPage';
 import { ChangelogPage } from './pages/ChangelogPage';
 import { DatabaseBrowserPage } from './pages/DatabaseBrowserPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -185,6 +187,12 @@ const App = () => {
 
   // Router Switch Logic
   const renderActivePage = () => {
+    if (activeMainTab === 'Network' && activeSubTab === 'Interfaces') {
+      return <InterfacesPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'XML Import') {
+      return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;
+    }
     if (activeMainTab === 'Network' && activeSubTab === 'Path Resolution') {
       return <PathResolutionPage auth={auth} addToast={addToast} />;
     }

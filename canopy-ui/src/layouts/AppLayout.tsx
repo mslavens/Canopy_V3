@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
-import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft } from 'lucide-react';
+import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tooltip } from '../components/Tooltip';
 import { HelpModal } from '../components/HelpModal';
 import { ToastContainer, ToastMessage } from '../components/ToastContainer';
@@ -42,6 +42,16 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+// Navigation configurations
+const mainTabs = ['Dashboard', 'Policies', 'Objects', 'Network', 'XML Import', 'Analytics', 'System'];
+const subTabsMap: Record<string, string[]> = {
+  'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
+  'XML Import': ['Upload Config'],
+  'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
+  'Policies': ['Security Rules', 'NAT Rules'],
+  'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
+};
+
 export const AppLayout: React.FC<AppLayoutProps> = ({
   theme,
   toggleTheme,
@@ -66,6 +76,25 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const searchRef = useRef<HTMLDivElement>(null);
+  
+  // Tab bar horizontal scroll navigation hooks & states
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftChevron, setShowLeftChevron] = useState(false);
+  const [showRightChevron, setShowRightChevron] = useState(false);
+
+  const checkOverflow = () => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    setShowLeftChevron(el.scrollLeft > 2);
+    setShowRightChevron(el.scrollWidth - el.clientWidth - el.scrollLeft > 2);
+  };
+
+  const scrollNav = (direction: 'left' | 'right') => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const amount = direction === 'left' ? -150 : 150;
+    el.scrollBy({ left: amount, behavior: 'smooth' });
+  };
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState<boolean>(false);
   const [helpInitialQuery, setHelpInitialQuery] = useState<string>('');
@@ -89,6 +118,37 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   useEffect(() => {
     localStorage.setItem('canopy-sidebar-open', isSidebarOpen.toString());
   }, [isSidebarOpen]);
+
+  // Tab bar horizontal scroll navigation wheel and resize integration
+  useEffect(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    el.addEventListener('scroll', checkOverflow);
+    window.addEventListener('resize', checkOverflow);
+    
+    // Initial run
+    const timer = setTimeout(checkOverflow, 100);
+
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('scroll', checkOverflow);
+      window.removeEventListener('resize', checkOverflow);
+      clearTimeout(timer);
+    };
+  }, [mainTabs]);
+
+  useEffect(() => {
+    checkOverflow();
+  }, [activeMainTab]);
 
   const confirm = useConfirm();
   const isDirty = useIsDirty();
@@ -392,14 +452,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Navigation configurations
-  const mainTabs = ['Dashboard', 'Policies', 'Objects', 'Network', 'Analytics', 'System'];
-  const subTabsMap: Record<string, string[]> = {
-    'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
-    'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
-    'Policies': ['Security Rules', 'NAT Rules'],
-    'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
-  };
+  // Configuration resolution
 
   const currentSubTabs = subTabsMap[activeMainTab] || ['Overview'];
 
@@ -437,22 +490,76 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         {/* Hide scrollbar for a cleaner look while allowing horizontal scrolling on narrow screens */}
         <style>{`.nav-scroll::-webkit-scrollbar { display: none; }`}</style>
-        <nav className="nav-scroll" style={{ display: 'flex', height: '100%', flex: 1, overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-            {mainTabs.map(tab => (
-              <button 
-                key={tab}
-                className="nav-tab"
-                onClick={() => { setActiveMainTab(tab); setActiveSubTab(subTabsMap[tab]?.[0] || 'Overview'); }}
-                style={{ 
-                  background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
-                  color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
-                  flexShrink: 0 // Prevent text from squishing
-                }}
-              >
-                {tab}
-              </button>
-            ))}
-        </nav>
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, position: 'relative', height: '100%', overflow: 'hidden' }}>
+          {showLeftChevron && (
+            <button 
+              onClick={() => scrollNav('left')}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '32px',
+                background: 'linear-gradient(to right, var(--bg-surface) 60%, transparent)',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                zIndex: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                paddingLeft: '4px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+
+          <nav ref={navScrollRef} className="nav-scroll" style={{ display: 'flex', height: '100%', flex: 1, overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', padding: '0 20px' }}>
+              {mainTabs.map(tab => (
+                <button 
+                  key={tab}
+                  className="nav-tab"
+                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(subTabsMap[tab]?.[0] || 'Overview'); }}
+                  style={{ 
+                    background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
+                    color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
+                    flexShrink: 0 // Prevent text from squishing
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+          </nav>
+
+          {showRightChevron && (
+            <button 
+              onClick={() => scrollNav('right')}
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: '32px',
+                background: 'linear-gradient(to left, var(--bg-surface) 60%, transparent)',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                zIndex: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingRight: '4px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
 
         {/* Prevent the right-hand controls from shrinking so they never get cut off */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
