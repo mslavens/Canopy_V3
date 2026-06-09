@@ -207,7 +207,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
   const getColDef = (key: string) => columns.find(c => c.key === key) || { key, label: key };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-app)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-app)', minWidth: 0 }}>
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 15px 0', backgroundColor: 'transparent' }}>
         <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px' }}>

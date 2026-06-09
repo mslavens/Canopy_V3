@@ -303,20 +303,19 @@ func TestParser(t *testing.T) {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS devices (
 			uuid TEXT PRIMARY KEY,
-			name TEXT,
-			vendor TEXT,
+			name TEXT NOT NULL,
+			vendor TEXT NOT NULL,
 			parent_uuid TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (parent_uuid) REFERENCES devices(uuid) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS network_topology (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			device_uuid TEXT NOT NULL,
-			interface_name TEXT NOT NULL,
-			network_cidr TEXT NOT NULL,
-			zone_name TEXT NOT NULL,
+			device_uuid TEXT,
+			interface_name TEXT,
+			network_cidr TEXT,
+			zone_name TEXT,
 			vendor_metadata TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			PRIMARY KEY (device_uuid, interface_name)
 		);`,
 		`CREATE TABLE IF NOT EXISTS template_stacks (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -350,10 +349,14 @@ func TestParser(t *testing.T) {
 			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS address_group_members (
-			group_id INTEGER,
-			member_name TEXT NOT NULL,
-			PRIMARY KEY (group_id, member_name),
-			FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE
+			group_id INTEGER NOT NULL,
+			member_address_id INTEGER,
+			member_group_id INTEGER,
+			member_name TEXT,
+			PRIMARY KEY (group_id, member_address_id, member_group_id, member_name),
+			FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE,
+			FOREIGN KEY (member_address_id) REFERENCES address_objects(id) ON DELETE CASCADE,
+			FOREIGN KEY (member_group_id) REFERENCES address_groups(id) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS service_objects (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -375,10 +378,63 @@ func TestParser(t *testing.T) {
 			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS service_group_members (
-			group_id INTEGER,
-			member_name TEXT NOT NULL,
-			PRIMARY KEY (group_id, member_name),
-			FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE
+			group_id INTEGER NOT NULL,
+			member_service_id INTEGER,
+			member_group_id INTEGER,
+			member_name TEXT,
+			PRIMARY KEY (group_id, member_service_id, member_group_id, member_name),
+			FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE,
+			FOREIGN KEY (member_service_id) REFERENCES service_objects(id) ON DELETE CASCADE,
+			FOREIGN KEY (member_group_id) REFERENCES service_groups(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS application_objects (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			subcategory TEXT NOT NULL,
+			technology TEXT NOT NULL,
+			risk INTEGER DEFAULT 1,
+			ports TEXT,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS regions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			latitude REAL,
+			longitude REAL,
+			addresses TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS schedules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			schedule_type TEXT,
+			schedule_details TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS tags (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			color TEXT,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS security_profiles (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS security_rules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -388,13 +444,11 @@ func TestParser(t *testing.T) {
 			description TEXT,
 			action TEXT NOT NULL,
 			disabled INTEGER DEFAULT 0,
-			from_zones TEXT,
-			to_zones TEXT,
-			source_addresses TEXT,
-			destination_addresses TEXT,
-			services TEXT,
-			applications TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			profile_type TEXT,
+			profile_group TEXT,
+			schedule_id INTEGER,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS nat_rules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -403,15 +457,83 @@ func TestParser(t *testing.T) {
 			rule_name TEXT NOT NULL,
 			description TEXT,
 			disabled INTEGER DEFAULT 0,
-			from_zones TEXT,
 			to_zone TEXT,
-			source_addresses TEXT,
-			destination_addresses TEXT,
-			service TEXT,
+			service_id INTEGER,
+			service_group_id INTEGER,
+			service_ad_hoc TEXT,
 			source_translation_type TEXT,
 			source_translation_address TEXT,
 			destination_translation_address TEXT,
 			destination_translation_port TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE SET NULL,
+			FOREIGN KEY (service_group_id) REFERENCES service_groups(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS qos_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			rule_name TEXT NOT NULL,
+			description TEXT,
+			disabled INTEGER DEFAULT 0,
+			qos_class TEXT NOT NULL,
+			dscp_tos_marking TEXT,
+			schedule_id INTEGER,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS pbf_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			rule_name TEXT NOT NULL,
+			description TEXT,
+			disabled INTEGER DEFAULT 0,
+			action TEXT NOT NULL,
+			forward_interface TEXT,
+			forward_next_hop TEXT,
+			monitor_profile TEXT,
+			schedule_id INTEGER,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS decryption_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			rule_name TEXT NOT NULL,
+			description TEXT,
+			disabled INTEGER DEFAULT 0,
+			action TEXT NOT NULL,
+			decryption_type TEXT,
+			decryption_profile TEXT,
+			schedule_id INTEGER,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS application_override_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			rule_name TEXT NOT NULL,
+			description TEXT,
+			disabled INTEGER DEFAULT 0,
+			protocol TEXT NOT NULL,
+			port TEXT NOT NULL,
+			custom_app_id INTEGER,
+			predefined_app_name TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+			FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS tunnel_inspection_rules (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			rule_name TEXT NOT NULL,
+			description TEXT,
+			disabled INTEGER DEFAULT 0,
+			protocols TEXT,
+			action_profile TEXT,
 			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 		);`,
 		`CREATE TABLE IF NOT EXISTS static_routes (
@@ -436,22 +558,55 @@ func TestParser(t *testing.T) {
 			template_stack TEXT,
 			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS tags (
+		`CREATE TABLE IF NOT EXISTS rule_address_mappings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			device_uuid TEXT NOT NULL,
-			scope TEXT NOT NULL,
-			name TEXT NOT NULL,
-			color TEXT,
-			description TEXT,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			rule_type TEXT NOT NULL,
+			rule_id INTEGER NOT NULL,
+			direction TEXT NOT NULL,
+			address_id INTEGER,
+			group_id INTEGER,
+			ad_hoc_value TEXT,
+			FOREIGN KEY (address_id) REFERENCES address_objects(id) ON DELETE CASCADE,
+			FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS security_profiles (
+		`CREATE TABLE IF NOT EXISTS rule_service_mappings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			device_uuid TEXT NOT NULL,
-			scope TEXT NOT NULL,
-			name TEXT NOT NULL,
-			type TEXT NOT NULL,
-			FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+			rule_type TEXT NOT NULL,
+			rule_id INTEGER NOT NULL,
+			service_id INTEGER,
+			group_id INTEGER,
+			ad_hoc_value TEXT,
+			FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE CASCADE,
+			FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS rule_application_mappings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			rule_type TEXT NOT NULL,
+			rule_id INTEGER NOT NULL,
+			custom_app_id INTEGER,
+			predefined_app_name TEXT,
+			FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS rule_zone_mappings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			rule_type TEXT NOT NULL,
+			rule_id INTEGER NOT NULL,
+			direction TEXT NOT NULL,
+			zone_name TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS entity_tag_mappings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			entity_type TEXT NOT NULL,
+			entity_id INTEGER NOT NULL,
+			tag_id INTEGER NOT NULL,
+			FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS security_rule_profiles (
+			rule_id INTEGER NOT NULL,
+			profile_id INTEGER NOT NULL,
+			PRIMARY KEY (rule_id, profile_id),
+			FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE,
+			FOREIGN KEY (profile_id) REFERENCES security_profiles(id) ON DELETE CASCADE
 		);`,
 	}
 
@@ -560,13 +715,29 @@ func TestParser(t *testing.T) {
 		}
 
 		// Verify shared address object and groups
+		var addrID int64
 		var addrName, addrVal, addrScope string
-		err = db.DB().QueryRow("SELECT name, value, scope FROM address_objects WHERE device_uuid = 'paloalto-panorama-global' AND name = 'Shared_Host_1'").Scan(&addrName, &addrVal, &addrScope)
+		err = db.DB().QueryRow("SELECT id, name, value, scope FROM address_objects WHERE device_uuid = 'paloalto-panorama-global' AND name = 'Shared_Host_1'").Scan(&addrID, &addrName, &addrVal, &addrScope)
 		if err != nil {
 			t.Fatalf("failed to query address object: %v", err)
 		}
 		if addrVal != "10.100.1.5/32" || addrScope != "shared" {
 			t.Errorf("unexpected address object properties: val=%s, scope=%s", addrVal, addrScope)
+		}
+
+		// Verify address group membership links correctly by ID
+		var groupID int64
+		err = db.DB().QueryRow("SELECT id FROM address_groups WHERE scope = 'shared' AND name = 'Shared_Grp_1'").Scan(&groupID)
+		if err != nil {
+			t.Fatalf("failed to query address group: %v", err)
+		}
+		var memberAddrID int64
+		err = db.DB().QueryRow("SELECT member_address_id FROM address_group_members WHERE group_id = ?", groupID).Scan(&memberAddrID)
+		if err != nil {
+			t.Fatalf("failed to query address group member: %v", err)
+		}
+		if memberAddrID != addrID {
+			t.Errorf("expected address group member to point to Address ID %d, got %d", addrID, memberAddrID)
 		}
 
 		// Verify device-group address objects
@@ -575,18 +746,40 @@ func TestParser(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to query DG address object: %v", err)
 		}
-		if dgAddrVal != "192.168.20.5/32" || dgAddrScope != "device-group" {
+		if dgAddrVal != "192.168.20.5/32" || dgAddrScope != "CorpDG" {
 			t.Errorf("unexpected DG address object properties: val=%s, scope=%s", dgAddrVal, dgAddrScope)
 		}
 
-		// Verify shared security rules
-		var ruleAction, ruleScope, ruleSrc, ruleDest, ruleSvc string
-		err = db.DB().QueryRow("SELECT action, scope, source_addresses, destination_addresses, services FROM security_rules WHERE device_uuid = 'paloalto-panorama-global' AND rule_name = 'Pre_Rule_1'").Scan(&ruleAction, &ruleScope, &ruleSrc, &ruleDest, &ruleSvc)
+		// Verify shared security rules and relational mappings
+		var ruleID int64
+		var ruleAction, ruleScope string
+		err = db.DB().QueryRow("SELECT id, action, scope FROM security_rules WHERE device_uuid = 'paloalto-panorama-global' AND rule_name = 'Pre_Rule_1'").Scan(&ruleID, &ruleAction, &ruleScope)
 		if err != nil {
 			t.Fatalf("failed to query security rule: %v", err)
 		}
-		if ruleAction != "allow" || ruleScope != "shared:pre" || ruleSrc != "any" || ruleDest != "Shared_Host_1" || ruleSvc != "TCP_8080" {
-			t.Errorf("unexpected security rule properties: action=%s, scope=%s, source=%s, dest=%s, service=%s", ruleAction, ruleScope, ruleSrc, ruleDest, ruleSvc)
+		if ruleAction != "allow" || ruleScope != "shared:pre" {
+			t.Errorf("unexpected security rule properties: action=%s, scope=%s", ruleAction, ruleScope)
+		}
+
+		// Verify source address mapping points to "any" ad-hoc value
+		var srcVal string
+		err = db.DB().QueryRow("SELECT ad_hoc_value FROM rule_address_mappings WHERE rule_type = 'security' AND rule_id = ? AND direction = 'source'", ruleID).Scan(&srcVal)
+		if err != nil || srcVal != "any" {
+			t.Errorf("expected source address to be 'any', got %q (err=%v)", srcVal, err)
+		}
+
+		// Verify destination address mapping points to address object ID
+		var destAddrID int64
+		err = db.DB().QueryRow("SELECT address_id FROM rule_address_mappings WHERE rule_type = 'security' AND rule_id = ? AND direction = 'destination'", ruleID).Scan(&destAddrID)
+		if err != nil || destAddrID != addrID {
+			t.Errorf("expected destination address ID to point to Shared_Host_1 (%d), got %d (err=%v)", addrID, destAddrID, err)
+		}
+
+		// Verify zone mapping
+		var fromZone string
+		err = db.DB().QueryRow("SELECT zone_name FROM rule_zone_mappings WHERE rule_type = 'security' AND rule_id = ? AND direction = 'from'", ruleID).Scan(&fromZone)
+		if err != nil || fromZone != "InsideZone" {
+			t.Errorf("expected from zone InsideZone, got %q (err=%v)", fromZone, err)
 		}
 
 		// Verify shared tags
@@ -657,7 +850,7 @@ func TestParser(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to query nested DG address object: %v", err)
 		}
-		if dgAddrVal != "192.168.20.5/32" || dgAddrScope != "device-group" {
+		if dgAddrVal != "192.168.20.5/32" || dgAddrScope != "NestedCorpDG" {
 			t.Errorf("unexpected DG address object properties: val=%s, scope=%s", dgAddrVal, dgAddrScope)
 		}
 

@@ -62,52 +62,26 @@ type XMLServiceGroupEntry struct {
 	Description string   `xml:"description"`
 }
 
-type XMLSecurityRuleEntry struct {
+type XMLApplicationEntry struct {
 	Name        string   `xml:"name,attr"`
-	From        []string `xml:"from>member"`
-	To          []string `xml:"to>member"`
-	Source      []string `xml:"source>member"`
-	Destination []string `xml:"destination>member"`
-	Service     []string `xml:"service>member"`
-	Application []string `xml:"application>member"`
-	Action      string   `xml:"action"`
-	Disabled    string   `xml:"disabled"`
+	Category    string   `xml:"category"`
+	Subcategory string   `xml:"subcategory"`
+	Technology  string   `xml:"technology"`
+	Risk        int      `xml:"risk"`
+	Ports       []string `xml:"ports>member"`
 	Description string   `xml:"description"`
 }
 
-type XMLNATRuleEntry struct {
-	Name        string   `xml:"name,attr"`
-	From        []string `xml:"from>member"`
-	To          []string `xml:"to>member"`
-	Source      []string `xml:"source>member"`
-	Destination []string `xml:"destination>member"`
-	Service     string   `xml:"service"`
-	Disabled    string   `xml:"disabled"`
-	Description string   `xml:"description"`
-
-	SourceTranslation struct {
-		DynamicIPPort *struct {
-			TranslatedAddress []string `xml:"translated-address>member"`
-		} `xml:"dynamic-ip-port"`
-		StaticIP *struct {
-			TranslatedAddress string `xml:"translated-address"`
-		} `xml:"static-ip"`
-	} `xml:"source-translation"`
-
-	DestinationTranslation struct {
-		TranslatedAddress string `xml:"translated-address"`
-		TranslatedPort    string `xml:"translated-port"`
-	} `xml:"destination-translation"`
+type XMLRegionEntry struct {
+	Name      string   `xml:"name,attr"`
+	Latitude  float64  `xml:"latitude"`
+	Longitude float64  `xml:"longitude"`
+	Address   []string `xml:"address>member"`
 }
 
-type XMLStaticRouteEntry struct {
-	Name        string `xml:"name,attr"`
-	Destination string `xml:"destination"`
-	Interface   string `xml:"interface"`
-	Nexthop     struct {
-		IPAddress string `xml:"ip-address"`
-	} `xml:"nexthop"`
-	Metric      int    `xml:"metric"`
+type XMLScheduleEntry struct {
+	Name     string `xml:"name,attr"`
+	InnerXML string `xml:",innerxml"`
 }
 
 type XMLTagEntry struct {
@@ -137,10 +111,129 @@ type XMLProfiles struct {
 	} `xml:"file-blocking>entry"`
 }
 
+// Rules XML representation
+type XMLSecurityRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     []string `xml:"service>member"`
+	Application []string `xml:"application>member"`
+	Action      string   `xml:"action"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
+	Schedule    string   `xml:"schedule"`
+}
+
+type XMLNATRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     string   `xml:"service"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+
+	SourceTranslation struct {
+		DynamicIPPort *struct {
+			TranslatedAddress []string `xml:"translated-address>member"`
+		} `xml:"dynamic-ip-port"`
+		StaticIP *struct {
+			TranslatedAddress string `xml:"translated-address"`
+		} `xml:"static-ip"`
+	} `xml:"source-translation"`
+
+	DestinationTranslation struct {
+		TranslatedAddress string `xml:"translated-address"`
+		TranslatedPort    string `xml:"translated-port"`
+	} `xml:"destination-translation"`
+}
+
+type XMLQoSRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     []string `xml:"service>member"`
+	Application []string `xml:"application>member"`
+	QoSClass    string   `xml:"class"`
+	DSCPTOS     string   `xml:"dscp-tos"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+	Schedule    string   `xml:"schedule"`
+}
+
+type XMLPBFRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     []string `xml:"service>member"`
+	Application []string `xml:"application>member"`
+	Action      string   `xml:"action"`
+	Forward     struct {
+		Interface string `xml:"interface"`
+		NextHop   string `xml:"next-hop"`
+		Monitor   string `xml:"monitor>profile"`
+	} `xml:"forward"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+	Schedule    string   `xml:"schedule"`
+}
+
+type XMLDecryptionRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Service     []string `xml:"service>member"`
+	Action      string   `xml:"action"`
+	Type        string   `xml:"type"`
+	Profile     string   `xml:"profile"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+	Schedule    string   `xml:"schedule"`
+}
+
+type XMLAppOverrideRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Protocol    string   `xml:"protocol"`
+	Port        string   `xml:"port"`
+	Application string   `xml:"application"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+}
+
+type XMLTunnelInspectionRuleEntry struct {
+	Name        string   `xml:"name,attr"`
+	From        []string `xml:"from>member"`
+	To          []string `xml:"to>member"`
+	Source      []string `xml:"source>member"`
+	Destination []string `xml:"destination>member"`
+	Protocols   []string `xml:"protocol>member"`
+	Action      string   `xml:"action"`
+	Disabled    string   `xml:"disabled"`
+	Description string   `xml:"description"`
+}
+
 // Structure groups
 type XMLRulebase struct {
-	SecurityRules []XMLSecurityRuleEntry `xml:"security>rules>entry"`
-	NATRules      []XMLNATRuleEntry      `xml:"nat>rules>entry"`
+	SecurityRules         []XMLSecurityRuleEntry         `xml:"security>rules>entry"`
+	NATRules              []XMLNATRuleEntry              `xml:"nat>rules>entry"`
+	QoSRules              []XMLQoSRuleEntry              `xml:"qos>rules>entry"`
+	PBFRules              []XMLPBFRuleEntry              `xml:"pbf>rules>entry"`
+	DecryptionRules       []XMLDecryptionRuleEntry       `xml:"decryption>rules>entry"`
+	AppOverrideRules      []XMLAppOverrideRuleEntry        `xml:"application-override>rules>entry"`
+	TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"tunnel-inspection>rules>entry"`
 }
 
 type XMLDeviceGroup struct {
@@ -150,6 +243,9 @@ type XMLDeviceGroup struct {
 	AddressGroup []XMLAddressGroupEntry `xml:"address-group>entry"`
 	Service      []XMLServiceEntry      `xml:"service>entry"`
 	ServiceGroup []XMLServiceGroupEntry `xml:"service-group>entry"`
+	Application  []XMLApplicationEntry  `xml:"application>entry"`
+	Region       []XMLRegionEntry       `xml:"region>entry"`
+	Schedule     []XMLScheduleEntry     `xml:"schedule>entry"`
 	PreRulebase  XMLRulebase            `xml:"pre-rulebase"`
 	PostRulebase XMLRulebase            `xml:"post-rulebase"`
 	Tags         []XMLTagEntry          `xml:"tag>entry"`
@@ -159,7 +255,7 @@ type XMLDeviceGroup struct {
 	} `xml:"devices>entry"`
 }
 
-// Interface, VR, Zone definitions (network settings inside templates/standalone)
+// Interface, VR, Zone definitions
 type InterfaceNode struct {
 	Name string `xml:"name,attr"`
 	IPs  []struct {
@@ -204,9 +300,9 @@ type XMLTemplate struct {
 }
 
 type XMLTemplateStack struct {
-	Name      string   `xml:"name,attr"`
-	Templates []string `xml:"templates>member"`
-	Devices   []string `xml:"devices>member"`
+	Name           string   `xml:"name,attr"`
+	Templates      []string `xml:"templates>member"`
+	Devices        []string `xml:"devices>member"`
 	DevicesEntries []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"devices>entry"`
@@ -247,52 +343,69 @@ type PaloAltoConfig struct {
 	MgtConfig      *XMLMgtConfig      `xml:"mgt-config"`
 	ReadOnly       *XMLReadOnly       `xml:"readonly"`
 	DeviceConfig   *XMLDeviceConfig   `xml:"deviceconfig"`
-	
-	// Shared Configuration (Panorama or Standalone Global)
+
 	Shared struct {
 		Address        []XMLAddressEntry       `xml:"address>entry"`
 		AddressGroup   []XMLAddressGroupEntry  `xml:"address-group>entry"`
 		Service        []XMLServiceEntry       `xml:"service>entry"`
 		ServiceGroup   []XMLServiceGroupEntry  `xml:"service-group>entry"`
+		Application    []XMLApplicationEntry   `xml:"application>entry"`
+		Region         []XMLRegionEntry        `xml:"region>entry"`
+		Schedule       []XMLScheduleEntry      `xml:"schedule>entry"`
 		PreRulebase    XMLRulebase             `xml:"pre-rulebase"`
 		PostRulebase   XMLRulebase             `xml:"post-rulebase"`
 		Tags           []XMLTagEntry           `xml:"tag>entry"`
 		Profiles       XMLProfiles             `xml:"profiles"`
 		ManagedDevices []XMLManagedDeviceEntry `xml:"managed-devices>entry"`
 	} `xml:"shared"`
-	
-	// Device Groups (Panorama)
+
 	DeviceGroups []XMLDeviceGroup `xml:"device-group>entry"`
-	
-	// Standalone Firewall local Devices
+
 	Devices []struct {
 		Name           string             `xml:"name,attr"`
 		Templates      []XMLTemplate      `xml:"template>entry"`
 		TemplateStacks []XMLTemplateStack `xml:"template-stack>entry"`
 		DeviceGroups   []XMLDeviceGroup   `xml:"device-group>entry"`
 		DeviceConfig   *XMLDeviceConfig   `xml:"deviceconfig"`
-		Network struct {
+		Network        struct {
 			Interface struct {
 				Ethernet []InterfaceNode `xml:"ethernet>entry"`
 			} `xml:"interface"`
 			VirtualRouter []VirtualRouterNode `xml:"virtual-router>entry"`
 		} `xml:"network"`
 		Vsys []struct {
-			Name          string                 `xml:"name,attr"`
-			Zone          []ZoneNode             `xml:"zone>entry"`
-			Address       []XMLAddressEntry      `xml:"address>entry"`
-			AddressGroup  []XMLAddressGroupEntry `xml:"address-group>entry"`
-			Service       []XMLServiceEntry      `xml:"service>entry"`
-			ServiceGroup  []XMLServiceGroupEntry `xml:"service-group>entry"`
-			SecurityRules []XMLSecurityRuleEntry `xml:"rulebase>security>rules>entry"`
-			NATRules      []XMLNATRuleEntry      `xml:"rulebase>nat>rules>entry"`
-			Tags          []XMLTagEntry          `xml:"tag>entry"`
-			Profiles      XMLProfiles            `xml:"profiles"`
+			Name                  string                         `xml:"name,attr"`
+			Zone                  []ZoneNode                     `xml:"zone>entry"`
+			Address               []XMLAddressEntry              `xml:"address>entry"`
+			AddressGroup          []XMLAddressGroupEntry         `xml:"address-group>entry"`
+			Service               []XMLServiceEntry              `xml:"service>entry"`
+			ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
+			Application           []XMLApplicationEntry          `xml:"application>entry"`
+			Region                []XMLRegionEntry               `xml:"region>entry"`
+			Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
+			SecurityRules         []XMLSecurityRuleEntry         `xml:"rulebase>security>rules>entry"`
+			NATRules              []XMLNATRuleEntry              `xml:"rulebase>nat>rules>entry"`
+			QoSRules              []XMLQoSRuleEntry              `xml:"rulebase>qos>rules>entry"`
+			PBFRules              []XMLPBFRuleEntry              `xml:"rulebase>pbf>rules>entry"`
+			DecryptionRules       []XMLDecryptionRuleEntry       `xml:"rulebase>decryption>rules>entry"`
+			AppOverrideRules      []XMLAppOverrideRuleEntry        `xml:"rulebase>application-override>rules>entry"`
+			TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"rulebase>tunnel-inspection>rules>entry"`
+			Tags                  []XMLTagEntry                  `xml:"tag>entry"`
+			Profiles              XMLProfiles                    `xml:"profiles"`
 		} `xml:"vsys>entry"`
 	} `xml:"devices>entry"`
 }
 
-// IngestionStats holds parsed metrics for pre-flight import preview.
+type XMLStaticRouteEntry struct {
+	Name        string `xml:"name,attr"`
+	Destination string `xml:"destination"`
+	Interface   string `xml:"interface"`
+	Nexthop     struct {
+		IPAddress string `xml:"ip-address"`
+	} `xml:"nexthop"`
+	Metric int `xml:"metric"`
+}
+
 type IngestionStats struct {
 	ConfigType          string   `json:"config_type"`
 	Devices             []string `json:"devices"`
@@ -326,7 +439,6 @@ func parseFirewallFilename(filename string) (string, string) {
 	return fwName, serial
 }
 
-// Analyze parses the XML configuration and extracts stats for pre-flight preview.
 func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, error) {
 	var config PaloAltoConfig
 	if err := xml.Unmarshal(xmlData, &config); err != nil {
@@ -347,7 +459,6 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 		Devices: []string{},
 	}
 
-	// Determine if this is a Panorama export or Standalone Firewall config
 	hasMgtDevices := len(config.Shared.ManagedDevices) > 0 || (config.MgtConfig != nil && len(config.MgtConfig.Devices) > 0) || (config.ReadOnly != nil && len(config.ReadOnly.Devices) > 0)
 	hasShared := len(config.Shared.Address) > 0 || len(config.Shared.AddressGroup) > 0 || len(config.Shared.Service) > 0 || len(config.Shared.PreRulebase.SecurityRules) > 0 || len(config.Shared.PostRulebase.SecurityRules) > 0 || hasMgtDevices
 	isPanorama := len(allTemplates) > 0 || len(allDeviceGroups) > 0 || len(allTemplateStacks) > 0 || hasShared
@@ -356,7 +467,6 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 		stats.ConfigType = "Panorama"
 		stats.TemplatesCount = len(allTemplates)
 
-		// 1. Process templates
 		for _, tmpl := range allTemplates {
 			stats.Devices = append(stats.Devices, tmpl.Name)
 			stats.DevicesCount += len(tmpl.Config.Devices)
@@ -371,13 +481,11 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			}
 		}
 
-		// 2. Process device groups
 		for _, dg := range allDeviceGroups {
 			dgName := dg.Name + " (Device Group)"
 			stats.Devices = append(stats.Devices, dgName)
 		}
 	} else {
-		// Standalone Firewall
 		stats.ConfigType = "Firewall"
 		stats.DevicesCount = len(config.Devices)
 
@@ -405,7 +513,188 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 	return stats, nil
 }
 
-// Helper to clear existing tables for a given device_uuid
+// Registry to track database primary key mappings for name references
+type registry struct {
+	addresses      map[string]map[string]int64
+	addressGroups  map[string]map[string]int64
+	services       map[string]map[string]int64
+	serviceGroups  map[string]map[string]int64
+	applications   map[string]map[string]int64
+	schedules      map[string]map[string]int64
+	tags           map[string]map[string]int64
+	profiles       map[string]map[string]int64
+}
+
+func newRegistry() *registry {
+	return &registry{
+		addresses:      make(map[string]map[string]int64),
+		addressGroups:  make(map[string]map[string]int64),
+		services:       make(map[string]map[string]int64),
+		serviceGroups:  make(map[string]map[string]int64),
+		applications:   make(map[string]map[string]int64),
+		schedules:      make(map[string]map[string]int64),
+		tags:           make(map[string]map[string]int64),
+		profiles:       make(map[string]map[string]int64),
+	}
+}
+
+func (r *registry) registerAddress(scope, name string, id int64) {
+	if _, ok := r.addresses[scope]; !ok {
+		r.addresses[scope] = make(map[string]int64)
+	}
+	r.addresses[scope][name] = id
+}
+
+func (r *registry) registerAddressGroup(scope, name string, id int64) {
+	if _, ok := r.addressGroups[scope]; !ok {
+		r.addressGroups[scope] = make(map[string]int64)
+	}
+	r.addressGroups[scope][name] = id
+}
+
+func (r *registry) registerService(scope, name string, id int64) {
+	if _, ok := r.services[scope]; !ok {
+		r.services[scope] = make(map[string]int64)
+	}
+	r.services[scope][name] = id
+}
+
+func (r *registry) registerServiceGroup(scope, name string, id int64) {
+	if _, ok := r.serviceGroups[scope]; !ok {
+		r.serviceGroups[scope] = make(map[string]int64)
+	}
+	r.serviceGroups[scope][name] = id
+}
+
+func (r *registry) registerApplication(scope, name string, id int64) {
+	if _, ok := r.applications[scope]; !ok {
+		r.applications[scope] = make(map[string]int64)
+	}
+	r.applications[scope][name] = id
+}
+
+func (r *registry) registerSchedule(scope, name string, id int64) {
+	if _, ok := r.schedules[scope]; !ok {
+		r.schedules[scope] = make(map[string]int64)
+	}
+	r.schedules[scope][name] = id
+}
+
+func (r *registry) registerTag(scope, name string, id int64) {
+	if _, ok := r.tags[scope]; !ok {
+		r.tags[scope] = make(map[string]int64)
+	}
+	r.tags[scope][name] = id
+}
+
+func (r *registry) registerProfile(scope, name string, id int64) {
+	if _, ok := r.profiles[scope]; !ok {
+		r.profiles[scope] = make(map[string]int64)
+	}
+	r.profiles[scope][name] = id
+}
+
+func (r *registry) resolveAddress(scopes []string, name string) (addrID int64, grpID int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.addressGroups[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return 0, id, true
+			}
+		}
+		if scopeMap, ok := r.addresses[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, 0, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+func (r *registry) resolveService(scopes []string, name string) (srvID int64, grpID int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.serviceGroups[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return 0, id, true
+			}
+		}
+		if scopeMap, ok := r.services[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, 0, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+func (r *registry) resolveApplication(scopes []string, name string) (id int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.applications[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func (r *registry) resolveSchedule(scopes []string, name string) (id int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.schedules[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func (r *registry) resolveTag(scopes []string, name string) (id int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.tags[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func (r *registry) resolveProfile(scopes []string, name string) (id int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.profiles[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func buildDGInheritance(deviceGroups []XMLDeviceGroup) map[string]string {
+	parentMap := make(map[string]string)
+	for _, dg := range deviceGroups {
+		if dg.Parent != "" {
+			parentMap[dg.Name] = dg.Parent
+		}
+	}
+	return parentMap
+}
+
+func getScopesForDG(dgName string, parentMap map[string]string) []string {
+	scopes := []string{dgName}
+	curr := dgName
+	for {
+		parent, exists := parentMap[curr]
+		if !exists || parent == "" {
+			break
+		}
+		scopes = append(scopes, parent)
+		curr = parent
+	}
+	scopes = append(scopes, "shared")
+	return scopes
+}
+
 func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
 	tx.Exec("DELETE FROM network_topology WHERE device_uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM address_group_members WHERE group_id IN (SELECT id FROM address_groups WHERE device_uuid = ?)", deviceUUID)
@@ -414,17 +703,33 @@ func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
 	tx.Exec("DELETE FROM service_group_members WHERE group_id IN (SELECT id FROM service_groups WHERE device_uuid = ?)", deviceUUID)
 	tx.Exec("DELETE FROM service_groups WHERE device_uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM service_objects WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM security_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM nat_rules WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM static_routes WHERE device_uuid = ?", deviceUUID)
-	tx.Exec("DELETE FROM tags WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM application_objects WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM regions WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM schedules WHERE device_uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM security_profiles WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM tags WHERE device_uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM template_stack_members WHERE stack_id IN (SELECT id FROM template_stacks WHERE device_uuid = ?)", deviceUUID)
 	tx.Exec("DELETE FROM template_stacks WHERE device_uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM managed_devices WHERE device_uuid = ?", deviceUUID)
+
+	tx.Exec("DELETE FROM security_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM nat_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM qos_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM pbf_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM decryption_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM application_override_rules WHERE device_uuid = ?", deviceUUID)
+	tx.Exec("DELETE FROM tunnel_inspection_rules WHERE device_uuid = ?", deviceUUID)
+
+	tx.Exec("DELETE FROM rule_address_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
+	tx.Exec("DELETE FROM rule_service_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules)")
+	tx.Exec("DELETE FROM rule_application_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules)")
+	tx.Exec("DELETE FROM rule_zone_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
+	tx.Exec("DELETE FROM entity_tag_mappings WHERE tag_id NOT IN (SELECT id FROM tags)")
+	tx.Exec("DELETE FROM security_rule_profiles WHERE rule_id NOT IN (SELECT id FROM security_rules)")
+	tx.Exec("DELETE FROM static_routes WHERE device_uuid = ?", deviceUUID)
 }
 
-func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry) error {
+func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO address_objects (device_uuid, scope, name, type, value, description)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -448,16 +753,21 @@ func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAdd
 			addrVal = entry.FQDN
 		}
 		if addrType == "" {
-			continue // skip empty
+			continue
 		}
-		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, addrType, addrVal, entry.Description); err != nil {
+		res, err := stmt.Exec(deviceUUID, scope, entry.Name, addrType, addrVal, entry.Description)
+		if err != nil {
 			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerAddress(scope, entry.Name, id)
 		}
 	}
 	return nil
 }
 
-func insertAddressGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressGroupEntry) error {
+func insertAddressGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressGroupEntry, reg *registry) error {
 	groupStmt, err := tx.Prepare(`
 		INSERT INTO address_groups (device_uuid, scope, name, description)
 		VALUES (?, ?, ?, ?)
@@ -467,26 +777,59 @@ func insertAddressGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddr
 	}
 	defer groupStmt.Close()
 
+	for _, entry := range entries {
+		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerAddressGroup(scope, entry.Name, id)
+		}
+	}
+	return nil
+}
+
+func insertAddressGroupsPass2(tx *sql.Tx, scope string, entries []XMLAddressGroupEntry, reg *registry, dgParentMap map[string]string) error {
 	memberStmt, err := tx.Prepare(`
-		INSERT OR IGNORE INTO address_group_members (group_id, member_name)
-		VALUES (?, ?)
+		INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name)
+		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer memberStmt.Close()
 
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
 	for _, entry := range entries {
-		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
-		if err != nil {
-			return err
+		var groupID int64
+		if scopeMap, ok := reg.addressGroups[scope]; ok {
+			if id, ok := scopeMap[entry.Name]; ok {
+				groupID = id
+			}
 		}
-		groupID, err := res.LastInsertId()
-		if err != nil {
-			return err
+		if groupID == 0 {
+			continue
 		}
-		for _, member := range entry.Static {
-			if _, err := memberStmt.Exec(groupID, member); err != nil {
+
+		for _, memberName := range entry.Static {
+			addrID, grpID, found := reg.resolveAddress(scopes, memberName)
+			if found {
+				if addrID > 0 {
+					_, err = memberStmt.Exec(groupID, addrID, nil, nil)
+				} else {
+					_, err = memberStmt.Exec(groupID, nil, grpID, nil)
+				}
+			} else {
+				_, err = memberStmt.Exec(groupID, nil, nil, memberName)
+			}
+			if err != nil {
 				return err
 			}
 		}
@@ -494,7 +837,7 @@ func insertAddressGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddr
 	return nil
 }
 
-func insertServiceObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLServiceEntry) error {
+func insertServiceObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLServiceEntry, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO service_objects (device_uuid, scope, name, protocol, source_port, destination_port, description)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -517,14 +860,19 @@ func insertServiceObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLSer
 		} else {
 			continue
 		}
-		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, proto, srcPort, destPort, entry.Description); err != nil {
+		res, err := stmt.Exec(deviceUUID, scope, entry.Name, proto, srcPort, destPort, entry.Description)
+		if err != nil {
 			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerService(scope, entry.Name, id)
 		}
 	}
 	return nil
 }
 
-func insertServiceGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLServiceGroupEntry) error {
+func insertServiceGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XMLServiceGroupEntry, reg *registry) error {
 	groupStmt, err := tx.Prepare(`
 		INSERT INTO service_groups (device_uuid, scope, name, description)
 		VALUES (?, ?, ?, ?)
@@ -534,26 +882,59 @@ func insertServiceGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLServ
 	}
 	defer groupStmt.Close()
 
+	for _, entry := range entries {
+		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerServiceGroup(scope, entry.Name, id)
+		}
+	}
+	return nil
+}
+
+func insertServiceGroupsPass2(tx *sql.Tx, scope string, entries []XMLServiceGroupEntry, reg *registry, dgParentMap map[string]string) error {
 	memberStmt, err := tx.Prepare(`
-		INSERT OR IGNORE INTO service_group_members (group_id, member_name)
-		VALUES (?, ?)
+		INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name)
+		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer memberStmt.Close()
 
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
 	for _, entry := range entries {
-		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
-		if err != nil {
-			return err
+		var groupID int64
+		if scopeMap, ok := reg.serviceGroups[scope]; ok {
+			if id, ok := scopeMap[entry.Name]; ok {
+				groupID = id
+			}
 		}
-		groupID, err := res.LastInsertId()
-		if err != nil {
-			return err
+		if groupID == 0 {
+			continue
 		}
-		for _, member := range entry.Members {
-			if _, err := memberStmt.Exec(groupID, member); err != nil {
+
+		for _, memberName := range entry.Members {
+			srvID, grpID, found := reg.resolveService(scopes, memberName)
+			if found {
+				if srvID > 0 {
+					_, err = memberStmt.Exec(groupID, srvID, nil, nil)
+				} else {
+					_, err = memberStmt.Exec(groupID, nil, grpID, nil)
+				}
+			} else {
+				_, err = memberStmt.Exec(groupID, nil, nil, memberName)
+			}
+			if err != nil {
 				return err
 			}
 		}
@@ -561,10 +942,10 @@ func insertServiceGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLServ
 	return nil
 }
 
-func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecurityRuleEntry) error {
+func insertApplicationObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLApplicationEntry, reg *registry) error {
 	stmt, err := tx.Prepare(`
-		INSERT INTO security_rules (device_uuid, scope, rule_name, description, action, disabled, from_zones, to_zones, source_addresses, destination_addresses, services, applications)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO application_objects (device_uuid, scope, name, category, subcategory, technology, risk, ports, description)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -572,39 +953,23 @@ func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecu
 	defer stmt.Close()
 
 	for _, entry := range entries {
-		disabled := 0
-		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
-			disabled = 1
-		}
-		action := entry.Action
-		if action == "" {
-			action = "allow"
-		}
-		_, err := stmt.Exec(
-			deviceUUID,
-			scope,
-			entry.Name,
-			entry.Description,
-			action,
-			disabled,
-			strings.Join(entry.From, ","),
-			strings.Join(entry.To, ","),
-			strings.Join(entry.Source, ","),
-			strings.Join(entry.Destination, ","),
-			strings.Join(entry.Service, ","),
-			strings.Join(entry.Application, ","),
-		)
+		portsStr := strings.Join(entry.Ports, ",")
+		res, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Category, entry.Subcategory, entry.Technology, entry.Risk, portsStr, entry.Description)
 		if err != nil {
 			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerApplication(scope, entry.Name, id)
 		}
 	}
 	return nil
 }
 
-func insertNATRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLNATRuleEntry) error {
+func insertRegions(tx *sql.Tx, deviceUUID, scope string, entries []XMLRegionEntry) error {
 	stmt, err := tx.Prepare(`
-		INSERT INTO nat_rules (device_uuid, scope, rule_name, description, disabled, from_zones, to_zone, source_addresses, destination_addresses, service, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO regions (device_uuid, scope, name, latitude, longitude, addresses)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -612,68 +977,43 @@ func insertNATRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLNATRuleEn
 	defer stmt.Close()
 
 	for _, entry := range entries {
-		disabled := 0
-		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
-			disabled = 1
-		}
-
-		toZone := ""
-		if len(entry.To) > 0 {
-			toZone = entry.To[0]
-		}
-
-		srcTransType := ""
-		srcTransAddr := ""
-		if entry.SourceTranslation.DynamicIPPort != nil && len(entry.SourceTranslation.DynamicIPPort.TranslatedAddress) > 0 {
-			srcTransType = "dynamic-ip-port"
-			srcTransAddr = strings.Join(entry.SourceTranslation.DynamicIPPort.TranslatedAddress, ",")
-		} else if entry.SourceTranslation.StaticIP != nil {
-			srcTransType = "static-ip"
-			srcTransAddr = entry.SourceTranslation.StaticIP.TranslatedAddress
-		}
-
-		_, err := stmt.Exec(
-			deviceUUID,
-			scope,
-			entry.Name,
-			entry.Description,
-			disabled,
-			strings.Join(entry.From, ","),
-			toZone,
-			strings.Join(entry.Source, ","),
-			strings.Join(entry.Destination, ","),
-			entry.Service,
-			srcTransType,
-			srcTransAddr,
-			entry.DestinationTranslation.TranslatedAddress,
-			entry.DestinationTranslation.TranslatedPort,
-		)
-		if err != nil {
+		addrJSON, _ := json.Marshal(entry.Address)
+		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Latitude, entry.Longitude, string(addrJSON)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStaticRouteEntry) error {
+func insertSchedules(tx *sql.Tx, deviceUUID, scope string, entries []XMLScheduleEntry, reg *registry) error {
 	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO static_routes (device_uuid, vr_name, route_name, destination, nexthop, interface, metric)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO schedules (device_uuid, scope, name, schedule_type, schedule_details)
+		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	for _, route := range entries {
-		if _, err := stmt.Exec(deviceUUID, vrName, route.Name, route.Destination, route.Nexthop.IPAddress, route.Interface, route.Metric); err != nil {
+	for _, entry := range entries {
+		details := strings.TrimSpace(entry.InnerXML)
+		typeStr := "recurring"
+		if strings.Contains(details, "<non-recurring>") {
+			typeStr = "non-recurring"
+		}
+		res, err := stmt.Exec(deviceUUID, scope, entry.Name, typeStr, details)
+		if err != nil {
 			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerSchedule(scope, entry.Name, id)
 		}
 	}
 	return nil
 }
 
-func insertTags(tx *sql.Tx, deviceUUID, scope string, entries []XMLTagEntry) error {
+func insertTags(tx *sql.Tx, deviceUUID, scope string, entries []XMLTagEntry, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO tags (device_uuid, scope, name, color, description)
 		VALUES (?, ?, ?, ?, ?)
@@ -684,14 +1024,19 @@ func insertTags(tx *sql.Tx, deviceUUID, scope string, entries []XMLTagEntry) err
 	defer stmt.Close()
 
 	for _, entry := range entries {
-		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Color, entry.Comments); err != nil {
+		res, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Color, entry.Comments)
+		if err != nil {
 			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerTag(scope, entry.Name, id)
 		}
 	}
 	return nil
 }
 
-func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLProfiles) error {
+func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLProfiles, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO security_profiles (device_uuid, scope, name, type)
 		VALUES (?, ?, ?, ?)
@@ -703,8 +1048,13 @@ func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLPr
 
 	insertSlice := func(typeStr string, entries []struct{ Name string `xml:"name,attr"` }) error {
 		for _, entry := range entries {
-			if _, err := stmt.Exec(deviceUUID, scope, entry.Name, typeStr); err != nil {
+			res, err := stmt.Exec(deviceUUID, scope, entry.Name, typeStr)
+			if err != nil {
 				return err
+			}
+			id, err := res.LastInsertId()
+			if err == nil {
+				reg.registerProfile(scope, entry.Name, id)
 			}
 		}
 		return nil
@@ -732,10 +1082,593 @@ func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLPr
 	return nil
 }
 
-// ParseAndStore processes the XML byte array, automatically detects if it is a
-// Panorama or standalone configuration, extracts topological features, objects, and policies,
-// and writes them into devices, network_topology, rules, static routes, and profile tables.
-// Returns the number of devices and topology rows imported.
+// Relational Mappings helpers
+func insertRuleZones(tx *sql.Tx, ruleType string, ruleID int64, direction string, zones []string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO rule_zone_mappings (rule_type, rule_id, direction, zone_name)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, zone := range zones {
+		if zone == "" {
+			continue
+		}
+		if _, err := stmt.Exec(ruleType, ruleID, direction, zone); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertRuleAddresses(tx *sql.Tx, ruleType string, ruleID int64, direction string, addresses []string, scopes []string, reg *registry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO rule_address_mappings (rule_type, rule_id, direction, address_id, group_id, ad_hoc_value)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, addr := range addresses {
+		if addr == "" {
+			continue
+		}
+		addrID, grpID, found := reg.resolveAddress(scopes, addr)
+		if found {
+			if addrID > 0 {
+				if _, err := stmt.Exec(ruleType, ruleID, direction, addrID, nil, nil); err != nil {
+					return err
+				}
+			} else {
+				if _, err := stmt.Exec(ruleType, ruleID, direction, nil, grpID, nil); err != nil {
+					return err
+				}
+			}
+		} else {
+			if _, err := stmt.Exec(ruleType, ruleID, direction, nil, nil, addr); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertRuleServices(tx *sql.Tx, ruleType string, ruleID int64, services []string, scopes []string, reg *registry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO rule_service_mappings (rule_type, rule_id, service_id, group_id, ad_hoc_value)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, srv := range services {
+		if srv == "" {
+			continue
+		}
+		srvID, grpID, found := reg.resolveService(scopes, srv)
+		if found {
+			if srvID > 0 {
+				if _, err := stmt.Exec(ruleType, ruleID, srvID, nil, nil); err != nil {
+					return err
+				}
+			} else {
+				if _, err := stmt.Exec(ruleType, ruleID, nil, grpID, nil); err != nil {
+					return err
+				}
+			}
+		} else {
+			if _, err := stmt.Exec(ruleType, ruleID, nil, nil, srv); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applications []string, scopes []string, reg *registry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO rule_application_mappings (rule_type, rule_id, custom_app_id, predefined_app_name)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, app := range applications {
+		if app == "" {
+			continue
+		}
+		if appID, found := reg.resolveApplication(scopes, app); found {
+			if _, err := stmt.Exec(ruleType, ruleID, appID, nil); err != nil {
+				return err
+			}
+		} else {
+			if _, err := stmt.Exec(ruleType, ruleID, nil, app); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertRuleTags(tx *sql.Tx, entityType string, entityID int64, tags []string, scopes []string, reg *registry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id)
+		VALUES (?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, tag := range tags {
+		if tag == "" {
+			continue
+		}
+		if tagID, found := reg.resolveTag(scopes, tag); found {
+			if _, err := stmt.Exec(entityType, entityID, tagID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecurityRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO security_rules (device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		action := entry.Action
+		if action == "" {
+			action = "allow"
+		}
+
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			action,
+			disabled,
+			nil,
+			nil,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "security", ruleID, "from", entry.From)
+		insertRuleZones(tx, "security", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "security", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "security", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "security", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, "security", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, "security_rule", ruleID, entry.Tag, scopes, reg)
+	}
+	return nil
+}
+
+func insertNATRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLNATRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO nat_rules (device_uuid, scope, rule_name, description, disabled, to_zone, service_id, service_group_id, service_ad_hoc, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+
+		toZone := ""
+		if len(entry.To) > 0 {
+			toZone = entry.To[0]
+		}
+
+		var serviceID interface{}
+		var serviceGroupID interface{}
+		var serviceAdHoc interface{}
+
+		if entry.Service != "" {
+			srvID, grpID, found := reg.resolveService(scopes, entry.Service)
+			if found {
+				if srvID > 0 {
+					serviceID = srvID
+				} else {
+					serviceGroupID = grpID
+				}
+			} else {
+				serviceAdHoc = entry.Service
+			}
+		}
+
+		srcTransType := ""
+		srcTransAddr := ""
+		if entry.SourceTranslation.DynamicIPPort != nil && len(entry.SourceTranslation.DynamicIPPort.TranslatedAddress) > 0 {
+			srcTransType = "dynamic-ip-port"
+			srcTransAddr = strings.Join(entry.SourceTranslation.DynamicIPPort.TranslatedAddress, ",")
+		} else if entry.SourceTranslation.StaticIP != nil {
+			srcTransType = "static-ip"
+			srcTransAddr = entry.SourceTranslation.StaticIP.TranslatedAddress
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			toZone,
+			serviceID,
+			serviceGroupID,
+			serviceAdHoc,
+			srcTransType,
+			srcTransAddr,
+			entry.DestinationTranslation.TranslatedAddress,
+			entry.DestinationTranslation.TranslatedPort,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "nat", ruleID, "from", entry.From)
+		insertRuleAddresses(tx, "nat", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "nat", ruleID, "destination", entry.Destination, scopes, reg)
+	}
+	return nil
+}
+
+func insertQoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLQoSRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO qos_rules (device_uuid, scope, rule_name, description, disabled, qos_class, dscp_tos_marking, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.QoSClass,
+			entry.DSCPTOS,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "qos", ruleID, "from", entry.From)
+		insertRuleZones(tx, "qos", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "qos", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "qos", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "qos", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, "qos", ruleID, entry.Application, scopes, reg)
+	}
+	return nil
+}
+
+func insertPBFRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLPBFRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO pbf_rules (device_uuid, scope, rule_name, description, disabled, action, forward_interface, forward_next_hop, monitor_profile, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.Action,
+			entry.Forward.Interface,
+			entry.Forward.NextHop,
+			entry.Forward.Monitor,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "pbf", ruleID, "from", entry.From)
+		insertRuleAddresses(tx, "pbf", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "pbf", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "pbf", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, "pbf", ruleID, entry.Application, scopes, reg)
+	}
+	return nil
+}
+
+func insertDecryptionRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDecryptionRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO decryption_rules (device_uuid, scope, rule_name, description, disabled, action, decryption_type, decryption_profile, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.Action,
+			entry.Type,
+			entry.Profile,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "decryption", ruleID, "from", entry.From)
+		insertRuleZones(tx, "decryption", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "decryption", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "decryption", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "decryption", ruleID, entry.Service, scopes, reg)
+	}
+	return nil
+}
+
+func insertAppOverrideRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLAppOverrideRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO application_override_rules (device_uuid, scope, rule_name, description, disabled, protocol, port, custom_app_id, predefined_app_name)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+
+		var customAppID interface{}
+		var predefinedAppName interface{}
+		if entry.Application != "" {
+			if appID, found := reg.resolveApplication(scopes, entry.Application); found {
+				customAppID = appID
+			} else {
+				predefinedAppName = entry.Application
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.Protocol,
+			entry.Port,
+			customAppID,
+			predefinedAppName,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "app_override", ruleID, "from", entry.From)
+		insertRuleZones(tx, "app_override", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "app_override", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "app_override", ruleID, "destination", entry.Destination, scopes, reg)
+	}
+	return nil
+}
+
+func insertTunnelInspectionRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLTunnelInspectionRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO tunnel_inspection_rules (device_uuid, scope, rule_name, description, disabled, protocols, action_profile)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			strings.Join(entry.Protocols, ","),
+			entry.Action,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "tunnel_inspection", ruleID, "from", entry.From)
+		insertRuleZones(tx, "tunnel_inspection", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "destination", entry.Destination, scopes, reg)
+	}
+	return nil
+}
+
+func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStaticRouteEntry) error {
+	stmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO static_routes (device_uuid, vr_name, route_name, destination, nexthop, interface, metric)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, route := range entries {
+		if _, err := stmt.Exec(deviceUUID, vrName, route.Name, route.Destination, route.Nexthop.IPAddress, route.Interface, route.Metric); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, error) {
 	var config PaloAltoConfig
 	if err := xml.Unmarshal(xmlData, &config); err != nil {
@@ -786,9 +1719,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 	devicesImported := 0
 	topologyImported := 0
 
-	if isPanorama {
-		// --- PANORAMA PIPELINE ---
+	// Instantiate the scope ID registry
+	reg := newRegistry()
+	dgParentMap := buildDGInheritance(allDeviceGroups)
 
+	if isPanorama {
 		sharedUUID := "paloalto-panorama-global"
 		clearDeviceTables(tx, sharedUUID)
 		if _, err := deviceStmt.Exec(sharedUUID, "Panorama Global / Shared", nil); err != nil {
@@ -796,7 +1731,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 		devicesImported++
 
-		// 1. Process templates
+		// 1. Process templates (network only)
 		for _, tmpl := range allTemplates {
 			deviceUUID := "panorama-tmpl-" + tmpl.Name
 			deviceName := tmpl.Name + " (Panorama)"
@@ -883,42 +1818,194 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 		}
 
-		// 3. Process Shared / Global
-		// Write shared objects
-		if err := insertAddressObjects(tx, sharedUUID, "shared", config.Shared.Address); err != nil {
+		// 3. Process Shared / Global Objects
+		if err := insertAddressObjects(tx, sharedUUID, "shared", config.Shared.Address, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared address objects: %w", err)
 		}
-		if err := insertAddressGroups(tx, sharedUUID, "shared", config.Shared.AddressGroup); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared address groups: %w", err)
-		}
-		if err := insertServiceObjects(tx, sharedUUID, "shared", config.Shared.Service); err != nil {
+		if err := insertServiceObjects(tx, sharedUUID, "shared", config.Shared.Service, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared service objects: %w", err)
 		}
-		if err := insertServiceGroups(tx, sharedUUID, "shared", config.Shared.ServiceGroup); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared service groups: %w", err)
+		if err := insertApplicationObjects(tx, sharedUUID, "shared", config.Shared.Application, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared application objects: %w", err)
 		}
-		if err := insertTags(tx, sharedUUID, "shared", config.Shared.Tags); err != nil {
+		if err := insertTags(tx, sharedUUID, "shared", config.Shared.Tags, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared tags: %w", err)
 		}
-		if err := insertSecurityProfiles(tx, sharedUUID, "shared", config.Shared.Profiles); err != nil {
+		if err := insertSchedules(tx, sharedUUID, "shared", config.Shared.Schedule, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared schedules: %w", err)
+		}
+		if err := insertRegions(tx, sharedUUID, "shared", config.Shared.Region); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared regions: %w", err)
+		}
+		if err := insertSecurityProfiles(tx, sharedUUID, "shared", config.Shared.Profiles, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared profiles: %w", err)
 		}
 
-		// Write shared rules
-		if err := insertSecurityRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.SecurityRules); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared pre-security rules: %w", err)
+		// Address / Service groups Pass 1 (insert groups)
+		if err := insertAddressGroupsPass1(tx, sharedUUID, "shared", config.Shared.AddressGroup, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared address groups: %w", err)
 		}
-		if err := insertSecurityRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.SecurityRules); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared post-security rules: %w", err)
-		}
-		if err := insertNATRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.NATRules); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared pre-nat rules: %w", err)
-		}
-		if err := insertNATRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.NATRules); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared post-nat rules: %w", err)
+		if err := insertServiceGroupsPass1(tx, sharedUUID, "shared", config.Shared.ServiceGroup, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared service groups: %w", err)
 		}
 
-		// Write managed devices ledger
+		// Address / Service groups Pass 2 (insert members)
+		if err := insertAddressGroupsPass2(tx, "shared", config.Shared.AddressGroup, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to resolve shared address group members: %w", err)
+		}
+		if err := insertServiceGroupsPass2(tx, "shared", config.Shared.ServiceGroup, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to resolve shared service group members: %w", err)
+		}
+
+		// 4. Process Device Groups
+		for _, dg := range allDeviceGroups {
+			dgUUID := "paloalto-dg-" + dg.Name
+			dgName := dg.Name + " (Device Group)"
+
+			clearDeviceTables(tx, dgUUID)
+
+			var parentUUID interface{}
+			if dg.Parent != "" {
+				parentUUID = "paloalto-dg-" + dg.Parent
+			}
+
+			if _, err := deviceStmt.Exec(dgUUID, dgName, parentUUID); err != nil {
+				return 0, 0, fmt.Errorf("failed to register device group %s: %w", dg.Name, err)
+			}
+			devicesImported++
+
+			if err := insertAddressObjects(tx, dgUUID, dg.Name, dg.Address, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg address objects for %s: %w", dg.Name, err)
+			}
+			if err := insertServiceObjects(tx, dgUUID, dg.Name, dg.Service, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg service objects for %s: %w", dg.Name, err)
+			}
+			if err := insertApplicationObjects(tx, dgUUID, dg.Name, dg.Application, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg application objects for %s: %w", dg.Name, err)
+			}
+			if err := insertTags(tx, dgUUID, dg.Name, dg.Tags, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg tags for %s: %w", dg.Name, err)
+			}
+			if err := insertSchedules(tx, dgUUID, dg.Name, dg.Schedule, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg schedules for %s: %w", dg.Name, err)
+			}
+			if err := insertRegions(tx, dgUUID, dg.Name, dg.Region); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg regions for %s: %w", dg.Name, err)
+			}
+			if err := insertSecurityProfiles(tx, dgUUID, dg.Name, dg.Profiles, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg profiles for %s: %w", dg.Name, err)
+			}
+
+			// Groups Pass 1
+			if err := insertAddressGroupsPass1(tx, dgUUID, dg.Name, dg.AddressGroup, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg address groups for %s: %w", dg.Name, err)
+			}
+			if err := insertServiceGroupsPass1(tx, dgUUID, dg.Name, dg.ServiceGroup, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg service groups for %s: %w", dg.Name, err)
+			}
+
+			// Groups Pass 2
+			if err := insertAddressGroupsPass2(tx, dg.Name, dg.AddressGroup, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to resolve dg address group members for %s: %w", dg.Name, err)
+			}
+			if err := insertServiceGroupsPass2(tx, dg.Name, dg.ServiceGroup, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to resolve dg service group members for %s: %w", dg.Name, err)
+			}
+		}
+
+		// 5. Write shared rules
+		if err := insertSecurityRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.SecurityRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-security rules: %w", err)
+		}
+		if err := insertSecurityRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.SecurityRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-security rules: %w", err)
+		}
+		if err := insertNATRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.NATRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-nat rules: %w", err)
+		}
+		if err := insertNATRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.NATRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-nat rules: %w", err)
+		}
+		if err := insertQoSRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.QoSRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-qos rules: %w", err)
+		}
+		if err := insertQoSRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.QoSRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-qos rules: %w", err)
+		}
+		if err := insertPBFRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.PBFRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-pbf rules: %w", err)
+		}
+		if err := insertPBFRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.PBFRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-pbf rules: %w", err)
+		}
+		if err := insertDecryptionRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.DecryptionRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-decryption rules: %w", err)
+		}
+		if err := insertDecryptionRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.DecryptionRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-decryption rules: %w", err)
+		}
+		if err := insertAppOverrideRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.AppOverrideRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-override rules: %w", err)
+		}
+		if err := insertAppOverrideRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.AppOverrideRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-override rules: %w", err)
+		}
+		if err := insertTunnelInspectionRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared pre-tunnel inspection rules: %w", err)
+		}
+		if err := insertTunnelInspectionRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared post-tunnel inspection rules: %w", err)
+		}
+
+		// 6. Write device group rules
+		for _, dg := range allDeviceGroups {
+			dgUUID := "paloalto-dg-" + dg.Name
+
+			if err := insertSecurityRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.SecurityRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-security rules for %s: %w", dg.Name, err)
+			}
+			if err := insertSecurityRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.SecurityRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-security rules for %s: %w", dg.Name, err)
+			}
+			if err := insertNATRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.NATRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-nat rules for %s: %w", dg.Name, err)
+			}
+			if err := insertNATRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.NATRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-nat rules for %s: %w", dg.Name, err)
+			}
+			if err := insertQoSRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.QoSRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-qos rules for %s: %w", dg.Name, err)
+			}
+			if err := insertQoSRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.QoSRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-qos rules for %s: %w", dg.Name, err)
+			}
+			if err := insertPBFRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.PBFRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-pbf rules for %s: %w", dg.Name, err)
+			}
+			if err := insertPBFRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.PBFRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-pbf rules for %s: %w", dg.Name, err)
+			}
+			if err := insertDecryptionRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.DecryptionRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-decryption rules for %s: %w", dg.Name, err)
+			}
+			if err := insertDecryptionRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.DecryptionRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-decryption rules for %s: %w", dg.Name, err)
+			}
+			if err := insertAppOverrideRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.AppOverrideRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-override rules for %s: %w", dg.Name, err)
+			}
+			if err := insertAppOverrideRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.AppOverrideRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-override rules for %s: %w", dg.Name, err)
+			}
+			if err := insertTunnelInspectionRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg pre-tunnel inspection rules for %s: %w", dg.Name, err)
+			}
+			if err := insertTunnelInspectionRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg post-tunnel inspection rules for %s: %w", dg.Name, err)
+			}
+		}
+
+		// 7. Write managed devices ledger
 		allManagedDevices := make(map[string]XMLManagedDeviceEntry)
 		for _, md := range config.Shared.ManagedDevices {
 			if md.Serial != "" && md.Serial != "localhost.localdomain" {
@@ -980,7 +2067,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 		}
 
-		// Collect serials from device groups and template stacks to ensure all referenced firewalls are in the managed devices inventory
 		for _, dg := range allDeviceGroups {
 			for _, d := range dg.Devices {
 				if d.Name != "" && d.Name != "localhost.localdomain" {
@@ -1062,7 +2148,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 
 				name := mdev.Hostname
 				if name == "" {
-					// Check if a standalone firewall has already been imported for this serial
 					var existingName string
 					err := tx.QueryRow("SELECT name FROM devices WHERE uuid LIKE ?", "%-"+mdev.Serial).Scan(&existingName)
 					if err == nil && existingName != "" {
@@ -1077,7 +2162,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 					ipAddr = mdev.IP
 				}
 				if ipAddr == "" {
-					// Check if there is an existing IP in the DB for this serial (e.g. from standalone import first)
 					var existingIP string
 					err := tx.QueryRow("SELECT ip_address FROM managed_devices WHERE serial = ?", mdev.Serial).Scan(&existingIP)
 					if err == nil && existingIP != "" {
@@ -1088,59 +2172,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 		}
 
-		// 4. Process device groups
-		for _, dg := range allDeviceGroups {
-			dgUUID := "paloalto-dg-" + dg.Name
-			dgName := dg.Name + " (Device Group)"
-
-			clearDeviceTables(tx, dgUUID)
-
-			var parentUUID interface{}
-			if dg.Parent != "" {
-				parentUUID = "paloalto-dg-" + dg.Parent
-			}
-
-			if _, err := deviceStmt.Exec(dgUUID, dgName, parentUUID); err != nil {
-				return 0, 0, fmt.Errorf("failed to register device group %s: %w", dg.Name, err)
-			}
-			devicesImported++
-
-			// Write device group objects
-			if err := insertAddressObjects(tx, dgUUID, "device-group", dg.Address); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg address objects for %s: %w", dg.Name, err)
-			}
-			if err := insertAddressGroups(tx, dgUUID, "device-group", dg.AddressGroup); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg address groups for %s: %w", dg.Name, err)
-			}
-			if err := insertServiceObjects(tx, dgUUID, "device-group", dg.Service); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg service objects for %s: %w", dg.Name, err)
-			}
-			if err := insertServiceGroups(tx, dgUUID, "device-group", dg.ServiceGroup); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg service groups for %s: %w", dg.Name, err)
-			}
-			if err := insertTags(tx, dgUUID, "device-group", dg.Tags); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg tags for %s: %w", dg.Name, err)
-			}
-			if err := insertSecurityProfiles(tx, dgUUID, "device-group", dg.Profiles); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg profiles for %s: %w", dg.Name, err)
-			}
-
-			// Write device group rules
-			if err := insertSecurityRules(tx, dgUUID, "device-group:pre", dg.PreRulebase.SecurityRules); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg pre-security rules for %s: %w", dg.Name, err)
-			}
-			if err := insertSecurityRules(tx, dgUUID, "device-group:post", dg.PostRulebase.SecurityRules); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg post-security rules for %s: %w", dg.Name, err)
-			}
-			if err := insertNATRules(tx, dgUUID, "device-group:pre", dg.PreRulebase.NATRules); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg pre-nat rules for %s: %w", dg.Name, err)
-			}
-			if err := insertNATRules(tx, dgUUID, "device-group:post", dg.PostRulebase.NATRules); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg post-nat rules for %s: %w", dg.Name, err)
-			}
-		}
-
-		// Link all already imported standalone devices in the devices table to their Device Groups / Template Stacks
 		for _, mdev := range allManagedDevices {
 			dgName := ""
 			for _, dg := range allDeviceGroups {
@@ -1191,7 +2222,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 	} else {
-		// --- STANDALONE PIPELINE ---
+		// --- STANDALONE FIREWALL PIPELINE ---
 		for _, dev := range config.Devices {
 			deviceUUID := "paloalto-fw-" + dev.Name
 			if dev.Name == "" || dev.Name == "localhost.localdomain" {
@@ -1203,8 +2234,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 
 			fwName, serial := parseFirewallFilename(filename)
-			
-			// Extract system config if available
+
 			var xmlSerial string
 			var mgmtIP string
 			var xmlHostname string
@@ -1278,21 +2308,19 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				var existingDeviceUUID string
 				err := tx.QueryRow("SELECT device_uuid FROM managed_devices WHERE serial = ?", serial).Scan(&existingDeviceUUID)
 				if err == nil {
-					// Entry exists! Update the ip_address and name
 					if mgmtIP != "" {
 						tx.Exec("UPDATE managed_devices SET name = ?, ip_address = ? WHERE serial = ?", deviceName, mgmtIP, serial)
 					} else {
 						tx.Exec("UPDATE managed_devices SET name = ? WHERE serial = ?", deviceName, serial)
 					}
 				} else {
-					// No entry exists yet in managed_devices! Let's insert a new one for this standalone firewall
 					parentCtxUUID := deviceUUID
 					var existsGlobal int
 					tx.QueryRow("SELECT COUNT(*) FROM devices WHERE uuid = 'paloalto-panorama-global'").Scan(&existsGlobal)
 					if existsGlobal > 0 {
 						parentCtxUUID = "paloalto-panorama-global"
 					}
-					
+
 					_, err := tx.Exec(`
 						INSERT OR REPLACE INTO managed_devices (device_uuid, serial, name, ip_address, device_group, template_stack)
 						VALUES (?, ?, ?, ?, NULL, NULL)
@@ -1350,33 +2378,69 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				}
 			}
 
+			// Parse VSYS (Objects and Policies)
 			for _, vsys := range dev.Vsys {
 				scope := "vsys:" + vsys.Name
-				
-				if err := insertAddressObjects(tx, deviceUUID, scope, vsys.Address); err != nil {
+
+				if err := insertAddressObjects(tx, deviceUUID, scope, vsys.Address, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys address objects: %w", err)
 				}
-				if err := insertAddressGroups(tx, deviceUUID, scope, vsys.AddressGroup); err != nil {
-					return 0, 0, fmt.Errorf("failed to insert vsys address groups: %w", err)
-				}
-				if err := insertServiceObjects(tx, deviceUUID, scope, vsys.Service); err != nil {
+				if err := insertServiceObjects(tx, deviceUUID, scope, vsys.Service, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys service objects: %w", err)
 				}
-				if err := insertServiceGroups(tx, deviceUUID, scope, vsys.ServiceGroup); err != nil {
-					return 0, 0, fmt.Errorf("failed to insert vsys service groups: %w", err)
+				if err := insertApplicationObjects(tx, deviceUUID, scope, vsys.Application, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys custom applications: %w", err)
 				}
-				if err := insertTags(tx, deviceUUID, scope, vsys.Tags); err != nil {
+				if err := insertTags(tx, deviceUUID, scope, vsys.Tags, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys tags: %w", err)
 				}
-				if err := insertSecurityProfiles(tx, deviceUUID, scope, vsys.Profiles); err != nil {
+				if err := insertSchedules(tx, deviceUUID, scope, vsys.Schedule, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys schedules: %w", err)
+				}
+				if err := insertRegions(tx, deviceUUID, scope, vsys.Region); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys regions: %w", err)
+				}
+				if err := insertSecurityProfiles(tx, deviceUUID, scope, vsys.Profiles, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys profiles: %w", err)
 				}
 
-				if err := insertSecurityRules(tx, deviceUUID, scope, vsys.SecurityRules); err != nil {
+				// Groups Pass 1
+				if err := insertAddressGroupsPass1(tx, deviceUUID, scope, vsys.AddressGroup, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys address groups: %w", err)
+				}
+				if err := insertServiceGroupsPass1(tx, deviceUUID, scope, vsys.ServiceGroup, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys service groups: %w", err)
+				}
+
+				// Groups Pass 2
+				if err := insertAddressGroupsPass2(tx, scope, vsys.AddressGroup, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to resolve vsys address group members: %w", err)
+				}
+				if err := insertServiceGroupsPass2(tx, scope, vsys.ServiceGroup, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to resolve vsys service group members: %w", err)
+				}
+
+				// Rules
+				if err := insertSecurityRules(tx, deviceUUID, scope, vsys.SecurityRules, reg, dgParentMap); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys security rules: %w", err)
 				}
-				if err := insertNATRules(tx, deviceUUID, scope, vsys.NATRules); err != nil {
+				if err := insertNATRules(tx, deviceUUID, scope, vsys.NATRules, reg, dgParentMap); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys nat rules: %w", err)
+				}
+				if err := insertQoSRules(tx, deviceUUID, scope, vsys.QoSRules, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys qos rules: %w", err)
+				}
+				if err := insertPBFRules(tx, deviceUUID, scope, vsys.PBFRules, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys pbf rules: %w", err)
+				}
+				if err := insertDecryptionRules(tx, deviceUUID, scope, vsys.DecryptionRules, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys decryption rules: %w", err)
+				}
+				if err := insertAppOverrideRules(tx, deviceUUID, scope, vsys.AppOverrideRules, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys app override rules: %w", err)
+				}
+				if err := insertTunnelInspectionRules(tx, deviceUUID, scope, vsys.TunnelInspectionRules, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys tunnel inspection rules: %w", err)
 				}
 			}
 		}

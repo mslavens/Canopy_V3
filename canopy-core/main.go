@@ -125,10 +125,19 @@ var actSchema = `
 		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS address_group_members (
-		group_id INTEGER,
-		member_name TEXT NOT NULL,
-		PRIMARY KEY (group_id, member_name),
-		FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE
+		group_id INTEGER NOT NULL,
+		member_address_id INTEGER,
+		member_group_id INTEGER,
+		member_name TEXT,
+		PRIMARY KEY (group_id, member_address_id, member_group_id, member_name),
+		FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_address_id) REFERENCES address_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_group_id) REFERENCES address_groups(id) ON DELETE CASCADE,
+		CHECK (
+			(member_address_id IS NOT NULL AND member_group_id IS NULL AND member_name IS NULL) OR
+			(member_address_id IS NULL AND member_group_id IS NOT NULL AND member_name IS NULL) OR
+			(member_address_id IS NULL AND member_group_id IS NULL AND member_name IS NOT NULL)
+		)
 	);
 	CREATE TABLE IF NOT EXISTS service_objects (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,10 +159,68 @@ var actSchema = `
 		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS service_group_members (
-		group_id INTEGER,
-		member_name TEXT NOT NULL,
-		PRIMARY KEY (group_id, member_name),
-		FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE
+		group_id INTEGER NOT NULL,
+		member_service_id INTEGER,
+		member_group_id INTEGER,
+		member_name TEXT,
+		PRIMARY KEY (group_id, member_service_id, member_group_id, member_name),
+		FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_service_id) REFERENCES service_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_group_id) REFERENCES service_groups(id) ON DELETE CASCADE,
+		CHECK (
+			(member_service_id IS NOT NULL AND member_group_id IS NULL AND member_name IS NULL) OR
+			(member_service_id IS NULL AND member_group_id IS NOT NULL AND member_name IS NULL) OR
+			(member_service_id IS NULL AND member_group_id IS NULL AND member_name IS NOT NULL)
+		)
+	);
+	CREATE TABLE IF NOT EXISTS application_objects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		category TEXT NOT NULL,
+		subcategory TEXT NOT NULL,
+		technology TEXT NOT NULL,
+		risk INTEGER DEFAULT 1,
+		ports TEXT,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS regions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		latitude REAL,
+		longitude REAL,
+		addresses TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS schedules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		schedule_type TEXT,
+		schedule_details TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS tags (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		color TEXT,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS security_profiles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS security_rules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,13 +230,11 @@ var actSchema = `
 		description TEXT,
 		action TEXT NOT NULL,
 		disabled INTEGER DEFAULT 0,
-		from_zones TEXT,
-		to_zones TEXT,
-		source_addresses TEXT,
-		destination_addresses TEXT,
-		services TEXT,
-		applications TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		profile_type TEXT,
+		profile_group TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
 	);
 	CREATE TABLE IF NOT EXISTS nat_rules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,15 +243,83 @@ var actSchema = `
 		rule_name TEXT NOT NULL,
 		description TEXT,
 		disabled INTEGER DEFAULT 0,
-		from_zones TEXT,
 		to_zone TEXT,
-		source_addresses TEXT,
-		destination_addresses TEXT,
-		service TEXT,
+		service_id INTEGER,
+		service_group_id INTEGER,
+		service_ad_hoc TEXT,
 		source_translation_type TEXT,
 		source_translation_address TEXT,
 		destination_translation_address TEXT,
 		destination_translation_port TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE SET NULL,
+		FOREIGN KEY (service_group_id) REFERENCES service_groups(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS qos_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		qos_class TEXT NOT NULL,
+		dscp_tos_marking TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS pbf_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		action TEXT NOT NULL,
+		forward_interface TEXT,
+		forward_next_hop TEXT,
+		monitor_profile TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS decryption_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		action TEXT NOT NULL,
+		decryption_type TEXT,
+		decryption_profile TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS application_override_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		protocol TEXT NOT NULL,
+		port TEXT NOT NULL,
+		custom_app_id INTEGER,
+		predefined_app_name TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS tunnel_inspection_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		protocols TEXT,
+		action_profile TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS static_routes (
@@ -211,22 +344,69 @@ var actSchema = `
 		template_stack TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
 	);
-	CREATE TABLE IF NOT EXISTS tags (
+	CREATE TABLE IF NOT EXISTS rule_address_mappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		device_uuid TEXT NOT NULL,
-		scope TEXT NOT NULL,
-		name TEXT NOT NULL,
-		color TEXT,
-		description TEXT,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		rule_type TEXT NOT NULL,
+		rule_id INTEGER NOT NULL,
+		direction TEXT NOT NULL,
+		address_id INTEGER,
+		group_id INTEGER,
+		ad_hoc_value TEXT,
+		FOREIGN KEY (address_id) REFERENCES address_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (group_id) REFERENCES address_groups(id) ON DELETE CASCADE,
+		CHECK (
+			(address_id IS NOT NULL AND group_id IS NULL AND ad_hoc_value IS NULL) OR
+			(address_id IS NULL AND group_id IS NOT NULL AND ad_hoc_value IS NULL) OR
+			(address_id IS NULL AND group_id IS NULL AND ad_hoc_value IS NOT NULL)
+		)
 	);
-	CREATE TABLE IF NOT EXISTS security_profiles (
+	CREATE TABLE IF NOT EXISTS rule_service_mappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		device_uuid TEXT NOT NULL,
-		scope TEXT NOT NULL,
-		name TEXT NOT NULL,
-		type TEXT NOT NULL,
-		FOREIGN KEY (device_uuid) REFERENCES devices(uuid) ON DELETE CASCADE
+		rule_type TEXT NOT NULL,
+		rule_id INTEGER NOT NULL,
+		service_id INTEGER,
+		group_id INTEGER,
+		ad_hoc_value TEXT,
+		FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (group_id) REFERENCES service_groups(id) ON DELETE CASCADE,
+		CHECK (
+			(service_id IS NOT NULL AND group_id IS NULL AND ad_hoc_value IS NULL) OR
+			(service_id IS NULL AND group_id IS NOT NULL AND ad_hoc_value IS NULL) OR
+			(service_id IS NULL AND group_id IS NULL AND ad_hoc_value IS NOT NULL)
+		)
+	);
+	CREATE TABLE IF NOT EXISTS rule_application_mappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		rule_type TEXT NOT NULL,
+		rule_id INTEGER NOT NULL,
+		custom_app_id INTEGER,
+		predefined_app_name TEXT,
+		FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE CASCADE,
+		CHECK (
+			(custom_app_id IS NOT NULL AND predefined_app_name IS NULL) OR
+			(custom_app_id IS NULL AND predefined_app_name IS NOT NULL)
+		)
+	);
+	CREATE TABLE IF NOT EXISTS rule_zone_mappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		rule_type TEXT NOT NULL,
+		rule_id INTEGER NOT NULL,
+		direction TEXT NOT NULL,
+		zone_name TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS entity_tag_mappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		entity_type TEXT NOT NULL,
+		entity_id INTEGER NOT NULL,
+		tag_id INTEGER NOT NULL,
+		FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS security_rule_profiles (
+		rule_id INTEGER NOT NULL,
+		profile_id INTEGER NOT NULL,
+		PRIMARY KEY (rule_id, profile_id),
+		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE,
+		FOREIGN KEY (profile_id) REFERENCES security_profiles(id) ON DELETE CASCADE
 	);`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
@@ -585,26 +765,14 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 
 	// 2. Workspace Schema
 	activeDB.WriteLock()
-	// Migration: Add parent_uuid to devices table if it doesn't exist
-	_, _ = activeDB.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
-
 	if _, err := activeDB.DB().Exec(actSchema); err != nil {
 		slog.Error("Failed to initialize workspace schema", slog.String("error", err.Error()))
 	}
+	// Migration: Add parent_uuid to devices table if it doesn't exist (fails safely if column/table already exists)
+	_, _ = activeDB.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
 	activeDB.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
 	activeDB.WriteUnlock()
 
-	var entryCount int
-	err = activeDB.DB().QueryRow("SELECT COUNT(*) FROM network_topology").Scan(&entryCount)
-	if err == nil && entryCount == 0 {
-		slog.Info("Empty database configuration discovered. Auto-seeding Calgary topology records...")
-		activeDB.WriteLock()
-		seedSQL := "INSERT OR IGNORE INTO devices (uuid, name, vendor) VALUES ('fw-calgary-edge', 'fw-calgary-edge', 'PaloAlto'); INSERT OR IGNORE INTO network_topology (device_uuid, interface_name, network_cidr, zone_name, vendor_metadata) VALUES ('fw-calgary-edge', 'ethernet1/1', '10.99.3.0/24', 'Outside', '{\"speed\": \"10G\"}'), ('fw-calgary-edge', 'ethernet1/2', '192.168.50.0/24', 'Inside', '{\"speed\": \"10G\"}');"
-		if _, seedErr := activeDB.DB().Exec(seedSQL); seedErr != nil {
-			slog.Error("Failed to apply automated schema seeds", slog.String("error", seedErr.Error()))
-		}
-		activeDB.WriteUnlock()
-	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -1234,11 +1402,11 @@ func main() {
 		}
 
 		newSpoke.WriteLock()
-		// Migration: Add parent_uuid to devices table if it doesn't exist
-		_, _ = newSpoke.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
 		if _, err := newSpoke.DB().Exec(actSchema); err != nil {
 			slog.Error("Failed to initialize workspace schema on switch", slog.String("error", err.Error()))
 		}
+		// Migration: Add parent_uuid to devices table if it doesn't exist (fails safely if column/table already exists)
+		_, _ = newSpoke.DB().Exec("ALTER TABLE devices ADD COLUMN parent_uuid TEXT;")
 		newSpoke.DB().Exec(fmt.Sprintf("INSERT OR IGNORE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 1)", AppBundleID))
 		newSpoke.WriteUnlock()
 

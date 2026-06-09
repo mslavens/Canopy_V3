@@ -198,7 +198,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         </aside>
 
         {/* Right Content View */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, gap: '15px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, gap: '15px', minWidth: 0 }}>
           {/* Card Header showing information about selected table */}
           {activeTableMeta && (
             <div style={{ 
@@ -221,7 +221,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
           )}
 
           {/* Table display */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden', minWidth: 0 }}>
             {error && (
               <div style={{ margin: '15px', backgroundColor: 'var(--bg-app)', borderLeft: '4px solid var(--status-red)', padding: '12px 15px', borderRadius: '4px', color: 'var(--status-red)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 <AlertTriangle size={14} style={{ flexShrink: 0 }} />
@@ -235,7 +235,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
                 Fetching table contents...
               </div>
             ) : data && data.columns.length > 0 ? (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s ease', pointerEvents: loading ? 'none' : 'auto' }}>
+              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s ease', pointerEvents: loading ? 'none' : 'auto', minWidth: 0 }}>
                  <DataTable columns={tableColumns} data={data.rows} searchQuery={pageSearchQuery} exportFilename={`inspection_${selectedTable}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} />
               </div>
             ) : (!error && !loading && <EmptyState icon={<Database size={32} />} title="Empty Table" description="No configuration details found. Ensure you have loaded Palo Alto XML configs in the XML Import tab." minHeight="250px" />)}
