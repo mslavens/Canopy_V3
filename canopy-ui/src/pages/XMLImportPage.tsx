@@ -45,6 +45,10 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     topologies_imported: number;
   } | null>(null);
 
+  // Loading Progress Steps
+  const [currentProgressStep, setCurrentProgressStep] = useState(0);
+  const [progressPercent, setProgressPercent] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -108,7 +112,35 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
   const handleImportAll = async () => {
     if (!file || !auth) return;
     setIsImporting(true);
+    setCurrentProgressStep(0);
+    setProgressPercent(15);
     setError(null);
+
+    const timeouts: NodeJS.Timeout[] = [];
+    const regTimeout = (fn: () => void, delay: number) => {
+      timeouts.push(setTimeout(fn, delay));
+    };
+
+    regTimeout(() => {
+      setCurrentProgressStep(1);
+      setProgressPercent(35);
+    }, 900);
+
+    regTimeout(() => {
+      setCurrentProgressStep(2);
+      setProgressPercent(55);
+    }, 2000);
+
+    regTimeout(() => {
+      setCurrentProgressStep(3);
+      setProgressPercent(75);
+    }, 3200);
+
+    regTimeout(() => {
+      setCurrentProgressStep(4);
+      setProgressPercent(90);
+    }, 4500);
+
     try {
       const apiClient = new CanopyApiClient(auth);
       const formData = new FormData();
@@ -116,12 +148,24 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
 
       // Perform final DB commit
       const res = await apiClient.importDeviceXml(formData, false);
+
+      // Clear pending timeouts
+      timeouts.forEach(clearTimeout);
+
+      // Fast-forward progress steps to complete
+      setCurrentProgressStep(5);
+      setProgressPercent(100);
+
+      // Let the user view 100% complete state for 800ms
+      await new Promise(resolve => setTimeout(resolve, 800));
+
       setImportSummary({
         devices_imported: res.devices_imported,
         topologies_imported: res.topologies_imported
       });
       addToast('Configuration successfully committed to database.', 'success');
     } catch (err) {
+      timeouts.forEach(clearTimeout);
       const errMsg = err instanceof Error ? err.message : 'Import failed.';
       setError(errMsg);
       addToast(errMsg, 'error');
@@ -385,6 +429,29 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
             </div>
           </div>
 
+          {/* Zero Changes Duplicate Warning Badge */}
+          {previewData.stats.added_count === 0 && previewData.stats.modified_count === 0 && (
+            <div style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.05)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: '6px',
+              padding: '12px 15px',
+              color: 'var(--text-main)',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <CheckCircle2 size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontWeight: 600 }}>Database Configuration Up-to-Date</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  This configuration file matches your active database records exactly (0 additions, 0 modifications).
+                </span>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div style={{ backgroundColor: 'var(--bg-app)', borderLeft: '4px solid var(--status-red)', padding: '12px 15px', borderRadius: '4px', color: 'var(--status-red)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0 }} />
@@ -401,11 +468,148 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                   Saving to Database...
                 </>
               ) : (
-                'Import Entire Configuration'
+                previewData.stats.added_count === 0 && previewData.stats.modified_count === 0
+                  ? 'Force Import Configuration'
+                  : 'Import Entire Configuration'
               )}
             </button>
           </div>
         </section>
+      )}
+
+      {/* Premium Glassmorphic Loading Modal */}
+      {isImporting && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(7, 9, 15, 0.82)',
+          backdropFilter: 'blur(12px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(22, 28, 38, 0.95) 0%, rgba(13, 17, 24, 0.98) 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '35px',
+            width: '480px',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            color: 'var(--text-main)'
+          }}>
+            {/* Header / Loading Spinner */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: currentProgressStep === 5 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: currentProgressStep === 5 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+                flexShrink: 0
+              }}>
+                {currentProgressStep === 5 ? (
+                  <CheckCircle2 size={22} style={{ color: 'var(--status-green)' }} />
+                ) : (
+                  <Loader2 size={22} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
+                )}
+              </div>
+              <div style={{ flexGrow: 1 }}>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600 }}>
+                  {currentProgressStep === 5 ? 'Ingestion Complete!' : 'Ingesting Configuration...'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Please do not close Canopy or refresh the window.
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <span style={{ color: 'var(--accent-blue)' }}>Progress Matrix</span>
+                <span style={{ color: 'var(--text-main)' }}>{progressPercent}%</span>
+              </div>
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${progressPercent}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--accent-blue) 0%, var(--status-green) 100%)',
+                  borderRadius: '3px',
+                  transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                }} />
+              </div>
+            </div>
+
+            {/* Steps Log */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.04)',
+              borderRadius: '8px',
+              padding: '16px 20px',
+              maxHeight: '280px',
+              overflowY: 'auto'
+            }}>
+              {[
+                { title: 'Analyze XML Structure', desc: 'Parsed input files and verified metadata headers.' },
+                { title: 'Resolve Scopes & Templates', desc: 'Mapping device-groups, parent relationships, and templates.' },
+                { title: 'Synchronize Object Repository', desc: 'Ingesting address objects, groups, and service matrix.' },
+                { title: 'Deploy Security & Policy Bases', desc: 'Compiling pre-rules, post-rules, and decryption policies.' },
+                { title: 'Commit Matrix Database', desc: 'Securing transactional updates to active SQLite matrices.' }
+              ].map((step, index) => {
+                const isCompleted = index < currentProgressStep || currentProgressStep === 5;
+                const isActive = index === currentProgressStep && currentProgressStep < 5;
+                const isPending = index > currentProgressStep && currentProgressStep < 5;
+
+                let iconColor = 'rgba(255, 255, 255, 0.15)';
+                let textColor = 'var(--text-muted)';
+                let descColor = 'rgba(255, 255, 255, 0.3)';
+
+                if (isCompleted) {
+                  iconColor = 'var(--status-green)';
+                  textColor = 'var(--text-main)';
+                  descColor = 'var(--text-muted)';
+                } else if (isActive) {
+                  iconColor = 'var(--accent-blue)';
+                  textColor = 'var(--text-main)';
+                  descColor = 'var(--text-muted)';
+                }
+
+                return (
+                  <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                    <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {isCompleted ? (
+                        <CheckCircle2 size={15} style={{ color: iconColor }} />
+                      ) : isActive ? (
+                        <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
+                      ) : (
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor }}>
+                        {step.title}
+                      </span>
+                      <span style={{ fontSize: '11px', color: descColor, lineHeight: 1.3 }}>
+                        {step.desc}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Success summary Panel */}
