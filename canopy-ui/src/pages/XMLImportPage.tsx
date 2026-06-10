@@ -405,12 +405,24 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                 borderRadius: '4px',
                 border: '1px solid var(--border-main)'
               }}>
-                {previewData.warnings.map((warn, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', lineHeight: 1.4 }}>
-                    <span style={{ color: 'var(--status-warn)', flexShrink: 0 }}>•</span>
-                    <span>{warn}</span>
-                  </div>
-                ))}
+                {previewData.warnings.map((warn, index) => {
+                  const isAddition = warn.startsWith('[ADDITION]');
+                  return (
+                    <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                      <span style={{ color: isAddition ? 'var(--status-green)' : 'var(--status-warn)', flexShrink: 0 }}>•</span>
+                      <span>
+                        {isAddition ? (
+                          <>
+                            <strong style={{ color: 'var(--status-green)' }}>[ADDITION]</strong>{' '}
+                            {warn.substring('[ADDITION]'.length).trim()}
+                          </>
+                        ) : (
+                          warn
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

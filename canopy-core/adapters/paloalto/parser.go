@@ -696,6 +696,39 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 					}
 					stats.Warnings = append(stats.Warnings, fmt.Sprintf("Managed device '%s' (Serial: %s) is mapped to Template/Stack '%s' in XML, but is currently assigned to '%s' in database.", nameOrSerial, mdev.Serial, stackName, curStack))
 				}
+			} else if err == sql.ErrNoRows {
+				nameOrSerial := mdev.Hostname
+				if nameOrSerial == "" {
+					nameOrSerial = mdev.Serial
+				}
+				stats.Warnings = append(stats.Warnings, fmt.Sprintf("[ADDITION] Managed device '%s' (Serial: %s) exists in the XML but is missing from the database (will be added).", nameOrSerial, mdev.Serial))
+			}
+		}
+
+		// Check for missing Device Groups
+		for _, dg := range allDeviceGroups {
+			var exists int
+			err := a.store.DB().QueryRow("SELECT COUNT(*) FROM device_groups WHERE name = ?", dg.Name).Scan(&exists)
+			if err == nil && exists == 0 {
+				stats.Warnings = append(stats.Warnings, fmt.Sprintf("[ADDITION] Device Group '%s' exists in the XML but is missing from the database (will be added).", dg.Name))
+			}
+		}
+
+		// Check for missing Templates
+		for _, tmpl := range allTemplates {
+			var exists int
+			err := a.store.DB().QueryRow("SELECT COUNT(*) FROM templates WHERE name = ?", tmpl.Name).Scan(&exists)
+			if err == nil && exists == 0 {
+				stats.Warnings = append(stats.Warnings, fmt.Sprintf("[ADDITION] Template '%s' exists in the XML but is missing from the database (will be added).", tmpl.Name))
+			}
+		}
+
+		// Check for missing Template Stacks
+		for _, stack := range allTemplateStacks {
+			var exists int
+			err := a.store.DB().QueryRow("SELECT COUNT(*) FROM template_stacks WHERE name = ?", stack.Name).Scan(&exists)
+			if err == nil && exists == 0 {
+				stats.Warnings = append(stats.Warnings, fmt.Sprintf("[ADDITION] Template Stack '%s' exists in the XML but is missing from the database (will be added).", stack.Name))
 			}
 		}
 
@@ -781,6 +814,15 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 					return nil, fmt.Errorf("compareApplicationObjects standalone vsys %s: %w", vsys.Name, err)
 				} else {
 					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+			}
+
+			// Check if standalone firewall is missing from database
+			if serial != "" {
+				var exists int
+				err := a.store.DB().QueryRow("SELECT COUNT(*) FROM managed_devices_raw WHERE serial = ?", serial).Scan(&exists)
+				if err == nil && exists == 0 {
+					stats.Warnings = append(stats.Warnings, fmt.Sprintf("[ADDITION] Standalone Firewall '%s' (Serial: %s) exists in the XML but is missing from the database (will be added).", name, serial))
 				}
 			}
 		}
