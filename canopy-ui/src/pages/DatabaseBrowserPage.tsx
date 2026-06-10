@@ -82,6 +82,12 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         { tableName: "secrets_vault", label: "Secrets Vault", description: "Encrypted API access keys, credentials, and tokens.", icon: <HardDrive size={14} /> },
         { tableName: "license_vault", label: "License Vault", description: "Offline cryptographic licenses and activation ledger keys.", icon: <HardDrive size={14} /> }
       ]
+    },
+    {
+      categoryName: "Schema Directory",
+      tables: [
+        { tableName: "sqlite_master", label: "Schema Catalog", description: "Master directory of all tables and raw creation schemas in the offline database.", icon: <Database size={14} /> }
+      ]
     }
   ];
 
@@ -114,7 +120,9 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
 
   // Auto-run query when selected table changes
   useEffect(() => {
-    const q = `SELECT * FROM ${selectedTable};`;
+    const q = selectedTable === 'sqlite_master'
+      ? "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+      : `SELECT * FROM ${selectedTable};`;
     setQuery(q);
     runQuery(q);
   }, [selectedTable]);

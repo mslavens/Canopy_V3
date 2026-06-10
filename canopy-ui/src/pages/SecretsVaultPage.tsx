@@ -205,12 +205,12 @@ export const SecretsVaultPage: React.FC<SecretsVaultPageProps> = ({ auth, addToa
       label: 'Manage', 
       allowOverflow: true,
       renderCell: (_, row) => (
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
           <Tooltip content="Edit Secret" position="top" align="left">
-            <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleEditClick(row as Secret)}><Edit2 size={14} /></button>
+            <button className="btn-table-action" onClick={() => handleEditClick(row as Secret)}><Edit2 size={14} /></button>
           </Tooltip>
           <Tooltip content="Delete Secret" position="top" align="right">
-            <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeleteSecret(row.id, row.name)}><Trash2 size={14} /></button>
+            <button className="btn-table-action-danger" onClick={() => handleDeleteSecret(row.id, row.name)}><Trash2 size={14} /></button>
           </Tooltip>
         </div>
       )

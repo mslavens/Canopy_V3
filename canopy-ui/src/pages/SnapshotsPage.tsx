@@ -197,18 +197,18 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
     { key: 'description', label: 'Description', renderCell: (val) => <span style={{ color: 'var(--text-muted)' }}>{val || '-'}</span> },
     { key: 'size_bytes', label: 'Total Matrix Size', renderCell: (val) => <span style={{ color: 'var(--text-muted)' }}>{(val / 1024 / 1024).toFixed(2)} MB</span> },
     { key: 'actions', label: 'Actions', allowOverflow: true, renderCell: (_, row) => (
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
           <Tooltip content="Instantly Revert Workspace" position="top">
-            <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleRevertSnapshot(row.id)}><RotateCcw size={14} /></button>
+            <button className="btn-table-action" onClick={() => handleRevertSnapshot(row.id)}><RotateCcw size={14} /></button>
           </Tooltip>
           <Tooltip content="Edit Description" position="top">
-            <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => { setEditingSnapshot({ id: row.id, description: row.description || '' }); setEditSnapshotDesc(row.description || ''); }}><Edit2 size={14} /></button>
+            <button className="btn-table-action" onClick={() => { setEditingSnapshot({ id: row.id, description: row.description || '' }); setEditSnapshotDesc(row.description || ''); }}><Edit2 size={14} /></button>
           </Tooltip>
           <Tooltip content="Download as Backup (.cbak)" position="top">
-            <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => { setExportId(row.id); setIsBackupModalOpen(true); }}><Download size={14} /></button>
+            <button className="btn-table-action" onClick={() => { setExportId(row.id); setIsBackupModalOpen(true); }}><Download size={14} /></button>
           </Tooltip>
           <Tooltip content="Delete Snapshot" position="top" align="right">
-            <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeleteSnapshot(row.id)}><Trash2 size={14} /></button>
+            <button className="btn-table-action-danger" onClick={() => handleDeleteSnapshot(row.id)}><Trash2 size={14} /></button>
           </Tooltip>
         </div>
       )}

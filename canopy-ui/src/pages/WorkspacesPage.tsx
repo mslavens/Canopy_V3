@@ -294,13 +294,13 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
               </button>
             </Tooltip>
             <Tooltip content="Edit Name & Color" position="top">
-              <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleEditClick(ws)}><Edit2 size={14} /></button>
+              <button className="btn-table-action" onClick={() => handleEditClick(ws)}><Edit2 size={14} /></button>
             </Tooltip>
             <Tooltip content="Export Encrypted Vault" position="top">
-              <button className="btn-secondary btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleExportClick(ws)}><Upload size={14} /></button>
+              <button className="btn-table-action" onClick={() => handleExportClick(ws)}><Upload size={14} /></button>
             </Tooltip>
             <Tooltip content="Delete Workspace" position="top" align="right">
-              <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDeleteClick(ws)} disabled={isActive}><Trash2 size={14} /></button>
+              <button className="btn-table-action-danger" onClick={() => handleDeleteClick(ws)} disabled={isActive}><Trash2 size={14} /></button>
             </Tooltip>
           </div>
         );

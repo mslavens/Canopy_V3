@@ -281,6 +281,43 @@ input[type="file"]:disabled::file-selector-button {
   font-size: 13px;
 }
 
+/* Table Action Buttons (Modern Dashboard Standard) */
+.btn-table-action {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  transition: all 0.15s ease;
+}
+.btn-table-action:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--text-main) 8%, transparent);
+  color: var(--text-main);
+  border-color: color-mix(in srgb, var(--text-main) 15%, transparent);
+}
+
+.btn-table-action-danger {
+  background-color: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  transition: all 0.15s ease;
+}
+.btn-table-action-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-red) 12%, transparent);
+  color: var(--status-red);
+  border-color: color-mix(in srgb, var(--status-red) 30%, transparent);
+}
+
 /* Size Modifiers */
 .btn-sm {
   padding: 6px 15px;

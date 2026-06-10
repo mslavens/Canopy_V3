@@ -675,22 +675,20 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       label: 'Actions',
       width: '100px',
       renderCell: (_, row) => (
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '4px' }}>
           <button 
-            className="btn-secondary btn-sm" 
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+            className="btn-table-action" 
             onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
             title="Edit Device"
           >
-            <Edit2 size={12} />
+            <Edit2 size={14} />
           </button>
           <button 
-            className="btn-danger btn-sm" 
-            style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+            className="btn-table-action-danger" 
             onClick={(e) => { e.stopPropagation(); handleDeleteDevice(row); }}
             title="Delete Device"
           >
-            <Trash2 size={12} />
+            <Trash2 size={14} />
           </button>
         </div>
       )

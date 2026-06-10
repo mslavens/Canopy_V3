@@ -207,9 +207,9 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
   const getColDef = (key: string) => columns.find(c => c.key === key) || { key, label: key };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-app)', minWidth: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'transparent', minWidth: 0 }}>
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 15px 0', backgroundColor: 'transparent' }}>
+      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent' }}>
         <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px' }}>
           {selectable && selectedRows.size > 0 && (
             <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -248,7 +248,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
               {selectable && (
@@ -284,16 +284,16 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
             {paginatedRows.map((row, rIdx) => {
               const isHighlighted = highlightRow ? highlightRow(row) : false;
               return (
-              <tr key={rIdx} className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} style={{ borderBottom: '1px solid var(--border-main)' }}>
+              <tr key={rIdx} className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'}>
                 {selectable && (
-                  <td style={{ padding: '10px 15px 10px 20px' }}>
+                  <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)' }}>
                     <input type="checkbox" checked={selectedRows.has(row)} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />
                   </td>
                 )}
                 {visibleColumnKeys.map((colKey, cIdx) => {
                   const colDef = getColDef(colKey);
                   return (
-                    <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
+                    <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
                       {colDef.renderCell ? colDef.renderCell(row[colKey], row) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
                     </td>
                   );
@@ -315,7 +315,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
           </tbody>
         </table>
       </div>
-      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 0 0 0', backgroundColor: 'transparent', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows per page:</span><Dropdown options={['25', '50', '100', '500']} value={pageSize.toString()} onChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }} width="80px" direction="up" /></div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Showing {processedRows.length === 0 ? 0 : startIndex + 1} to {endIndex} of {processedRows.length} entries</div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 
@@ -9,14 +9,27 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
   footer?: React.ReactNode;
+  resizable?: boolean;
+  draggable?: boolean;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, size = 'md', children, footer }) => {
+export const Modal: React.FC<ModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  size = 'md', 
+  children, 
+  footer,
+  resizable = true,
+  draggable = true
+}) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
+      setPosition({ x: 0, y: 0 });
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -65,6 +78,38 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, size = 'md
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!draggable) return;
+    if (e.button !== 0) return; // Only left-click drags
+    const target = e.target as HTMLElement;
+    // Don't drag if clicking buttons, links, inputs, or selections
+    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
+      return;
+    }
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = position.x;
+    const startPosY = position.y;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      setPosition({
+        x: startPosX + dx,
+        y: startPosY + dy
+      });
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   if (!isOpen) return null;
 
   const sizeMap = { sm: '400px', md: '600px', lg: '800px' };
@@ -76,8 +121,42 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, size = 'md
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div ref={modalRef} tabIndex={-1} style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '8px', width: sizeMap[size], maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', overflow: 'hidden', outline: 'none' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)' }}>
+      <div 
+        ref={modalRef} 
+        tabIndex={-1} 
+        style={{ 
+          backgroundColor: 'var(--bg-app)', 
+          border: '1px solid var(--border-main)', 
+          borderRadius: '8px', 
+          width: sizeMap[size], 
+          maxWidth: '95vw', 
+          maxHeight: '90vh', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          boxShadow: '0 10px 30px rgba(0,0,0,0.5)', 
+          overflow: 'hidden', 
+          outline: 'none',
+          resize: resizable ? 'both' : 'none',
+          minWidth: '320px',
+          minHeight: '220px',
+          transform: `translate(${position.x}px, ${position.y}px)`,
+          transition: 'transform 0.05s linear' // brief smooth transition during drag moves
+        }}
+      >
+        <div 
+          onMouseDown={handleMouseDown}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            padding: '15px 20px', 
+            backgroundColor: 'var(--bg-surface)', 
+            borderBottom: '1px solid var(--border-main)', 
+            flexShrink: 0,
+            cursor: draggable ? 'grab' : 'default',
+            userSelect: 'none'
+          }}
+        >
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>{title}</h2>
           <Tooltip content="Close Modal" align="right">
             <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
@@ -85,11 +164,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, size = 'md
             </button>
           </Tooltip>
         </div>
-        <div style={{ padding: '20px', overflowY: 'auto', color: 'var(--text-main)', fontSize: '13px', lineHeight: 1.5 }}>
+        <div style={{ padding: '20px', overflowY: 'auto', color: 'var(--text-main)', fontSize: '13px', lineHeight: 1.5, flex: 1 }}>
           {children}
         </div>
         {footer && (
-          <div style={{ padding: '15px 20px', backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <div style={{ padding: '15px 20px', backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
             {footer}
           </div>
         )}

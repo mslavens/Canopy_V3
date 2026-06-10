@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
 interface DropdownProps {
@@ -13,26 +14,147 @@ interface DropdownProps {
 export const Dropdown: React.FC<DropdownProps> = ({ value, options, onChange, width = '200px', direction = 'down', renderOption }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, maxHeight: 220, placement: 'down' });
+
+  const updateCoords = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      let placement = direction;
+      
+      // If default direction is down but space is insufficient, and space above is greater
+      if (placement === 'down' && spaceBelow < 240 && spaceAbove > spaceBelow) {
+        placement = 'up';
+      } else if (placement === 'up' && spaceAbove < 240 && spaceBelow > spaceAbove) {
+        placement = 'down';
+      }
+
+      let top = 0;
+      let maxHeight = 220;
+
+      if (placement === 'down') {
+        top = rect.bottom + window.scrollY + 4;
+        maxHeight = Math.min(220, Math.max(100, spaceBelow - 16));
+      } else {
+        top = rect.top + window.scrollY - 4;
+        maxHeight = Math.min(220, Math.max(100, spaceAbove - 16));
+      }
+
+      setCoords({
+        top,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+        maxHeight,
+        placement
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        // Also check if click was on portal dropdown
+        const portalDropdowns = document.querySelectorAll('.portal-dropdown-menu');
+        let clickedInsidePortal = false;
+        portalDropdowns.forEach(el => {
+          if (el.contains(event.target as Node)) clickedInsidePortal = true;
+        });
+        if (!clickedInsidePortal) {
+          setIsOpen(false);
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const dropdownMenu = isOpen ? (
+    <div 
+      className="portal-dropdown-menu"
+      style={{ 
+        position: 'absolute', 
+        top: `${coords.top}px`, 
+        left: `${coords.left}px`, 
+        width: `${coords.width}px`, 
+        backgroundColor: 'var(--bg-surface)', 
+        border: '1px solid var(--border-main)', 
+        borderRadius: '4px', 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)', 
+        zIndex: 100000, 
+        maxHeight: `${coords.maxHeight}px`,
+        overflowY: 'auto',
+        color: 'var(--text-main)',
+        transform: coords.placement === 'up' ? 'translateY(-100%)' : 'none'
+      }}
+    >
+      {options.map((opt) => (
+        <div
+          key={opt}
+          className={`dropdown-option ${value === opt ? 'active' : ''}`}
+          tabIndex={-1}
+          onClick={() => {
+            if (value !== opt) {
+              onChange(opt);
+            }
+            setIsOpen(false);
+            containerRef.current?.querySelector('div')?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              if (value !== opt) {
+                onChange(opt);
+              }
+              setIsOpen(false);
+              containerRef.current?.querySelector('div')?.focus();
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              const next = e.currentTarget.nextElementSibling as HTMLElement;
+              if (next) next.focus();
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              const prev = e.currentTarget.previousElementSibling as HTMLElement;
+              if (prev) prev.focus();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setIsOpen(false);
+              containerRef.current?.querySelector('div')?.focus();
+            }
+          }}
+        >
+          {renderOption ? renderOption(opt) : opt}
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   return (
     <div 
       ref={containerRef} 
       style={{ position: 'relative', width }}
       onBlur={(e) => {
-        // If the newly focused element is outside this dropdown container, close it.
-        if (!containerRef.current?.contains(e.relatedTarget as Node)) {
-          setIsOpen(false);
-        }
+        // If focus shifted to something outside both container and portal, close
+        setTimeout(() => {
+          const activeEl = document.activeElement;
+          const isInsidePortal = activeEl && activeEl.closest('.portal-dropdown-menu');
+          if (!containerRef.current?.contains(activeEl) && !isInsidePortal) {
+            setIsOpen(false);
+          }
+        }, 50);
       }}
     >
       <div
@@ -46,9 +168,10 @@ export const Dropdown: React.FC<DropdownProps> = ({ value, options, onChange, wi
             e.preventDefault();
             if (!isOpen) setIsOpen(true);
             setTimeout(() => {
-              const firstOption = containerRef.current?.querySelector('.dropdown-option') as HTMLElement;
+              const menu = document.querySelector('.portal-dropdown-menu');
+              const firstOption = menu?.querySelector('.dropdown-option') as HTMLElement;
               if (firstOption) firstOption.focus();
-            }, 0);
+            }, 50);
           } else if (e.key === 'Escape') {
             setIsOpen(false);
           }
@@ -74,48 +197,7 @@ export const Dropdown: React.FC<DropdownProps> = ({ value, options, onChange, wi
         <ChevronDown size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: '8px' }} />
       </div>
 
-      {isOpen && (
-        <div style={{ position: 'absolute', ...(direction === 'up' ? { bottom: '100%', marginBottom: '4px' } : { top: '100%', marginTop: '4px' }), left: 0, right: 0, backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 100, overflow: 'hidden' }}>
-          {options.map((opt) => (
-            <div
-              key={opt}
-              className={`dropdown-option ${value === opt ? 'active' : ''}`}
-              tabIndex={-1}
-              onClick={() => {
-                if (value !== opt) {
-                  onChange(opt);
-                }
-                setIsOpen(false);
-                containerRef.current?.querySelector('div')?.focus();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  if (value !== opt) {
-                    onChange(opt);
-                  }
-                  setIsOpen(false);
-                  containerRef.current?.querySelector('div')?.focus();
-                } else if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  const next = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (next) next.focus();
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  const prev = e.currentTarget.previousElementSibling as HTMLElement;
-                  if (prev) prev.focus();
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setIsOpen(false);
-                  containerRef.current?.querySelector('div')?.focus();
-                }
-              }}
-            >
-              {renderOption ? renderOption(opt) : opt}
-            </div>
-          ))}
-        </div>
-      )}
+      {isOpen && dropdownMenu && createPortal(dropdownMenu, document.body)}
     </div>
   );
 };
