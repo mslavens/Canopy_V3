@@ -478,7 +478,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       overflow: 'hidden'
     }}>
       {/* --- TOP NAVIGATION BAR --- */}
-      <header style={{ position: 'relative', zIndex: 100, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '50px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', padding: '0 20px', gap: '20px' }}>
+      <header style={{ position: 'relative', zIndex: 2000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '50px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', padding: '0 20px', gap: '20px' }}>
         
         {/* Decouple the logo from the sidebar width for a perfectly rigid top header */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
