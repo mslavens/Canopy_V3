@@ -30,6 +30,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
+import { Tooltip } from '../components/Tooltip';
 
 interface SearchableScopeDropdownProps {
   value: string;
@@ -238,7 +239,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [tableData, setTableData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [availableSearch, setAvailableSearch] = useState<string>('');
+  const [isSelectorModalOpen, setIsSelectorModalOpen] = useState<boolean>(false);
+  const [selectorSearchQuery, setSelectorSearchQuery] = useState<string>('');
+  const [selectorCheckedNames, setSelectorCheckedNames] = useState<string[]>([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState<string>('');
+  const [memberCheckedNames, setMemberCheckedNames] = useState<string[]>([]);
 
   // Dropdown options lists for relationships
   const [allAddresses, setAllAddresses] = useState<any[]>([]);
@@ -288,206 +293,513 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [dragActive, setDragActive] = useState(false);
   const [csvUploading, setCsvUploading] = useState(false);
 
+  // Form scope hierarchy (self -> parents -> global)
+  const formVisibleScopes = useMemo(() => {
+    if (formScopeUuid === 'paloalto-panorama-global') {
+      return ['paloalto-panorama-global'];
+    }
+    const scopes = [formScopeUuid];
+    let curr = deviceGroups.find(dg => dg.uuid === formScopeUuid);
+    while (curr && curr.parent_id) {
+      const parent = deviceGroups.find(dg => dg.id === curr.parent_id);
+      if (parent) {
+        scopes.push(parent.uuid);
+        curr = parent;
+      } else {
+        break;
+      }
+    }
+    if (!scopes.includes('paloalto-panorama-global')) {
+      scopes.push('paloalto-panorama-global');
+    }
+    return scopes;
+  }, [formScopeUuid, deviceGroups]);
+
   // Dual List available items for group CRUD editors
   const addressGroupAvailableItems = useMemo(() => {
-    const items: { name: string; type: string; icon: React.ReactNode }[] = [];
+    const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
     allAddresses
-      .filter(a => a.device_uuid === formScopeUuid || a.device_uuid === 'paloalto-panorama-global')
+      .filter(a => formVisibleScopes.includes(a.device_uuid))
       .forEach(a => {
         items.push({
           name: a.name,
           type: 'address',
+          value: `${a.type}: ${a.value}`,
           icon: <Globe size={12} style={{ color: 'var(--accent-blue)' }} />
         });
       });
     allAddressGroups
-      .filter(g => g.id !== selectedObject?.id && (g.device_uuid === formScopeUuid || g.device_uuid === 'paloalto-panorama-global'))
+      .filter(g => g.id !== selectedObject?.id && formVisibleScopes.includes(g.device_uuid))
       .forEach(g => {
         items.push({
           name: g.name,
           type: 'group',
+          value: g.type === 'dynamic' ? `Filter: ${g.filter}` : 'Static Group',
           icon: <Layers size={12} style={{ color: '#a855f7' }} />
         });
       });
     return items;
-  }, [allAddresses, allAddressGroups, formScopeUuid, selectedObject]);
+  }, [allAddresses, allAddressGroups, formVisibleScopes, selectedObject]);
 
   const serviceGroupAvailableItems = useMemo(() => {
-    const items: { name: string; type: string; icon: React.ReactNode }[] = [];
+    const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
     allServices
-      .filter(s => s.device_uuid === formScopeUuid || s.device_uuid === 'paloalto-panorama-global')
+      .filter(s => formVisibleScopes.includes(s.device_uuid))
       .forEach(s => {
         items.push({
           name: s.name,
           type: 'service',
+          value: `${String(s.protocol).toUpperCase()}: ${s.destination_port}`,
           icon: <Network size={12} style={{ color: '#10b981' }} />
         });
       });
     allServiceGroups
-      .filter(g => g.id !== selectedObject?.id && (g.device_uuid === formScopeUuid || g.device_uuid === 'paloalto-panorama-global'))
+      .filter(g => g.id !== selectedObject?.id && formVisibleScopes.includes(g.device_uuid))
       .forEach(g => {
         items.push({
           name: g.name,
           type: 'group',
+          value: 'Service Group',
           icon: <Layers size={12} style={{ color: '#a855f7' }} />
         });
       });
     return items;
-  }, [allServices, allServiceGroups, formScopeUuid, selectedObject]);
+  }, [allServices, allServiceGroups, formVisibleScopes, selectedObject]);
 
   const applicationGroupAvailableItems = useMemo(() => {
-    const items: { name: string; type: string; icon: React.ReactNode }[] = [];
+    const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
     allApplications
-      .filter(a => a.device_uuid === formScopeUuid || a.device_uuid === 'paloalto-panorama-global')
+      .filter(a => formVisibleScopes.includes(a.device_uuid))
       .forEach(a => {
         items.push({
           name: a.name,
           type: 'application',
+          value: `${a.category} / Risk: ${a.risk}`,
           icon: <ShieldAlert size={12} style={{ color: '#f59e0b' }} />
         });
       });
     allApplicationGroups
-      .filter(g => g.id !== selectedObject?.id && (g.device_uuid === formScopeUuid || g.device_uuid === 'paloalto-panorama-global'))
+      .filter(g => g.id !== selectedObject?.id && formVisibleScopes.includes(g.device_uuid))
       .forEach(g => {
         items.push({
           name: g.name,
           type: 'group',
+          value: 'Application Group',
           icon: <Layers size={12} style={{ color: '#a855f7' }} />
         });
       });
     return items;
-  }, [allApplications, allApplicationGroups, formScopeUuid, selectedObject]);
+  }, [allApplications, allApplicationGroups, formVisibleScopes, selectedObject]);
 
-  const renderDualListSelector = (
-    availableItems: { name: string; type: string; icon: React.ReactNode }[],
-    selectedNames: string[],
-    onAdd: (name: string) => void,
-    onRemove: (name: string) => void
-  ) => {
-    const filteredAvailable = availableItems.filter(item => {
-      const isAlreadySelected = selectedNames.includes(item.name);
-      const matchesSearch = item.name.toLowerCase().includes(availableSearch.toLowerCase());
-      return !isAlreadySelected && matchesSearch;
+  const renderGroupMembersSection = (selectedNames: string[], onRemove: (name: string) => void) => {
+    // Resolve object values for search and rendering
+    const getObjDetails = (name: string): string => {
+      const addrObj = allAddresses.find(a => a.name === name);
+      const addrGrpObj = allAddressGroups.find(g => g.name === name);
+      const svcObj = allServices.find(s => s.name === name);
+      const svcGrpObj = allServiceGroups.find(g => g.name === name);
+      const appObj = allApplications.find(a => a.name === name);
+      const appGrpObj = allApplicationGroups.find(g => g.name === name);
+
+      if (addrObj) return `${addrObj.type}: ${addrObj.value}`;
+      if (addrGrpObj) return addrGrpObj.type === 'dynamic' ? `Filter: ${addrGrpObj.filter}` : 'Static Group';
+      if (svcObj) return `${String(svcObj.protocol).toUpperCase()}: ${svcObj.destination_port}`;
+      if (svcGrpObj) return 'Service Group';
+      if (appObj) return `${appObj.category} / Risk: ${appObj.risk}`;
+      if (appGrpObj) return 'Application Group';
+      return '';
+    };
+
+    const filteredSelected = selectedNames.filter(name => {
+      const objVal = getObjDetails(name);
+      const q = memberSearchQuery.toLowerCase();
+      return name.toLowerCase().includes(q) || objVal.toLowerCase().includes(q);
     });
 
+    const handleToggleCheck = (name: string) => {
+      if (memberCheckedNames.includes(name)) {
+        setMemberCheckedNames(memberCheckedNames.filter(n => n !== name));
+      } else {
+        setMemberCheckedNames([...memberCheckedNames, name]);
+      }
+    };
+
+    const handleSelectAll = () => {
+      const allCheckedOnScreen = filteredSelected.every(name => memberCheckedNames.includes(name));
+      if (allCheckedOnScreen) {
+        setMemberCheckedNames(memberCheckedNames.filter(name => !filteredSelected.includes(name)));
+      } else {
+        const newChecked = [...memberCheckedNames];
+        filteredSelected.forEach(name => {
+          if (!newChecked.includes(name)) {
+            newChecked.push(name);
+          }
+        });
+        setMemberCheckedNames(newChecked);
+      }
+    };
+
+    const handleRemoveSelected = (e: React.MouseEvent) => {
+      e.preventDefault();
+      const newMembers = selectedNames.filter(name => !memberCheckedNames.includes(name));
+      setFormMembers(newMembers);
+      setMemberCheckedNames([]);
+    };
+
+    const isAllChecked = filteredSelected.length > 0 && filteredSelected.every(name => memberCheckedNames.includes(name));
+
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', height: '240px', marginTop: '5px' }}>
-        {/* Left Column: Available */}
-        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden' }}>
-          <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Available Objects</span>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Search size={11} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden', height: '280px', marginTop: '5px' }}>
+        {/* Header with Title and Actions */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '41px', flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Selected Members ({selectedNames.length})</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {memberCheckedNames.length > 0 && (
+              <button
+                onClick={handleRemoveSelected}
+                style={{
+                  backgroundColor: 'var(--status-red)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  height: '24px'
+                }}
+              >
+                <Trash2 size={11} />
+                Remove ({memberCheckedNames.length})
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectorCheckedNames([]);
+                setSelectorSearchQuery('');
+                setIsSelectorModalOpen(true);
+              }}
+              className="btn-primary"
+              style={{
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                height: '24px'
+              }}
+            >
+              <Plus size={12} />
+              Add Members
+            </button>
+          </div>
+        </div>
+
+        {/* Search Input */}
+        {selectedNames.length > 0 && (
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+              <Search size={12} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
               <input
                 type="text"
-                placeholder="Filter available..."
-                value={availableSearch}
-                onChange={(e) => setAvailableSearch(e.target.value)}
+                placeholder="Search group members..."
+                value={memberSearchQuery}
+                onChange={(e) => setMemberSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '4px 24px 4px 24px',
                   fontSize: '11px',
-                  backgroundColor: 'var(--bg-surface)',
+                  backgroundColor: 'var(--bg-app)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '4px',
                   color: 'var(--text-main)',
                   outline: 'none'
                 }}
               />
-              {availableSearch && (
+              {memberSearchQuery && (
                 <button
-                  onClick={(e) => { e.preventDefault(); setAvailableSearch(''); }}
+                  onClick={() => setMemberSearchQuery('')}
                   style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
-                  <X size={11} />
+                  <X size={12} />
                 </button>
               )}
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {filteredAvailable.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
-                No objects available
-              </div>
-            ) : (
-              filteredAvailable.map(item => (
+        )}
+
+        {/* Select All Checkbox */}
+        {filteredSelected.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', flexShrink: 0 }}>
+            <input 
+              type="checkbox"
+              id="select-all-members"
+              checked={isAllChecked}
+              onChange={handleSelectAll}
+              style={{ cursor: 'pointer' }}
+            />
+            <label htmlFor="select-all-members" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+              {isAllChecked ? 'Deselect All' : 'Select All matching'}
+            </label>
+          </div>
+        )}
+
+        {/* Scrollable Members List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {selectedNames.length === 0 ? (
+            <div style={{ padding: '30px 20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+              <span>No members selected.</span>
+              <span style={{ fontSize: '11px' }}>Click "+ Add Members" to select config objects.</span>
+            </div>
+          ) : filteredSelected.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+              No members match search query
+            </div>
+          ) : (
+            filteredSelected.map(name => {
+              const isChecked = memberCheckedNames.includes(name);
+              const isAddr = allAddresses.some(a => a.name === name) || allAddressGroups.some(g => g.name === name);
+              const isSvc = allServices.some(s => s.name === name) || allServiceGroups.some(g => g.name === name);
+              const isApp = allApplications.some(a => a.name === name) || allApplicationGroups.some(g => g.name === name);
+              
+              let icon = <Tag size={12} />;
+              if (isAddr) {
+                const isGroup = allAddressGroups.some(g => g.name === name);
+                icon = isGroup ? <Layers size={12} style={{ color: '#a855f7' }} /> : <Globe size={12} style={{ color: 'var(--accent-blue)' }} />;
+              } else if (isSvc) {
+                const isGroup = allServiceGroups.some(g => g.name === name);
+                icon = isGroup ? <Layers size={12} style={{ color: '#a855f7' }} /> : <Network size={12} style={{ color: '#10b981' }} />;
+              } else if (isApp) {
+                const isGroup = allApplicationGroups.some(g => g.name === name);
+                icon = isGroup ? <Layers size={12} style={{ color: '#a855f7' }} /> : <ShieldAlert size={12} style={{ color: '#f59e0b' }} />;
+              }
+
+              const objVal = getObjDetails(name);
+
+              return (
                 <div
-                  key={item.name}
-                  onClick={(e) => { e.preventDefault(); onAdd(item.name); }}
+                  key={name}
+                  onClick={() => handleToggleCheck(name)}
                   style={{
-                    padding: '6px 10px',
+                    padding: '6px 12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    cursor: 'pointer',
                     fontSize: '12px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.02)',
+                    backgroundColor: isChecked ? 'var(--bg-element)' : 'transparent',
+                    cursor: 'pointer',
                     transition: 'background-color 0.15s ease'
                   }}
                   className="dropdown-option-row"
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
+                  onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                    {item.icon}
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <input 
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      style={{ cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    {icon}
+                    <div style={{ display: 'flex', alignItems: 'baseline', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500, color: 'var(--text-main)' }}>{name}</span>
+                      {objVal && (
+                        <Tooltip content={objVal} position="top">
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            ({objVal})
+                          </span>
+                        </Tooltip>
+                      )}
+                    </div>
                   </div>
-                  <Plus size={12} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(name); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      transition: 'all 0.15s ease',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--status-red)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
-              ))
-            )}
-          </div>
+              );
+            })
+          )}
         </div>
+      </div>
+    );
+  };
 
-        {/* Right Column: Selected */}
-        <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '41px', flexShrink: 0 }}>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Selected Members ({selectedNames.length})</span>
-            {selectedNames.length > 0 && (
+  const renderSelectorModal = (availableItems: { name: string; type: string; value: string; icon: React.ReactNode }[]) => {
+    const filteredAvailable = availableItems.filter(item => !formMembers.includes(item.name));
+    const searchFiltered = filteredAvailable.filter(item => 
+      item.name.toLowerCase().includes(selectorSearchQuery.toLowerCase()) ||
+      (item.value || '').toLowerCase().includes(selectorSearchQuery.toLowerCase())
+    );
+
+    const handleToggleCheck = (name: string) => {
+      if (selectorCheckedNames.includes(name)) {
+        setSelectorCheckedNames(selectorCheckedNames.filter(n => n !== name));
+      } else {
+        setSelectorCheckedNames([...selectorCheckedNames, name]);
+      }
+    };
+
+    const handleSelectAll = () => {
+      const allNamesOnScreen = searchFiltered.map(item => item.name);
+      const allCheckedOnScreen = allNamesOnScreen.every(name => selectorCheckedNames.includes(name));
+      
+      if (allCheckedOnScreen) {
+        setSelectorCheckedNames(selectorCheckedNames.filter(name => !allNamesOnScreen.includes(name)));
+      } else {
+        const newChecked = [...selectorCheckedNames];
+        allNamesOnScreen.forEach(name => {
+          if (!newChecked.includes(name)) {
+            newChecked.push(name);
+          }
+        });
+        setSelectorCheckedNames(newChecked);
+      }
+    };
+
+    const handleAddSelected = () => {
+      setFormMembers([...formMembers, ...selectorCheckedNames]);
+      setIsSelectorModalOpen(false);
+      setSelectorCheckedNames([]);
+      setSelectorSearchQuery('');
+    };
+
+    const isAllChecked = searchFiltered.length > 0 && searchFiltered.every(item => selectorCheckedNames.includes(item.name));
+
+    return (
+      <Modal
+        isOpen={isSelectorModalOpen}
+        onClose={() => setIsSelectorModalOpen(false)}
+        title={`Select Objects to Add`}
+        size="md"
+        footer={
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-secondary btn-md" onClick={() => setIsSelectorModalOpen(false)}>Cancel</button>
+            <button 
+              className="btn-primary btn-md" 
+              onClick={handleAddSelected}
+              disabled={selectorCheckedNames.length === 0}
+            >
+              Add Selected ({selectorCheckedNames.length})
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search available objects by name or value..."
+              value={selectorSearchQuery}
+              onChange={(e) => setSelectorSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 30px 8px 30px',
+                fontSize: '13px',
+                backgroundColor: 'var(--bg-app)',
+                border: '1px solid var(--border-main)',
+                borderRadius: '6px',
+                color: 'var(--text-main)',
+                outline: 'none'
+              }}
+            />
+            {selectorSearchQuery && (
               <button
-                onClick={(e) => { e.preventDefault(); setFormMembers([]); }}
-                style={{ background: 'none', border: 'none', color: 'var(--status-red)', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}
+                onClick={() => setSelectorSearchQuery('')}
+                style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               >
-                Clear All
+                <X size={14} />
               </button>
             )}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {selectedNames.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
-                No members selected
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
+            <input 
+              type="checkbox"
+              id="select-all-objects"
+              checked={isAllChecked}
+              onChange={handleSelectAll}
+              disabled={searchFiltered.length === 0}
+              style={{ cursor: 'pointer' }}
+            />
+            <label htmlFor="select-all-objects" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+              {isAllChecked ? 'Deselect All' : 'Select All matching'}
+            </label>
+          </div>
+
+          <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)' }}>
+            {searchFiltered.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                {filteredAvailable.length === 0 ? 'No new objects available to add.' : 'No objects match your search.'}
               </div>
             ) : (
-              selectedNames.map(name => {
-                const foundItem = availableItems.find(i => i.name === name);
+              searchFiltered.map(item => {
+                const checked = selectorCheckedNames.includes(item.name);
                 return (
                   <div
-                    key={name}
-                    onClick={(e) => { e.preventDefault(); onRemove(name); }}
+                    key={item.name}
+                    onClick={() => handleToggleCheck(item.name)}
                     style={{
-                      padding: '6px 10px',
+                      padding: '8px 12px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: '10px',
                       cursor: 'pointer',
-                      fontSize: '12px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.02)',
+                      backgroundColor: checked ? 'var(--bg-element)' : 'transparent',
                       transition: 'background-color 0.15s ease'
                     }}
-                    className="dropdown-option-row"
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    onMouseEnter={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
+                    onMouseLeave={(e) => { if (!checked) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                      {foundItem?.icon || <Tag size={12} />}
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    <input 
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {}}
+                      style={{ cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    {item.icon}
+                    <div style={{ display: 'flex', alignItems: 'baseline', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{item.name}</span>
+                      {item.value && (
+                        <Tooltip content={item.value} position="top">
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            ({item.value})
+                          </span>
+                        </Tooltip>
+                      )}
                     </div>
-                    <X size={12} style={{ color: 'var(--status-red)', flexShrink: 0 }} />
                   </div>
                 );
               })
             )}
           </div>
         </div>
-      </div>
+      </Modal>
     );
   };
 
@@ -567,25 +879,79 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setCurrentScope(val);
   };
 
-  // Recursive Address Group Resolver for total flattened view
-  const resolveAddressGroupMembers = (groupName: string, visited = new Set<string>()): any[] => {
-    if (visited.has(groupName)) return [];
-    visited.add(groupName);
+  // Helper to get device group scope hierarchy (self -> parents -> global)
+  const getScopeHierarchy = (scopeUuid: string): string[] => {
+    if (!scopeUuid || scopeUuid === 'paloalto-panorama-global' || scopeUuid === 'show-all') {
+      return ['paloalto-panorama-global'];
+    }
+    let activeScope = scopeUuid;
+    if (scopeUuid.startsWith('fw-')) {
+      const serial = scopeUuid.replace('fw-', '');
+      const fw = firewalls.find(f => f.serial === serial);
+      if (fw && fw.device_group_id) {
+        const dg = deviceGroups.find(g => g.id === fw.device_group_id);
+        if (dg) activeScope = dg.uuid;
+      }
+    }
+    const scopes = [activeScope];
+    let curr = deviceGroups.find(dg => dg.uuid === activeScope);
+    while (curr && curr.parent_id) {
+      const parent = deviceGroups.find(dg => dg.id === curr.parent_id);
+      if (parent) {
+        scopes.push(parent.uuid);
+        curr = parent;
+      } else {
+        break;
+      }
+    }
+    if (!scopes.includes('paloalto-panorama-global')) {
+      scopes.push('paloalto-panorama-global');
+    }
+    return scopes;
+  };
 
-    const group = allAddressGroups.find(g => g.name === groupName);
+  // Recursive Address Group Resolver for total flattened view
+  const resolveAddressGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
+    if (visited.has(groupName)) return [];
+    const newVisited = new Set(visited);
+    newVisited.add(groupName);
+
+    const allowedScopes = getScopeHierarchy(scopeUuid);
+    
+    // Find closest group in scope hierarchy
+    let group = null;
+    for (const sc of allowedScopes) {
+      const g = allAddressGroups.find(item => item.name === groupName && item.device_uuid === sc);
+      if (g) {
+        group = g;
+        break;
+      }
+    }
+
     if (!group) {
-      const leaf = allAddresses.find(a => a.name === groupName);
+      // Find closest leaf address in scope hierarchy
+      let leaf = null;
+      for (const sc of allowedScopes) {
+        const l = allAddresses.find(item => item.name === groupName && item.device_uuid === sc);
+        if (l) {
+          leaf = l;
+          break;
+        }
+      }
+      
       if (leaf) {
         return [{
           name: leaf.name,
           type: 'Address Object',
-          details: `${leaf.type}: ${leaf.value}`
+          details: `${leaf.type}: ${leaf.value}`,
+          path: [...currentPath, groupName]
         }];
       }
       return [{
         name: groupName,
         type: 'External/Tag',
-        details: 'Dynamic tag or unresolved member'
+        details: 'Dynamic tag or unresolved member',
+        path: [...currentPath, groupName]
       }];
     }
 
@@ -593,7 +959,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       return [{
         name: `Filter: ${group.filter}`,
         type: 'Dynamic Filter',
-        details: 'Matches objects matching this filter tag'
+        details: 'Matches objects matching this filter tag',
+        path: [...currentPath, groupName]
       }];
     }
 
@@ -602,30 +969,50 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     members.forEach((m: string) => {
       const mName = m.trim();
       if (!mName) return;
-      resolved = resolved.concat(resolveAddressGroupMembers(mName, visited));
+      resolved = resolved.concat(resolveAddressGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
     });
     return resolved;
   };
 
   // Recursive Service Group Resolver for total flattened view
-  const resolveServiceGroupMembers = (groupName: string, visited = new Set<string>()): any[] => {
+  const resolveServiceGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
     if (visited.has(groupName)) return [];
-    visited.add(groupName);
+    const newVisited = new Set(visited);
+    newVisited.add(groupName);
 
-    const group = allServiceGroups.find(g => g.name === groupName);
+    const allowedScopes = getScopeHierarchy(scopeUuid);
+    
+    let group = null;
+    for (const sc of allowedScopes) {
+      const g = allServiceGroups.find(item => item.name === groupName && item.device_uuid === sc);
+      if (g) {
+        group = g;
+        break;
+      }
+    }
+
     if (!group) {
-      const leaf = allServices.find(s => s.name === groupName);
+      let leaf = null;
+      for (const sc of allowedScopes) {
+        const l = allServices.find(item => item.name === groupName && item.device_uuid === sc);
+        if (l) {
+          leaf = l;
+          break;
+        }
+      }
       if (leaf) {
         return [{
           name: leaf.name,
           type: 'Port Service',
-          details: `${String(leaf.protocol).toUpperCase()}: ${leaf.destination_port}`
+          details: `${String(leaf.protocol).toUpperCase()}: ${leaf.destination_port}`,
+          path: [...currentPath, groupName]
         }];
       }
       return [{
         name: groupName,
         type: 'Unresolved',
-        details: 'External or unresolved service'
+        details: 'External or unresolved service',
+        path: [...currentPath, groupName]
       }];
     }
 
@@ -634,30 +1021,50 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     members.forEach((m: string) => {
       const mName = m.trim();
       if (!mName) return;
-      resolved = resolved.concat(resolveServiceGroupMembers(mName, visited));
+      resolved = resolved.concat(resolveServiceGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
     });
     return resolved;
   };
 
   // Recursive Application Group Resolver for total flattened view
-  const resolveApplicationGroupMembers = (groupName: string, visited = new Set<string>()): any[] => {
+  const resolveApplicationGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
     if (visited.has(groupName)) return [];
-    visited.add(groupName);
+    const newVisited = new Set(visited);
+    newVisited.add(groupName);
 
-    const group = allApplicationGroups.find(g => g.name === groupName);
+    const allowedScopes = getScopeHierarchy(scopeUuid);
+    
+    let group = null;
+    for (const sc of allowedScopes) {
+      const g = allApplicationGroups.find(item => item.name === groupName && item.device_uuid === sc);
+      if (g) {
+        group = g;
+        break;
+      }
+    }
+
     if (!group) {
-      const leaf = allApplications.find(a => a.name === groupName);
+      let leaf = null;
+      for (const sc of allowedScopes) {
+        const l = allApplications.find(item => item.name === groupName && item.device_uuid === sc);
+        if (l) {
+          leaf = l;
+          break;
+        }
+      }
       if (leaf) {
         return [{
           name: leaf.name,
           type: 'Application Signature',
-          details: `${leaf.category} / Risk: ${leaf.risk}`
+          details: `${leaf.category} / Risk: ${leaf.risk}`,
+          path: [...currentPath, groupName]
         }];
       }
       return [{
         name: groupName,
         type: 'Unresolved',
-        details: 'Custom application signature'
+        details: 'Custom application signature',
+        path: [...currentPath, groupName]
       }];
     }
 
@@ -666,7 +1073,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     members.forEach((m: string) => {
       const mName = m.trim();
       if (!mName) return;
-      resolved = resolved.concat(resolveApplicationGroupMembers(mName, visited));
+      resolved = resolved.concat(resolveApplicationGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
     });
     return resolved;
   };
@@ -820,12 +1227,33 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     if (!apiClient) return;
     try {
       const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes] = await Promise.all([
-        apiClient.queryDb("SELECT id, name, device_uuid FROM address_objects;"),
-        apiClient.queryDb("SELECT id, name, device_uuid FROM address_groups;"),
-        apiClient.queryDb("SELECT id, name, device_uuid FROM service_objects;"),
-        apiClient.queryDb("SELECT id, name, device_uuid FROM service_groups;"),
-        apiClient.queryDb("SELECT id, name, device_uuid FROM application_objects;"),
-        apiClient.queryDb("SELECT id, name, device_uuid FROM application_groups;"),
+        apiClient.queryDb("SELECT id, name, device_uuid, type, value FROM address_objects;"),
+        apiClient.queryDb(`
+          SELECT g.id, g.name, g.device_uuid, g.type, g.filter, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
+          FROM address_groups g
+          LEFT JOIN address_group_members agm ON g.id = agm.group_id
+          LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
+          LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
+          GROUP BY g.id;
+        `),
+        apiClient.queryDb("SELECT id, name, device_uuid, protocol, destination_port FROM service_objects;"),
+        apiClient.queryDb(`
+          SELECT g.id, g.name, g.device_uuid, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
+          FROM service_groups g
+          LEFT JOIN service_group_members sgm ON g.id = sgm.group_id
+          LEFT JOIN service_objects so ON sgm.member_service_id = so.id
+          LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
+          GROUP BY g.id;
+        `),
+        apiClient.queryDb("SELECT id, name, device_uuid, category, risk FROM application_objects;"),
+        apiClient.queryDb(`
+          SELECT g.id, g.name, g.device_uuid, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
+          FROM application_groups g
+          LEFT JOIN application_group_members appgm ON g.id = appgm.group_id
+          LEFT JOIN application_objects app ON appgm.member_application_id = app.id
+          LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
+          GROUP BY g.id;
+        `),
       ]);
 
       setAllAddresses(addRes.rows || []);
@@ -847,14 +1275,40 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // Group members slide-over panel
   const flattenedMembers = useMemo(() => {
     if (!selectedGroupDetails) return [];
+    let rawList: any[] = [];
     if (activeSubTab === 'Address Groups') {
-      return resolveAddressGroupMembers(selectedGroupDetails.name);
+      rawList = resolveAddressGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
     } else if (activeSubTab === 'Service Groups') {
-      return resolveServiceGroupMembers(selectedGroupDetails.name);
+      rawList = resolveServiceGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
     } else if (activeSubTab === 'Application Groups') {
-      return resolveApplicationGroupMembers(selectedGroupDetails.name);
+      rawList = resolveApplicationGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
     }
-    return [];
+
+    // Deduplicate and aggregate paths
+    const aggregated: { [key: string]: any } = {};
+    rawList.forEach(item => {
+      const existing = aggregated[item.name];
+      if (existing) {
+        if (item.path && item.path.length > 1) {
+          const displayPath = item.path.slice(1).join(' > ');
+          if (displayPath && !existing.paths.includes(displayPath)) {
+            existing.paths.push(displayPath);
+          }
+        }
+      } else {
+        const displayPaths = item.path && item.path.length > 1 
+          ? [item.path.slice(1).join(' > ')] 
+          : [];
+        aggregated[item.name] = {
+          name: item.name,
+          type: item.type,
+          details: item.details,
+          paths: displayPaths
+        };
+      }
+    });
+
+    return Object.values(aggregated);
   }, [selectedGroupDetails, activeSubTab, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups]);
 
   // Inspector Search Filters
@@ -933,7 +1387,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // CRUD Forms handlers
   const openCreateModal = () => {
     loadReferenceData();
-    setAvailableSearch('');
+    setSelectorSearchQuery('');
+    setSelectorCheckedNames([]);
+    setIsSelectorModalOpen(false);
+    setMemberSearchQuery('');
+    setMemberCheckedNames([]);
     setCrudMode('create');
     setSelectedObject(null);
     setFormName('');
@@ -965,7 +1423,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   const openEditModal = (obj: any) => {
     loadReferenceData();
-    setAvailableSearch('');
+    setSelectorSearchQuery('');
+    setSelectorCheckedNames([]);
+    setIsSelectorModalOpen(false);
+    setMemberSearchQuery('');
+    setMemberCheckedNames([]);
     setCrudMode('edit');
     setSelectedObject(obj);
     setFormName(obj.name);
@@ -1581,9 +2043,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 Active Scope context: <strong style={{ color: 'var(--accent-blue)' }}>{scopeNameMap[currentScope] || currentScope}</strong>
                 {visibleScopes.length > 1 && (
-                  <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }} title={visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')}>
-                    ({visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')})
-                  </span>
+                  <Tooltip content={visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')} position="bottom">
+                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                      ({visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')})
+                    </span>
+                  </Tooltip>
                 )}
               </span>
             </div>
@@ -1880,12 +2344,23 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                               {cardIcon}
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                              <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={member.name}>
-                                <HighlightedText text={member.name} highlight={inspectorSearch} />
-                              </span>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${member.type} • ${member.details}`}>
-                                <HighlightedText text={`${member.type} • ${member.details}`} highlight={inspectorSearch} />
-                              </span>
+                              <Tooltip content={member.name} position="top" align="left">
+                                <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <HighlightedText text={member.name} highlight={inspectorSearch} />
+                                </span>
+                              </Tooltip>
+                              <Tooltip content={`${member.type} • ${member.details}`} position="top" align="left">
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <HighlightedText text={`${member.type} • ${member.details}`} highlight={inspectorSearch} />
+                                </span>
+                              </Tooltip>
+                              {member.paths && member.paths.length > 0 && (
+                                <Tooltip content={`via ${member.paths.join(', ')}`} position="top" align="left">
+                                  <span style={{ fontSize: '10px', color: 'var(--accent-purple)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    via: <HighlightedText text={member.paths.join(', ')} highlight={inspectorSearch} />
+                                  </span>
+                                </Tooltip>
+                              )}
                             </div>
                           </div>
                         );
@@ -2018,10 +2493,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Group Members</label>
-                  {renderDualListSelector(
-                    addressGroupAvailableItems,
+                  {renderGroupMembersSection(
                     formMembers,
-                    (name) => setFormMembers([...formMembers, name]),
                     (name) => setFormMembers(formMembers.filter(n => n !== name))
                   )}
                 </div>
@@ -2068,10 +2541,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           {activeSubTab === 'Service Groups' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Group Members</label>
-              {renderDualListSelector(
-                serviceGroupAvailableItems,
+              {renderGroupMembersSection(
                 formMembers,
-                (name) => setFormMembers([...formMembers, name]),
                 (name) => setFormMembers(formMembers.filter(n => n !== name))
               )}
             </div>
@@ -2119,10 +2590,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           {activeSubTab === 'Application Groups' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Application Signature Members</label>
-              {renderDualListSelector(
-                applicationGroupAvailableItems,
+              {renderGroupMembersSection(
                 formMembers,
-                (name) => setFormMembers([...formMembers, name]),
                 (name) => setFormMembers(formMembers.filter(n => n !== name))
               )}
             </div>
@@ -2141,6 +2610,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
         </form>
       </Modal>
+
+      {/* Secondary Selection Modal for adding group members */}
+      {isSelectorModalOpen && renderSelectorModal(
+        activeSubTab === 'Address Groups' 
+          ? addressGroupAvailableItems 
+          : activeSubTab === 'Service Groups' 
+            ? serviceGroupAvailableItems 
+            : applicationGroupAvailableItems
+      )}
 
       {/* 5. CLI Commands Output Modal */}
       <Modal
