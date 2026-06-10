@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -4244,10 +4245,16 @@ func main() {
 
 		adapter := paloalto.NewAdapter(concreteDB)
 
+		// Sort xmlFiles so that Panorama configurations are processed first
+		sort.SliceStable(xmlFiles, func(i, j int) bool {
+			return adapter.IsPanoramaConfig(xmlFiles[i].Data) && !adapter.IsPanoramaConfig(xmlFiles[j].Data)
+		})
+
 		preview := r.URL.Query().Get("preview") == "true"
 		if preview {
 			var combinedStats paloalto.IngestionStats
 			combinedStats.Devices = []string{}
+			combinedStats.Warnings = []string{}
 			validConfigsCount := 0
 
 			for _, f := range xmlFiles {
@@ -4265,6 +4272,10 @@ func main() {
 				combinedStats.InterfacesCount += stats.InterfacesCount
 				combinedStats.ZonesCount += stats.ZonesCount
 				combinedStats.VirtualRoutersCount += stats.VirtualRoutersCount
+				combinedStats.AddedCount += stats.AddedCount
+				combinedStats.ModifiedCount += stats.ModifiedCount
+				combinedStats.UnchangedCount += stats.UnchangedCount
+				combinedStats.Warnings = append(combinedStats.Warnings, stats.Warnings...)
 				validConfigsCount++
 			}
 
@@ -4280,12 +4291,16 @@ func main() {
 				"preview":     true,
 				"config_type": combinedStats.ConfigType,
 				"devices":     combinedStats.Devices,
-				"stats": map[string]int{
+				"warnings":    combinedStats.Warnings,
+				"stats": map[string]interface{}{
 					"templates_count":       combinedStats.TemplatesCount,
 					"devices_count":         combinedStats.DevicesCount,
 					"interfaces_count":      combinedStats.InterfacesCount,
 					"zones_count":           combinedStats.ZonesCount,
 					"virtual_routers_count": combinedStats.VirtualRoutersCount,
+					"added_count":           combinedStats.AddedCount,
+					"modified_count":        combinedStats.ModifiedCount,
+					"unchanged_count":       combinedStats.UnchangedCount,
 				},
 			})
 			return

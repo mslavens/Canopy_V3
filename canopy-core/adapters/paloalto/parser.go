@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 
 	"canopy-core/storage"
@@ -421,6 +422,10 @@ type IngestionStats struct {
 	InterfacesCount     int      `json:"interfaces_count"`
 	ZonesCount          int      `json:"zones_count"`
 	VirtualRoutersCount int      `json:"virtual_routers_count"`
+	AddedCount          int      `json:"added_count"`
+	ModifiedCount       int      `json:"modified_count"`
+	UnchangedCount      int      `json:"unchanged_count"`
+	Warnings            []string `json:"warnings"`
 }
 
 func parseFirewallFilename(filename string) (string, string) {
@@ -463,12 +468,15 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 	}
 
 	stats := &IngestionStats{
-		Devices: []string{},
+		Devices:  []string{},
+		Warnings: []string{},
 	}
 
 	hasMgtDevices := len(config.Shared.ManagedDevices) > 0 || (config.MgtConfig != nil && len(config.MgtConfig.Devices) > 0) || (config.ReadOnly != nil && len(config.ReadOnly.Devices) > 0)
 	hasShared := len(config.Shared.Address) > 0 || len(config.Shared.AddressGroup) > 0 || len(config.Shared.Service) > 0 || len(config.Shared.PreRulebase.SecurityRules) > 0 || len(config.Shared.PostRulebase.SecurityRules) > 0 || hasMgtDevices
 	isPanorama := len(allTemplates) > 0 || len(allDeviceGroups) > 0 || len(allTemplateStacks) > 0 || hasShared
+
+	var addedCount, modifiedCount, unchangedCount int
 
 	if isPanorama {
 		stats.ConfigType = "Panorama"
@@ -492,6 +500,205 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			dgName := dg.Name + " (Device Group)"
 			stats.Devices = append(stats.Devices, dgName)
 		}
+
+		// Calculate object deltas for Shared
+		sharedUUID := "paloalto-panorama-global"
+		if add, mod, unc, err := a.compareAddressObjects(sharedUUID, "shared", config.Shared.Address); err != nil {
+			return nil, fmt.Errorf("compareAddressObjects shared: %w", err)
+		} else {
+			addedCount += add; modifiedCount += mod; unchangedCount += unc
+		}
+		if add, mod, unc, err := a.compareServiceObjects(sharedUUID, "shared", config.Shared.Service); err != nil {
+			return nil, fmt.Errorf("compareServiceObjects shared: %w", err)
+		} else {
+			addedCount += add; modifiedCount += mod; unchangedCount += unc
+		}
+		if add, mod, unc, err := a.compareAddressGroups(sharedUUID, "shared", config.Shared.AddressGroup); err != nil {
+			return nil, fmt.Errorf("compareAddressGroups shared: %w", err)
+		} else {
+			addedCount += add; modifiedCount += mod; unchangedCount += unc
+		}
+		if add, mod, unc, err := a.compareServiceGroups(sharedUUID, "shared", config.Shared.ServiceGroup); err != nil {
+			return nil, fmt.Errorf("compareServiceGroups shared: %w", err)
+		} else {
+			addedCount += add; modifiedCount += mod; unchangedCount += unc
+		}
+		if add, mod, unc, err := a.compareApplicationObjects(sharedUUID, "shared", config.Shared.Application); err != nil {
+			return nil, fmt.Errorf("compareApplicationObjects shared: %w", err)
+		} else {
+			addedCount += add; modifiedCount += mod; unchangedCount += unc
+		}
+
+		// Calculate object deltas for Device Groups
+		for _, dg := range allDeviceGroups {
+			dgUUID := "paloalto-dg-" + dg.Name
+			if add, mod, unc, err := a.compareAddressObjects(dgUUID, dg.Name, dg.Address); err != nil {
+				return nil, fmt.Errorf("compareAddressObjects dg %s: %w", dg.Name, err)
+			} else {
+				addedCount += add; modifiedCount += mod; unchangedCount += unc
+			}
+			if add, mod, unc, err := a.compareServiceObjects(dgUUID, dg.Name, dg.Service); err != nil {
+				return nil, fmt.Errorf("compareServiceObjects dg %s: %w", dg.Name, err)
+			} else {
+				addedCount += add; modifiedCount += mod; unchangedCount += unc
+			}
+			if add, mod, unc, err := a.compareAddressGroups(dgUUID, dg.Name, dg.AddressGroup); err != nil {
+				return nil, fmt.Errorf("compareAddressGroups dg %s: %w", dg.Name, err)
+			} else {
+				addedCount += add; modifiedCount += mod; unchangedCount += unc
+			}
+			if add, mod, unc, err := a.compareServiceGroups(dgUUID, dg.Name, dg.ServiceGroup); err != nil {
+				return nil, fmt.Errorf("compareServiceGroups dg %s: %w", dg.Name, err)
+			} else {
+				addedCount += add; modifiedCount += mod; unchangedCount += unc
+			}
+			if add, mod, unc, err := a.compareApplicationObjects(dgUUID, dg.Name, dg.Application); err != nil {
+				return nil, fmt.Errorf("compareApplicationObjects dg %s: %w", dg.Name, err)
+			} else {
+				addedCount += add; modifiedCount += mod; unchangedCount += unc
+			}
+		}
+
+		// Conflict Warning Ledger (Managed Devices checking)
+		allManagedDevices := make(map[string]XMLManagedDeviceEntry)
+		for _, md := range config.Shared.ManagedDevices {
+			if md.Serial != "" && md.Serial != "localhost.localdomain" {
+				allManagedDevices[md.Serial] = md
+			}
+		}
+		if config.MgtConfig != nil {
+			for _, md := range config.MgtConfig.Devices {
+				if md.Serial != "" && md.Serial != "localhost.localdomain" {
+					existing, exists := allManagedDevices[md.Serial]
+					if exists {
+						if existing.Hostname == "" { existing.Hostname = md.Hostname }
+						if existing.IPAddress == "" { existing.IPAddress = md.IPAddress }
+						if existing.IP == "" { existing.IP = md.IP }
+						if existing.TemplateStack == "" { existing.TemplateStack = md.TemplateStack }
+						if existing.Template == "" { existing.Template = md.Template }
+						allManagedDevices[md.Serial] = existing
+					} else {
+						allManagedDevices[md.Serial] = md
+					}
+				}
+			}
+		}
+		if config.ReadOnly != nil {
+			for _, md := range config.ReadOnly.Devices {
+				if md.Serial != "" && md.Serial != "localhost.localdomain" {
+					existing, exists := allManagedDevices[md.Serial]
+					if exists {
+						if existing.Hostname == "" { existing.Hostname = md.Hostname }
+						if existing.IPAddress == "" { existing.IPAddress = md.IPAddress }
+						if existing.IP == "" { existing.IP = md.IP }
+						if existing.TemplateStack == "" { existing.TemplateStack = md.TemplateStack }
+						if existing.Template == "" { existing.Template = md.Template }
+						allManagedDevices[md.Serial] = existing
+					} else {
+						allManagedDevices[md.Serial] = md
+					}
+				}
+			}
+		}
+		for _, dg := range allDeviceGroups {
+			for _, d := range dg.Devices {
+				if d.Name != "" && d.Name != "localhost.localdomain" {
+					if _, exists := allManagedDevices[d.Name]; !exists {
+						allManagedDevices[d.Name] = XMLManagedDeviceEntry{Serial: d.Name}
+					}
+				}
+			}
+		}
+		for _, stack := range allTemplateStacks {
+			for _, devMember := range stack.Devices {
+				if devMember != "" && devMember != "localhost.localdomain" {
+					if _, exists := allManagedDevices[devMember]; !exists {
+						allManagedDevices[devMember] = XMLManagedDeviceEntry{Serial: devMember}
+					}
+				}
+			}
+			for _, devEntry := range stack.DevicesEntries {
+				if devEntry.Name != "" && devEntry.Name != "localhost.localdomain" {
+					if _, exists := allManagedDevices[devEntry.Name]; !exists {
+						allManagedDevices[devEntry.Name] = XMLManagedDeviceEntry{Serial: devEntry.Name}
+					}
+				}
+			}
+		}
+
+		for _, mdev := range allManagedDevices {
+			dgName := ""
+			for _, dg := range allDeviceGroups {
+				for _, d := range dg.Devices {
+					if d.Name == mdev.Serial {
+						dgName = dg.Name
+						break
+					}
+				}
+				if dgName != "" { break }
+			}
+
+			stackName := mdev.TemplateStack
+			if stackName == "" {
+				stackName = mdev.Template
+			}
+			if stackName == "" {
+				for _, stack := range allTemplateStacks {
+					for _, devMember := range stack.Devices {
+						if devMember == mdev.Serial {
+							stackName = stack.Name
+							break
+						}
+					}
+					if stackName != "" { break }
+					for _, devEntry := range stack.DevicesEntries {
+						if devEntry.Name == mdev.Serial {
+							stackName = stack.Name
+							break
+						}
+					}
+					if stackName != "" { break }
+				}
+			}
+
+			// Query DB for existing mapping
+			var dbDGName sql.NullString
+			var dbStackName sql.NullString
+			var dbTmplName sql.NullString
+			err := a.store.DB().QueryRow(`
+				SELECT dg.name, ts.name, t.name
+				FROM managed_devices_raw m
+				LEFT JOIN device_groups dg ON m.device_group_id = dg.id
+				LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id
+				LEFT JOIN templates t ON m.template_id = t.id
+				WHERE m.serial = ?`, mdev.Serial).Scan(&dbDGName, &dbStackName, &dbTmplName)
+			if err == nil {
+				nameOrSerial := mdev.Hostname
+				if nameOrSerial == "" {
+					nameOrSerial = mdev.Serial
+				}
+
+				if dgName != "" && dgName != dbDGName.String {
+					curDG := dbDGName.String
+					if curDG == "" {
+						curDG = "None"
+					}
+					stats.Warnings = append(stats.Warnings, fmt.Sprintf("Managed device '%s' (Serial: %s) is mapped to Device Group '%s' in XML, but is currently assigned to '%s' in database.", nameOrSerial, mdev.Serial, dgName, curDG))
+				}
+
+				if stackName != "" && stackName != dbStackName.String && stackName != dbTmplName.String {
+					curStack := dbStackName.String
+					if curStack == "" {
+						curStack = dbTmplName.String
+					}
+					if curStack == "" {
+						curStack = "None"
+					}
+					stats.Warnings = append(stats.Warnings, fmt.Sprintf("Managed device '%s' (Serial: %s) is mapped to Template/Stack '%s' in XML, but is currently assigned to '%s' in database.", nameOrSerial, mdev.Serial, stackName, curStack))
+				}
+			}
+		}
+
 	} else {
 		stats.ConfigType = "Firewall"
 		stats.DevicesCount = len(config.Devices)
@@ -501,7 +708,24 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			if name == "" || name == "localhost.localdomain" {
 				name = "standalone-firewall"
 			}
-			fwName, _ := parseFirewallFilename(filename)
+			fwName, serial := parseFirewallFilename(filename)
+			var xmlSerial string
+			if dev.DeviceConfig != nil {
+				xmlSerial = dev.DeviceConfig.System.Serial
+				if xmlSerial == "" {
+					xmlSerial = dev.DeviceConfig.System.SerialNumber
+				}
+			}
+			if xmlSerial == "" && config.DeviceConfig != nil {
+				xmlSerial = config.DeviceConfig.System.Serial
+				if xmlSerial == "" {
+					xmlSerial = config.DeviceConfig.System.SerialNumber
+				}
+			}
+			if serial == "" {
+				serial = xmlSerial
+			}
+
 			if fwName != "" {
 				name = fwName
 			}
@@ -514,8 +738,57 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			for _, eth := range dev.Network.Interface.Ethernet {
 				stats.InterfacesCount += len(eth.IPs)
 			}
+
+			// standalone device UUID
+			deviceUUID := "paloalto-fw-" + dev.Name
+			if dev.Name == "" || dev.Name == "localhost.localdomain" {
+				deviceUUID = "paloalto-fw-standalone"
+			}
+			if fwName != "" {
+				if serial != "" {
+					deviceUUID = "paloalto-fw-" + fwName + "-" + serial
+				} else {
+					deviceUUID = "paloalto-fw-" + fwName
+				}
+			} else if serial != "" {
+				deviceUUID = "paloalto-fw-" + name + "-" + serial
+			}
+
+			// Calculate object deltas for Standalone firewall VSYS
+			for _, vsys := range dev.Vsys {
+				scope := "vsys:" + vsys.Name
+				if add, mod, unc, err := a.compareAddressObjects(deviceUUID, scope, vsys.Address); err != nil {
+					return nil, fmt.Errorf("compareAddressObjects standalone vsys %s: %w", vsys.Name, err)
+				} else {
+					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+				if add, mod, unc, err := a.compareServiceObjects(deviceUUID, scope, vsys.Service); err != nil {
+					return nil, fmt.Errorf("compareServiceObjects standalone vsys %s: %w", vsys.Name, err)
+				} else {
+					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+				if add, mod, unc, err := a.compareAddressGroups(deviceUUID, scope, vsys.AddressGroup); err != nil {
+					return nil, fmt.Errorf("compareAddressGroups standalone vsys %s: %w", vsys.Name, err)
+				} else {
+					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+				if add, mod, unc, err := a.compareServiceGroups(deviceUUID, scope, vsys.ServiceGroup); err != nil {
+					return nil, fmt.Errorf("compareServiceGroups standalone vsys %s: %w", vsys.Name, err)
+				} else {
+					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+				if add, mod, unc, err := a.compareApplicationObjects(deviceUUID, scope, vsys.Application); err != nil {
+					return nil, fmt.Errorf("compareApplicationObjects standalone vsys %s: %w", vsys.Name, err)
+				} else {
+					addedCount += add; modifiedCount += mod; unchangedCount += unc
+				}
+			}
 		}
 	}
+
+	stats.AddedCount = addedCount
+	stats.ModifiedCount = modifiedCount
+	stats.UnchangedCount = unchangedCount
 
 	return stats, nil
 }
@@ -716,14 +989,6 @@ func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
 	tx.Exec("DELETE FROM device_groups WHERE uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM templates WHERE uuid = ?", deviceUUID)
 	tx.Exec("DELETE FROM template_stacks WHERE uuid = ?", deviceUUID)
-	
-	if strings.HasPrefix(deviceUUID, "paloalto-fw-") {
-		parts := strings.Split(deviceUUID, "-")
-		if len(parts) > 2 {
-			serial := parts[len(parts)-1]
-			tx.Exec("DELETE FROM managed_devices_raw WHERE serial = ?", serial)
-		}
-	}
 
 	// 2. Delete the scope which automatically cascade-deletes objects, rules, topology, and static routes
 	tx.Exec("DELETE FROM scopes WHERE uuid = ?", deviceUUID)
@@ -2279,9 +2544,21 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 					}
 				}
 
-				_, err = managedDevStmt.Exec(sharedUUID, mdev.Serial, name, ipAddr, dgID, stackID, tmplID)
+				devUUID := sharedUUID
+				var existingDeviceUUID string
+				err = tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", mdev.Serial).Scan(&existingDeviceUUID)
+				if err == nil && existingDeviceUUID != "" && strings.HasPrefix(existingDeviceUUID, "paloalto-fw-") {
+					devUUID = existingDeviceUUID
+				}
+
+				res, err := managedDevStmt.Exec(devUUID, mdev.Serial, name, ipAddr, dgID, stackID, tmplID)
 				if err != nil {
 					slog.Error("Failed to insert managed device", slog.String("error", err.Error()))
+				} else if devUUID != sharedUUID {
+					newID, err := res.LastInsertId()
+					if err == nil {
+						tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, devUUID)
+					}
 				}
 			}
 		}
@@ -2417,6 +2694,17 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				}
 			}
 
+			var existingDeviceUUID string
+			if serial != "" {
+				tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", serial).Scan(&existingDeviceUUID)
+			}
+
+			// Protect the managed_devices_raw row from cascade delete when the scope is cleared
+			if existingDeviceUUID != "" {
+				tx.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-temp-placeholder', 'shared', 'Temporary Placeholder')")
+				tx.Exec("UPDATE managed_devices_raw SET device_uuid = 'paloalto-temp-placeholder' WHERE serial = ?", serial)
+			}
+
 			clearDeviceTables(tx, deviceUUID)
 
 			// Register scope
@@ -2426,9 +2714,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			devicesImported++
 
 			if serial != "" {
-				var existingDeviceUUID string
-				err := tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", serial).Scan(&existingDeviceUUID)
-				if err == nil {
+				if existingDeviceUUID != "" {
 					if mgmtIP != "" {
 						tx.Exec("UPDATE managed_devices_raw SET name = ?, ip_address = ?, device_uuid = ? WHERE serial = ?", deviceName, mgmtIP, deviceUUID, serial)
 					} else {
@@ -2440,7 +2726,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 						tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
 					}
 					// If the device name changed (resulting in a new UUID), clean up the old scope context
-					if existingDeviceUUID != deviceUUID {
+					if existingDeviceUUID != deviceUUID && strings.HasPrefix(existingDeviceUUID, "paloalto-fw-") {
 						tx.Exec("DELETE FROM scopes WHERE uuid = ?", existingDeviceUUID)
 					}
 				} else {
@@ -2455,6 +2741,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 					mdevID, _ := res.LastInsertId()
 					tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, deviceUUID)
 				}
+			}
+
+			// Clean up the placeholder if it was created
+			if existingDeviceUUID != "" {
+				tx.Exec("DELETE FROM scopes WHERE uuid = 'paloalto-temp-placeholder'")
 			}
 
 			interfaceToZone := make(map[string]string)
@@ -2577,4 +2868,375 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 	}
 
 	return devicesImported, topologyImported, nil
+}
+
+// Comparative pre-flight helpers
+
+func (a *Adapter) compareAddressObjects(deviceUUID, scope string, entries []XMLAddressEntry) (added, modified, unchanged int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+	rows, err := a.store.DB().Query("SELECT name, type, value, description FROM address_objects WHERE device_uuid = ? AND scope = ?", deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	type dbAddr struct {
+		Type        string
+		Value       string
+		Description string
+	}
+	existing := make(map[string]dbAddr)
+	for rows.Next() {
+		var name string
+		var val dbAddr
+		var desc sql.NullString
+		if err := rows.Scan(&name, &val.Type, &val.Value, &desc); err != nil {
+			return 0, 0, 0, err
+		}
+		val.Description = desc.String
+		existing[name] = val
+	}
+
+	for _, entry := range entries {
+		addrType := ""
+		addrVal := ""
+		if entry.IPNetmask != "" {
+			addrType = "ip-netmask"
+			addrVal = entry.IPNetmask
+		} else if entry.IPRange != "" {
+			addrType = "ip-range"
+			addrVal = entry.IPRange
+		} else if entry.FQDN != "" {
+			addrType = "fqdn"
+			addrVal = entry.FQDN
+		}
+		if addrType == "" {
+			continue
+		}
+
+		dbVal, ok := existing[entry.Name]
+		if !ok {
+			added++
+		} else {
+			if dbVal.Type == addrType && dbVal.Value == addrVal && dbVal.Description == entry.Description {
+				unchanged++
+			} else {
+				modified++
+			}
+		}
+	}
+	return added, modified, unchanged, nil
+}
+
+func (a *Adapter) compareServiceObjects(deviceUUID, scope string, entries []XMLServiceEntry) (added, modified, unchanged int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+	rows, err := a.store.DB().Query("SELECT name, protocol, source_port, destination_port, description FROM service_objects WHERE device_uuid = ? AND scope = ?", deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	type dbSrv struct {
+		Protocol        string
+		SourcePort      string
+		DestinationPort string
+		Description     string
+	}
+	existing := make(map[string]dbSrv)
+	for rows.Next() {
+		var name string
+		var val dbSrv
+		var srcPort sql.NullString
+		var desc sql.NullString
+		if err := rows.Scan(&name, &val.Protocol, &srcPort, &val.DestinationPort, &desc); err != nil {
+			return 0, 0, 0, err
+		}
+		val.SourcePort = srcPort.String
+		val.Description = desc.String
+		existing[name] = val
+	}
+
+	for _, entry := range entries {
+		var proto, srcPort, destPort string
+		if entry.TCP != nil {
+			proto = "tcp"
+			destPort = entry.TCP.Port
+			srcPort = entry.TCP.SourcePort
+		} else if entry.UDP != nil {
+			proto = "udp"
+			destPort = entry.UDP.Port
+			srcPort = entry.UDP.SourcePort
+		}
+		if proto == "" {
+			continue
+		}
+
+		dbVal, ok := existing[entry.Name]
+		if !ok {
+			added++
+		} else {
+			if dbVal.Protocol == proto && dbVal.SourcePort == srcPort && dbVal.DestinationPort == destPort && dbVal.Description == entry.Description {
+				unchanged++
+			} else {
+				modified++
+			}
+		}
+	}
+	return added, modified, unchanged, nil
+}
+
+func (a *Adapter) compareAddressGroups(deviceUUID, scope string, entries []XMLAddressGroupEntry) (added, modified, unchanged int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+
+	rows, err := a.store.DB().Query("SELECT id, name, description FROM address_groups WHERE device_uuid = ? AND scope = ?", deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	type dbGroup struct {
+		ID          int64
+		Description string
+	}
+	groupMap := make(map[string]dbGroup)
+	for rows.Next() {
+		var name string
+		var val dbGroup
+		var desc sql.NullString
+		if err := rows.Scan(&val.ID, &name, &desc); err != nil {
+			return 0, 0, 0, err
+		}
+		val.Description = desc.String
+		groupMap[name] = val
+	}
+
+	memberRows, err := a.store.DB().Query(`
+		SELECT ag.name, COALESCE(ao.name, COALESCE(ag2.name, agm.member_name)) AS member_name
+		FROM address_group_members agm
+		JOIN address_groups ag ON agm.group_id = ag.id
+		LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
+		LEFT JOIN address_groups ag2 ON agm.member_group_id = ag2.id
+		WHERE ag.device_uuid = ? AND ag.scope = ?
+	`, deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer memberRows.Close()
+
+	groupMembers := make(map[string][]string)
+	for memberRows.Next() {
+		var groupName, memberName string
+		if err := memberRows.Scan(&groupName, &memberName); err != nil {
+			return 0, 0, 0, err
+		}
+		groupMembers[groupName] = append(groupMembers[groupName], memberName)
+	}
+
+	for _, entry := range entries {
+		dbGrp, ok := groupMap[entry.Name]
+		if !ok {
+			added++
+			continue
+		}
+
+		if dbGrp.Description != entry.Description {
+			modified++
+			continue
+		}
+
+		dbMem := groupMembers[entry.Name]
+		xmlMem := make([]string, len(entry.Static))
+		copy(xmlMem, entry.Static)
+		sort.Strings(xmlMem)
+		sort.Strings(dbMem)
+
+		if len(xmlMem) != len(dbMem) {
+			modified++
+			continue
+		}
+
+		mismatch := false
+		for i := range xmlMem {
+			if xmlMem[i] != dbMem[i] {
+				mismatch = true
+				break
+			}
+		}
+
+		if mismatch {
+			modified++
+		} else {
+			unchanged++
+		}
+	}
+	return added, modified, unchanged, nil
+}
+
+func (a *Adapter) compareServiceGroups(deviceUUID, scope string, entries []XMLServiceGroupEntry) (added, modified, unchanged int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+
+	rows, err := a.store.DB().Query("SELECT id, name, description FROM service_groups WHERE device_uuid = ? AND scope = ?", deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	type dbGroup struct {
+		ID          int64
+		Description string
+	}
+	groupMap := make(map[string]dbGroup)
+	for rows.Next() {
+		var name string
+		var val dbGroup
+		var desc sql.NullString
+		if err := rows.Scan(&val.ID, &name, &desc); err != nil {
+			return 0, 0, 0, err
+		}
+		val.Description = desc.String
+		groupMap[name] = val
+	}
+
+	memberRows, err := a.store.DB().Query(`
+		SELECT sg.name, COALESCE(so.name, COALESCE(sg2.name, sgm.member_name)) AS member_name
+		FROM service_group_members sgm
+		JOIN service_groups sg ON sgm.group_id = sg.id
+		LEFT JOIN service_objects so ON sgm.member_service_id = so.id
+		LEFT JOIN service_groups sg2 ON sgm.member_group_id = sg2.id
+		WHERE sg.device_uuid = ? AND sg.scope = ?
+	`, deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer memberRows.Close()
+
+	groupMembers := make(map[string][]string)
+	for memberRows.Next() {
+		var groupName, memberName string
+		if err := memberRows.Scan(&groupName, &memberName); err != nil {
+			return 0, 0, 0, err
+		}
+		groupMembers[groupName] = append(groupMembers[groupName], memberName)
+	}
+
+	for _, entry := range entries {
+		dbGrp, ok := groupMap[entry.Name]
+		if !ok {
+			added++
+			continue
+		}
+
+		if dbGrp.Description != entry.Description {
+			modified++
+			continue
+		}
+
+		dbMem := groupMembers[entry.Name]
+		xmlMem := make([]string, len(entry.Members))
+		copy(xmlMem, entry.Members)
+		sort.Strings(xmlMem)
+		sort.Strings(dbMem)
+
+		if len(xmlMem) != len(dbMem) {
+			modified++
+			continue
+		}
+
+		mismatch := false
+		for i := range xmlMem {
+			if xmlMem[i] != dbMem[i] {
+				mismatch = true
+				break
+			}
+		}
+
+		if mismatch {
+			modified++
+		} else {
+			unchanged++
+		}
+	}
+	return added, modified, unchanged, nil
+}
+
+func (a *Adapter) compareApplicationObjects(deviceUUID, scope string, entries []XMLApplicationEntry) (added, modified, unchanged int, err error) {
+	if len(entries) == 0 {
+		return 0, 0, 0, nil
+	}
+
+	rows, err := a.store.DB().Query("SELECT name, category, subcategory, technology, risk, ports, description FROM application_objects WHERE device_uuid = ? AND scope = ?", deviceUUID, scope)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	type dbApp struct {
+		Category    string
+		Subcategory string
+		Technology  string
+		Risk        int
+		Ports       string
+		Description string
+	}
+	existing := make(map[string]dbApp)
+	for rows.Next() {
+		var name string
+		var val dbApp
+		var desc sql.NullString
+		var ports sql.NullString
+		if err := rows.Scan(&name, &val.Category, &val.Subcategory, &val.Technology, &val.Risk, &ports, &desc); err != nil {
+			return 0, 0, 0, err
+		}
+		val.Ports = ports.String
+		val.Description = desc.String
+		existing[name] = val
+	}
+
+	for _, entry := range entries {
+		portsStr := strings.Join(entry.Ports, ",")
+		dbVal, ok := existing[entry.Name]
+		if !ok {
+			added++
+		} else {
+			if dbVal.Category == entry.Category &&
+				dbVal.Subcategory == entry.Subcategory &&
+				dbVal.Technology == entry.Technology &&
+				dbVal.Risk == entry.Risk &&
+				dbVal.Ports == portsStr &&
+				dbVal.Description == entry.Description {
+				unchanged++
+			} else {
+				modified++
+			}
+		}
+	}
+	return added, modified, unchanged, nil
+}
+
+func (a *Adapter) IsPanoramaConfig(xmlData []byte) bool {
+	var config PaloAltoConfig
+	if err := xml.Unmarshal(xmlData, &config); err != nil {
+		return false
+	}
+	allTemplates := append([]XMLTemplate{}, config.Templates...)
+	allTemplateStacks := append([]XMLTemplateStack{}, config.TemplateStacks...)
+	allDeviceGroups := append([]XMLDeviceGroup{}, config.DeviceGroups...)
+
+	for _, dev := range config.Devices {
+		allTemplates = append(allTemplates, dev.Templates...)
+		allTemplateStacks = append(allTemplateStacks, dev.TemplateStacks...)
+		allDeviceGroups = append(allDeviceGroups, dev.DeviceGroups...)
+	}
+
+	hasMgtDevices := len(config.Shared.ManagedDevices) > 0 || (config.MgtConfig != nil && len(config.MgtConfig.Devices) > 0) || (config.ReadOnly != nil && len(config.ReadOnly.Devices) > 0)
+	hasShared := len(config.Shared.Address) > 0 || len(config.Shared.AddressGroup) > 0 || len(config.Shared.Service) > 0 || len(config.Shared.PreRulebase.SecurityRules) > 0 || len(config.Shared.PostRulebase.SecurityRules) > 0 || hasMgtDevices
+	return len(allTemplates) > 0 || len(allDeviceGroups) > 0 || len(allTemplateStacks) > 0 || hasShared
 }

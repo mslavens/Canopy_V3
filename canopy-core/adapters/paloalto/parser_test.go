@@ -864,7 +864,7 @@ func TestParser(t *testing.T) {
 
 		// Verify managed devices
 		var mdevSerial, mdevName, mdevIP, mdevDG, mdevStack string
-		err = db.DB().QueryRow("SELECT serial, name, ip_address, device_group, template_stack FROM managed_devices WHERE device_uuid = 'paloalto-panorama-global' AND serial = '0123456789'").Scan(&mdevSerial, &mdevName, &mdevIP, &mdevDG, &mdevStack)
+		err = db.DB().QueryRow("SELECT serial, name, ip_address, device_group, template_stack FROM managed_devices WHERE serial = '0123456789'").Scan(&mdevSerial, &mdevName, &mdevIP, &mdevDG, &mdevStack)
 		if err != nil {
 			t.Fatalf("failed to query managed device: %v", err)
 		}
@@ -906,7 +906,7 @@ func TestParser(t *testing.T) {
 
 		// Verify managed devices loaded from mgt-config
 		var mdevSerial, mdevName, mdevIP, mdevDG, mdevStack string
-		err = db.DB().QueryRow("SELECT serial, name, ip_address, device_group, template_stack FROM managed_devices WHERE device_uuid = 'paloalto-panorama-global' AND serial = '0123456789'").Scan(&mdevSerial, &mdevName, &mdevIP, &mdevDG, &mdevStack)
+		err = db.DB().QueryRow("SELECT serial, name, ip_address, device_group, template_stack FROM managed_devices WHERE serial = '0123456789'").Scan(&mdevSerial, &mdevName, &mdevIP, &mdevDG, &mdevStack)
 		if err != nil {
 			t.Fatalf("failed to query managed device from mgt-config: %v", err)
 		}
@@ -1022,6 +1022,9 @@ func TestParser(t *testing.T) {
 		}
 		if pStats.ConfigType != "Panorama" || pStats.TemplatesCount != 1 || pStats.DevicesCount != 1 || pStats.InterfacesCount != 1 || pStats.ZonesCount != 1 || pStats.VirtualRoutersCount != 1 {
 			t.Errorf("incorrect panorama stats: %+v", pStats)
+		}
+		if pStats.AddedCount != 4 {
+			t.Errorf("expected 4 added objects, got %d (Modified: %d, Unchanged: %d)", pStats.AddedCount, pStats.ModifiedCount, pStats.UnchangedCount)
 		}
 	})
 }

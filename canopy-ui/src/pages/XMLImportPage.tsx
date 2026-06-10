@@ -10,12 +10,16 @@ interface PreviewStats {
   config_type: 'Panorama' | 'Firewall';
   devices: string[];
   preview: boolean;
+  warnings: string[];
   stats: {
     devices_count: number;
     interfaces_count: number;
     templates_count: number;
     virtual_routers_count: number;
     zones_count: number;
+    added_count: number;
+    modified_count: number;
+    unchanged_count: number;
   };
 }
 
@@ -210,7 +214,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
 
       {/* Preview Stats Page */}
       {file && previewData && !isParsing && !importSummary && (
-        <section style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', padding: '25px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <section style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', padding: '25px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Header Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -219,10 +223,10 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  Config Parsed Successfully
+                  Configuration Pre-Flight Analysis Complete
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Detected Layout: <strong style={{ color: 'var(--accent-blue)' }}>{previewData.config_type}</strong>
+                  Detected Layout Type: <strong style={{ color: 'var(--accent-blue)' }}>{previewData.config_type}</strong>
                 </p>
               </div>
             </div>
@@ -234,24 +238,138 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
           {/* Stats Badges row */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {previewData.config_type === 'Panorama' && (
-              <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '10px 15px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Shield size={14} style={{ color: 'var(--accent-purple)' }} />
                 <strong>{previewData.stats.templates_count}</strong> Templates
               </div>
             )}
-            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '10px 15px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
               <strong>{previewData.stats.devices_count}</strong> Devices / Contexts
             </div>
-            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '10px 15px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Network size={14} style={{ color: 'var(--accent-green)' }} />
               <strong>{previewData.stats.interfaces_count}</strong> Interfaces
             </div>
-            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '10px 15px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Database size={14} style={{ color: 'var(--status-warn)' }} />
               <strong>{previewData.stats.zones_count}</strong> Security Zones
             </div>
           </div>
+
+          {/* Delta Summary Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Object Delta Summary
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              
+              {/* Additions Card */}
+              <div style={{ 
+                backgroundColor: 'var(--bg-element)', 
+                border: '1px solid var(--border-main)', 
+                borderLeft: '4px solid var(--status-green)', 
+                borderRadius: '6px', 
+                padding: '16px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px' 
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>New Objects (Additions)</span>
+                <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--status-green)', lineHeight: 1 }}>
+                  {previewData.stats.added_count ?? 0}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Configuration objects that do not exist and will be created.
+                </span>
+              </div>
+
+              {/* Modifications Card */}
+              <div style={{ 
+                backgroundColor: 'var(--bg-element)', 
+                border: '1px solid var(--border-main)', 
+                borderLeft: '4px solid var(--status-warn)', 
+                borderRadius: '6px', 
+                padding: '16px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px' 
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>Modified Objects (Collisions)</span>
+                <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--status-warn)', lineHeight: 1 }}>
+                  {previewData.stats.modified_count ?? 0}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Objects that already exist but differ. Attributes will be merged.
+                </span>
+              </div>
+
+              {/* Unchanged Card */}
+              <div style={{ 
+                backgroundColor: 'var(--bg-element)', 
+                border: '1px solid var(--border-main)', 
+                borderLeft: '4px solid var(--text-muted)', 
+                borderRadius: '6px', 
+                padding: '16px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px' 
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>Unchanged Objects</span>
+                <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1 }}>
+                  {previewData.stats.unchanged_count ?? 0}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Objects that are already identical in the database.
+                </span>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Conflict Warning Ledger Section */}
+          {previewData.warnings && previewData.warnings.length > 0 && (
+            <div style={{ 
+              backgroundColor: 'rgba(217, 119, 6, 0.05)', 
+              border: '1px solid rgba(217, 119, 6, 0.3)', 
+              borderRadius: '6px', 
+              padding: '18px', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '12px' 
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-warn)' }}>
+                <AlertTriangle size={18} />
+                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Conflict Warning Ledger ({previewData.warnings.length})
+                </h4>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-main)', lineHeight: 1.4 }}>
+                The following mapping anomalies were detected. Existing firewall associations in the database will be updated to match the XML specification upon import.
+              </p>
+              <div style={{ 
+                maxHeight: '180px', 
+                overflowY: 'auto', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '8px', 
+                fontSize: '12px', 
+                fontFamily: 'monospace', 
+                color: 'var(--text-main)', 
+                backgroundColor: 'var(--bg-app)', 
+                padding: '12px', 
+                borderRadius: '4px',
+                border: '1px solid var(--border-main)'
+              }}>
+                {previewData.warnings.map((warn, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <span style={{ color: 'var(--status-warn)', flexShrink: 0 }}>•</span>
+                    <span>{warn}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Device List summary */}
           <div style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '15px' }}>
