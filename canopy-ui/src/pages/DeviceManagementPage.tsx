@@ -267,6 +267,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 }) => {
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Loaded DB data
@@ -313,8 +314,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
-  const fetchData = async () => {
+  const fetchData = async (isInitial = false) => {
     if (!apiClient) return;
+    if (isInitial) {
+      setInitialLoading(true);
+    }
     setLoading(true);
     try {
       const [invRes, dgRes, tmplRes, stackRes, membersRes] = await Promise.all([
@@ -335,11 +339,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       addToast(err instanceof Error ? err.message : 'Failed to query database.', 'error');
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [apiClient]);
 
   // Reset selections when sub-tab changes
@@ -450,10 +455,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     try {
       if (editingDevice) {
         await apiClient.updateDevice(editingDevice.id, deviceName, deviceSerial, deviceIp, deviceGroupId, stackId, tmplId);
-        addToast('Firewall context updated successfully.', 'success');
+        addToast(`Updated managed device: ${deviceName} (S/N: ${deviceSerial})`, 'success');
       } else {
         await apiClient.createDevice(deviceName, deviceSerial, deviceIp, deviceGroupId, stackId, tmplId);
-        addToast('New firewall registered successfully.', 'success');
+        addToast(`Registered managed device: ${deviceName} (S/N: ${deviceSerial})`, 'success');
       }
       setIsDeviceModalOpen(false);
       fetchData();
@@ -472,7 +477,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         if (!apiClient) return;
         try {
           await apiClient.deleteDevice(dev.id);
-          addToast('Firewall removed successfully.', 'success');
+          addToast(`Removed managed device: ${dev.name}`, 'success');
           fetchData();
         } catch (err) {
           addToast(err instanceof Error ? err.message : 'Deletion failed', 'error');
@@ -506,10 +511,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     try {
       if (editingGroup) {
         await apiClient.updateDeviceGroup(editingGroup.id, groupName, groupParentId);
-        addToast('Device group updated successfully.', 'success');
+        addToast(`Renamed or updated device group parent context: ${groupName}`, 'success');
       } else {
         await apiClient.createDeviceGroup(groupName, groupParentId);
-        addToast('Device group created successfully.', 'success');
+        addToast(`Added new device group: ${groupName}`, 'success');
       }
       setIsGroupModalOpen(false);
       fetchData();
@@ -528,7 +533,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         if (!apiClient) return;
         try {
           await apiClient.deleteDeviceGroup(group.id);
-          addToast('Device group deleted successfully.', 'success');
+          addToast(`Removed device group: ${cleanGroupName(group.name)}`, 'success');
           setSelectedGroupId(null);
           fetchData();
         } catch (err) {
@@ -560,10 +565,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     try {
       if (editingTemplate) {
         await apiClient.updateTemplate(editingTemplate.id, templateName);
-        addToast('Template updated successfully.', 'success');
+        addToast(`Renamed template: ${templateName}`, 'success');
       } else {
         await apiClient.createTemplate(templateName);
-        addToast('Template created successfully.', 'success');
+        addToast(`Added base template: ${templateName}`, 'success');
       }
       setIsTemplateModalOpen(false);
       fetchData();
@@ -582,7 +587,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         if (!apiClient) return;
         try {
           await apiClient.deleteTemplate(tmpl.id);
-          addToast('Template deleted successfully.', 'success');
+          addToast(`Removed template: ${cleanTemplateName(tmpl.name)}`, 'success');
           setSelectedTemplateId(null);
           setSelectedTemplateName(null);
           fetchData();
@@ -622,10 +627,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     try {
       if (editingStack) {
         await apiClient.updateTemplateStack(editingStack.id, stackName, stackTemplateIds);
-        addToast('Template stack updated successfully.', 'success');
+        addToast(`Updated template stack context: ${stackName}`, 'success');
       } else {
         await apiClient.createTemplateStack(stackName, stackTemplateIds);
-        addToast('Template stack created successfully.', 'success');
+        addToast(`Created template stack: ${stackName}`, 'success');
       }
       setIsStackModalOpen(false);
       fetchData();
@@ -644,7 +649,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         if (!apiClient) return;
         try {
           await apiClient.deleteTemplateStack(stack.id);
-          addToast('Template stack deleted successfully.', 'success');
+          addToast(`Removed template stack: ${stack.name}`, 'success');
           setSelectedTemplateId(null);
           setSelectedTemplateName(null);
           fetchData();
@@ -735,7 +740,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const availableTemplates = baseTemplates.filter(t => !stackTemplateIds.includes(t.id));
   const memberOptions = ['-- Select template to append --', ...availableTemplates.map(t => cleanTemplateName(t.name))];
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="fade-in-delayed" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}>
         <Loader2 size={28} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
