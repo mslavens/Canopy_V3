@@ -9,7 +9,7 @@ export interface ColumnDef {
   label?: string;
   width?: string;
   allowOverflow?: boolean;
-  renderCell?: (value: any, row: any) => React.ReactNode;
+  renderCell?: (value: any, row: any, searchQuery?: string) => React.ReactNode;
 }
 
 interface DataTableProps {
@@ -294,7 +294,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
                   const colDef = getColDef(colKey);
                   return (
                     <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
-                      {colDef.renderCell ? colDef.renderCell(row[colKey], row) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
+                      {colDef.renderCell ? colDef.renderCell(row[colKey], row, searchQuery) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
                     </td>
                   );
                 })}

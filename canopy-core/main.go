@@ -8,16 +8,20 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -146,6 +150,7 @@ var actSchema = `
 		type TEXT NOT NULL,
 		value TEXT NOT NULL,
 		description TEXT,
+		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS address_groups (
@@ -153,7 +158,10 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
+		type TEXT DEFAULT 'static',
+		filter TEXT,
 		description TEXT,
+		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS address_group_members (
@@ -180,6 +188,7 @@ var actSchema = `
 		source_port TEXT,
 		destination_port TEXT NOT NULL,
 		description TEXT,
+		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS service_groups (
@@ -188,6 +197,7 @@ var actSchema = `
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		description TEXT,
+		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS service_group_members (
@@ -216,6 +226,7 @@ var actSchema = `
 		risk INTEGER DEFAULT 1,
 		ports TEXT,
 		description TEXT,
+		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS regions (
@@ -458,7 +469,37 @@ var actSchema = `
 		PRIMARY KEY (rule_id, profile_id),
 		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE,
 		FOREIGN KEY (profile_id) REFERENCES security_profiles(id) ON DELETE CASCADE
-	);`
+	);
+	CREATE TABLE IF NOT EXISTS application_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		dirty INTEGER DEFAULT 0,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS application_group_members (
+		group_id INTEGER NOT NULL,
+		member_application_id INTEGER,
+		member_group_id INTEGER,
+		member_name TEXT,
+		PRIMARY KEY (group_id, member_application_id, member_group_id, member_name),
+		FOREIGN KEY (group_id) REFERENCES application_groups(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_application_id) REFERENCES application_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (member_group_id) REFERENCES application_groups(id) ON DELETE CASCADE,
+		CHECK (
+			(member_application_id IS NOT NULL AND member_group_id IS NULL AND member_name IS NULL) OR
+			(member_application_id IS NULL AND member_group_id IS NOT NULL AND member_name IS NULL) OR
+			(member_application_id IS NULL AND member_group_id IS NULL AND member_name IS NOT NULL)
+		)
+	);
+	CREATE INDEX IF NOT EXISTS idx_address_objects_lookup ON address_objects (device_uuid, scope, name);
+	CREATE INDEX IF NOT EXISTS idx_address_groups_lookup ON address_groups (device_uuid, scope, name);
+	CREATE INDEX IF NOT EXISTS idx_service_objects_lookup ON service_objects (device_uuid, scope, name);
+	CREATE INDEX IF NOT EXISTS idx_service_groups_lookup ON service_groups (device_uuid, scope, name);
+	CREATE INDEX IF NOT EXISTS idx_application_objects_lookup ON application_objects (device_uuid, scope, name);
+	CREATE INDEX IF NOT EXISTS idx_application_groups_lookup ON application_groups (device_uuid, scope, name);`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
 func globalCORSMiddleware(next http.Handler) http.Handler {
@@ -765,6 +806,15 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 			db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", name))
 		}
 	}
+
+	// Dynamic column migrations for Objects module (errors are safely ignored if columns already exist)
+	db.Exec("ALTER TABLE address_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE address_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE address_groups ADD COLUMN type TEXT DEFAULT 'static';")
+	db.Exec("ALTER TABLE address_groups ADD COLUMN filter TEXT;")
+	db.Exec("ALTER TABLE service_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 }
 
 // mountAndSeedVault securely opens the encrypted SQLite databases, asserts the schemas, and mounts the active workspace.
@@ -3601,6 +3651,16 @@ func main() {
 			rows.Close()
 		}
 
+		// Reset dirty flags on objects on configuration commit (snapshot creation)
+		if activeDB != nil {
+			activeDB.DB().Exec("UPDATE address_objects SET dirty = 0;")
+			activeDB.DB().Exec("UPDATE address_groups SET dirty = 0;")
+			activeDB.DB().Exec("UPDATE service_objects SET dirty = 0;")
+			activeDB.DB().Exec("UPDATE service_groups SET dirty = 0;")
+			activeDB.DB().Exec("UPDATE application_objects SET dirty = 0;")
+			activeDB.DB().Exec("UPDATE application_groups SET dirty = 0;")
+		}
+
 		// Force WAL checkpoints to guarantee all state is flushed to the .db files before copying
 		systemDB.DB().Exec("PRAGMA wal_checkpoint(TRUNCATE);")
 		if activeDB != nil {
@@ -4384,6 +4444,33 @@ func main() {
 		logAuditSafe("Emergency Rollback", "Maintenance", "System successfully restored to previous snapshot.")
 	})
 
+	// --- OBJECTS MODULE ENDPOINTS ---
+	mux.HandleFunc("/api/objects/address/create", handleAddressCreate)
+	mux.HandleFunc("/api/objects/address/update", handleAddressUpdate)
+	mux.HandleFunc("/api/objects/address/delete", handleAddressDelete)
+
+	mux.HandleFunc("/api/objects/address-group/create", handleAddressGroupCreate)
+	mux.HandleFunc("/api/objects/address-group/update", handleAddressGroupUpdate)
+	mux.HandleFunc("/api/objects/address-group/delete", handleAddressGroupDelete)
+
+	mux.HandleFunc("/api/objects/service/create", handleServiceCreate)
+	mux.HandleFunc("/api/objects/service/update", handleServiceUpdate)
+	mux.HandleFunc("/api/objects/service/delete", handleServiceDelete)
+
+	mux.HandleFunc("/api/objects/service-group/create", handleServiceGroupCreate)
+	mux.HandleFunc("/api/objects/service-group/update", handleServiceGroupUpdate)
+	mux.HandleFunc("/api/objects/service-group/delete", handleServiceGroupDelete)
+
+	mux.HandleFunc("/api/objects/application/create", handleApplicationCreate)
+	mux.HandleFunc("/api/objects/application/update", handleApplicationUpdate)
+	mux.HandleFunc("/api/objects/application/delete", handleApplicationDelete)
+
+	mux.HandleFunc("/api/objects/application-group/create", handleApplicationGroupCreate)
+	mux.HandleFunc("/api/objects/application-group/update", handleApplicationGroupUpdate)
+	mux.HandleFunc("/api/objects/application-group/delete", handleApplicationGroupDelete)
+
+	mux.HandleFunc("/api/objects/application/import-csv", handleApplicationImportCSV)
+
 	// --- MULTI-LAYER MIDDLEWARE STACK ---
 	protectedMux := authMiddleware(token, mux)
 	finalHandler := globalCORSMiddleware(protectedMux)
@@ -4437,4 +4524,1455 @@ func main() {
 	vaultMutex.Unlock()
 
 	slog.Info("Server stopped cleanly. Memory structures and databases are safe.")
+}
+
+// ==========================================
+// OBJECTS MODULE CRUD & VALIDATION HANDLERS
+// ==========================================
+
+func getActiveDBConn() (*sql.DB, error) {
+	vaultMutex.Lock()
+	defer vaultMutex.Unlock()
+	if activeDB == nil {
+		return nil, fmt.Errorf("Storage vault is locked.")
+	}
+	return activeDB.DB(), nil
+}
+
+func validateObjectName(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_\-\.]+$`, name)
+	if !matched {
+		return fmt.Errorf("name contains illegal characters; only alphanumeric, underscores, hyphens, and dots are allowed")
+	}
+	return nil
+}
+
+func validateAddressValue(addrType, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fmt.Errorf("value cannot be empty")
+	}
+	switch addrType {
+	case "ip-netmask":
+		if _, _, err := net.ParseCIDR(value); err == nil {
+			return nil
+		}
+		if ip := net.ParseIP(value); ip != nil {
+			return nil
+		}
+		return fmt.Errorf("invalid IP address or netmask CIDR format: %s", value)
+	case "ip-range":
+		parts := strings.Split(value, "-")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid IP range format; must be <start-ip>-<end-ip>")
+		}
+		ipStart := net.ParseIP(strings.TrimSpace(parts[0]))
+		ipEnd := net.ParseIP(strings.TrimSpace(parts[1]))
+		if ipStart == nil || ipEnd == nil {
+			return fmt.Errorf("invalid IP address in range: %s", value)
+		}
+		if (ipStart.To4() != nil) != (ipEnd.To4() != nil) {
+			return fmt.Errorf("IP range start and end must be of the same IP family (IPv4 or IPv6)")
+		}
+		return nil
+	case "fqdn":
+		matched, _ := regexp.MatchString(`^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$`, value)
+		if !matched {
+			return fmt.Errorf("invalid FQDN / hostname format: %s", value)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported address type: %s", addrType)
+	}
+}
+
+func validatePorts(ports string) error {
+	ports = strings.TrimSpace(ports)
+	if ports == "" {
+		return nil
+	}
+	parts := strings.Split(ports, ",")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			return fmt.Errorf("empty port element in list")
+		}
+		if strings.Contains(p, "-") {
+			rangeParts := strings.Split(p, "-")
+			if len(rangeParts) != 2 {
+				return fmt.Errorf("invalid port range: %s", p)
+			}
+			startVal, err1 := strconv.Atoi(strings.TrimSpace(rangeParts[0]))
+			endVal, err2 := strconv.Atoi(strings.TrimSpace(rangeParts[1]))
+			if err1 != nil || err2 != nil || startVal < 1 || startVal > 65535 || endVal < 1 || endVal > 65535 || startVal > endVal {
+				return fmt.Errorf("invalid port range values: %s", p)
+			}
+		} else {
+			val, err := strconv.Atoi(p)
+			if err != nil || val < 1 || val > 65535 {
+				return fmt.Errorf("invalid port number: %s", p)
+			}
+		}
+	}
+	return nil
+}
+
+func handleAddressCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Value       string `json:"value"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if err := validateAddressValue(req.Type, req.Value); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An address object with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := dbConn.Exec(`
+		INSERT INTO address_objects (device_uuid, scope, name, type, value, description, dirty)
+		VALUES (?, ?, ?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Type, req.Value, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create object: " + err.Error()})
+		return
+	}
+
+	id, _ := res.LastInsertId()
+	logAuditSafe("Address Object Created", "Objects", "Created address object: "+req.Name+" ("+req.Value+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleAddressUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Value       string `json:"value"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if err := validateAddressValue(req.Type, req.Value); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An address object with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = dbConn.Exec(`
+		UPDATE address_objects
+		SET device_uuid = ?, scope = ?, name = ?, type = ?, value = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, req.Type, req.Value, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update object: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Address Object Updated", "Objects", "Updated address object: "+req.Name+" ("+req.Value+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleAddressDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM address_objects WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM address_objects WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete object: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Address Object Deleted", "Objects", "Deleted address object: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleAddressGroupCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Type        string   `json:"type"`
+		Filter      string   `json:"filter"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM address_groups WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An address group with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := tx.Exec(`
+		INSERT INTO address_groups (device_uuid, scope, name, type, filter, description, dirty)
+		VALUES (?, ?, ?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Type, req.Filter, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create group: " + err.Error()})
+		return
+	}
+	groupID, _ := res.LastInsertId()
+
+	if req.Type == "static" {
+		for _, member := range req.Members {
+			member = strings.TrimSpace(member)
+			if member == "" {
+				continue
+			}
+
+			var addrID sql.NullInt64
+			tx.QueryRow("SELECT id FROM address_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&addrID)
+
+			var grpID sql.NullInt64
+			tx.QueryRow("SELECT id FROM address_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+			if addrID.Valid {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", groupID, addrID.Int64)
+			} else if grpID.Valid {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", groupID, grpID.Int64)
+			} else {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", groupID, member)
+			}
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member: " + err.Error()})
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Address Group Created", "Objects", "Created address group: "+req.Name+" (type: "+req.Type+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": groupID})
+}
+
+func handleAddressGroupUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int      `json:"id"`
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Type        string   `json:"type"`
+		Filter      string   `json:"filter"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM address_groups WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An address group with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = tx.Exec(`
+		UPDATE address_groups
+		SET device_uuid = ?, scope = ?, name = ?, type = ?, filter = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, req.Type, req.Filter, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update group: " + err.Error()})
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM address_group_members WHERE group_id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update group members: " + err.Error()})
+		return
+	}
+
+	if req.Type == "static" {
+		for _, member := range req.Members {
+			member = strings.TrimSpace(member)
+			if member == "" {
+				continue
+			}
+
+			var addrID sql.NullInt64
+			tx.QueryRow("SELECT id FROM address_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&addrID)
+
+			var grpID sql.NullInt64
+			tx.QueryRow("SELECT id FROM address_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+			if addrID.Valid {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", req.ID, addrID.Int64)
+			} else if grpID.Valid {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", req.ID, grpID.Int64)
+			} else {
+				_, err = tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", req.ID, member)
+			}
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member: " + err.Error()})
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Address Group Updated", "Objects", "Updated address group: "+req.Name+" (type: "+req.Type+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleAddressGroupDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM address_groups WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM address_groups WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete group: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Address Group Deleted", "Objects", "Deleted address group: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleServiceCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID      string `json:"device_uuid"`
+		Scope           string `json:"scope"`
+		Name            string `json:"name"`
+		Protocol        string `json:"protocol"`
+		SourcePort      string `json:"source_port"`
+		DestinationPort string `json:"destination_port"`
+		Description     string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	proto := strings.ToLower(strings.TrimSpace(req.Protocol))
+	if proto != "tcp" && proto != "udp" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Protocol must be TCP or UDP"})
+		return
+	}
+	if err := validatePorts(req.DestinationPort); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid destination port(s): " + err.Error()})
+		return
+	}
+	if req.SourcePort != "" {
+		if err := validatePorts(req.SourcePort); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid source port(s): " + err.Error()})
+			return
+		}
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM service_objects WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A service object with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := dbConn.Exec(`
+		INSERT INTO service_objects (device_uuid, scope, name, protocol, source_port, destination_port, description, dirty)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, proto, req.SourcePort, req.DestinationPort, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create service: " + err.Error()})
+		return
+	}
+
+	id, _ := res.LastInsertId()
+	logAuditSafe("Service Object Created", "Objects", "Created service object: "+req.Name+" ("+proto+":"+req.DestinationPort+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleServiceUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID              int    `json:"id"`
+		DeviceUUID      string `json:"device_uuid"`
+		Scope           string `json:"scope"`
+		Name            string `json:"name"`
+		Protocol        string `json:"protocol"`
+		SourcePort      string `json:"source_port"`
+		DestinationPort string `json:"destination_port"`
+		Description     string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	proto := strings.ToLower(strings.TrimSpace(req.Protocol))
+	if proto != "tcp" && proto != "udp" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Protocol must be TCP or UDP"})
+		return
+	}
+	if err := validatePorts(req.DestinationPort); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid destination port(s): " + err.Error()})
+		return
+	}
+	if req.SourcePort != "" {
+		if err := validatePorts(req.SourcePort); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Invalid source port(s): " + err.Error()})
+			return
+		}
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM service_objects WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A service object with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = dbConn.Exec(`
+		UPDATE service_objects
+		SET device_uuid = ?, scope = ?, name = ?, protocol = ?, source_port = ?, destination_port = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, proto, req.SourcePort, req.DestinationPort, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update service: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Service Object Updated", "Objects", "Updated service object: "+req.Name+" ("+proto+":"+req.DestinationPort+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleServiceDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM service_objects WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM service_objects WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete service: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Service Object Deleted", "Objects", "Deleted service object: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleServiceGroupCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM service_groups WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A service group with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := tx.Exec(`
+		INSERT INTO service_groups (device_uuid, scope, name, description, dirty)
+		VALUES (?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create service group: " + err.Error()})
+		return
+	}
+	groupID, _ := res.LastInsertId()
+
+	for _, member := range req.Members {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+
+		var svcID sql.NullInt64
+		tx.QueryRow("SELECT id FROM service_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&svcID)
+
+		var grpID sql.NullInt64
+		tx.QueryRow("SELECT id FROM service_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+		if svcID.Valid {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", groupID, svcID.Int64)
+		} else if grpID.Valid {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", groupID, grpID.Int64)
+		} else {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", groupID, member)
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member to service group: " + err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Service Group Created", "Objects", "Created service group: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": groupID})
+}
+
+func handleServiceGroupUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int      `json:"id"`
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM service_groups WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A service group with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = tx.Exec(`
+		UPDATE service_groups
+		SET device_uuid = ?, scope = ?, name = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update service group: " + err.Error()})
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM service_group_members WHERE group_id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update service group members: " + err.Error()})
+		return
+	}
+
+	for _, member := range req.Members {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+
+		var svcID sql.NullInt64
+		tx.QueryRow("SELECT id FROM service_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&svcID)
+
+		var grpID sql.NullInt64
+		tx.QueryRow("SELECT id FROM service_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+		if svcID.Valid {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", req.ID, svcID.Int64)
+		} else if grpID.Valid {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", req.ID, grpID.Int64)
+		} else {
+			_, err = tx.Exec("INSERT INTO service_group_members (group_id, member_service_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", req.ID, member)
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member to service group: " + err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Service Group Updated", "Objects", "Updated service group: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleServiceGroupDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM service_groups WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM service_groups WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete service group: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Service Group Deleted", "Objects", "Deleted service group: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleApplicationCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Category    string `json:"category"`
+		Subcategory string `json:"subcategory"`
+		Technology  string `json:"technology"`
+		Risk        int    `json:"risk"`
+		Ports       string `json:"ports"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM application_objects WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An application signature with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := dbConn.Exec(`
+		INSERT INTO application_objects (device_uuid, scope, name, category, subcategory, technology, risk, ports, description, dirty)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Category, req.Subcategory, req.Technology, req.Risk, req.Ports, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create application: " + err.Error()})
+		return
+	}
+
+	id, _ := res.LastInsertId()
+	logAuditSafe("Application Created", "Objects", "Created application object: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleApplicationUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Category    string `json:"category"`
+		Subcategory string `json:"subcategory"`
+		Technology  string `json:"technology"`
+		Risk        int    `json:"risk"`
+		Ports       string `json:"ports"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM application_objects WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An application signature with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = dbConn.Exec(`
+		UPDATE application_objects
+		SET device_uuid = ?, scope = ?, name = ?, category = ?, subcategory = ?, technology = ?, risk = ?, ports = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, req.Category, req.Subcategory, req.Technology, req.Risk, req.Ports, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update application: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Application Updated", "Objects", "Updated application object: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleApplicationDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM application_objects WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM application_objects WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete application: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Application Deleted", "Objects", "Deleted application object: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleApplicationGroupCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM application_groups WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An application group with this name already exists in the selected scope."})
+		return
+	}
+
+	res, err := tx.Exec(`
+		INSERT INTO application_groups (device_uuid, scope, name, description, dirty)
+		VALUES (?, ?, ?, ?, 1)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create application group: " + err.Error()})
+		return
+	}
+	groupID, _ := res.LastInsertId()
+
+	for _, member := range req.Members {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+
+		var appID sql.NullInt64
+		tx.QueryRow("SELECT id FROM application_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&appID)
+
+		var grpID sql.NullInt64
+		tx.QueryRow("SELECT id FROM application_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+		if appID.Valid {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", groupID, appID.Int64)
+		} else if grpID.Valid {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", groupID, grpID.Int64)
+		} else {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", groupID, member)
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member to application group: " + err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Application Group Created", "Objects", "Created application group: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": groupID})
+}
+
+func handleApplicationGroupUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int      `json:"id"`
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Members     []string `json:"members"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	var count int
+	err = tx.QueryRow("SELECT COUNT(*) FROM application_groups WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An application group with this name already exists in the selected scope."})
+		return
+	}
+
+	_, err = tx.Exec(`
+		UPDATE application_groups
+		SET device_uuid = ?, scope = ?, name = ?, description = ?, dirty = 1
+		WHERE id = ?
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update application group: " + err.Error()})
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM application_group_members WHERE group_id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update application group members: " + err.Error()})
+		return
+	}
+
+	for _, member := range req.Members {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+
+		var appID sql.NullInt64
+		tx.QueryRow("SELECT id FROM application_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&appID)
+
+		var grpID sql.NullInt64
+		tx.QueryRow("SELECT id FROM application_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+		if appID.Valid {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", req.ID, appID.Int64)
+		} else if grpID.Valid {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", req.ID, grpID.Int64)
+		} else {
+			_, err = tx.Exec("INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", req.ID, member)
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Failed to add member to application group: " + err.Error()})
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
+	logAuditSafe("Application Group Updated", "Objects", "Updated application group: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleApplicationGroupDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	var name string
+	dbConn.QueryRow("SELECT name FROM application_groups WHERE id = ?", req.ID).Scan(&name)
+
+	_, err = dbConn.Exec("DELETE FROM application_groups WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete application group: " + err.Error()})
+		return
+	}
+
+	logAuditSafe("Application Group Deleted", "Objects", "Deleted application group: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	r.ParseMultipartForm(20 << 20)
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to retrieve uploaded file: " + err.Error()})
+		return
+	}
+	defer file.Close()
+
+	deviceUUID := r.FormValue("device_uuid")
+	scope := r.FormValue("scope")
+	if deviceUUID == "" {
+		deviceUUID = "paloalto-panorama-global"
+		scope = "shared"
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	reader := csv.NewReader(file)
+	reader.LazyQuotes = true
+	reader.TrimLeadingSpace = true
+
+	headers, err := reader.Read()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read CSV headers: " + err.Error()})
+		return
+	}
+
+	colMap := make(map[string]int)
+	for i, h := range headers {
+		cleanHeader := strings.ToLower(strings.TrimSpace(h))
+		cleanHeader = strings.ReplaceAll(cleanHeader, " ", "_")
+		cleanHeader = strings.ReplaceAll(cleanHeader, "-", "_")
+		colMap[cleanHeader] = i
+	}
+
+	nameIdx, hasName := colMap["name"]
+	categoryIdx, hasCategory := colMap["category"]
+	subcategoryIdx, hasSubcategory := colMap["subcategory"]
+	if !hasSubcategory {
+		subcategoryIdx, hasSubcategory = colMap["sub_category"]
+	}
+	technologyIdx, hasTechnology := colMap["technology"]
+	riskIdx, hasRisk := colMap["risk"]
+	portsIdx, hasPorts := colMap["ports"]
+	if !hasPorts {
+		portsIdx, hasPorts = colMap["standard_ports"]
+	}
+	descIdx, hasDesc := colMap["description"]
+
+	if !hasName {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "CSV is missing the required 'name' column."})
+		return
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	inserted := 0
+	updated := 0
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+
+		if nameIdx >= len(record) {
+			continue
+		}
+		name := strings.TrimSpace(record[nameIdx])
+		if name == "" {
+			continue
+		}
+
+		category := "general-internet"
+		if hasCategory && categoryIdx < len(record) {
+			if val := strings.TrimSpace(record[categoryIdx]); val != "" {
+				category = val
+			}
+		}
+
+		subcategory := "internet-utility"
+		if hasSubcategory && subcategoryIdx < len(record) {
+			if val := strings.TrimSpace(record[subcategoryIdx]); val != "" {
+				subcategory = val
+			}
+		}
+
+		technology := "browser-based"
+		if hasTechnology && technologyIdx < len(record) {
+			if val := strings.TrimSpace(record[technologyIdx]); val != "" {
+				technology = val
+			}
+		}
+
+		risk := 1
+		if hasRisk && riskIdx < len(record) {
+			if val := strings.TrimSpace(record[riskIdx]); val != "" {
+				if rVal, err := strconv.Atoi(val); err == nil {
+					risk = rVal
+				}
+			}
+		}
+
+		ports := ""
+		if hasPorts && portsIdx < len(record) {
+			ports = strings.TrimSpace(record[portsIdx])
+		}
+
+		description := ""
+		if hasDesc && descIdx < len(record) {
+			description = strings.TrimSpace(record[descIdx])
+		}
+
+		var existingID int
+		err = tx.QueryRow("SELECT id FROM application_objects WHERE device_uuid = ? AND name = ?", deviceUUID, name).Scan(&existingID)
+		if err == sql.ErrNoRows {
+			_, err = tx.Exec(`
+				INSERT INTO application_objects (device_uuid, scope, name, category, subcategory, technology, risk, ports, description, dirty)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+			`, deviceUUID, scope, name, category, subcategory, technology, risk, ports, description)
+			if err == nil {
+				inserted++
+			}
+		} else if err == nil {
+			_, err = tx.Exec(`
+				UPDATE application_objects
+				SET category = ?, subcategory = ?, technology = ?, risk = ?, ports = ?, description = ?, dirty = 1
+				WHERE id = ?
+			`, category, subcategory, technology, risk, ports, description, existingID)
+			if err == nil {
+				updated++
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit database transaction"})
+		return
+	}
+
+	details := fmt.Sprintf("Imported %d new applications and updated %d existing ones.", inserted, updated)
+	logAuditSafe("Imported Application CSV Package", "Objects", details)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"inserted": inserted,
+		"updated":  updated,
+	})
 }

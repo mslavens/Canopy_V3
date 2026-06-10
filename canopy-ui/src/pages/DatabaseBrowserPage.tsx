@@ -73,6 +73,9 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         { tableName: "service_objects", label: "Port Services", description: "TCP and UDP destination port definitions.", icon: <Database size={14} /> },
         { tableName: "service_groups", label: "Service Groups", description: "Named collections of port services.", icon: <Database size={14} /> },
         { tableName: "service_group_members", label: "Service Group Members", description: "Mapping table linking service groups to their members.", icon: <Database size={14} /> },
+        { tableName: "application_objects", label: "Application Signatures", description: "Standard Palo Alto App-ID signatures and categories catalog.", icon: <Database size={14} /> },
+        { tableName: "application_groups", label: "Application Groups", description: "Logical groupings of application signatures.", icon: <Database size={14} /> },
+        { tableName: "application_group_members", label: "Application Group Members", description: "Mapping table linking application groups to their nested signatures and subgroups.", icon: <Database size={14} /> },
         { tableName: "tags", label: "Administrative Tags", description: "Tags and native color labels applied to objects and rules.", icon: <Database size={14} /> }
       ]
     },

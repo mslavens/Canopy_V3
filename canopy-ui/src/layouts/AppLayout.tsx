@@ -50,6 +50,7 @@ const subTabsMap: Record<string, string[]> = {
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
   'Policies': ['Security Rules', 'NAT Rules'],
+  'Objects': ['Address Objects', 'Address Groups', 'Services', 'Service Groups', 'Applications', 'Application Groups'],
   'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
 };
 

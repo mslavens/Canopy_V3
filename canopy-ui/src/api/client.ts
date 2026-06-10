@@ -97,4 +97,31 @@ export class CanopyApiClient {
   public createDevice = (name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/create', { method: 'POST', body: JSON.stringify({ name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
   public updateDevice = (id: number, name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/update', { method: 'POST', body: JSON.stringify({ id, name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
   public deleteDevice = (id: number) => this.request<any>('/api/devices/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Objects CRUD
+  public createAddressObject = (data: any) => this.request<any>('/api/objects/address/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateAddressObject = (data: any) => this.request<any>('/api/objects/address/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteAddressObject = (id: number) => this.request<any>('/api/objects/address/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public createAddressGroup = (data: any) => this.request<any>('/api/objects/address-group/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateAddressGroup = (data: any) => this.request<any>('/api/objects/address-group/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteAddressGroup = (id: number) => this.request<any>('/api/objects/address-group/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public createServiceObject = (data: any) => this.request<any>('/api/objects/service/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateServiceObject = (data: any) => this.request<any>('/api/objects/service/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteServiceObject = (id: number) => this.request<any>('/api/objects/service/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public createServiceGroup = (data: any) => this.request<any>('/api/objects/service-group/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateServiceGroup = (data: any) => this.request<any>('/api/objects/service-group/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteServiceGroup = (id: number) => this.request<any>('/api/objects/service-group/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public createApplicationObject = (data: any) => this.request<any>('/api/objects/application/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateApplicationObject = (data: any) => this.request<any>('/api/objects/application/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteApplicationObject = (id: number) => this.request<any>('/api/objects/application/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public createApplicationGroup = (data: any) => this.request<any>('/api/objects/application-group/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateApplicationGroup = (data: any) => this.request<any>('/api/objects/application-group/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteApplicationGroup = (id: number) => this.request<any>('/api/objects/application-group/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  public importApplicationCSV = (formData: FormData) => this.request<any>('/api/objects/application/import-csv', { method: 'POST', body: formData });
 }
