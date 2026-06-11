@@ -244,9 +244,6 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       setProgressPercent(100);
       setProgressDetail('Ingestion complete!');
 
-      // Let the user view 100% complete state for 800ms
-      await new Promise(resolve => setTimeout(resolve, 800));
-
       setImportSummary({
         devices_imported: finalResult.devices_imported,
         topologies_imported: finalResult.topologies_imported
@@ -256,7 +253,6 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       const errMsg = err instanceof Error ? err.message : 'Import failed.';
       setError(errMsg);
       addToast(errMsg, 'error');
-    } finally {
       setIsImporting(false);
     }
   };
@@ -729,6 +725,51 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                 );
               })}
             </div>
+
+            {importSummary && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                paddingTop: '20px',
+                marginTop: '4px'
+              }}>
+                <div style={{
+                  backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  color: 'var(--text-main)',
+                  lineHeight: 1.5
+                }}>
+                  Imported <strong>{importSummary.devices_imported}</strong> devices/templates and <strong>{importSummary.topologies_imported}</strong> network topologies.
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button 
+                    type="button"
+                    className="btn-secondary btn-sm" 
+                    onClick={() => {
+                      setIsImporting(false);
+                    }}
+                  >
+                    Done
+                  </button>
+                  <button 
+                    type="button"
+                    className="btn-primary btn-sm" 
+                    onClick={() => {
+                      setIsImporting(false);
+                      onNavigate('System', 'Database Browser');
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    Open Database Browser <ExternalLink size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
