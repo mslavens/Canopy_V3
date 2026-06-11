@@ -351,7 +351,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     if (!scopes.includes('paloalto-panorama-global')) {
       scopes.push('paloalto-panorama-global');
     }
-    return scopes;
+    return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
   }, [deviceGroups, firewalls]);
 
   // Form scope hierarchy (self -> parents -> global)
@@ -951,6 +951,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     const buildNode = (parentId: number | null, depth: number) => {
       const levelGroups = deviceGroups.filter(g => g.parent_id === parentId);
       levelGroups.forEach(dg => {
+        if (dg.uuid === 'paloalto-dg-shared') {
+          buildNode(dg.id, depth);
+          return;
+        }
         opts.push({
           label: dg.name,
           value: dg.uuid,
@@ -2682,7 +2686,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               columns={columns}
               data={displayedTableData}
               searchQuery={searchQuery}
-              selectable={currentScope !== 'show-all'}
+              selectable={true}
               onSelectionChange={setSelectedRows}
               exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
             />

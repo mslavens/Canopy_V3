@@ -404,9 +404,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     return devs;
   }, [selectedTemplateName, inventory, searchQuery]);
 
-  // Device groups tree components helper
   const rootGroups = useMemo(() => {
-    return deviceGroups.filter(g => !g.parent_uuid || !deviceGroups.some(p => p.uuid === g.parent_uuid));
+    return deviceGroups.filter(g => 
+      g.uuid !== 'paloalto-dg-shared' && 
+      (!g.parent_uuid || g.parent_uuid === 'paloalto-dg-shared' || !deviceGroups.some(p => p.uuid === g.parent_uuid))
+    );
   }, [deviceGroups]);
 
   // Device Form Trigger
@@ -730,7 +732,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   }
 
   // 3. Parent Device Group Dropdown
-  const parentGroupList = deviceGroups.filter(g => !editingGroup || g.id !== editingGroup.id);
+  const parentGroupList = deviceGroups.filter(g => g.uuid !== 'paloalto-dg-shared' && (!editingGroup || g.id !== editingGroup.id));
   const parentGroupOptions = ['shared (Root)', ...parentGroupList.map(g => cleanGroupName(g.name))];
   const activeParentGroupLabel = groupParentId 
     ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '') 

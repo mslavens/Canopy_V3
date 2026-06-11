@@ -139,7 +139,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
           />
         </div>
       )}
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+      <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
         {filteredOptions.length === 0 ? (
           <div style={{ padding: '12px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
             No options found
