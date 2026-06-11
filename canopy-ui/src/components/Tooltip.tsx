@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
@@ -11,22 +11,54 @@ interface TooltipProps {
 export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', position = 'bottom', children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, transform: 'translate(-50%, 0)' });
 
   const updateCoords = () => {
     if (wrapperRef.current) {
       const rect = wrapperRef.current.getBoundingClientRect();
-      const leftVal = rect.left + window.scrollX + rect.width / 2;
+      let leftVal = rect.left + rect.width / 2;
       const topVal = position === 'bottom' 
-        ? rect.bottom + window.scrollY + 8
-        : rect.top + window.scrollY - 8;
-      setCoords({ top: topVal, left: leftVal });
+        ? rect.bottom + 8
+        : rect.top - 8;
+      
+      let transformVal = position === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)';
+
+      if (tooltipRef.current) {
+        const tooltipRect = tooltipRef.current.getBoundingClientRect();
+        const tooltipWidth = tooltipRect.width;
+
+        // Bounding check on right viewport edge
+        if (leftVal + tooltipWidth / 2 > window.innerWidth - 12) {
+          leftVal = window.innerWidth - 12 - tooltipWidth;
+          transformVal = position === 'bottom' ? 'none' : 'translate(0, -100%)';
+        }
+        // Bounding check on left viewport edge
+        else if (leftVal - tooltipWidth / 2 < 12) {
+          leftVal = 12;
+          transformVal = position === 'bottom' ? 'none' : 'translate(0, -100%)';
+        }
+      }
+
+      setCoords({ 
+        top: topVal + window.scrollY, 
+        left: leftVal + window.scrollX,
+        transform: transformVal
+      });
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isVisible) {
       updateCoords();
+      // Double check position on next tick to account for ref sizing adjustments
+      const handle = requestAnimationFrame(updateCoords);
+      return () => cancelAnimationFrame(handle);
+    }
+  }, [isVisible, content]);
+
+  useEffect(() => {
+    if (isVisible) {
       window.addEventListener('resize', updateCoords);
       window.addEventListener('scroll', updateCoords, true);
     }
@@ -35,8 +67,6 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', pos
       window.removeEventListener('scroll', updateCoords, true);
     };
   }, [isVisible]);
-
-  const transformVal = position === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)';
 
   return (
     <div 
@@ -47,22 +77,27 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', pos
     >
       {children}
       {isVisible && createPortal(
-        <div style={{
-          position: 'absolute',
-          top: `${coords.top}px`,
-          left: `${coords.left}px`,
-          transform: transformVal,
-          padding: '6px 10px',
-          backgroundColor: 'var(--bg-surface)',
-          color: 'var(--text-main)',
-          fontSize: '11px',
-          borderRadius: '4px',
-          whiteSpace: 'nowrap',
-          zIndex: 1000000,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-          border: '1px solid var(--border-main)',
-          pointerEvents: 'none',
-        }}>
+        <div 
+          ref={tooltipRef}
+          style={{
+            position: 'absolute',
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            transform: coords.transform,
+            padding: '8px 12px',
+            backgroundColor: 'var(--bg-surface)', // theme-aware background surface (white in light mode, dark in dark mode)
+            color: 'var(--text-main)',
+            fontSize: '11px',
+            lineHeight: '1.4',
+            borderRadius: '6px',
+            whiteSpace: 'normal',
+            maxWidth: '240px',
+            zIndex: 1000000,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+            border: '1px solid var(--accent-blue)', // subtle theme border accent
+            pointerEvents: 'none',
+          }}
+        >
           {content}
         </div>,
         document.body

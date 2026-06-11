@@ -2908,47 +2908,77 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     <Plus size={14} /> Add Object
                   </button>
 
-                  <Tooltip 
-                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to clone" : "Clone selected objects within this scope"} 
-                    position="top"
-                  >
+                  {selectedRows.length > 50 ? (
+                    <Tooltip 
+                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                      position="top"
+                    >
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled
+                      >
+                        <Copy size={13} /> Clone
+                      </button>
+                    </Tooltip>
+                  ) : (
                     <button
                       onClick={handleClone}
                       className="btn-secondary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                      disabled={selectedRows.length === 0}
                     >
                       <Copy size={13} /> Clone
                     </button>
-                  </Tooltip>
+                  )}
 
-                  <Tooltip 
-                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to clone to group" : "Clone selected objects to another device group or firewall"} 
-                    position="top"
-                  >
+                  {selectedRows.length > 50 ? (
+                    <Tooltip 
+                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                      position="top"
+                    >
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled
+                      >
+                        <Copy size={13} /> Clone to Group...
+                      </button>
+                    </Tooltip>
+                  ) : (
                     <button
                       onClick={handleCloneToGroup}
                       className="btn-secondary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                      disabled={selectedRows.length === 0}
                     >
                       <Copy size={13} /> Clone to Group...
                     </button>
-                  </Tooltip>
+                  )}
 
-                  <Tooltip 
-                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to move to group" : "Move selected objects to another device group or firewall"} 
-                    position="top"
-                  >
+                  {selectedRows.length > 50 ? (
+                    <Tooltip 
+                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                      position="top"
+                    >
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled
+                      >
+                        <ArrowRight size={13} /> Move to Group...
+                      </button>
+                    </Tooltip>
+                  ) : (
                     <button
                       onClick={handleMoveToGroup}
                       className="btn-secondary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                      disabled={selectedRows.length === 0}
                     >
                       <ArrowRight size={13} /> Move to Group...
                     </button>
-                  </Tooltip>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
