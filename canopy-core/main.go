@@ -265,6 +265,49 @@ var actSchema = `
 		type TEXT NOT NULL,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS log_forwarding_profiles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS security_profile_groups (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		antivirus TEXT,
+		spyware TEXT,
+		vulnerability TEXT,
+		url_filtering TEXT,
+		file_blocking TEXT,
+		wildfire_analysis TEXT,
+		dns_security TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS custom_url_categories (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		url_list TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS external_dynamic_lists (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		list_type TEXT,
+		source_url TEXT,
+		recurring TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
 	CREATE TABLE IF NOT EXISTS security_rules (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -499,7 +542,37 @@ var actSchema = `
 	CREATE INDEX IF NOT EXISTS idx_service_objects_lookup ON service_objects (device_uuid, scope, name);
 	CREATE INDEX IF NOT EXISTS idx_service_groups_lookup ON service_groups (device_uuid, scope, name);
 	CREATE INDEX IF NOT EXISTS idx_application_objects_lookup ON application_objects (device_uuid, scope, name);
-	CREATE INDEX IF NOT EXISTS idx_application_groups_lookup ON application_groups (device_uuid, scope, name);`
+	CREATE INDEX IF NOT EXISTS idx_application_groups_lookup ON application_groups (device_uuid, scope, name);
+
+	CREATE INDEX IF NOT EXISTS idx_security_rules_device_uuid ON security_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_nat_rules_device_uuid ON nat_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_qos_rules_device_uuid ON qos_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_pbf_rules_device_uuid ON pbf_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_decryption_rules_device_uuid ON decryption_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_application_override_rules_device_uuid ON application_override_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_tunnel_inspection_rules_device_uuid ON tunnel_inspection_rules (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_static_routes_device_uuid ON static_routes (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_network_topology_device_uuid ON network_topology (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_tags_device_uuid ON tags (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_security_profiles_device_uuid ON security_profiles (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_log_forwarding_profiles_device_uuid ON log_forwarding_profiles (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_security_profile_groups_device_uuid ON security_profile_groups (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_custom_url_categories_device_uuid ON custom_url_categories (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_external_dynamic_lists_device_uuid ON external_dynamic_lists (device_uuid);
+
+	CREATE INDEX IF NOT EXISTS idx_rule_address_mappings_address_id ON rule_address_mappings (address_id);
+	CREATE INDEX IF NOT EXISTS idx_rule_address_mappings_group_id ON rule_address_mappings (group_id);
+	CREATE INDEX IF NOT EXISTS idx_rule_service_mappings_service_id ON rule_service_mappings (service_id);
+	CREATE INDEX IF NOT EXISTS idx_rule_service_mappings_group_id ON rule_service_mappings (group_id);
+	CREATE INDEX IF NOT EXISTS idx_rule_application_mappings_custom_app_id ON rule_application_mappings (custom_app_id);
+	CREATE INDEX IF NOT EXISTS idx_security_rule_profiles_profile_id ON security_rule_profiles (profile_id);
+	CREATE INDEX IF NOT EXISTS idx_application_group_members_member_app_id ON application_group_members (member_application_id);
+	CREATE INDEX IF NOT EXISTS idx_application_group_members_member_group_id ON application_group_members (member_group_id);
+	
+	CREATE INDEX IF NOT EXISTS idx_address_group_members_member_address_id ON address_group_members (member_address_id);
+	CREATE INDEX IF NOT EXISTS idx_address_group_members_member_group_id ON address_group_members (member_group_id);
+	CREATE INDEX IF NOT EXISTS idx_service_group_members_member_service_id ON service_group_members (member_service_id);
+	CREATE INDEX IF NOT EXISTS idx_service_group_members_member_group_id ON service_group_members (member_group_id);`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
 func globalCORSMiddleware(next http.Handler) http.Handler {
@@ -4319,7 +4392,11 @@ func main() {
 
 			for _, f := range xmlFiles {
 				stats, err := adapter.Analyze(f.Data, f.Name)
-				if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
+				if err != nil {
+					slog.Error("Analyze failed for file", slog.String("name", f.Name), slog.Any("error", err))
+					continue
+				}
+				if stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0 {
 					continue
 				}
 
@@ -4470,6 +4547,30 @@ func main() {
 	mux.HandleFunc("/api/objects/application-group/delete", handleApplicationGroupDelete)
 
 	mux.HandleFunc("/api/objects/application/import-csv", handleApplicationImportCSV)
+
+	mux.HandleFunc("/api/objects/tag/create", handleTagCreate)
+	mux.HandleFunc("/api/objects/tag/update", handleTagUpdate)
+	mux.HandleFunc("/api/objects/tag/delete", handleTagDelete)
+
+	mux.HandleFunc("/api/objects/log-forwarding-profile/create", handleLogForwardingProfileCreate)
+	mux.HandleFunc("/api/objects/log-forwarding-profile/update", handleLogForwardingProfileUpdate)
+	mux.HandleFunc("/api/objects/log-forwarding-profile/delete", handleLogForwardingProfileDelete)
+
+	mux.HandleFunc("/api/objects/security-profile/create", handleSecurityProfileCreate)
+	mux.HandleFunc("/api/objects/security-profile/update", handleSecurityProfileUpdate)
+	mux.HandleFunc("/api/objects/security-profile/delete", handleSecurityProfileDelete)
+
+	mux.HandleFunc("/api/objects/security-profile-group/create", handleSecurityProfileGroupCreate)
+	mux.HandleFunc("/api/objects/security-profile-group/update", handleSecurityProfileGroupUpdate)
+	mux.HandleFunc("/api/objects/security-profile-group/delete", handleSecurityProfileGroupDelete)
+
+	mux.HandleFunc("/api/objects/custom-url-category/create", handleCustomURLCategoryCreate)
+	mux.HandleFunc("/api/objects/custom-url-category/update", handleCustomURLCategoryUpdate)
+	mux.HandleFunc("/api/objects/custom-url-category/delete", handleCustomURLCategoryDelete)
+
+	mux.HandleFunc("/api/objects/external-dynamic-list/create", handleExternalDynamicListCreate)
+	mux.HandleFunc("/api/objects/external-dynamic-list/update", handleExternalDynamicListUpdate)
+	mux.HandleFunc("/api/objects/external-dynamic-list/delete", handleExternalDynamicListDelete)
 
 	// --- MULTI-LAYER MIDDLEWARE STACK ---
 	protectedMux := authMiddleware(token, mux)
@@ -5975,4 +6076,756 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 		"inserted": inserted,
 		"updated":  updated,
 	})
+}
+
+// --- NEW OBJECTS MODULE CRUD HANDLERS ---
+
+func handleTagCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Color       string `json:"color"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM tags WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A tag with this name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO tags (device_uuid, scope, name, color, description)
+		VALUES (?, ?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Color, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create tag: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("Tag Created", "Objects", "Created tag: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleTagUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Color       string `json:"color"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE tags
+		SET name = ?, color = ?, description = ?
+		WHERE id = ?
+	`, req.Name, req.Color, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update tag: " + err.Error()})
+		return
+	}
+	logAuditSafe("Tag Updated", "Objects", "Updated tag: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleTagDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM tags WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM tags WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete tag: " + err.Error()})
+		return
+	}
+	logAuditSafe("Tag Deleted", "Objects", "Deleted tag: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleLogForwardingProfileCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM log_forwarding_profiles WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A profile with this name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO log_forwarding_profiles (device_uuid, scope, name, description)
+		VALUES (?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create log forwarding profile: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("Log Forwarding Profile Created", "Objects", "Created log forwarding profile: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleLogForwardingProfileUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE log_forwarding_profiles
+		SET name = ?, description = ?
+		WHERE id = ?
+	`, req.Name, req.Description, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update log forwarding profile: " + err.Error()})
+		return
+	}
+	logAuditSafe("Log Forwarding Profile Updated", "Objects", "Updated log forwarding profile: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleLogForwardingProfileDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM log_forwarding_profiles WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM log_forwarding_profiles WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete log forwarding profile: " + err.Error()})
+		return
+	}
+	logAuditSafe("Log Forwarding Profile Deleted", "Objects", "Deleted log forwarding profile: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleSecurityProfileCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID string `json:"device_uuid"`
+		Scope      string `json:"scope"`
+		Name       string `json:"name"`
+		Type       string `json:"type"` // url-filtering, antivirus, spyware, vulnerability, wildfire, file-blocking
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM security_profiles WHERE device_uuid = ? AND name = ? AND type = ?", req.DeviceUUID, req.Name, req.Type).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A security profile of this type and name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO security_profiles (device_uuid, scope, name, type)
+		VALUES (?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Type)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create security profile: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("Security Profile Created", "Objects", "Created security profile: "+req.Name+" ("+req.Type+") in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleSecurityProfileUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID         int    `json:"id"`
+		DeviceUUID string `json:"device_uuid"`
+		Scope      string `json:"scope"`
+		Name       string `json:"name"`
+		Type       string `json:"type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE security_profiles
+		SET name = ?, type = ?
+		WHERE id = ?
+	`, req.Name, req.Type, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update security profile: " + err.Error()})
+		return
+	}
+	logAuditSafe("Security Profile Updated", "Objects", "Updated security profile: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleSecurityProfileDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM security_profiles WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM security_profiles WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete security profile: " + err.Error()})
+		return
+	}
+	logAuditSafe("Security Profile Deleted", "Objects", "Deleted security profile: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleSecurityProfileGroupCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID       string `json:"device_uuid"`
+		Scope            string `json:"scope"`
+		Name             string `json:"name"`
+		Description      string `json:"description"`
+		Antivirus        string `json:"antivirus"`
+		Spyware          string `json:"spyware"`
+		Vulnerability    string `json:"vulnerability"`
+		URLFiltering     string `json:"url_filtering"`
+		FileBlocking     string `json:"file_blocking"`
+		WildfireAnalysis string `json:"wildfire_analysis"`
+		DNSSecurity      string `json:"dns_security"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM security_profile_groups WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A security profile group with this name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO security_profile_groups (device_uuid, scope, name, description, antivirus, spyware, vulnerability, url_filtering, file_blocking, wildfire_analysis, dns_security)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description, req.Antivirus, req.Spyware, req.Vulnerability, req.URLFiltering, req.FileBlocking, req.WildfireAnalysis, req.DNSSecurity)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create security profile group: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("Security Profile Group Created", "Objects", "Created security profile group: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleSecurityProfileGroupUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID               int    `json:"id"`
+		DeviceUUID       string `json:"device_uuid"`
+		Scope            string `json:"scope"`
+		Name             string `json:"name"`
+		Description      string `json:"description"`
+		Antivirus        string `json:"antivirus"`
+		Spyware          string `json:"spyware"`
+		Vulnerability    string `json:"vulnerability"`
+		URLFiltering     string `json:"url_filtering"`
+		FileBlocking     string `json:"file_blocking"`
+		WildfireAnalysis string `json:"wildfire_analysis"`
+		DNSSecurity      string `json:"dns_security"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE security_profile_groups
+		SET name = ?, description = ?, antivirus = ?, spyware = ?, vulnerability = ?, url_filtering = ?, file_blocking = ?, wildfire_analysis = ?, dns_security = ?
+		WHERE id = ?
+	`, req.Name, req.Description, req.Antivirus, req.Spyware, req.Vulnerability, req.URLFiltering, req.FileBlocking, req.WildfireAnalysis, req.DNSSecurity, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update security profile group: " + err.Error()})
+		return
+	}
+	logAuditSafe("Security Profile Group Updated", "Objects", "Updated security profile group: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleSecurityProfileGroupDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM security_profile_groups WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM security_profile_groups WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete security profile group: " + err.Error()})
+		return
+	}
+	logAuditSafe("Security Profile Group Deleted", "Objects", "Deleted security profile group: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleCustomURLCategoryCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		URLList     string `json:"url_list"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM custom_url_categories WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "A custom URL category with this name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO custom_url_categories (device_uuid, scope, name, description, url_list)
+		VALUES (?, ?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description, req.URLList)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create custom URL category: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("Custom URL Category Created", "Objects", "Created custom URL category: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleCustomURLCategoryUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		URLList     string `json:"url_list"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE custom_url_categories
+		SET name = ?, description = ?, url_list = ?
+		WHERE id = ?
+	`, req.Name, req.Description, req.URLList, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update custom URL category: " + err.Error()})
+		return
+	}
+	logAuditSafe("Custom URL Category Updated", "Objects", "Updated custom URL category: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleCustomURLCategoryDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM custom_url_categories WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM custom_url_categories WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete custom URL category: " + err.Error()})
+		return
+	}
+	logAuditSafe("Custom URL Category Deleted", "Objects", "Deleted custom URL category: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleExternalDynamicListCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		ListType    string `json:"list_type"`
+		SourceURL   string `json:"source_url"`
+		Recurring   string `json:"recurring"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var count int
+	err = dbConn.QueryRow("SELECT COUNT(*) FROM external_dynamic_lists WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	if err == nil && count > 0 {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{"error": "An EDL with this name already exists in the selected scope."})
+		return
+	}
+	res, err := dbConn.Exec(`
+		INSERT INTO external_dynamic_lists (device_uuid, scope, name, description, list_type, source_url, recurring)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, req.DeviceUUID, req.Scope, req.Name, req.Description, req.ListType, req.SourceURL, req.Recurring)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to create EDL: " + err.Error()})
+		return
+	}
+	id, _ := res.LastInsertId()
+	logAuditSafe("External Dynamic List Created", "Objects", "Created EDL: "+req.Name+" in scope: "+req.Scope)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
+}
+
+func handleExternalDynamicListUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		ListType    string `json:"list_type"`
+		SourceURL   string `json:"source_url"`
+		Recurring   string `json:"recurring"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	if err := validateObjectName(req.Name); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	_, err = dbConn.Exec(`
+		UPDATE external_dynamic_lists
+		SET name = ?, description = ?, list_type = ?, source_url = ?, recurring = ?
+		WHERE id = ?
+	`, req.Name, req.Description, req.ListType, req.SourceURL, req.Recurring, req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update EDL: " + err.Error()})
+		return
+	}
+	logAuditSafe("External Dynamic List Updated", "Objects", "Updated EDL: "+req.Name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleExternalDynamicListDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	var name string
+	dbConn.QueryRow("SELECT name FROM external_dynamic_lists WHERE id = ?", req.ID).Scan(&name)
+	_, err = dbConn.Exec("DELETE FROM external_dynamic_lists WHERE id = ?", req.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete EDL: " + err.Error()})
+		return
+	}
+	logAuditSafe("External Dynamic List Deleted", "Objects", "Deleted EDL: "+name)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }

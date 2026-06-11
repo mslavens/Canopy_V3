@@ -47,6 +47,9 @@ func Initialize(dbName string, password string) (*AppStateDB, error) {
 		"PRAGMA journal_mode = WAL;",
 		"PRAGMA busy_timeout = 5000;",
 		"PRAGMA foreign_keys = ON;", // Required for CASCADE delete in network_topology
+		"PRAGMA synchronous = NORMAL;", // Speeds up WAL mode writes significantly
+		"PRAGMA cache_size = -64000;",  // 64MB cache
+		"PRAGMA temp_store = MEMORY;",  // Temp tables in memory
 	}
 
 	for _, pragma := range pragmas {

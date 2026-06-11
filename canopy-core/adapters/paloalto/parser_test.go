@@ -467,6 +467,49 @@ func TestParser(t *testing.T) {
 			type TEXT NOT NULL,
 			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS log_forwarding_profiles (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS security_profile_groups (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT,
+			antivirus TEXT,
+			spyware TEXT,
+			vulnerability TEXT,
+			url_filtering TEXT,
+			file_blocking TEXT,
+			wildfire_analysis TEXT,
+			dns_security TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS custom_url_categories (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT,
+			url_list TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS external_dynamic_lists (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT,
+			list_type TEXT,
+			source_url TEXT,
+			recurring TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS security_rules (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			device_uuid TEXT NOT NULL,

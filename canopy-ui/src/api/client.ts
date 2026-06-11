@@ -124,4 +124,34 @@ export class CanopyApiClient {
   public deleteApplicationGroup = (id: number) => this.request<any>('/api/objects/application-group/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   public importApplicationCSV = (formData: FormData) => this.request<any>('/api/objects/application/import-csv', { method: 'POST', body: formData });
+
+  // Tags CRUD
+  public createTag = (data: any) => this.request<any>('/api/objects/tag/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateTag = (data: any) => this.request<any>('/api/objects/tag/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteTag = (id: number) => this.request<any>('/api/objects/tag/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Log Forwarding Profiles CRUD
+  public createLogForwardingProfile = (data: any) => this.request<any>('/api/objects/log-forwarding-profile/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateLogForwardingProfile = (data: any) => this.request<any>('/api/objects/log-forwarding-profile/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteLogForwardingProfile = (id: number) => this.request<any>('/api/objects/log-forwarding-profile/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Security Profiles CRUD
+  public createSecurityProfile = (data: any) => this.request<any>('/api/objects/security-profile/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateSecurityProfile = (data: any) => this.request<any>('/api/objects/security-profile/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteSecurityProfile = (id: number) => this.request<any>('/api/objects/security-profile/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Security Profile Groups CRUD
+  public createSecurityProfileGroup = (data: any) => this.request<any>('/api/objects/security-profile-group/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateSecurityProfileGroup = (data: any) => this.request<any>('/api/objects/security-profile-group/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteSecurityProfileGroup = (id: number) => this.request<any>('/api/objects/security-profile-group/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Custom URL Categories CRUD
+  public createCustomURLCategory = (data: any) => this.request<any>('/api/objects/custom-url-category/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateCustomURLCategory = (data: any) => this.request<any>('/api/objects/custom-url-category/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteCustomURLCategory = (id: number) => this.request<any>('/api/objects/custom-url-category/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // EDLs CRUD
+  public createExternalDynamicList = (data: any) => this.request<any>('/api/objects/external-dynamic-list/create', { method: 'POST', body: JSON.stringify(data) });
+  public updateExternalDynamicList = (data: any) => this.request<any>('/api/objects/external-dynamic-list/update', { method: 'POST', body: JSON.stringify(data) });
+  public deleteExternalDynamicList = (id: number) => this.request<any>('/api/objects/external-dynamic-list/delete', { method: 'POST', body: JSON.stringify({ id }) });
 }

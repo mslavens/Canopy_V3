@@ -48,6 +48,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
   // Loading Progress Steps
   const [currentProgressStep, setCurrentProgressStep] = useState(0);
   const [progressPercent, setProgressPercent] = useState(0);
+  const [progressDetail, setProgressDetail] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +74,22 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     setPreviewData(null);
     setImportSummary(null);
     setIsParsing(true);
+    setProgressDetail('Decompressing archive bundle and searching for XML configurations...');
+
+    // Dynamic detail ticker for pre-flight parsing
+    const details = [
+      'Parsing templates and template stacks...',
+      'Mapping device group parent hierarchies...',
+      'Reading address & service databases to check existing objects...',
+      'Evaluating object diff matrices (additions vs modifications)...',
+      'Running pre-flight delta calculations against the active database matrix...',
+      'Deep comparisons are still executing. Please wait...'
+    ];
+    let tickIdx = 0;
+    const parseInterval = setInterval(() => {
+      setProgressDetail(details[Math.min(tickIdx, details.length - 1)]);
+      tickIdx++;
+    }, 3500);
 
     try {
       if (!auth) throw new Error('Daemon authentication context missing.');
@@ -83,14 +100,17 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
 
       // Trigger pre-flight preview check
       const res = await apiClient.importDeviceXml(formData, true);
+      clearInterval(parseInterval);
       setPreviewData(res);
       addToast('XML configuration parsed successfully.', 'success');
     } catch (err) {
+      clearInterval(parseInterval);
       const errMsg = err instanceof Error ? err.message : 'XML Parsing failed.';
       setError(errMsg);
       addToast(errMsg, 'error');
       setFile(null);
     } finally {
+      clearInterval(parseInterval);
       setIsParsing(false);
     }
   };
@@ -114,6 +134,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     setIsImporting(true);
     setCurrentProgressStep(0);
     setProgressPercent(15);
+    setProgressDetail('Analyzing XML structure...');
     setError(null);
 
     const timeouts: NodeJS.Timeout[] = [];
@@ -124,22 +145,46 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     regTimeout(() => {
       setCurrentProgressStep(1);
       setProgressPercent(35);
+      setProgressDetail('Resolving scope location contexts...');
     }, 900);
 
     regTimeout(() => {
       setCurrentProgressStep(2);
       setProgressPercent(55);
+      setProgressDetail('Ingesting address objects, groups, and service matrix...');
     }, 2000);
 
     regTimeout(() => {
       setCurrentProgressStep(3);
       setProgressPercent(75);
+      setProgressDetail('Compiling pre-rules, post-rules, and decryption policies...');
     }, 3200);
 
     regTimeout(() => {
       setCurrentProgressStep(4);
       setProgressPercent(90);
+      setProgressDetail('Committing transaction updates to SQLite database...');
     }, 4500);
+
+    // Active commit matrix details cycling for slow writes/large files
+    let progressInterval: NodeJS.Timeout | null = null;
+    regTimeout(() => {
+      let ticks = 0;
+      const details = [
+        'Executing batch database insertions...',
+        'Indexing tables and executing triggers...',
+        'Writing journal changes to disk...',
+        'Optimizing table storage matrices...',
+        'Resolving nested policy inheritance tree nodes...',
+        'Finalizing transaction state. Almost done...'
+      ];
+      progressInterval = setInterval(() => {
+        ticks++;
+        const detailIndex = Math.min(ticks - 1, details.length - 1);
+        setProgressDetail(details[detailIndex]);
+        setProgressPercent(prev => (prev >= 99 ? 99 : prev + 1));
+      }, 3000);
+    }, 5500);
 
     try {
       const apiClient = new CanopyApiClient(auth);
@@ -149,12 +194,14 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       // Perform final DB commit
       const res = await apiClient.importDeviceXml(formData, false);
 
-      // Clear pending timeouts
+      // Clear pending timeouts & intervals
       timeouts.forEach(clearTimeout);
+      if (progressInterval) clearInterval(progressInterval);
 
       // Fast-forward progress steps to complete
       setCurrentProgressStep(5);
       setProgressPercent(100);
+      setProgressDetail('Ingestion complete!');
 
       // Let the user view 100% complete state for 800ms
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -166,6 +213,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       addToast('Configuration successfully committed to database.', 'success');
     } catch (err) {
       timeouts.forEach(clearTimeout);
+      if (progressInterval) clearInterval(progressInterval);
       const errMsg = err instanceof Error ? err.message : 'Import failed.';
       setError(errMsg);
       addToast(errMsg, 'error');
@@ -250,9 +298,12 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
           <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
             Analyzing Configuration Structure...
           </h3>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-            Parsing interfaces, security zones, and templates. Large files may take a few seconds.
+          <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+            {progressDetail || 'Parsing interfaces, security zones, and templates. Large files may take a few seconds.'}
           </p>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', opacity: 0.8 }}>
+            Comparing XML definitions against active database records to compute deltas...
+          </span>
         </section>
       )}
 
@@ -538,7 +589,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                   {currentProgressStep === 5 ? 'Ingestion Complete!' : 'Ingesting Configuration...'}
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Please do not close Canopy or refresh the window.
+                  {progressDetail || 'Please do not close Canopy or refresh the window.'}
                 </p>
               </div>
             </div>

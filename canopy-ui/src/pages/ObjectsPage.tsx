@@ -252,6 +252,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [allServiceGroups, setAllServiceGroups] = useState<any[]>([]);
   const [allApplications, setAllApplications] = useState<any[]>([]);
   const [allApplicationGroups, setAllApplicationGroups] = useState<any[]>([]);
+  const [allSecurityProfiles, setAllSecurityProfiles] = useState<any[]>([]);
 
   // Selection state (from table)
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -288,6 +289,22 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [formPorts, setFormPorts] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formMembers, setFormMembers] = useState<string[]>([]);
+
+  // Form states for Palo Alto specific objects
+  const [activeCustomObjectTab, setActiveCustomObjectTab] = useState<'categories' | 'edls'>('categories');
+  const [formColor, setFormColor] = useState('color1');
+  const [formProfileType, setFormProfileType] = useState('antivirus');
+  const [formGroupAntivirus, setFormGroupAntivirus] = useState('');
+  const [formGroupSpyware, setFormGroupSpyware] = useState('');
+  const [formGroupVulnerability, setFormGroupVulnerability] = useState('');
+  const [formGroupURLFiltering, setFormGroupURLFiltering] = useState('');
+  const [formGroupFileBlocking, setFormGroupFileBlocking] = useState('');
+  const [formGroupWildfireAnalysis, setFormGroupWildfireAnalysis] = useState('');
+  const [formGroupDNSSecurity, setFormGroupDNSSecurity] = useState('');
+  const [formURLList, setFormURLList] = useState('');
+  const [formListType, setFormListType] = useState('ip');
+  const [formSourceURL, setFormSourceURL] = useState('');
+  const [formRecurring, setFormRecurring] = useState('five-minute');
 
   // Drag and drop drop-zone applications CSV file state
   const [dragActive, setDragActive] = useState(false);
@@ -1253,6 +1270,37 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               ORDER BY g.name ASC;
             `;
           break;
+        case 'Tags':
+          query = isShowAll
+            ? `SELECT * FROM tags ORDER BY name ASC;`
+            : `SELECT * FROM tags WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          break;
+        case 'Log Forwarding Profiles':
+          query = isShowAll
+            ? `SELECT * FROM log_forwarding_profiles ORDER BY name ASC;`
+            : `SELECT * FROM log_forwarding_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          break;
+        case 'Security Profiles':
+          query = isShowAll
+            ? `SELECT * FROM security_profiles ORDER BY name ASC;`
+            : `SELECT * FROM security_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          break;
+        case 'Security Profile Groups':
+          query = isShowAll
+            ? `SELECT * FROM security_profile_groups ORDER BY name ASC;`
+            : `SELECT * FROM security_profile_groups WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          break;
+        case 'Custom Objects':
+          if (activeCustomObjectTab === 'categories') {
+            query = isShowAll
+              ? `SELECT * FROM custom_url_categories ORDER BY name ASC;`
+              : `SELECT * FROM custom_url_categories WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          } else {
+            query = isShowAll
+              ? `SELECT * FROM external_dynamic_lists ORDER BY name ASC;`
+              : `SELECT * FROM external_dynamic_lists WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          }
+          break;
       }
 
       if (query) {
@@ -1271,7 +1319,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const loadReferenceData = async () => {
     if (!apiClient) return;
     try {
-      const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes] = await Promise.all([
+      const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes, secProfRes] = await Promise.all([
         apiClient.queryDb("SELECT id, name, device_uuid, type, value FROM address_objects;"),
         apiClient.queryDb(`
           SELECT g.id, g.name, g.device_uuid, g.type, g.filter, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
@@ -1299,6 +1347,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
           GROUP BY g.id;
         `),
+        apiClient.queryDb("SELECT id, name, device_uuid, type FROM security_profiles;"),
       ]);
 
       setAllAddresses(addRes.rows || []);
@@ -1307,6 +1356,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setAllServiceGroups(svcGrpRes.rows || []);
       setAllApplications(appRes.rows || []);
       setAllApplicationGroups(appGrpRes.rows || []);
+      setAllSecurityProfiles(secProfRes.rows || []);
     } catch (e) {
       console.error('Failed to load validation reference lists', e);
     }
@@ -1316,7 +1366,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setTableData([]); // clear table data to force loading spinner on tab/scope transitions
     fetchRecords();
     setSelectedRows([]);
-  }, [activeSubTab, currentScope, deviceGroups, firewalls]);
+  }, [activeSubTab, currentScope, deviceGroups, firewalls, activeCustomObjectTab]);
 
   // Group members slide-over panel
   const flattenedMembers = useMemo(() => {
@@ -1462,6 +1512,26 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormTechnology('browser-based');
       setFormRisk(1);
       setFormPorts('');
+    } else if (activeSubTab === 'Tags') {
+      setFormColor('color1');
+    } else if (activeSubTab === 'Security Profiles') {
+      setFormProfileType('antivirus');
+    } else if (activeSubTab === 'Security Profile Groups') {
+      setFormGroupAntivirus('');
+      setFormGroupSpyware('');
+      setFormGroupVulnerability('');
+      setFormGroupURLFiltering('');
+      setFormGroupFileBlocking('');
+      setFormGroupWildfireAnalysis('');
+      setFormGroupDNSSecurity('');
+    } else if (activeSubTab === 'Custom Objects') {
+      if (activeCustomObjectTab === 'categories') {
+        setFormURLList('');
+      } else {
+        setFormListType('ip');
+        setFormSourceURL('');
+        setFormRecurring('five-minute');
+      }
     }
 
     setIsCrudModalOpen(true);
@@ -1502,6 +1572,26 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormPorts(obj.ports || '');
     } else if (activeSubTab === 'Application Groups') {
       setFormMembers(obj.member_list ? obj.member_list.split(',') : []);
+    } else if (activeSubTab === 'Tags') {
+      setFormColor(obj.color || 'color1');
+    } else if (activeSubTab === 'Security Profiles') {
+      setFormProfileType(obj.type || 'antivirus');
+    } else if (activeSubTab === 'Security Profile Groups') {
+      setFormGroupAntivirus(obj.antivirus || '');
+      setFormGroupSpyware(obj.spyware || '');
+      setFormGroupVulnerability(obj.vulnerability || '');
+      setFormGroupURLFiltering(obj.url_filtering || '');
+      setFormGroupFileBlocking(obj.file_blocking || '');
+      setFormGroupWildfireAnalysis(obj.wildfire_analysis || '');
+      setFormGroupDNSSecurity(obj.dns_security || '');
+    } else if (activeSubTab === 'Custom Objects') {
+      if (activeCustomObjectTab === 'categories') {
+        setFormURLList(obj.url_list || '');
+      } else {
+        setFormListType(obj.list_type || 'ip');
+        setFormSourceURL(obj.source_url || '');
+        setFormRecurring(obj.recurring || 'five-minute');
+      }
     }
 
     setIsCrudModalOpen(true);
@@ -1570,6 +1660,39 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         payload.members = formMembers;
         if (crudMode === 'create') result = await apiClient.createApplicationGroup(payload);
         else result = await apiClient.updateApplicationGroup(payload);
+      } else if (activeSubTab === 'Tags') {
+        payload.color = formColor;
+        if (crudMode === 'create') result = await apiClient.createTag(payload);
+        else result = await apiClient.updateTag(payload);
+      } else if (activeSubTab === 'Log Forwarding Profiles') {
+        if (crudMode === 'create') result = await apiClient.createLogForwardingProfile(payload);
+        else result = await apiClient.updateLogForwardingProfile(payload);
+      } else if (activeSubTab === 'Security Profiles') {
+        payload.type = formProfileType;
+        if (crudMode === 'create') result = await apiClient.createSecurityProfile(payload);
+        else result = await apiClient.updateSecurityProfile(payload);
+      } else if (activeSubTab === 'Security Profile Groups') {
+        payload.antivirus = formGroupAntivirus || null;
+        payload.spyware = formGroupSpyware || null;
+        payload.vulnerability = formGroupVulnerability || null;
+        payload.url_filtering = formGroupURLFiltering || null;
+        payload.file_blocking = formGroupFileBlocking || null;
+        payload.wildfire_analysis = formGroupWildfireAnalysis || null;
+        payload.dns_security = formGroupDNSSecurity || null;
+        if (crudMode === 'create') result = await apiClient.createSecurityProfileGroup(payload);
+        else result = await apiClient.updateSecurityProfileGroup(payload);
+      } else if (activeSubTab === 'Custom Objects') {
+        if (activeCustomObjectTab === 'categories') {
+          payload.url_list = formURLList.trim();
+          if (crudMode === 'create') result = await apiClient.createCustomURLCategory(payload);
+          else result = await apiClient.updateCustomURLCategory(payload);
+        } else {
+          payload.list_type = formListType;
+          payload.source_url = formSourceURL.trim();
+          payload.recurring = formRecurring;
+          if (crudMode === 'create') result = await apiClient.createExternalDynamicList(payload);
+          else result = await apiClient.updateExternalDynamicList(payload);
+        }
       }
 
       addToast(
@@ -1599,6 +1722,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           else if (activeSubTab === 'Service Groups') await apiClient.deleteServiceGroup(obj.id);
           else if (activeSubTab === 'Applications') await apiClient.deleteApplicationObject(obj.id);
           else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(obj.id);
+          else if (activeSubTab === 'Tags') await apiClient.deleteTag(obj.id);
+          else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(obj.id);
+          else if (activeSubTab === 'Security Profiles') await apiClient.deleteSecurityProfile(obj.id);
+          else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(obj.id);
+          else if (activeSubTab === 'Custom Objects') {
+            if (activeCustomObjectTab === 'categories') await apiClient.deleteCustomURLCategory(obj.id);
+            else await apiClient.deleteExternalDynamicList(obj.id);
+          }
 
           addToast(`Deleted object "${obj.name}" successfully.`, 'success');
           fetchRecords();
@@ -1629,6 +1760,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             else if (activeSubTab === 'Service Groups') await apiClient.deleteServiceGroup(row.id);
             else if (activeSubTab === 'Applications') await apiClient.deleteApplicationObject(row.id);
             else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(row.id);
+            else if (activeSubTab === 'Tags') await apiClient.deleteTag(row.id);
+            else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(row.id);
+            else if (activeSubTab === 'Security Profiles') await apiClient.deleteSecurityProfile(row.id);
+            else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(row.id);
+            else if (activeSubTab === 'Custom Objects') {
+              if (activeCustomObjectTab === 'categories') await apiClient.deleteCustomURLCategory(row.id);
+              else await apiClient.deleteExternalDynamicList(row.id);
+            }
             deletedCount++;
           }
           addToast(`Successfully deleted ${deletedCount} objects.`, 'success');
@@ -1767,6 +1906,44 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           });
           if (row.description) {
             commands.push(`${scopePrefix} application-group ${row.name} description "${row.description}"`);
+          }
+          break;
+        case 'Tags':
+          commands.push(`${scopePrefix} tag ${row.name} color ${row.color || 'color1'}`);
+          if (row.description) {
+            commands.push(`${scopePrefix} tag ${row.name} comments "${row.description}"`);
+          }
+          break;
+        case 'Log Forwarding Profiles':
+          commands.push(`${scopePrefix} log-settings profiles ${row.name}`);
+          break;
+        case 'Security Profiles': {
+          const typeMapping: Record<string, string> = {
+            'url-filtering': 'url-filtering',
+            'antivirus': 'virus',
+            'vulnerability': 'vulnerability',
+            'spyware': 'spyware',
+            'wildfire': 'wildfire-analysis',
+            'file-blocking': 'file-blocking',
+          };
+          const resolvedType = typeMapping[row.type] || 'virus';
+          commands.push(`${scopePrefix} profiles ${resolvedType} ${row.name}`);
+          break;
+        }
+        case 'Security Profile Groups':
+          commands.push(`${scopePrefix} profiles profile-group ${row.name}`);
+          if (row.antivirus) commands.push(`${scopePrefix} profiles profile-group ${row.name} virus ${row.antivirus}`);
+          if (row.spyware) commands.push(`${scopePrefix} profiles profile-group ${row.name} spyware ${row.spyware}`);
+          if (row.vulnerability) commands.push(`${scopePrefix} profiles profile-group ${row.name} vulnerability ${row.vulnerability}`);
+          if (row.url_filtering) commands.push(`${scopePrefix} profiles profile-group ${row.name} url-filtering ${row.url_filtering}`);
+          if (row.file_blocking) commands.push(`${scopePrefix} profiles profile-group ${row.name} file-blocking ${row.file_blocking}`);
+          if (row.wildfire_analysis) commands.push(`${scopePrefix} profiles profile-group ${row.name} wildfire-analysis ${row.wildfire_analysis}`);
+          break;
+        case 'Custom Objects':
+          if (activeCustomObjectTab === 'categories') {
+            commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
+          } else {
+            commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
           }
           break;
       }
@@ -2016,6 +2193,168 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           }
         ];
         break;
+
+      case 'Tags':
+        subtabCols = [
+          {
+            key: 'color',
+            label: 'Color Tag',
+            width: '150px',
+            renderCell: (val) => {
+              const colorStr = String(val);
+              const colorMap: Record<string, string> = {
+                color1: '#ef4444',
+                color2: '#3b82f6',
+                color3: '#10b981',
+                color4: '#f59e0b',
+                color5: '#ec4899',
+                color6: '#8b5cf6',
+                color7: '#06b6d4',
+                color8: '#14b8a6',
+                color9: '#f97316',
+                color10: '#64748b',
+                color11: '#22c55e',
+                color12: '#a855f7',
+                color13: '#e11d48',
+                color14: '#d97706',
+                color15: '#2563eb',
+                color16: '#059669',
+              };
+              const hex = colorMap[colorStr] || 'var(--text-muted)';
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: hex, border: '1px solid var(--border-main)' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500 }}>{colorStr}</span>
+                </div>
+              );
+            }
+          }
+        ];
+        break;
+
+      case 'Log Forwarding Profiles':
+        subtabCols = [];
+        break;
+
+      case 'Security Profiles':
+        subtabCols = [
+          {
+            key: 'type',
+            label: 'Profile Type',
+            width: '180px',
+            renderCell: (val, row, query) => {
+              const displayMap: Record<string, string> = {
+                'url-filtering': 'URL Filtering',
+                'antivirus': 'Antivirus',
+                'vulnerability': 'Vulnerability Protection',
+                'spyware': 'Anti-Spyware',
+                'wildfire': 'WildFire Analysis',
+                'file-blocking': 'File Blocking',
+              };
+              return (
+                <span className="badge badge-info" style={{ fontWeight: 600 }}>
+                  <HighlightedText text={displayMap[String(val)] || String(val)} highlight={query} />
+                </span>
+              );
+            }
+          }
+        ];
+        break;
+
+      case 'Security Profile Groups':
+        subtabCols = [
+          {
+            key: 'profiles_summary',
+            label: 'Assigned Profiles',
+            width: '320px',
+            renderCell: (val, row, query) => {
+              const parts: string[] = [];
+              if (row.antivirus) parts.push(`AV: ${row.antivirus}`);
+              if (row.spyware) parts.push(`Spyware: ${row.spyware}`);
+              if (row.vulnerability) parts.push(`Vuln: ${row.vulnerability}`);
+              if (row.url_filtering) parts.push(`URL: ${row.url_filtering}`);
+              if (row.file_blocking) parts.push(`File: ${row.file_blocking}`);
+              if (row.wildfire_analysis) parts.push(`Wildfire: ${row.wildfire_analysis}`);
+              if (row.dns_security) parts.push(`DNS: ${row.dns_security}`);
+
+              if (parts.length === 0) return <span style={{ color: 'var(--text-muted)' }}>Default (None)</span>;
+
+              return (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
+                  {parts.map(p => (
+                    <span key={p} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                      <HighlightedText text={p} highlight={query} />
+                    </span>
+                  ))}
+                </div>
+              );
+            }
+          }
+        ];
+        break;
+
+      case 'Custom Objects':
+        if (activeCustomObjectTab === 'categories') {
+          subtabCols = [
+            {
+              key: 'url_list',
+              label: 'URLs List',
+              width: '320px',
+              renderCell: (val, row, query) => {
+                const list = val ? String(val).split(',') : [];
+                if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No URLs</span>;
+                return (
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
+                    {list.slice(0, 3).map((u: string) => (
+                      <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                        <HighlightedText text={u} highlight={query} />
+                      </span>
+                    ))}
+                    {list.length > 3 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                        +{list.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                );
+              }
+            }
+          ];
+        } else {
+          subtabCols = [
+            {
+              key: 'list_type',
+              label: 'List Type',
+              width: '120px',
+              renderCell: (val, row, query) => (
+                <span className="badge badge-info" style={{ fontWeight: 600 }}>
+                  <HighlightedText text={String(val).toUpperCase()} highlight={query} />
+                </span>
+              )
+            },
+            {
+              key: 'source_url',
+              label: 'Source URL',
+              width: '200px',
+              renderCell: (val, row, query) => (
+                <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                  <HighlightedText text={String(val)} highlight={query} />
+                </span>
+              )
+            },
+            {
+              key: 'recurring',
+              label: 'Check Rate',
+              width: '110px',
+              renderCell: (val, row, query) => (
+                <span className="badge badge-neutral">
+                  <HighlightedText text={String(val)} highlight={query} />
+                </span>
+              )
+            }
+          ];
+        }
+        break;
     }
 
     const actionCols: ColumnDef[] = [
@@ -2083,7 +2422,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     ];
 
     return [...defaultCols, ...subtabCols, ...actionCols];
-  }, [activeSubTab, scopeNameMap, currentScope]);
+  }, [activeSubTab, scopeNameMap, currentScope, activeCustomObjectTab]);
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 120px)', margin: '-20px', overflow: 'hidden' }}>
@@ -2219,7 +2558,44 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         )}
 
         {/* Global Search Filtering Tool */}
-        <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
+          {activeSubTab === 'Custom Objects' && (
+            <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
+              <button
+                type="button"
+                className={`btn-sm`}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  padding: '6px 12px',
+                  backgroundColor: activeCustomObjectTab === 'categories' ? 'var(--accent-blue)' : 'transparent',
+                  color: activeCustomObjectTab === 'categories' ? '#ffffff' : 'var(--text-main)',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+                onClick={() => setActiveCustomObjectTab('categories')}
+              >
+                URL Categories
+              </button>
+              <button
+                type="button"
+                className={`btn-sm`}
+                style={{
+                  borderRadius: 0,
+                  border: 'none',
+                  padding: '6px 12px',
+                  backgroundColor: activeCustomObjectTab === 'edls' ? 'var(--accent-blue)' : 'transparent',
+                  color: activeCustomObjectTab === 'edls' ? '#ffffff' : 'var(--text-main)',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  borderLeft: '1px solid var(--border-main)'
+                }}
+                onClick={() => setActiveCustomObjectTab('edls')}
+              >
+                External Dynamic Lists (EDLs)
+              </button>
+            </div>
+          )}
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -2662,6 +3038,186 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 (name) => setFormMembers(formMembers.filter(n => n !== name))
               )}
             </div>
+          )}
+
+          {activeSubTab === 'Tags' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Color Tag</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '8px', padding: '5px 0' }}>
+                {Array.from({ length: 16 }, (_, i) => `color${i + 1}`).map(colKey => {
+                  const colorMap: Record<string, string> = {
+                    color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
+                    color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
+                    color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
+                    color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
+                  };
+                  return (
+                    <button
+                      key={colKey}
+                      type="button"
+                      onClick={() => setFormColor(colKey)}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: colorMap[colKey],
+                        border: formColor === colKey ? '2px solid var(--text-main)' : '1px solid var(--border-main)',
+                        cursor: 'pointer',
+                        transform: formColor === colKey ? 'scale(1.1)' : 'scale(1)',
+                        transition: 'transform 0.1s ease',
+                      }}
+                      title={colKey}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'Security Profiles' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Profile Type</label>
+              <Dropdown
+                width="100%"
+                value={formProfileType}
+                onChange={setFormProfileType}
+                options={['antivirus', 'spyware', 'vulnerability', 'url-filtering', 'file-blocking', 'wildfire']}
+                renderOption={(opt) => {
+                  const displayMap: Record<string, string> = {
+                    'url-filtering': 'URL Filtering',
+                    'antivirus': 'Antivirus',
+                    'vulnerability': 'Vulnerability Protection',
+                    'spyware': 'Anti-Spyware',
+                    'wildfire': 'WildFire Analysis',
+                    'file-blocking': 'File Blocking',
+                  };
+                  return displayMap[opt] || opt;
+                }}
+              />
+            </div>
+          )}
+
+          {activeSubTab === 'Security Profile Groups' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Antivirus Profile</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupAntivirus}
+                    onChange={setFormGroupAntivirus}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'antivirus').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Anti-Spyware Profile</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupSpyware}
+                    onChange={setFormGroupSpyware}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'spyware').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Vulnerability Protection</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupVulnerability}
+                    onChange={setFormGroupVulnerability}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'vulnerability').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>URL Filtering Profile</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupURLFiltering}
+                    onChange={setFormGroupURLFiltering}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'url-filtering').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>File Blocking Profile</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupFileBlocking}
+                    onChange={setFormGroupFileBlocking}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'file-blocking').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>WildFire Analysis</label>
+                  <Dropdown
+                    width="100%"
+                    value={formGroupWildfireAnalysis}
+                    onChange={setFormGroupWildfireAnalysis}
+                    options={['', ...allSecurityProfiles.filter(p => p.type === 'wildfire').map(p => p.name)]}
+                    renderOption={(opt) => opt || 'None (Default)'}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeSubTab === 'Custom Objects' && activeCustomObjectTab === 'categories' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Member URL List (comma-separated)</label>
+              <textarea
+                className="input-text"
+                style={{ height: '80px', resize: 'vertical' }}
+                value={formURLList}
+                onChange={(e) => setFormURLList(e.target.value)}
+                placeholder="e.g. *.google.com, *.youtube.com"
+                required
+              />
+            </div>
+          )}
+
+          {activeSubTab === 'Custom Objects' && activeCustomObjectTab === 'edls' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>List Type</label>
+                  <Dropdown
+                    width="100%"
+                    value={formListType}
+                    onChange={setFormListType}
+                    options={['ip', 'domain', 'url']}
+                    renderOption={(opt) => opt.toUpperCase()}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Recurring Check Rate</label>
+                  <Dropdown
+                    width="100%"
+                    value={formRecurring}
+                    onChange={setFormRecurring}
+                    options={['five-minute', 'hourly', 'daily', 'weekly', 'monthly']}
+                    renderOption={(opt) => opt.replace('-', ' ')}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Source URL</label>
+                <input
+                  type="text"
+                  className="input-text"
+                  value={formSourceURL}
+                  onChange={(e) => setFormSourceURL(e.target.value)}
+                  placeholder="e.g. http://feed.threatsource.com/ips.txt"
+                  required
+                />
+              </div>
+            </>
           )}
 
           {/* Description */}

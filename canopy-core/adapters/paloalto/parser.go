@@ -92,6 +92,83 @@ type XMLTagEntry struct {
 	Comments string `xml:"comments"`
 }
 
+type XMLLogSettingsProfileEntry struct {
+	Name        string `xml:"name,attr"`
+	Description string `xml:"description"`
+}
+
+type XMLSecurityProfileGroupEntry struct {
+	Name             string   `xml:"name,attr"`
+	Description      string   `xml:"description"`
+	Antivirus        []string `xml:"virus>member"`
+	Spyware          []string `xml:"spyware>member"`
+	Vulnerability    []string `xml:"vulnerability>member"`
+	URLFiltering     []string `xml:"url-filtering>member"`
+	FileBlocking     []string `xml:"file-blocking>member"`
+	WildfireAnalysis []string `xml:"wildfire-analysis>member"`
+	DNSSecurity      []string `xml:"dns-security>member"`
+}
+
+type XMLCustomURLCategoryEntry struct {
+	Name        string   `xml:"name,attr"`
+	Description string   `xml:"description"`
+	List        []string `xml:"list>member"`
+}
+
+type XMLEDLType struct {
+	IP     *struct{} `xml:"ip"`
+	Domain *struct{} `xml:"domain"`
+	URL    *struct{} `xml:"url"`
+}
+
+func (t XMLEDLType) String() string {
+	if t.IP != nil {
+		return "ip"
+	}
+	if t.Domain != nil {
+		return "domain"
+	}
+	if t.URL != nil {
+		return "url"
+	}
+	return "ip"
+}
+
+type XMLEDLRecurring struct {
+	FiveMinute *struct{} `xml:"five-minute"`
+	Hourly     *struct{} `xml:"hourly"`
+	Daily      *struct{} `xml:"daily"`
+	Weekly     *struct{} `xml:"weekly"`
+	Monthly    *struct{} `xml:"monthly"`
+}
+
+func (r XMLEDLRecurring) String() string {
+	if r.FiveMinute != nil {
+		return "five-minute"
+	}
+	if r.Hourly != nil {
+		return "hourly"
+	}
+	if r.Daily != nil {
+		return "daily"
+	}
+	if r.Weekly != nil {
+		return "weekly"
+	}
+	if r.Monthly != nil {
+		return "monthly"
+	}
+	return "daily"
+}
+
+type XMLExternalListEntry struct {
+	Name        string          `xml:"name,attr"`
+	Description string          `xml:"description"`
+	Type        XMLEDLType      `xml:"type"`
+	URL         string          `xml:"url"`
+	Recurring   XMLEDLRecurring `xml:"recurring"`
+}
+
 type XMLProfiles struct {
 	URLFiltering []struct {
 		Name string `xml:"name,attr"`
@@ -111,6 +188,8 @@ type XMLProfiles struct {
 	FileBlocking []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"file-blocking>entry"`
+	SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
+	CustomURLCategories   []XMLCustomURLCategoryEntry    `xml:"custom-url-category>entry"`
 }
 
 // Rules XML representation
@@ -239,20 +318,22 @@ type XMLRulebase struct {
 }
 
 type XMLDeviceGroup struct {
-	Name         string                 `xml:"name,attr"`
-	Parent       string                 `xml:"parent,attr"`
-	Address      []XMLAddressEntry      `xml:"address>entry"`
-	AddressGroup []XMLAddressGroupEntry `xml:"address-group>entry"`
-	Service      []XMLServiceEntry      `xml:"service>entry"`
-	ServiceGroup []XMLServiceGroupEntry `xml:"service-group>entry"`
-	Application  []XMLApplicationEntry  `xml:"application>entry"`
-	Region       []XMLRegionEntry       `xml:"region>entry"`
-	Schedule     []XMLScheduleEntry     `xml:"schedule>entry"`
-	PreRulebase  XMLRulebase            `xml:"pre-rulebase"`
-	PostRulebase XMLRulebase            `xml:"post-rulebase"`
-	Tags         []XMLTagEntry          `xml:"tag>entry"`
-	Profiles     XMLProfiles            `xml:"profiles"`
-	Devices      []struct {
+	Name                  string                         `xml:"name,attr"`
+	Parent                string                         `xml:"parent,attr"`
+	Address               []XMLAddressEntry              `xml:"address>entry"`
+	AddressGroup          []XMLAddressGroupEntry         `xml:"address-group>entry"`
+	Service               []XMLServiceEntry              `xml:"service>entry"`
+	ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
+	Application           []XMLApplicationEntry          `xml:"application>entry"`
+	Region                []XMLRegionEntry               `xml:"region>entry"`
+	Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
+	PreRulebase           XMLRulebase                    `xml:"pre-rulebase"`
+	PostRulebase          XMLRulebase                    `xml:"post-rulebase"`
+	Tags                  []XMLTagEntry                  `xml:"tag>entry"`
+	Profiles              XMLProfiles                    `xml:"profiles"`
+	LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
+	ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
+	Devices               []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"devices>entry"`
 }
@@ -353,18 +434,20 @@ type PaloAltoConfig struct {
 	DeviceConfig   *XMLDeviceConfig   `xml:"deviceconfig"`
 
 	Shared struct {
-		Address        []XMLAddressEntry       `xml:"address>entry"`
-		AddressGroup   []XMLAddressGroupEntry  `xml:"address-group>entry"`
-		Service        []XMLServiceEntry       `xml:"service>entry"`
-		ServiceGroup   []XMLServiceGroupEntry  `xml:"service-group>entry"`
-		Application    []XMLApplicationEntry   `xml:"application>entry"`
-		Region         []XMLRegionEntry        `xml:"region>entry"`
-		Schedule       []XMLScheduleEntry      `xml:"schedule>entry"`
-		PreRulebase    XMLRulebase             `xml:"pre-rulebase"`
-		PostRulebase   XMLRulebase             `xml:"post-rulebase"`
-		Tags           []XMLTagEntry           `xml:"tag>entry"`
-		Profiles       XMLProfiles             `xml:"profiles"`
-		ManagedDevices []XMLManagedDeviceEntry `xml:"managed-devices>entry"`
+		Address               []XMLAddressEntry              `xml:"address>entry"`
+		AddressGroup          []XMLAddressGroupEntry         `xml:"address-group>entry"`
+		Service               []XMLServiceEntry              `xml:"service>entry"`
+		ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
+		Application           []XMLApplicationEntry          `xml:"application>entry"`
+		Region                []XMLRegionEntry               `xml:"region>entry"`
+		Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
+		PreRulebase           XMLRulebase                    `xml:"pre-rulebase"`
+		PostRulebase          XMLRulebase                    `xml:"post-rulebase"`
+		Tags                  []XMLTagEntry                  `xml:"tag>entry"`
+		Profiles              XMLProfiles                    `xml:"profiles"`
+		LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
+		ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
+		ManagedDevices        []XMLManagedDeviceEntry        `xml:"managed-devices>entry"`
 	} `xml:"shared"`
 
 	DeviceGroups []XMLDeviceGroup `xml:"device-group>entry"`
@@ -400,6 +483,8 @@ type PaloAltoConfig struct {
 			TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"rulebase>tunnel-inspection>rules>entry"`
 			Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 			Profiles              XMLProfiles                    `xml:"profiles"`
+			LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
+			ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
 		} `xml:"vsys>entry"`
 	} `xml:"devices>entry"`
 }
@@ -672,7 +757,8 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 				LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id
 				LEFT JOIN templates t ON m.template_id = t.id
 				WHERE m.serial = ?`, mdev.Serial).Scan(&dbDGName, &dbStackName, &dbTmplName)
-			if err == nil {
+			switch err {
+			case nil:
 				nameOrSerial := mdev.Hostname
 				if nameOrSerial == "" {
 					nameOrSerial = mdev.Serial
@@ -696,7 +782,7 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 					}
 					stats.Warnings = append(stats.Warnings, fmt.Sprintf("Managed device '%s' (Serial: %s) is mapped to Template/Stack '%s' in XML, but is currently assigned to '%s' in database.", nameOrSerial, mdev.Serial, stackName, curStack))
 				}
-			} else if err == sql.ErrNoRows {
+			case sql.ErrNoRows:
 				nameOrSerial := mdev.Hostname
 				if nameOrSerial == "" {
 					nameOrSerial = mdev.Serial
@@ -1034,14 +1120,6 @@ func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
 
 	// 2. Delete the scope which automatically cascade-deletes objects, rules, topology, and static routes
 	tx.Exec("DELETE FROM scopes WHERE uuid = ?", deviceUUID)
-
-	// 3. Clean up orphaned mapping tables
-	tx.Exec("DELETE FROM rule_address_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
-	tx.Exec("DELETE FROM rule_service_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules)")
-	tx.Exec("DELETE FROM rule_application_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules)")
-	tx.Exec("DELETE FROM rule_zone_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)")
-	tx.Exec("DELETE FROM entity_tag_mappings WHERE tag_id NOT IN (SELECT id FROM tags)")
-	tx.Exec("DELETE FROM security_rule_profiles WHERE rule_id NOT IN (SELECT id FROM security_rules)")
 }
 
 func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry, reg *registry) error {
@@ -1394,6 +1472,106 @@ func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLPr
 		return err
 	}
 
+	return nil
+}
+
+func insertLogForwardingProfiles(tx *sql.Tx, deviceUUID, scope string, entries []XMLLogSettingsProfileEntry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO log_forwarding_profiles (device_uuid, scope, name, description)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, entry := range entries {
+		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Description); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertSecurityProfileGroups(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecurityProfileGroupEntry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO security_profile_groups (device_uuid, scope, name, description, antivirus, spyware, vulnerability, url_filtering, file_blocking, wildfire_analysis, dns_security)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	getFirstMember := func(members []string) string {
+		if len(members) > 0 {
+			return members[0]
+		}
+		return ""
+	}
+
+	for _, entry := range entries {
+		if _, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			getFirstMember(entry.Antivirus),
+			getFirstMember(entry.Spyware),
+			getFirstMember(entry.Vulnerability),
+			getFirstMember(entry.URLFiltering),
+			getFirstMember(entry.FileBlocking),
+			getFirstMember(entry.WildfireAnalysis),
+			getFirstMember(entry.DNSSecurity),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertCustomURLCategories(tx *sql.Tx, deviceUUID, scope string, entries []XMLCustomURLCategoryEntry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO custom_url_categories (device_uuid, scope, name, description, url_list)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, entry := range entries {
+		urlList := strings.Join(entry.List, ",")
+		if _, err := stmt.Exec(deviceUUID, scope, entry.Name, entry.Description, urlList); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func insertExternalDynamicLists(tx *sql.Tx, deviceUUID, scope string, entries []XMLExternalListEntry) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO external_dynamic_lists (device_uuid, scope, name, description, list_type, source_url, recurring)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, entry := range entries {
+		if _, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			entry.Type.String(),
+			entry.URL,
+			entry.Recurring.String(),
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -2208,6 +2386,18 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		if err := insertSecurityProfiles(tx, sharedUUID, "shared", config.Shared.Profiles, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared profiles: %w", err)
 		}
+		if err := insertLogForwardingProfiles(tx, sharedUUID, "shared", config.Shared.LogSettingsProfiles); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared log forwarding profiles: %w", err)
+		}
+		if err := insertSecurityProfileGroups(tx, sharedUUID, "shared", config.Shared.Profiles.SecurityProfileGroups); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared security profile groups: %w", err)
+		}
+		if err := insertCustomURLCategories(tx, sharedUUID, "shared", config.Shared.Profiles.CustomURLCategories); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared custom url categories: %w", err)
+		}
+		if err := insertExternalDynamicLists(tx, sharedUUID, "shared", config.Shared.ExternalDynamicLists); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared external dynamic lists: %w", err)
+		}
 
 		// Address / Service groups Pass 1 (insert groups)
 		if err := insertAddressGroupsPass1(tx, sharedUUID, "shared", config.Shared.AddressGroup, reg); err != nil {
@@ -2275,6 +2465,18 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 			}
 			if err := insertSecurityProfiles(tx, dgUUID, dg.Name, dg.Profiles, reg); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg profiles for %s: %w", dg.Name, err)
+			}
+			if err := insertLogForwardingProfiles(tx, dgUUID, dg.Name, dg.LogSettingsProfiles); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg log forwarding profiles for %s: %w", dg.Name, err)
+			}
+			if err := insertSecurityProfileGroups(tx, dgUUID, dg.Name, dg.Profiles.SecurityProfileGroups); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg security profile groups for %s: %w", dg.Name, err)
+			}
+			if err := insertCustomURLCategories(tx, dgUUID, dg.Name, dg.Profiles.CustomURLCategories); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg custom url categories for %s: %w", dg.Name, err)
+			}
+			if err := insertExternalDynamicLists(tx, dgUUID, dg.Name, dg.ExternalDynamicLists); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg external dynamic lists for %s: %w", dg.Name, err)
 			}
 
 			// Groups Pass 1
@@ -2862,6 +3064,18 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				if err := insertSecurityProfiles(tx, deviceUUID, scope, vsys.Profiles, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys profiles: %w", err)
 				}
+				if err := insertLogForwardingProfiles(tx, deviceUUID, scope, vsys.LogSettingsProfiles); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys log forwarding profiles: %w", err)
+				}
+				if err := insertSecurityProfileGroups(tx, deviceUUID, scope, vsys.Profiles.SecurityProfileGroups); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys security profile groups: %w", err)
+				}
+				if err := insertCustomURLCategories(tx, deviceUUID, scope, vsys.Profiles.CustomURLCategories); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys custom url categories: %w", err)
+				}
+				if err := insertExternalDynamicLists(tx, deviceUUID, scope, vsys.ExternalDynamicLists); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys external dynamic lists: %w", err)
+				}
 
 				// Groups Pass 1
 				if err := insertAddressGroupsPass1(tx, deviceUUID, scope, vsys.AddressGroup, reg); err != nil {
@@ -2903,6 +3117,26 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 				}
 			}
 		}
+	}
+
+	// Clean up orphaned mapping tables once at the end of the transaction
+	if _, err := tx.Exec("DELETE FROM rule_address_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned rule address mappings: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM rule_service_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned rule service mappings: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM rule_application_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned rule application mappings: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM rule_zone_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned rule zone mappings: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM entity_tag_mappings WHERE tag_id NOT IN (SELECT id FROM tags)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned entity tag mappings: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM security_rule_profiles WHERE rule_id NOT IN (SELECT id FROM security_rules)"); err != nil {
+		return 0, 0, fmt.Errorf("failed to clean up orphaned security rule profiles: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
