@@ -35,6 +35,8 @@ app.whenReady().then(async () => {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        minWidth: 1024,
+        minHeight: 700,
         backgroundColor: '#1e1e2e',
         show: false,
         webPreferences: {

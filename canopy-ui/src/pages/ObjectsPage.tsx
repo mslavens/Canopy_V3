@@ -2394,13 +2394,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           return (
             <div style={{ display: 'flex', gap: '6px' }}>
               {isGroup && (
-                <button
-                  className="btn-table-action"
-                  onClick={() => handleOpenSlideOver(row)}
-                  title="Inspect Members Details"
-                >
-                  <Eye size={14} />
-                </button>
+                <Tooltip content="Inspect Members Details" position="top">
+                  <button
+                    className="btn-table-action"
+                    onClick={() => handleOpenSlideOver(row)}
+                  >
+                    <Eye size={14} />
+                  </button>
+                </Tooltip>
               )}
               {isShowAll ? (
                 <Tooltip content="Select a specific Device Group or Firewall to edit objects" position="top">
@@ -2413,13 +2414,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   </button>
                 </Tooltip>
               ) : (
-                <button
-                  className="btn-table-action"
-                  onClick={() => openEditModal(row)}
-                  title="Edit Object"
-                >
-                  <Edit2 size={14} />
-                </button>
+                <Tooltip content="Edit Object" position="top">
+                  <button
+                    className="btn-table-action"
+                    onClick={() => openEditModal(row)}
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                </Tooltip>
               )}
               {isShowAll ? (
                 <Tooltip content="Select a specific Device Group or Firewall to delete objects" position="top">
@@ -2432,13 +2434,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   </button>
                 </Tooltip>
               ) : (
-                <button
-                  className="btn-table-action-danger"
-                  onClick={() => handleDeleteObject(row)}
-                  title="Delete Object"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <Tooltip content="Delete Object" position="top">
+                  <button
+                    className="btn-table-action-danger"
+                    onClick={() => handleDeleteObject(row)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </Tooltip>
               )}
             </div>
           );
@@ -2455,16 +2458,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Scope context summary top header */}
         <div style={{ height: '70px', padding: '0 20px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, overflow: 'visible', position: 'relative', zIndex: 1010 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', height: '100%', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, width: '300px' }}>
-              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', height: '100%', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 1, minWidth: '180px', maxWidth: '280px', overflow: 'hidden' }}>
+              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {activeSubTab}
               </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                Active Scope context: <strong style={{ color: 'var(--accent-blue)' }}>{scopeNameMap[currentScope] || currentScope}</strong>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                Active Scope: <strong style={{ color: 'var(--accent-blue)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }} title={scopeNameMap[currentScope] || currentScope}>{scopeNameMap[currentScope] || currentScope}</strong>
                 {visibleScopes.length > 1 && (
                   <Tooltip content={visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')} position="bottom">
-                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>
                       ({visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')})
                     </span>
                   </Tooltip>
@@ -2485,7 +2488,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
 
           {/* Action buttons */}
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
             {selectedRows.length > 0 && (
               <button
                 onClick={handleBulkDelete}
@@ -3171,6 +3174,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupAntivirus}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'antivirus').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3181,6 +3185,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupSpyware}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'spyware').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
               </div>
@@ -3193,6 +3198,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupVulnerability}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'vulnerability').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3203,6 +3209,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupURLFiltering}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'url-filtering').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
               </div>
@@ -3215,6 +3222,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupFileBlocking}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'file-blocking').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3225,6 +3233,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onChange={setFormGroupWildfireAnalysis}
                     options={['', ...allSecurityProfiles.filter(p => p.type === 'wildfire').map(p => p.name)]}
                     renderOption={(opt) => opt || 'None (Default)'}
+                    searchable={true}
                   />
                 </div>
               </div>

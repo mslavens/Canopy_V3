@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface TooltipProps {
   content: string;
@@ -9,47 +10,62 @@ interface TooltipProps {
 
 export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', position = 'bottom', children }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
 
-  let alignmentStyle: React.CSSProperties = {
-    left: '50%',
-    transform: 'translateX(-50%)',
+  const updateCoords = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const leftVal = rect.left + window.scrollX + rect.width / 2;
+      const topVal = position === 'bottom' 
+        ? rect.bottom + window.scrollY + 8
+        : rect.top + window.scrollY - 8;
+      setCoords({ top: topVal, left: leftVal });
+    }
   };
 
-  if (align === 'left') {
-    alignmentStyle = { left: '0' };
-  } else if (align === 'right') {
-    alignmentStyle = { right: '0' };
-  }
+  useEffect(() => {
+    if (isVisible) {
+      updateCoords();
+      window.addEventListener('resize', updateCoords);
+      window.addEventListener('scroll', updateCoords, true);
+    }
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [isVisible]);
 
-  const verticalStyle: React.CSSProperties = position === 'bottom'
-    ? { top: '100%', marginTop: '8px' }
-    : { bottom: '100%', marginBottom: '8px' };
+  const transformVal = position === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)';
 
   return (
     <div 
-      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', zIndex: isVisible ? 1000 : undefined }}
+      ref={wrapperRef}
+      style={{ display: 'inline-flex', alignItems: 'center' }}
       onMouseEnter={() => setIsVisible(true)}
       onMouseLeave={() => setIsVisible(false)}
     >
       {children}
-      {isVisible && (
+      {isVisible && createPortal(
         <div style={{
           position: 'absolute',
-          ...verticalStyle,
+          top: `${coords.top}px`,
+          left: `${coords.left}px`,
+          transform: transformVal,
           padding: '6px 10px',
-          backgroundColor: 'var(--bg-element)',
+          backgroundColor: 'var(--bg-surface)',
           color: 'var(--text-main)',
           fontSize: '11px',
           borderRadius: '4px',
           whiteSpace: 'nowrap',
-          zIndex: 1000,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          zIndex: 1000000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
           border: '1px solid var(--border-main)',
           pointerEvents: 'none',
-          ...alignmentStyle
         }}>
           {content}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
