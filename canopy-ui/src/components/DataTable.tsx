@@ -28,6 +28,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [orderedColumnKeys, setOrderedColumnKeys] = useState<string[]>([]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [activeResizeCol, setActiveResizeCol] = useState<string | null>(null);
   
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
@@ -162,17 +163,52 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
     e.preventDefault();
     e.stopPropagation();
     resizingCol.current = colKey;
+    setActiveResizeCol(colKey);
     startX.current = e.pageX;
+    
     const th = (e.target as HTMLElement).closest('th');
-    startWidth.current = th ? th.getBoundingClientRect().width : 150;
+    const tr = th?.parentElement;
+    const ths = tr?.querySelectorAll('th');
+    
+    // Capture actual rendered widths of all visible columns to prevent jumping/slippage
+    const currentWidths: Record<string, number> = { ...columnWidths };
+    if (ths) {
+      visibleColumnKeys.forEach((key, idx) => {
+        const thElement = ths[selectable ? idx + 1 : idx];
+        if (thElement) {
+          currentWidths[key] = thElement.getBoundingClientRect().width;
+        }
+      });
+      setColumnWidths(currentWidths);
+    }
+    
+    startWidth.current = th ? th.getBoundingClientRect().width : (columnWidths[colKey] || 150);
+
+    let finalWidth = startWidth.current;
+    const colIndex = visibleColumnKeys.indexOf(colKey);
+    const thIdx = selectable ? colIndex + 1 : colIndex;
+    const table = th?.closest('table');
+    const cells = table ? table.querySelectorAll(`tr > *:nth-child(${thIdx + 1})`) : [];
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!resizingCol.current) return;
       const diff = moveEvent.pageX - startX.current;
-      setColumnWidths(prev => ({ ...prev, [resizingCol.current as string]: Math.max(50, startWidth.current + diff) }));
+      finalWidth = Math.max(50, startWidth.current + diff);
+      
+      // Perform direct DOM mutation to achieve immediate, spreadsheet-like rendering (60 FPS)
+      cells.forEach(cell => {
+        const el = cell as HTMLElement;
+        el.style.width = `${finalWidth}px`;
+        el.style.minWidth = `${finalWidth}px`;
+        el.style.maxWidth = `${finalWidth}px`;
+      });
     };
+    
     const onMouseUp = () => {
       resizingCol.current = null;
+      setActiveResizeCol(null);
+      // Commit the final width to React state so it persists across table operations (sorting, filtering, paging)
+      setColumnWidths(prev => ({ ...prev, [colKey]: finalWidth }));
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
@@ -248,7 +284,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
+        <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
               {selectable && (
@@ -259,7 +295,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               {visibleColumnKeys.map((colKey, idx) => {
                 const colDef = getColDef(colKey);
                 return (
-                  <th key={colKey} draggable onDragStart={(e) => handleDragStart(e, colKey)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, colKey)} style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', cursor: 'grab', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto' }} title="Drag to reorder">
+                  <th key={colKey} draggable onDragStart={(e) => handleDragStart(e, colKey)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, colKey)} style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', cursor: 'grab', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'hidden' }} title="Drag to reorder">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <div onClick={() => handleSort(colKey)} style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{colDef.label || colDef.key}</span>
@@ -269,11 +305,16 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
                     <div 
                       onMouseDown={(e) => handleResizeStart(e, colKey)}
                       title="Drag to resize"
-                      style={{ position: 'absolute', top: 0, bottom: 0, right: idx === visibleColumnKeys.length - 1 ? 0 : '-8px', width: '16px', cursor: 'col-resize', zIndex: 2, display: 'flex', justifyContent: 'center' }}
+                      style={{ position: 'absolute', top: 0, bottom: 0, right: '-12px', width: '24px', cursor: 'col-resize', zIndex: 2, display: 'flex', justifyContent: 'center' }}
                       onMouseEnter={(e) => { const el = e.currentTarget.firstChild as HTMLElement; if (el) el.style.backgroundColor = 'var(--accent-blue)'; }}
-                      onMouseLeave={(e) => { const el = e.currentTarget.firstChild as HTMLElement; if (el) el.style.backgroundColor = 'transparent'; }}
+                      onMouseLeave={(e) => { 
+                        if (activeResizeCol !== colKey) {
+                          const el = e.currentTarget.firstChild as HTMLElement; 
+                          if (el) el.style.backgroundColor = 'transparent'; 
+                        }
+                      }}
                     >
-                      <div style={{ width: '3px', height: '100%', backgroundColor: 'transparent', transition: 'background-color 0.2s ease' }} />
+                      <div style={{ width: '3px', height: '100%', backgroundColor: activeResizeCol === colKey ? 'var(--accent-blue)' : 'transparent', transition: 'background-color 0.2s ease' }} />
                     </div>
                   </th>
                 );
@@ -293,7 +334,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
                 {visibleColumnKeys.map((colKey, cIdx) => {
                   const colDef = getColDef(colKey);
                   return (
-                    <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : 'auto', borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
+                    <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
                       {colDef.renderCell ? colDef.renderCell(row[colKey], row, searchQuery) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
                     </td>
                   );
