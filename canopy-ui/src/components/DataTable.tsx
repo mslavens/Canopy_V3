@@ -20,9 +20,10 @@ interface DataTableProps {
   selectable?: boolean;
   onSelectionChange?: (selectedRows: any[]) => void;
   highlightRow?: (row: any) => boolean;
+  rowStyle?: (row: any) => React.CSSProperties;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -324,8 +325,9 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
           <tbody>
             {paginatedRows.map((row, rIdx) => {
               const isHighlighted = highlightRow ? highlightRow(row) : false;
+              const customStyle = rowStyle ? rowStyle(row) : {};
               return (
-              <tr key={rIdx} className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'}>
+              <tr key={rIdx} className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} style={customStyle}>
                 {selectable && (
                   <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)' }}>
                     <input type="checkbox" checked={selectedRows.has(row)} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />

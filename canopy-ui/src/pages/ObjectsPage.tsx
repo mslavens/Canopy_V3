@@ -22,7 +22,8 @@ import {
   List,
   ChevronDown,
   Network,
-  Copy
+  Copy,
+  Lock
 } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { DataTable, ColumnDef } from '../components/DataTable';
@@ -2131,11 +2132,46 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         key: 'name',
         label: 'Name',
         width: '240px',
-        renderCell: (val, row, query) => (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 500 }}><HighlightedText text={val} highlight={query || ''} /></span>
-          </div>
-        )
+        renderCell: (val, row, query) => {
+          const isShowAll = currentScope === 'show-all';
+          const isInherited = !isShowAll && row.device_uuid !== currentScope;
+          const inheritedScopeName = isInherited ? (scopeNameMap[row.device_uuid] || row.device_uuid) : '';
+          const isEditable = !isInherited && !isShowAll;
+          
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isInherited && (
+                <Tooltip content={`Inherited from ${inheritedScopeName}`} position="top">
+                  <Lock size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                </Tooltip>
+              )}
+              <span 
+                onClick={() => {
+                  if (isEditable) openEditModal(row);
+                }}
+                onMouseEnter={(e) => {
+                  if (isEditable) {
+                    e.currentTarget.style.color = 'var(--accent-blue)';
+                    e.currentTarget.style.textDecoration = 'underline';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isEditable) {
+                    e.currentTarget.style.color = 'inherit';
+                    e.currentTarget.style.textDecoration = 'none';
+                  }
+                }}
+                style={{ 
+                  fontWeight: 500,
+                  cursor: isEditable ? 'pointer' : 'default',
+                  transition: 'color 0.15s ease'
+                }}
+              >
+                <HighlightedText text={val} highlight={query || ''} />
+              </span>
+            </div>
+          );
+        }
       },
       {
         key: 'device_uuid',
@@ -2856,7 +2892,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         )}
 
         {/* Global Search Filtering Tool */}
-        <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ padding: '10px 0', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -2882,6 +2918,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   selectable={true}
                   onSelectionChange={setSelectedRows}
                   exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
+                  rowStyle={(row) => {
+                    const isShowAll = currentScope === 'show-all';
+                    const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                    return isInherited ? { opacity: 0.55 } : {};
+                  }}
                 />
               </div>
 
