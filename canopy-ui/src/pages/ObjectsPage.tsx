@@ -1190,7 +1190,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       }
     }
     scopes.push('paloalto-panorama-global');
-    return scopes;
+    return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
   }, [currentScope, deviceGroups, firewalls]);
 
   // Fetch active tab records
@@ -2461,25 +2461,64 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       {/* 2. Main content canvas */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Scope context summary top header */}
-        <div style={{ height: '70px', padding: '0 20px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, overflow: 'visible', position: 'relative', zIndex: 1010 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', height: '100%', overflow: 'hidden', flexShrink: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 1, minWidth: '180px', maxWidth: '280px', overflow: 'hidden' }}>
-              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {activeSubTab}
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                Active Scope: <strong style={{ color: 'var(--accent-blue)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }} title={scopeNameMap[currentScope] || currentScope}>{scopeNameMap[currentScope] || currentScope}</strong>
-                {visibleScopes.length > 1 && (
-                  <Tooltip content={visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')} position="bottom">
-                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }}>
-                      ({visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' -> ')})
-                    </span>
-                  </Tooltip>
-                )}
-              </span>
+        <div style={{ 
+          padding: '20px 20px 15px 20px', 
+          backgroundColor: 'var(--bg-surface)', 
+          borderBottom: '1px solid var(--border-main)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '12px', 
+          flexShrink: 0, 
+          overflow: 'visible', 
+          position: 'relative', 
+          zIndex: 1010 
+        }}>
+          {/* Row 1: Title & Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+              {activeSubTab}
+            </h2>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              {selectedRows.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="btn-danger btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Trash2 size={13} /> Bulk Delete ({selectedRows.length})
+                </button>
+              )}
+              <button
+                onClick={handleGenerateCli}
+                className="btn-secondary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Code size={13} /> {selectedRows.length > 0 ? `Generate CLI (${selectedRows.length})` : 'Generate CLI'}
+              </button>
+              {currentScope === 'show-all' ? (
+                <Tooltip content="Select a specific Device Group or Firewall to add objects" position="bottom">
+                  <button
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.5, cursor: 'not-allowed' }}
+                    disabled
+                  >
+                    <Plus size={14} /> Add Object
+                  </button>
+                </Tooltip>
+              ) : (
+                <button
+                  onClick={openCreateModal}
+                  className="btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Plus size={14} /> Add Object
+                </button>
+              )}
             </div>
+          </div>
 
-            {/* Top Panorama-Style Device Group Selection Dropdown */}
+          {/* Row 2: Device Group Dropdown & Lineage */}
+          <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', width: '100%', gap: '24px', minHeight: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>Device Group:</span>
               <SearchableScopeDropdown
@@ -2489,45 +2528,17 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 scopeNameMap={scopeNameMap}
               />
             </div>
-          </div>
-
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            {selectedRows.length > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                className="btn-danger btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Trash2 size={13} /> Bulk Delete ({selectedRows.length})
-              </button>
-            )}
-            <button
-              onClick={handleGenerateCli}
-              className="btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Code size={13} /> {selectedRows.length > 0 ? `Generate CLI (${selectedRows.length})` : 'Generate CLI'}
-            </button>
-            {currentScope === 'show-all' ? (
-              <Tooltip content="Select a specific Device Group or Firewall to add objects" position="bottom">
-                <button
-                  className="btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.5, cursor: 'not-allowed' }}
-                  disabled
-                >
-                  <Plus size={14} /> Add Object
-                </button>
-              </Tooltip>
-            ) : (
-              <button
-                onClick={openCreateModal}
-                className="btn-primary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} /> Add Object
-              </button>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
+              {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
+                  Scope Context: <span style={{ color: 'var(--text-sub)', fontWeight: 500 }}>{visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' ➔ ')}</span>
+                </span>
+              ) : (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
