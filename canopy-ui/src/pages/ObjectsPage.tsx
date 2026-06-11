@@ -237,6 +237,19 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   // Data Loading States
   const [tableData, setTableData] = useState<any[]>([]);
+  const [activeProfileTab, setActiveProfileTab] = useState<'all' | 'antivirus' | 'spyware' | 'vulnerability' | 'url-filtering' | 'file-blocking' | 'wildfire'>('all');
+
+  const displayedTableData = useMemo(() => {
+    if (activeSubTab === 'Security Profiles' && activeProfileTab !== 'all') {
+      return tableData.filter(row => row.type === activeProfileTab);
+    }
+    return tableData;
+  }, [tableData, activeSubTab, activeProfileTab]);
+
+  useEffect(() => {
+    setActiveProfileTab('all');
+  }, [activeSubTab]);
+
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSelectorModalOpen, setIsSelectorModalOpen] = useState<boolean>(false);
@@ -1838,7 +1851,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   // Generate CLI commands
   const handleGenerateCli = () => {
-    const rows = selectedRows.length > 0 ? selectedRows : tableData;
+    const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
     if (rows.length === 0) {
       addToast('No records available to generate commands.', 'info');
       return;
@@ -1967,7 +1980,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         width: '240px',
         renderCell: (val, row, query) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 500 }}><HighlightedText text={val} highlight={query} /></span>
+            <span style={{ fontWeight: 500 }}><HighlightedText text={val} highlight={query || ''} /></span>
           </div>
         )
       },
@@ -1981,11 +1994,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {isShared ? (
                 <span className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Globe size={11} /> <HighlightedText text="Shared" highlight={query} />
+                  <Globe size={11} /> <HighlightedText text="Shared" highlight={query || ''} />
                 </span>
               ) : (
                 <span className="badge badge-neutral" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Layers size={11} /> <HighlightedText text={scopeNameMap[val] || val} highlight={query} />
+                  <Layers size={11} /> <HighlightedText text={scopeNameMap[val] || val} highlight={query || ''} />
                 </span>
               )}
             </div>
@@ -2020,7 +2033,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             width: '320px',
             renderCell: (val, row, query) => {
               if (row.type === 'dynamic') {
-                return <code style={{ color: 'var(--accent-blue)', fontSize: '11px' }}><HighlightedText text={row.filter || 'No Filter'} highlight={query} /></code>;
+                return <code style={{ color: 'var(--accent-blue)', fontSize: '11px' }}><HighlightedText text={row.filter || 'No Filter'} highlight={query || ''} /></code>;
               }
               const list = val ? val.split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
@@ -2043,7 +2056,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         maxWidth: '90px'
                       }}
                     >
-                      <HighlightedText text={m} highlight={query} />
+                      <HighlightedText text={m} highlight={query || ''} />
                     </span>
                   ))}
                   {list.length > 3 && (
@@ -2064,7 +2077,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             label: 'Protocol',
             width: '110px',
             renderCell: (val, row, query) => (
-              <span className="badge badge-info" style={{ fontWeight: 600 }}><HighlightedText text={String(val).toUpperCase()} highlight={query} /></span>
+              <span className="badge badge-info" style={{ fontWeight: 600 }}><HighlightedText text={String(val).toUpperCase()} highlight={query || ''} /></span>
             )
           },
           { key: 'destination_port', label: 'Destination Ports', width: '200px' },
@@ -2098,7 +2111,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         maxWidth: '90px'
                       }}
                     >
-                      <HighlightedText text={m} highlight={query} />
+                      <HighlightedText text={m} highlight={query || ''} />
                     </span>
                   ))}
                   {list.length > 3 && (
@@ -2179,7 +2192,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         maxWidth: '90px'
                       }}
                     >
-                      <HighlightedText text={m} highlight={query} />
+                      <HighlightedText text={m} highlight={query || ''} />
                     </span>
                   ))}
                   {list.length > 3 && (
@@ -2253,7 +2266,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               };
               return (
                 <span className="badge badge-info" style={{ fontWeight: 600 }}>
-                  <HighlightedText text={displayMap[String(val)] || String(val)} highlight={query} />
+                  <HighlightedText text={displayMap[String(val)] || String(val)} highlight={query || ''} />
                 </span>
               );
             }
@@ -2283,7 +2296,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
                   {parts.map(p => (
                     <span key={p} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                      <HighlightedText text={p} highlight={query} />
+                      <HighlightedText text={p} highlight={query || ''} />
                     </span>
                   ))}
                 </div>
@@ -2307,7 +2320,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
                     {list.slice(0, 3).map((u: string) => (
                       <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>
-                        <HighlightedText text={u} highlight={query} />
+                        <HighlightedText text={u} highlight={query || ''} />
                       </span>
                     ))}
                     {list.length > 3 && (
@@ -2328,7 +2341,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               width: '120px',
               renderCell: (val, row, query) => (
                 <span className="badge badge-info" style={{ fontWeight: 600 }}>
-                  <HighlightedText text={String(val).toUpperCase()} highlight={query} />
+                  <HighlightedText text={String(val).toUpperCase()} highlight={query || ''} />
                 </span>
               )
             },
@@ -2338,7 +2351,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               width: '200px',
               renderCell: (val, row, query) => (
                 <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
-                  <HighlightedText text={String(val)} highlight={query} />
+                  <HighlightedText text={String(val)} highlight={query || ''} />
                 </span>
               )
             },
@@ -2348,7 +2361,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               width: '110px',
               renderCell: (val, row, query) => (
                 <span className="badge badge-neutral">
-                  <HighlightedText text={String(val)} highlight={query} />
+                  <HighlightedText text={String(val)} highlight={query || ''} />
                 </span>
               )
             }
@@ -2559,6 +2572,38 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
         {/* Global Search Filtering Tool */}
         <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
+          {activeSubTab === 'Security Profiles' && (
+            <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
+              {([
+                { id: 'all', label: 'All' },
+                { id: 'antivirus', label: 'Antivirus' },
+                { id: 'spyware', label: 'Anti-Spyware' },
+                { id: 'vulnerability', label: 'Vulnerability Protection' },
+                { id: 'url-filtering', label: 'URL Filtering' },
+                { id: 'file-blocking', label: 'File Blocking' },
+                { id: 'wildfire', label: 'WildFire Analysis' }
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className="btn-sm"
+                  style={{
+                    borderRadius: 0,
+                    border: 'none',
+                    padding: '6px 12px',
+                    backgroundColor: activeProfileTab === tab.id ? 'var(--accent-blue)' : 'transparent',
+                    color: activeProfileTab === tab.id ? '#ffffff' : 'var(--text-main)',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    borderLeft: tab.id !== 'all' ? '1px solid var(--border-main)' : 'none'
+                  }}
+                  onClick={() => setActiveProfileTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
           {activeSubTab === 'Custom Objects' && (
             <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
               <button
@@ -2614,7 +2659,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           ) : (
             <DataTable
               columns={columns}
-              data={tableData}
+              data={displayedTableData}
               searchQuery={searchQuery}
               selectable={currentScope !== 'show-all'}
               onSelectionChange={setSelectedRows}

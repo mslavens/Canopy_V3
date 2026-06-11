@@ -74,6 +74,12 @@ type XMLApplicationEntry struct {
 	Description string   `xml:"description"`
 }
 
+type XMLApplicationGroupEntry struct {
+	Name        string   `xml:"name,attr"`
+	Members     []string `xml:"members>member"`
+	Description string   `xml:"description"`
+}
+
 type XMLRegionEntry struct {
 	Name      string   `xml:"name,attr"`
 	Latitude  float64  `xml:"latitude"`
@@ -325,6 +331,7 @@ type XMLDeviceGroup struct {
 	Service               []XMLServiceEntry              `xml:"service>entry"`
 	ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
 	Application           []XMLApplicationEntry          `xml:"application>entry"`
+	ApplicationGroups     []XMLApplicationGroupEntry     `xml:"application-group>entry"`
 	Region                []XMLRegionEntry               `xml:"region>entry"`
 	Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
 	PreRulebase           XMLRulebase                    `xml:"pre-rulebase"`
@@ -439,6 +446,7 @@ type PaloAltoConfig struct {
 		Service               []XMLServiceEntry              `xml:"service>entry"`
 		ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
 		Application           []XMLApplicationEntry          `xml:"application>entry"`
+		ApplicationGroups     []XMLApplicationGroupEntry     `xml:"application-group>entry"`
 		Region                []XMLRegionEntry               `xml:"region>entry"`
 		Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
 		PreRulebase           XMLRulebase                    `xml:"pre-rulebase"`
@@ -472,6 +480,7 @@ type PaloAltoConfig struct {
 			Service               []XMLServiceEntry              `xml:"service>entry"`
 			ServiceGroup          []XMLServiceGroupEntry         `xml:"service-group>entry"`
 			Application           []XMLApplicationEntry          `xml:"application>entry"`
+			ApplicationGroups     []XMLApplicationGroupEntry     `xml:"application-group>entry"`
 			Region                []XMLRegionEntry               `xml:"region>entry"`
 			Schedule              []XMLScheduleEntry             `xml:"schedule>entry"`
 			SecurityRules         []XMLSecurityRuleEntry         `xml:"rulebase>security>rules>entry"`
@@ -923,26 +932,28 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 
 // Registry to track database primary key mappings for name references
 type registry struct {
-	addresses      map[string]map[string]int64
-	addressGroups  map[string]map[string]int64
-	services       map[string]map[string]int64
-	serviceGroups  map[string]map[string]int64
-	applications   map[string]map[string]int64
-	schedules      map[string]map[string]int64
-	tags           map[string]map[string]int64
-	profiles       map[string]map[string]int64
+	addresses         map[string]map[string]int64
+	addressGroups     map[string]map[string]int64
+	services          map[string]map[string]int64
+	serviceGroups     map[string]map[string]int64
+	applications      map[string]map[string]int64
+	applicationGroups map[string]map[string]int64
+	schedules         map[string]map[string]int64
+	tags              map[string]map[string]int64
+	profiles          map[string]map[string]int64
 }
 
 func newRegistry() *registry {
 	return &registry{
-		addresses:      make(map[string]map[string]int64),
-		addressGroups:  make(map[string]map[string]int64),
-		services:       make(map[string]map[string]int64),
-		serviceGroups:  make(map[string]map[string]int64),
-		applications:   make(map[string]map[string]int64),
-		schedules:      make(map[string]map[string]int64),
-		tags:           make(map[string]map[string]int64),
-		profiles:       make(map[string]map[string]int64),
+		addresses:         make(map[string]map[string]int64),
+		addressGroups:     make(map[string]map[string]int64),
+		services:          make(map[string]map[string]int64),
+		serviceGroups:     make(map[string]map[string]int64),
+		applications:      make(map[string]map[string]int64),
+		applicationGroups: make(map[string]map[string]int64),
+		schedules:         make(map[string]map[string]int64),
+		tags:              make(map[string]map[string]int64),
+		profiles:          make(map[string]map[string]int64),
 	}
 }
 
@@ -979,6 +990,13 @@ func (r *registry) registerApplication(scope, name string, id int64) {
 		r.applications[scope] = make(map[string]int64)
 	}
 	r.applications[scope][name] = id
+}
+
+func (r *registry) registerApplicationGroup(scope, name string, id int64) {
+	if _, ok := r.applicationGroups[scope]; !ok {
+		r.applicationGroups[scope] = make(map[string]int64)
+	}
+	r.applicationGroups[scope][name] = id
 }
 
 func (r *registry) registerSchedule(scope, name string, id int64) {
@@ -1043,6 +1061,22 @@ func (r *registry) resolveApplication(scopes []string, name string) (id int64, f
 		}
 	}
 	return 0, false
+}
+
+func (r *registry) resolveApplicationOrGroup(scopes []string, name string) (appID int64, grpID int64, found bool) {
+	for _, sc := range scopes {
+		if scopeMap, ok := r.applicationGroups[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return 0, id, true
+			}
+		}
+		if scopeMap, ok := r.applications[sc]; ok {
+			if id, ok := scopeMap[name]; ok {
+				return id, 0, true
+			}
+		}
+	}
+	return 0, 0, false
 }
 
 func (r *registry) resolveSchedule(scopes []string, name string) (id int64, found bool) {
@@ -1216,6 +1250,76 @@ func insertAddressGroupsPass2(tx *sql.Tx, scope string, entries []XMLAddressGrou
 			if found {
 				if addrID > 0 {
 					_, err = memberStmt.Exec(groupID, addrID, nil, nil)
+				} else {
+					_, err = memberStmt.Exec(groupID, nil, grpID, nil)
+				}
+			} else {
+				_, err = memberStmt.Exec(groupID, nil, nil, memberName)
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func insertApplicationGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XMLApplicationGroupEntry, reg *registry) error {
+	groupStmt, err := tx.Prepare(`
+		INSERT INTO application_groups (device_uuid, scope, name, description)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer groupStmt.Close()
+
+	for _, entry := range entries {
+		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err == nil {
+			reg.registerApplicationGroup(scope, entry.Name, id)
+		}
+	}
+	return nil
+}
+
+func insertApplicationGroupsPass2(tx *sql.Tx, scope string, entries []XMLApplicationGroupEntry, reg *registry, dgParentMap map[string]string) error {
+	memberStmt, err := tx.Prepare(`
+		INSERT INTO application_group_members (group_id, member_application_id, member_group_id, member_name)
+		VALUES (?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer memberStmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		var groupID int64
+		if scopeMap, ok := reg.applicationGroups[scope]; ok {
+			if id, ok := scopeMap[entry.Name]; ok {
+				groupID = id
+			}
+		}
+		if groupID == 0 {
+			continue
+		}
+
+		for _, memberName := range entry.Members {
+			appID, grpID, found := reg.resolveApplicationOrGroup(scopes, memberName)
+			if found {
+				if appID > 0 {
+					_, err = memberStmt.Exec(groupID, appID, nil, nil)
 				} else {
 					_, err = memberStmt.Exec(groupID, nil, grpID, nil)
 				}
@@ -2407,20 +2511,26 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			return 0, 0, fmt.Errorf("failed to insert shared external dynamic lists: %w", err)
 		}
 
-		// Address / Service groups Pass 1 (insert groups)
+		// Address / Service / Application groups Pass 1 (insert groups)
 		if err := insertAddressGroupsPass1(tx, sharedUUID, "shared", config.Shared.AddressGroup, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared address groups: %w", err)
 		}
 		if err := insertServiceGroupsPass1(tx, sharedUUID, "shared", config.Shared.ServiceGroup, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared service groups: %w", err)
 		}
+		if err := insertApplicationGroupsPass1(tx, sharedUUID, "shared", config.Shared.ApplicationGroups, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared application groups: %w", err)
+		}
 
-		// Address / Service groups Pass 2 (insert members)
+		// Address / Service / Application groups Pass 2 (insert members)
 		if err := insertAddressGroupsPass2(tx, "shared", config.Shared.AddressGroup, reg, dgParentMap); err != nil {
 			return 0, 0, fmt.Errorf("failed to resolve shared address group members: %w", err)
 		}
 		if err := insertServiceGroupsPass2(tx, "shared", config.Shared.ServiceGroup, reg, dgParentMap); err != nil {
 			return 0, 0, fmt.Errorf("failed to resolve shared service group members: %w", err)
+		}
+		if err := insertApplicationGroupsPass2(tx, "shared", config.Shared.ApplicationGroups, reg, dgParentMap); err != nil {
+			return 0, 0, fmt.Errorf("failed to resolve shared application group members: %w", err)
 		}
 
 		// 4. Process Device Groups (Pass 1 - Insert DG and Scopes)
@@ -2495,6 +2605,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			if err := insertServiceGroupsPass1(tx, dgUUID, dg.Name, dg.ServiceGroup, reg); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg service groups for %s: %w", dg.Name, err)
 			}
+			if err := insertApplicationGroupsPass1(tx, dgUUID, dg.Name, dg.ApplicationGroups, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg application groups for %s: %w", dg.Name, err)
+			}
 
 			// Groups Pass 2
 			if err := insertAddressGroupsPass2(tx, dg.Name, dg.AddressGroup, reg, dgParentMap); err != nil {
@@ -2502,6 +2615,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 			if err := insertServiceGroupsPass2(tx, dg.Name, dg.ServiceGroup, reg, dgParentMap); err != nil {
 				return 0, 0, fmt.Errorf("failed to resolve dg service group members for %s: %w", dg.Name, err)
+			}
+			if err := insertApplicationGroupsPass2(tx, dg.Name, dg.ApplicationGroups, reg, dgParentMap); err != nil {
+				return 0, 0, fmt.Errorf("failed to resolve dg application group members for %s: %w", dg.Name, err)
 			}
 		}
 
@@ -3094,6 +3210,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				if err := insertServiceGroupsPass1(tx, deviceUUID, scope, vsys.ServiceGroup, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys service groups: %w", err)
 				}
+				if err := insertApplicationGroupsPass1(tx, deviceUUID, scope, vsys.ApplicationGroups, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys application groups: %w", err)
+				}
 
 				// Groups Pass 2
 				if err := insertAddressGroupsPass2(tx, scope, vsys.AddressGroup, reg, dgParentMap); err != nil {
@@ -3101,6 +3220,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 				if err := insertServiceGroupsPass2(tx, scope, vsys.ServiceGroup, reg, dgParentMap); err != nil {
 					return 0, 0, fmt.Errorf("failed to resolve vsys service group members: %w", err)
+				}
+				if err := insertApplicationGroupsPass2(tx, scope, vsys.ApplicationGroups, reg, dgParentMap); err != nil {
+					return 0, 0, fmt.Errorf("failed to resolve vsys application group members: %w", err)
 				}
 
 				// Rules
