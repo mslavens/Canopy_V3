@@ -46,7 +46,7 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 280 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 280, ready: false });
 
   const updateCoords = () => {
     if (dropdownRef.current) {
@@ -54,7 +54,8 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
       setCoords({
         top: rect.bottom + window.scrollY + 4,
         left: rect.left + window.scrollX,
-        width: rect.width
+        width: rect.width,
+        ready: true
       });
     }
   };
@@ -64,12 +65,26 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
       updateCoords();
       window.addEventListener('resize', updateCoords);
       window.addEventListener('scroll', updateCoords, true);
+    } else {
+      setCoords(prev => ({ ...prev, ready: false }));
     }
     return () => {
       window.removeEventListener('resize', updateCoords);
       window.removeEventListener('scroll', updateCoords, true);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && coords.ready) {
+      setTimeout(() => {
+        const menu = document.querySelector('.portal-scope-dropdown-menu');
+        const activeOption = menu?.querySelector('.dropdown-option-row.active') as HTMLElement;
+        if (activeOption) {
+          activeOption.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        }
+      }, 50);
+    }
+  }, [isOpen, coords.ready]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -93,7 +108,7 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
     return options.filter(o => o.label.toLowerCase().includes(q));
   }, [options, searchQuery]);
 
-  const dropdownMenu = isOpen ? (
+  const dropdownMenu = (isOpen && coords.ready) ? (
     <div
       className="portal-scope-dropdown-menu"
       style={{
@@ -112,29 +127,7 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
         zIndex: 100005
       }}
     >
-      {/* Search Input Box */}
-      <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', position: 'sticky', top: 0, backgroundColor: 'var(--bg-surface)', zIndex: 10 }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Search size={12} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search device groups/firewalls..."
-            style={{
-              width: '100%',
-              padding: '6px 8px 6px 26px',
-              fontSize: '12px',
-              backgroundColor: 'var(--bg-app)',
-              border: '1px solid var(--border-main)',
-              borderRadius: '4px',
-              color: 'var(--text-main)',
-              outline: 'none'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      </div>
+
 
       {/* Options list */}
       <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
@@ -148,9 +141,28 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
             return (
               <div
                 key={opt.value}
+                tabIndex={-1}
                 onClick={() => {
                   onChange(opt.value);
                   setIsOpen(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const next = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (next) next.focus();
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prev = e.currentTarget.previousElementSibling as HTMLElement;
+                    if (prev) prev.focus();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setIsOpen(false);
+                  }
                 }}
                 style={{
                   padding: '8px 12px',
@@ -163,9 +175,10 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
                   color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
                   backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
                   transition: 'background-color 0.15s ease',
-                  fontWeight: isSelected ? 600 : 400
+                  fontWeight: isSelected ? 600 : 400,
+                  outline: 'none'
                 }}
-                className="dropdown-option-row"
+                className={`dropdown-option-row ${isSelected ? 'active' : ''}`}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                 onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
@@ -186,9 +199,13 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative', width: '280px', zIndex: 900 }}>
-      {/* Selected Box */}
       <div
-        onClick={() => { setIsOpen(!isOpen); setSearchQuery(''); }}
+        onClick={() => {
+          if (!isOpen) {
+            setIsOpen(true);
+            setSearchQuery('');
+          }
+        }}
         style={{
           height: '34px',
           padding: '0 12px',
@@ -197,7 +214,7 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
           borderRadius: '4px',
           color: 'var(--text-main)',
           fontSize: '13px',
-          cursor: 'pointer',
+          cursor: isOpen ? 'text' : 'pointer',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -206,16 +223,70 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
           boxSizing: 'border-box'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selectedOption?.type === 'global' && <Database size={13} className="text-accent" />}
-          {selectedOption?.type === 'shared' && <Globe size={13} style={{ color: 'var(--accent-blue)' }} />}
-          {selectedOption?.type === 'device-group' && <Layers size={13} />}
-          {selectedOption?.type === 'firewall' && <Server size={13} style={{ color: 'var(--text-muted)' }} />}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-            {selectedOption ? selectedOption.label : 'Select scope...'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {isOpen ? (
+            <>
+              <Search size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={selectedOption ? selectedOption.label : 'Search scope...'}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setIsOpen(false);
+                  } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setTimeout(() => {
+                      const menu = document.querySelector('.portal-scope-dropdown-menu');
+                      const firstOption = menu?.querySelector('.dropdown-option-row') as HTMLElement;
+                      if (firstOption) firstOption.focus();
+                    }, 50);
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filteredOptions.length > 0) {
+                      onChange(filteredOptions[0].value);
+                      setIsOpen(false);
+                    }
+                  }
+                }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-main)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  outline: 'none',
+                  padding: 0,
+                  margin: 0,
+                  width: '100%'
+                }}
+              />
+            </>
+          ) : (
+            <>
+              {selectedOption?.type === 'global' && <Database size={13} className="text-accent" />}
+              {selectedOption?.type === 'shared' && <Globe size={13} style={{ color: 'var(--accent-blue)' }} />}
+              {selectedOption?.type === 'device-group' && <Layers size={13} />}
+              {selectedOption?.type === 'firewall' && <Server size={13} style={{ color: 'var(--text-muted)' }} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                {selectedOption ? selectedOption.label : 'Select scope...'}
+              </span>
+            </>
+          )}
         </div>
-        <ChevronDown size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+        <ChevronDown 
+          size={14} 
+          style={{ color: 'var(--text-muted)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', cursor: 'pointer' }}
+          onClick={(e) => {
+            if (isOpen) {
+              e.stopPropagation();
+              setIsOpen(false);
+            }
+          }}
+        />
       </div>
 
       {isOpen && dropdownMenu && createPortal(dropdownMenu, document.body)}
@@ -2579,13 +2650,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         <span 
                           onClick={() => handleScopeChange(scopeId)}
                           style={{ 
-                            color: 'var(--accent-blue)', 
+                            color: 'var(--text-muted)', 
                             cursor: 'pointer', 
-                            fontWeight: 500,
+                            fontWeight: 400,
                             transition: 'color 0.15s ease',
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-blue-hover, #60a5fa)'; e.currentTarget.style.textDecoration = 'underline'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.textDecoration = 'none'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
                           title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
                         >
                           {scopeNameMap[scopeId] || scopeId}
@@ -2594,7 +2665,17 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                       </React.Fragment>
                     ))}
                     <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                    <span style={{ color: 'var(--text-sub)', fontWeight: 600 }}>
+                    <span style={{ 
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                      color: 'var(--accent-blue)', 
+                      padding: '2px 8px', 
+                      borderRadius: '4px', 
+                      border: '1px solid rgba(59, 130, 246, 0.25)', 
+                      fontWeight: 600, 
+                      fontSize: '11px',
+                      display: 'inline-flex',
+                      alignItems: 'center'
+                    }}>
                       {scopeNameMap[currentScope] || currentScope}
                     </span>
                   </span>
@@ -2794,35 +2875,47 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     <Plus size={14} /> Add Object
                   </button>
 
-                  <button
-                    onClick={handleClone}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Clone selected objects within this scope"}
+                  <Tooltip 
+                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to clone" : "Clone selected objects within this scope"} 
+                    position="top"
                   >
-                    <Copy size={13} /> Clone
-                  </button>
+                    <button
+                      onClick={handleClone}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    >
+                      <Copy size={13} /> Clone
+                    </button>
+                  </Tooltip>
 
-                  <button
-                    onClick={handleCloneToGroup}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Clone selected objects to another device group or firewall"}
+                  <Tooltip 
+                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to clone to group" : "Clone selected objects to another device group or firewall"} 
+                    position="top"
                   >
-                    <Copy size={13} /> Clone to Group...
-                  </button>
+                    <button
+                      onClick={handleCloneToGroup}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    >
+                      <Copy size={13} /> Clone to Group...
+                    </button>
+                  </Tooltip>
 
-                  <button
-                    onClick={handleMoveToGroup}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Move selected objects to another device group or firewall"}
+                  <Tooltip 
+                    content={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : selectedRows.length === 0 ? "Select objects to move to group" : "Move selected objects to another device group or firewall"} 
+                    position="top"
                   >
-                    <ArrowRight size={13} /> Move to Group...
-                  </button>
+                    <button
+                      onClick={handleMoveToGroup}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    >
+                      <ArrowRight size={13} /> Move to Group...
+                    </button>
+                  </Tooltip>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>

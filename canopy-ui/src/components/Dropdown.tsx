@@ -24,7 +24,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, maxHeight: 220, placement: 'down' });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, maxHeight: 220, placement: 'down', ready: false });
 
   const updateCoords = () => {
     if (containerRef.current) {
@@ -56,7 +56,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
         left: rect.left + window.scrollX,
         width: rect.width,
         maxHeight,
-        placement
+        placement,
+        ready: true
       });
     }
   };
@@ -68,12 +69,25 @@ export const Dropdown: React.FC<DropdownProps> = ({
       window.addEventListener('scroll', updateCoords, true);
     } else {
       setSearchQuery('');
+      setCoords(prev => ({ ...prev, ready: false }));
     }
     return () => {
       window.removeEventListener('resize', updateCoords);
       window.removeEventListener('scroll', updateCoords, true);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && coords.ready) {
+      setTimeout(() => {
+        const menu = document.querySelector('.portal-dropdown-menu');
+        const activeOption = menu?.querySelector('.dropdown-option.active') as HTMLElement;
+        if (activeOption) {
+          activeOption.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+        }
+      }, 50);
+    }
+  }, [isOpen, coords.ready]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -96,7 +110,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
     ? options.filter(opt => opt.toLowerCase().includes(searchQuery.toLowerCase()))
     : options;
 
-  const dropdownMenu = isOpen ? (
+  const dropdownMenu = (isOpen && coords.ready) ? (
     <div 
       className="portal-dropdown-menu"
       style={{ 
@@ -117,28 +131,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         flexDirection: 'column'
       }}
     >
-      {searchable && (
-        <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', position: 'sticky', top: 0, backgroundColor: 'var(--bg-surface)', zIndex: 10, flexShrink: 0 }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search options..."
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              padding: '6px 8px',
-              fontSize: '12px',
-              backgroundColor: 'var(--bg-app)',
-              border: '1px solid var(--border-main)',
-              borderRadius: '4px',
-              color: 'var(--text-main)',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-      )}
+
       <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
         {filteredOptions.length === 0 ? (
           <div style={{ padding: '12px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -203,9 +196,14 @@ export const Dropdown: React.FC<DropdownProps> = ({
       }}
     >
       <div
-        tabIndex={0}
-        onClick={() => setIsOpen(!isOpen)}
+        tabIndex={searchable && isOpen ? -1 : 0}
+        onClick={() => {
+          if (!isOpen) {
+            setIsOpen(true);
+          }
+        }}
         onKeyDown={(e) => {
+          if (searchable && isOpen) return; // input handles keydown
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             setIsOpen(!isOpen);
@@ -228,18 +226,69 @@ export const Dropdown: React.FC<DropdownProps> = ({
           borderRadius: '4px',
           color: 'var(--text-main)',
           fontSize: '13px',
-          cursor: 'pointer',
+          cursor: searchable && isOpen ? 'text' : 'pointer',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           userSelect: 'none',
-          transition: 'border-color 0.2s ease'
+          transition: 'border-color 0.2s ease',
+          boxSizing: 'border-box'
         }}
       >
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-          {renderOption ? renderOption(value) : (value || 'Select...')}
+          {searchable && isOpen ? (
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={typeof value === 'string' && value ? value : 'Search...'}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setIsOpen(false);
+                  containerRef.current?.focus();
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setTimeout(() => {
+                    const menu = document.querySelector('.portal-dropdown-menu');
+                    const firstOption = menu?.querySelector('.dropdown-option') as HTMLElement;
+                    if (firstOption) firstOption.focus();
+                  }, 50);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  // If there are filtered options, select the first one on enter
+                  if (filteredOptions.length > 0) {
+                    onChange(filteredOptions[0]);
+                    setIsOpen(false);
+                  }
+                }
+              }}
+              style={{
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '13px',
+                outline: 'none',
+                padding: 0,
+                margin: 0
+              }}
+            />
+          ) : (
+            renderOption ? renderOption(value) : (value || 'Select...')
+          )}
         </div>
-        <ChevronDown size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: '8px' }} />
+        <ChevronDown 
+          size={16} 
+          style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: '8px', cursor: 'pointer' }}
+          onClick={(e) => {
+            if (isOpen) {
+              e.stopPropagation();
+              setIsOpen(false);
+            }
+          }}
+        />
       </div>
 
       {isOpen && dropdownMenu && createPortal(dropdownMenu, document.body)}
