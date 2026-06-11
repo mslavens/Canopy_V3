@@ -194,7 +194,6 @@ type XMLProfiles struct {
 	FileBlocking []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"file-blocking>entry"`
-	SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
 	CustomURLCategories   []XMLCustomURLCategoryEntry    `xml:"custom-url-category>entry"`
 }
 
@@ -338,6 +337,7 @@ type XMLDeviceGroup struct {
 	PostRulebase          XMLRulebase                    `xml:"post-rulebase"`
 	Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 	Profiles              XMLProfiles                    `xml:"profiles"`
+	SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
 	LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
 	ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
 	Devices               []struct {
@@ -453,6 +453,7 @@ type PaloAltoConfig struct {
 		PostRulebase          XMLRulebase                    `xml:"post-rulebase"`
 		Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 		Profiles              XMLProfiles                    `xml:"profiles"`
+		SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
 		LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
 		ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
 		ManagedDevices        []XMLManagedDeviceEntry        `xml:"managed-devices>entry"`
@@ -492,6 +493,7 @@ type PaloAltoConfig struct {
 			TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"rulebase>tunnel-inspection>rules>entry"`
 			Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 			Profiles              XMLProfiles                    `xml:"profiles"`
+			SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
 			LogSettingsProfiles   []XMLLogSettingsProfileEntry   `xml:"log-settings>profiles>entry"`
 			ExternalDynamicLists  []XMLExternalListEntry         `xml:"external-list>entry"`
 		} `xml:"vsys>entry"`
@@ -2501,7 +2503,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		if err := insertLogForwardingProfiles(tx, sharedUUID, "shared", config.Shared.LogSettingsProfiles); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared log forwarding profiles: %w", err)
 		}
-		if err := insertSecurityProfileGroups(tx, sharedUUID, "shared", config.Shared.Profiles.SecurityProfileGroups); err != nil {
+		if err := insertSecurityProfileGroups(tx, sharedUUID, "shared", config.Shared.SecurityProfileGroups); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared security profile groups: %w", err)
 		}
 		if err := insertCustomURLCategories(tx, sharedUUID, "shared", config.Shared.Profiles.CustomURLCategories); err != nil {
@@ -2588,7 +2590,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			if err := insertLogForwardingProfiles(tx, dgUUID, dg.Name, dg.LogSettingsProfiles); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg log forwarding profiles for %s: %w", dg.Name, err)
 			}
-			if err := insertSecurityProfileGroups(tx, dgUUID, dg.Name, dg.Profiles.SecurityProfileGroups); err != nil {
+			if err := insertSecurityProfileGroups(tx, dgUUID, dg.Name, dg.SecurityProfileGroups); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg security profile groups for %s: %w", dg.Name, err)
 			}
 			if err := insertCustomURLCategories(tx, dgUUID, dg.Name, dg.Profiles.CustomURLCategories); err != nil {
@@ -3193,7 +3195,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				if err := insertLogForwardingProfiles(tx, deviceUUID, scope, vsys.LogSettingsProfiles); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys log forwarding profiles: %w", err)
 				}
-				if err := insertSecurityProfileGroups(tx, deviceUUID, scope, vsys.Profiles.SecurityProfileGroups); err != nil {
+				if err := insertSecurityProfileGroups(tx, deviceUUID, scope, vsys.SecurityProfileGroups); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys security profile groups: %w", err)
 				}
 				if err := insertCustomURLCategories(tx, deviceUUID, scope, vsys.Profiles.CustomURLCategories); err != nil {
