@@ -1820,7 +1820,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     tags: []
   }), [allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups]);
 
-  const { move, moveConfirmDialog, setMoveConfirmDialog } = useObjectMove(
+  const { move, moveConfirmDialog, setMoveConfirmDialog, isProcessing } = useObjectMove(
     dataSources,
     apiClient,
     fetchRecords,
@@ -2798,8 +2798,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onClick={handleClone}
                     className="btn-secondary btn-sm"
                     style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0}
-                    title="Clone selected objects within this scope"
+                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Clone selected objects within this scope"}
                   >
                     <Copy size={13} /> Clone
                   </button>
@@ -2808,8 +2808,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onClick={handleCloneToGroup}
                     className="btn-secondary btn-sm"
                     style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0}
-                    title="Clone selected objects to another device group or firewall"
+                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Clone selected objects to another device group or firewall"}
                   >
                     <Copy size={13} /> Clone to Group...
                   </button>
@@ -2818,8 +2818,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onClick={handleMoveToGroup}
                     className="btn-secondary btn-sm"
                     style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0}
-                    title="Move selected objects to another device group or firewall"
+                    disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                    title={selectedRows.length > 50 ? "Bulk operations are limited to 50 items at a time to prevent performance issues." : "Move selected objects to another device group or firewall"}
                   >
                     <ArrowRight size={13} /> Move to Group...
                   </button>
@@ -3573,6 +3573,29 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           {moveConfirmDialog.message}
         </div>
       </Modal>
+
+      {isProcessing && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          zIndex: 99999
+        }}>
+          <Loader2 className="spin-animation" size={36} style={{ color: 'var(--accent-blue)' }} />
+          <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 500 }}>
+            Analyzing dependencies and preparing operations plan...
+          </span>
+        </div>
+      )}
     </div>
   );
 };

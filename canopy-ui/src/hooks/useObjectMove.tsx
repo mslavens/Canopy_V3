@@ -390,6 +390,7 @@ export const useObjectMove = (
 ) => {
   const { getDependencies } = useObjectDependencies();
   const [resolutions, setResolutions] = useState<Record<string | number, string>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const [moveConfirmDialog, setMoveConfirmDialog] = useState<MoveDialogState>({
     isOpen: false,
@@ -422,8 +423,12 @@ export const useObjectMove = (
   }, [getScopeHierarchy, firewalls]);
 
   const move = useCallback(async (items: DependencyCandidate[], type: string, targetScopeUuid: string, actionType: 'move' | 'clone' = 'move') => {
+    setIsProcessing(true);
     try {
-      if (!items || items.length === 0) return;
+      if (!items || items.length === 0) {
+          setIsProcessing(false);
+          return;
+      }
       
       const MAX_SCAN_DEPTH = 5;
       let scanLimitReached = false;
@@ -647,6 +652,7 @@ export const useObjectMove = (
       };
 
       const executePlan = async (ops: any[]) => {
+          setIsProcessing(true);
           try {
               if (addToast) addToast(`Executing ${actionType} plan...`, 'info');
               for (const op of ops) {
@@ -684,6 +690,8 @@ export const useObjectMove = (
               console.error("Failed to execute plan", e);
               if (addToast) addToast(`Failed to execute ${actionType}: ${e.message || String(e)}`, 'error');
               alert(`Failed to execute ${actionType}: ${e.message || String(e)}`);
+          } finally {
+              setIsProcessing(false);
           }
       };
 
@@ -802,17 +810,19 @@ export const useObjectMove = (
       };
 
       if (incomingDependencies.length > 0 || outgoingDependencies.length > 0) {
+          setIsProcessing(false);
           showWarnings(initialRes);
       } else {
           const plan = calculatePlan(initialRes);
           await executePlan(plan.ops);
       }
     } catch (err) {
+      setIsProcessing(false);
       console.error("Crash inside useObjectMove hook:", err);
       alert("Error calculating plan: " + String(err));
     }
 
   }, [dataSources, apiClient, refreshData, isVisible, getScopeHierarchy, getDependencies, resolutions, firewalls]);
 
-  return { move, moveConfirmDialog, setMoveConfirmDialog };
+  return { move, moveConfirmDialog, setMoveConfirmDialog, isProcessing };
 };
