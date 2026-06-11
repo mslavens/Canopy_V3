@@ -138,7 +138,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     if (!file || !auth) return;
     setIsImporting(true);
     setCurrentProgressStep(0);
-    setProgressPercent(5);
+    setProgressPercent(0);
     setProgressDetail('Connecting to Canopy secure headless engine...');
     setImportingFiles([]);
     setCurrentFileIndex(-1);
@@ -612,7 +612,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
             gap: '24px',
             color: 'var(--text-main)'
           }}>
-            {/* Header / Loading Spinner */}
+             {/* Header / Loading Spinner */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{
                 width: '44px',
@@ -631,12 +631,21 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                   <Loader2 size={22} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
                 )}
               </div>
-              <div style={{ flexGrow: 1 }}>
+              <div style={{ flexGrow: 1, minWidth: 0 }}>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600 }}>
                   {currentProgressStep === 5 ? 'Ingestion Complete!' : 'Ingesting Configuration...'}
                 </h3>
-                <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: '18px' }}>
+                <div style={{ height: '20px', display: 'flex', alignItems: 'center' }}>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                    lineHeight: '20px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    width: '350px'
+                  }}>
                     {currentProgressStep === 5 ? 'All configurations successfully committed!' : (progressDetail || 'Please do not close Canopy or refresh the window.')}
                   </p>
                 </div>
@@ -672,107 +681,53 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
               maxHeight: '280px',
               overflowY: 'auto'
             }}>
-              {importingFiles.length > 1 ? (
-                importingFiles.map((filename, index) => {
-                  const isCompleted = index < currentFileIndex || currentProgressStep === 5;
-                  const isActive = index === currentFileIndex && currentProgressStep < 5;
-                  const isPending = index > currentFileIndex && currentProgressStep < 5;
+              {[
+                { title: 'Analyze XML Structure', desc: 'Parsed input files and verified metadata headers.' },
+                { title: 'Resolve Scopes & Templates', desc: 'Mapping device-groups, parent relationships, and templates.' },
+                { title: 'Synchronize Object Repository', desc: 'Ingesting address objects, groups, and service matrix.' },
+                { title: 'Deploy Security & Policy Bases', desc: 'Compiling pre-rules, post-rules, and decryption policies.' },
+                { title: 'Commit Matrix Database', desc: 'Securing transactional updates to active SQLite matrices.' }
+              ].map((step, index) => {
+                const isCompleted = index < currentProgressStep || currentProgressStep === 5;
+                const isActive = index === currentProgressStep && currentProgressStep < 5;
+                const isPending = index > currentProgressStep && currentProgressStep < 5;
 
-                  let iconColor = 'rgba(255, 255, 255, 0.15)';
-                  let textColor = 'var(--text-muted)';
-                  let subDetail = '';
+                let iconColor = 'rgba(255, 255, 255, 0.15)';
+                let textColor = 'var(--text-muted)';
+                let descColor = 'rgba(255, 255, 255, 0.3)';
 
-                  if (isCompleted) {
-                    iconColor = 'var(--status-green)';
-                    textColor = 'var(--text-main)';
-                    subDetail = 'Successfully processed';
-                  } else if (isActive) {
-                    iconColor = 'var(--accent-blue)';
-                    textColor = 'var(--text-main)';
-                    const stepNames = [
-                      'Validating schema structure...',
-                      'Resolving scopes and templates...',
-                      'Synchronizing object repository...',
-                      'Compiling security rules...',
-                      'Committing transaction to database...',
-                      'Completed!'
-                    ];
-                    subDetail = stepNames[currentFileStep] || 'Processing...';
-                  } else {
-                    subDetail = 'Pending queue';
-                  }
+                if (isCompleted) {
+                  iconColor = 'var(--status-green)';
+                  textColor = 'var(--text-main)';
+                  descColor = 'var(--text-muted)';
+                } else if (isActive) {
+                  iconColor = 'var(--accent-blue)';
+                  textColor = 'var(--text-main)';
+                  descColor = 'var(--text-muted)';
+                }
 
-                  return (
-                    <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
-                      <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {isCompleted ? (
-                          <CheckCircle2 size={15} style={{ color: iconColor }} />
-                        ) : isActive ? (
-                          <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
-                        ) : (
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor, wordBreak: 'break-all' }}>
-                          {filename}
-                        </span>
-                        <span style={{ fontSize: '11px', color: isCompleted ? 'var(--status-green)' : 'var(--text-muted)', opacity: isActive ? 0.9 : 0.6 }}>
-                          {subDetail}
-                        </span>
-                      </div>
+                return (
+                  <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                    <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {isCompleted ? (
+                        <CheckCircle2 size={15} style={{ color: iconColor }} />
+                      ) : isActive ? (
+                        <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
+                      ) : (
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
+                      )}
                     </div>
-                  );
-                })
-              ) : (
-                [
-                  { title: 'Analyze XML Structure', desc: 'Parsed input files and verified metadata headers.' },
-                  { title: 'Resolve Scopes & Templates', desc: 'Mapping device-groups, parent relationships, and templates.' },
-                  { title: 'Synchronize Object Repository', desc: 'Ingesting address objects, groups, and service matrix.' },
-                  { title: 'Deploy Security & Policy Bases', desc: 'Compiling pre-rules, post-rules, and decryption policies.' },
-                  { title: 'Commit Matrix Database', desc: 'Securing transactional updates to active SQLite matrices.' }
-                ].map((step, index) => {
-                  const isCompleted = index < currentProgressStep || currentProgressStep === 5;
-                  const isActive = index === currentProgressStep && currentProgressStep < 5;
-                  const isPending = index > currentProgressStep && currentProgressStep < 5;
-
-                  let iconColor = 'rgba(255, 255, 255, 0.15)';
-                  let textColor = 'var(--text-muted)';
-                  let descColor = 'rgba(255, 255, 255, 0.3)';
-
-                  if (isCompleted) {
-                    iconColor = 'var(--status-green)';
-                    textColor = 'var(--text-main)';
-                    descColor = 'var(--text-muted)';
-                  } else if (isActive) {
-                    iconColor = 'var(--accent-blue)';
-                    textColor = 'var(--text-main)';
-                    descColor = 'var(--text-muted)';
-                  }
-
-                  return (
-                    <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
-                      <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {isCompleted ? (
-                          <CheckCircle2 size={15} style={{ color: iconColor }} />
-                        ) : isActive ? (
-                          <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
-                        ) : (
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor }}>
-                          {step.title}
-                        </span>
-                        <span style={{ fontSize: '11px', color: descColor, lineHeight: 1.3 }}>
-                          {step.desc}
-                        </span>
-                      </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor }}>
+                        {step.title}
+                      </span>
+                      <span style={{ fontSize: '11px', color: descColor, lineHeight: 1.3 }}>
+                        {step.desc}
+                      </span>
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
