@@ -2154,15 +2154,26 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 return (
                   <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
                     {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
-                    {isLast ? (
-                      <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px' }}>
-                        <HighlightedText text={displayName} highlight={query || ''} />
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        <HighlightedText text={displayName} highlight={query || ''} />
-                      </span>
-                    )}
+                    <span 
+                      onClick={() => handleScopeChange(scopeId)}
+                      style={{ 
+                        cursor: 'pointer',
+                        transition: 'opacity 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; e.currentTarget.style.opacity = '0.8'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; e.currentTarget.style.opacity = '1'; }}
+                      title={`Switch active scope to ${displayName}`}
+                    >
+                      {isLast ? (
+                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
+                          <HighlightedText text={displayName} highlight={query || ''} />
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          <HighlightedText text={displayName} highlight={query || ''} />
+                        </span>
+                      )}
+                    </span>
                   </div>
                 );
               })}
@@ -2544,6 +2555,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         renderCell: (val, row) => {
           const isGroup = activeSubTab.endsWith('Groups');
           const isShowAll = currentScope === 'show-all';
+          const isInherited = !isShowAll && row.device_uuid !== currentScope;
+          const inheritedScopeName = isInherited ? (scopeNameMap[row.device_uuid] || row.device_uuid) : '';
           return (
             <div style={{ display: 'flex', gap: '6px' }}>
               {isGroup && (
@@ -2566,6 +2579,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     <Edit2 size={14} />
                   </button>
                 </Tooltip>
+              ) : isInherited ? (
+                <Tooltip content={`Inherited from ${inheritedScopeName}. Switch to this scope to edit.`} position="top">
+                  <button
+                    className="btn-table-action"
+                    style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                    disabled
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                </Tooltip>
               ) : (
                 <Tooltip content="Edit Object" position="top">
                   <button
@@ -2578,6 +2601,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               )}
               {isShowAll ? (
                 <Tooltip content="Select a specific Device Group or Firewall to delete objects" position="top">
+                  <button
+                    className="btn-table-action-danger"
+                    style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                    disabled
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </Tooltip>
+              ) : isInherited ? (
+                <Tooltip content={`Inherited from ${inheritedScopeName}. Switch to this scope to delete.`} position="top">
                   <button
                     className="btn-table-action-danger"
                     style={{ opacity: 0.5, cursor: 'not-allowed' }}
