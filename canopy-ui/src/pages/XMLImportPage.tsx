@@ -49,6 +49,11 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
   const [currentProgressStep, setCurrentProgressStep] = useState(0);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressDetail, setProgressDetail] = useState('');
+  const [importingFiles, setImportingFiles] = useState<string[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(-1);
+  const [currentFileName, setCurrentFileName] = useState('');
+  const [currentFileStep, setCurrentFileStep] = useState(0);
+  const [currentFilePercent, setCurrentFilePercent] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,70 +138,106 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     if (!file || !auth) return;
     setIsImporting(true);
     setCurrentProgressStep(0);
-    setProgressPercent(15);
-    setProgressDetail('Analyzing XML structure...');
+    setProgressPercent(5);
+    setProgressDetail('Connecting to Canopy secure headless engine...');
+    setImportingFiles([]);
+    setCurrentFileIndex(-1);
+    setCurrentFileName('');
+    setCurrentFileStep(0);
+    setCurrentFilePercent(0);
     setError(null);
 
-    const timeouts: NodeJS.Timeout[] = [];
-    const regTimeout = (fn: () => void, delay: number) => {
-      timeouts.push(setTimeout(fn, delay));
-    };
-
-    regTimeout(() => {
-      setCurrentProgressStep(1);
-      setProgressPercent(35);
-      setProgressDetail('Resolving scope location contexts...');
-    }, 900);
-
-    regTimeout(() => {
-      setCurrentProgressStep(2);
-      setProgressPercent(55);
-      setProgressDetail('Ingesting address objects, groups, and service matrix...');
-    }, 2000);
-
-    regTimeout(() => {
-      setCurrentProgressStep(3);
-      setProgressPercent(75);
-      setProgressDetail('Compiling pre-rules, post-rules, and decryption policies...');
-    }, 3200);
-
-    regTimeout(() => {
-      setCurrentProgressStep(4);
-      setProgressPercent(90);
-      setProgressDetail('Committing transaction updates to SQLite database...');
-    }, 4500);
-
-    // Active commit matrix details cycling for slow writes/large files
-    let progressInterval: NodeJS.Timeout | null = null;
-    regTimeout(() => {
-      let ticks = 0;
-      const details = [
-        'Executing batch database insertions...',
-        'Indexing tables and executing triggers...',
-        'Writing journal changes to disk...',
-        'Optimizing table storage matrices...',
-        'Resolving nested policy inheritance tree nodes...',
-        'Finalizing transaction state. Almost done...'
-      ];
-      progressInterval = setInterval(() => {
-        ticks++;
-        const detailIndex = Math.min(ticks - 1, details.length - 1);
-        setProgressDetail(details[detailIndex]);
-        setProgressPercent(prev => (prev >= 99 ? 99 : prev + 1));
-      }, 3000);
-    }, 5500);
-
     try {
-      const apiClient = new CanopyApiClient(auth);
       const formData = new FormData();
       formData.append('xml', file);
 
-      // Perform final DB commit
-      const res = await apiClient.importDeviceXml(formData, false);
+      // Connect to the NDJSON streaming endpoint
+      const response = await fetch(`${auth.url}/api/devices/import?preview=false`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`
+        },
+        body: formData
+      });
 
-      // Clear pending timeouts & intervals
-      timeouts.forEach(clearTimeout);
-      if (progressInterval) clearInterval(progressInterval);
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `Engine fault (${response.status}): ${text}`;
+        try {
+          const data = JSON.parse(text);
+          if (data && data.error) errorMessage = data.error;
+        } catch (e) {}
+        throw new Error(errorMessage);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let finalResult: any = null;
+
+      if (reader) {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (line.trim()) {
+              const data = JSON.parse(line);
+              if (data.error) {
+                throw new Error(data.error);
+              }
+              if (data.progress) {
+                if (data.init) {
+                  if (data.files) {
+                    setImportingFiles(data.files);
+                  }
+                  setProgressPercent(data.percent || 0);
+                  setProgressDetail(data.detail || '');
+                } else {
+                  setProgressPercent(data.percent);
+                  setProgressDetail(data.detail);
+                  if (typeof data.file_index === 'number') {
+                    setCurrentFileIndex(data.file_index);
+                  }
+                  if (data.filename) {
+                    setCurrentFileName(data.filename);
+                  }
+                  if (typeof data.file_step === 'number') {
+                    setCurrentFileStep(data.file_step);
+                  }
+                  if (typeof data.file_percent === 'number') {
+                    setCurrentFilePercent(data.file_percent);
+                  }
+
+                  // Map overall scaled progress to steps to prevent UI jumping/flickering
+                  const pct = data.percent;
+                  if (pct >= 100) {
+                    setCurrentProgressStep(5);
+                  } else if (pct >= 90) {
+                    setCurrentProgressStep(4);
+                  } else if (pct >= 65) {
+                    setCurrentProgressStep(3);
+                  } else if (pct >= 40) {
+                    setCurrentProgressStep(2);
+                  } else if (pct >= 15) {
+                    setCurrentProgressStep(1);
+                  } else {
+                    setCurrentProgressStep(0);
+                  }
+                }
+              } else {
+                finalResult = data;
+              }
+            }
+          }
+        }
+      }
+
+      if (!finalResult || !finalResult.success) {
+        throw new Error("Import completed but no success summary was received.");
+      }
 
       // Fast-forward progress steps to complete
       setCurrentProgressStep(5);
@@ -207,13 +248,11 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       await new Promise(resolve => setTimeout(resolve, 800));
 
       setImportSummary({
-        devices_imported: res.devices_imported,
-        topologies_imported: res.topologies_imported
+        devices_imported: finalResult.devices_imported,
+        topologies_imported: finalResult.topologies_imported
       });
       addToast('Configuration successfully committed to database.', 'success');
     } catch (err) {
-      timeouts.forEach(clearTimeout);
-      if (progressInterval) clearInterval(progressInterval);
       const errMsg = err instanceof Error ? err.message : 'Import failed.';
       setError(errMsg);
       addToast(errMsg, 'error');
@@ -227,6 +266,14 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
     setPreviewData(null);
     setImportSummary(null);
     setError(null);
+    setProgressPercent(0);
+    setCurrentProgressStep(0);
+    setProgressDetail('');
+    setImportingFiles([]);
+    setCurrentFileIndex(-1);
+    setCurrentFileName('');
+    setCurrentFileStep(0);
+    setCurrentFilePercent(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -588,9 +635,11 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600 }}>
                   {currentProgressStep === 5 ? 'Ingestion Complete!' : 'Ingesting Configuration...'}
                 </h3>
-                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {progressDetail || 'Please do not close Canopy or refresh the window.'}
-                </p>
+                <div style={{ height: '36px', display: 'flex', alignItems: 'center' }}>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: '18px' }}>
+                    {currentProgressStep === 5 ? 'All configurations successfully committed!' : (progressDetail || 'Please do not close Canopy or refresh the window.')}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -623,53 +672,107 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
               maxHeight: '280px',
               overflowY: 'auto'
             }}>
-              {[
-                { title: 'Analyze XML Structure', desc: 'Parsed input files and verified metadata headers.' },
-                { title: 'Resolve Scopes & Templates', desc: 'Mapping device-groups, parent relationships, and templates.' },
-                { title: 'Synchronize Object Repository', desc: 'Ingesting address objects, groups, and service matrix.' },
-                { title: 'Deploy Security & Policy Bases', desc: 'Compiling pre-rules, post-rules, and decryption policies.' },
-                { title: 'Commit Matrix Database', desc: 'Securing transactional updates to active SQLite matrices.' }
-              ].map((step, index) => {
-                const isCompleted = index < currentProgressStep || currentProgressStep === 5;
-                const isActive = index === currentProgressStep && currentProgressStep < 5;
-                const isPending = index > currentProgressStep && currentProgressStep < 5;
+              {importingFiles.length > 1 ? (
+                importingFiles.map((filename, index) => {
+                  const isCompleted = index < currentFileIndex || currentProgressStep === 5;
+                  const isActive = index === currentFileIndex && currentProgressStep < 5;
+                  const isPending = index > currentFileIndex && currentProgressStep < 5;
 
-                let iconColor = 'rgba(255, 255, 255, 0.15)';
-                let textColor = 'var(--text-muted)';
-                let descColor = 'rgba(255, 255, 255, 0.3)';
+                  let iconColor = 'rgba(255, 255, 255, 0.15)';
+                  let textColor = 'var(--text-muted)';
+                  let subDetail = '';
 
-                if (isCompleted) {
-                  iconColor = 'var(--status-green)';
-                  textColor = 'var(--text-main)';
-                  descColor = 'var(--text-muted)';
-                } else if (isActive) {
-                  iconColor = 'var(--accent-blue)';
-                  textColor = 'var(--text-main)';
-                  descColor = 'var(--text-muted)';
-                }
+                  if (isCompleted) {
+                    iconColor = 'var(--status-green)';
+                    textColor = 'var(--text-main)';
+                    subDetail = 'Successfully processed';
+                  } else if (isActive) {
+                    iconColor = 'var(--accent-blue)';
+                    textColor = 'var(--text-main)';
+                    const stepNames = [
+                      'Validating schema structure...',
+                      'Resolving scopes and templates...',
+                      'Synchronizing object repository...',
+                      'Compiling security rules...',
+                      'Committing transaction to database...',
+                      'Completed!'
+                    ];
+                    subDetail = stepNames[currentFileStep] || 'Processing...';
+                  } else {
+                    subDetail = 'Pending queue';
+                  }
 
-                return (
-                  <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
-                    <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {isCompleted ? (
-                        <CheckCircle2 size={15} style={{ color: iconColor }} />
-                      ) : isActive ? (
-                        <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
-                      ) : (
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
-                      )}
+                  return (
+                    <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                      <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {isCompleted ? (
+                          <CheckCircle2 size={15} style={{ color: iconColor }} />
+                        ) : isActive ? (
+                          <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
+                        ) : (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor, wordBreak: 'break-all' }}>
+                          {filename}
+                        </span>
+                        <span style={{ fontSize: '11px', color: isCompleted ? 'var(--status-green)' : 'var(--text-muted)', opacity: isActive ? 0.9 : 0.6 }}>
+                          {subDetail}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor }}>
-                        {step.title}
-                      </span>
-                      <span style={{ fontSize: '11px', color: descColor, lineHeight: 1.3 }}>
-                        {step.desc}
-                      </span>
+                  );
+                })
+              ) : (
+                [
+                  { title: 'Analyze XML Structure', desc: 'Parsed input files and verified metadata headers.' },
+                  { title: 'Resolve Scopes & Templates', desc: 'Mapping device-groups, parent relationships, and templates.' },
+                  { title: 'Synchronize Object Repository', desc: 'Ingesting address objects, groups, and service matrix.' },
+                  { title: 'Deploy Security & Policy Bases', desc: 'Compiling pre-rules, post-rules, and decryption policies.' },
+                  { title: 'Commit Matrix Database', desc: 'Securing transactional updates to active SQLite matrices.' }
+                ].map((step, index) => {
+                  const isCompleted = index < currentProgressStep || currentProgressStep === 5;
+                  const isActive = index === currentProgressStep && currentProgressStep < 5;
+                  const isPending = index > currentProgressStep && currentProgressStep < 5;
+
+                  let iconColor = 'rgba(255, 255, 255, 0.15)';
+                  let textColor = 'var(--text-muted)';
+                  let descColor = 'rgba(255, 255, 255, 0.3)';
+
+                  if (isCompleted) {
+                    iconColor = 'var(--status-green)';
+                    textColor = 'var(--text-main)';
+                    descColor = 'var(--text-muted)';
+                  } else if (isActive) {
+                    iconColor = 'var(--accent-blue)';
+                    textColor = 'var(--text-main)';
+                    descColor = 'var(--text-muted)';
+                  }
+
+                  return (
+                    <div key={index} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', opacity: isPending ? 0.45 : 1, transition: 'opacity 0.25s ease' }}>
+                      <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {isCompleted ? (
+                          <CheckCircle2 size={15} style={{ color: iconColor }} />
+                        ) : isActive ? (
+                          <Loader2 size={15} className="spin-animation" style={{ color: iconColor }} />
+                        ) : (
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: `1.5px solid ${iconColor}`, margin: '3px' }} />
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: textColor }}>
+                          {step.title}
+                        </span>
+                        <span style={{ fontSize: '11px', color: descColor, lineHeight: 1.3 }}>
+                          {step.desc}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

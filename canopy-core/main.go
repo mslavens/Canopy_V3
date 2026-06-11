@@ -4443,42 +4443,97 @@ func main() {
 			return
 		}
 
-		totalDevCount := 0
-		totalTopoCount := 0
-		validConfigsCount := 0
+		// Set up NDJSON streaming for live progress updates
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.Header().Set("Transfer-Encoding", "chunked")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		flusher, ok := w.(http.Flusher)
 
+		// Pre-filter to only include files that are valid configurations to import
+		var validFiles []xmlFile
 		for _, f := range xmlFiles {
 			stats, err := adapter.Analyze(f.Data, f.Name)
 			if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
 				continue
 			}
+			validFiles = append(validFiles, f)
+		}
 
-			devCount, topoCount, err := adapter.ParseAndStore(f.Data, f.Name)
+		totalFiles := len(validFiles)
+		if totalFiles == 0 {
+			json.NewEncoder(w).Encode(map[string]string{"error": "No valid configurations found to import."})
+			return
+		}
+
+		sendProgress := func(step int, percent int, detail string, fileIndex int, filename string, fileStep int, filePercent int) {
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"progress":     true,
+				"step":         step,
+				"percent":      percent,
+				"detail":       detail,
+				"file_index":   fileIndex,
+				"total_files":  totalFiles,
+				"filename":     filename,
+				"file_step":    fileStep,
+				"file_percent": filePercent,
+			})
+			if ok {
+				flusher.Flush()
+			}
+		}
+
+		// Send initial setup progress event with the list of files to be processed
+		var filenames []string
+		for _, vf := range validFiles {
+			filenames = append(filenames, vf.Name)
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"progress":    true,
+			"init":        true,
+			"total_files": totalFiles,
+			"files":       filenames,
+			"percent":     0,
+			"detail":      "Initializing ingestion pipeline...",
+		})
+		if ok {
+			flusher.Flush()
+		}
+
+		totalDevCount := 0
+		totalTopoCount := 0
+
+		for i, f := range validFiles {
+			devCount, topoCount, err := adapter.ParseAndStore(f.Data, f.Name, func(step int, percent int, detail string) {
+				// Scale percentage based on the active file index relative to the total files
+				scaledPercent := int(float64(i)*100.0/float64(totalFiles) + float64(percent)/float64(totalFiles))
+				if scaledPercent > 100 {
+					scaledPercent = 100
+				}
+				detailStr := detail
+				if step < 5 {
+					detailStr = fmt.Sprintf("[%d/%d] %s", i+1, totalFiles, detail)
+				}
+				sendProgress(step, scaledPercent, detailStr, i, f.Name, step, percent)
+			})
 			if err != nil {
-				w.WriteHeader(http.StatusUnprocessableEntity)
 				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Import failure: %v", err)})
 				return
 			}
 			totalDevCount += devCount
 			totalTopoCount += topoCount
-			validConfigsCount++
-		}
-
-		if validConfigsCount == 0 {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(map[string]string{"error": "No valid configurations found to import."})
-			return
 		}
 
 		logAuditSafe("Device XML Imported", "Network", fmt.Sprintf("Imported %d devices/templates and %d interface topology routes.", totalDevCount, totalTopoCount))
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+		// Write final response
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success":             true,
 			"devices_imported":   totalDevCount,
 			"topologies_imported": totalTopoCount,
 		})
+		if ok {
+			flusher.Flush()
+		}
 	})
 
 	// System Rollback Endpoint
@@ -6041,7 +6096,8 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 
 		var existingID int
 		err = tx.QueryRow("SELECT id FROM application_objects WHERE device_uuid = ? AND name = ?", deviceUUID, name).Scan(&existingID)
-		if err == sql.ErrNoRows {
+		switch err {
+		case sql.ErrNoRows:
 			_, err = tx.Exec(`
 				INSERT INTO application_objects (device_uuid, scope, name, category, subcategory, technology, risk, ports, description, dirty)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
@@ -6049,7 +6105,7 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				inserted++
 			}
-		} else if err == nil {
+		case nil:
 			_, err = tx.Exec(`
 				UPDATE application_objects
 				SET category = ?, subcategory = ?, technology = ?, risk = ?, ports = ?, description = ?, dirty = 1

@@ -712,7 +712,7 @@ func TestParser(t *testing.T) {
 	adapter := NewAdapter(db)
 
 	t.Run("Standalone Firewall XML Import", func(t *testing.T) {
-		devCount, topoCount, err := adapter.ParseAndStore([]byte(standardFirewallXML), "fw-standalone-test.xml")
+		devCount, topoCount, err := adapter.ParseAndStore([]byte(standardFirewallXML), "fw-standalone-test.xml", nil)
 		if err != nil {
 			t.Fatalf("ParseAndStore failed: %v", err)
 		}
@@ -756,7 +756,7 @@ func TestParser(t *testing.T) {
 	})
 
 	t.Run("Panorama Template XML Import", func(t *testing.T) {
-		devCount, topoCount, err := adapter.ParseAndStore([]byte(panoramaXML), "panorama.xml")
+		devCount, topoCount, err := adapter.ParseAndStore([]byte(panoramaXML), "panorama.xml", nil)
 		if err != nil {
 			t.Fatalf("ParseAndStore failed: %v", err)
 		}
@@ -917,7 +917,7 @@ func TestParser(t *testing.T) {
 	})
 
 	t.Run("Panorama Nested Template XML Import", func(t *testing.T) {
-		devCount, topoCount, err := adapter.ParseAndStore([]byte(nestedPanoramaXML), "panorama_nested.xml")
+		devCount, topoCount, err := adapter.ParseAndStore([]byte(nestedPanoramaXML), "panorama_nested.xml", nil)
 		if err != nil {
 			t.Fatalf("ParseAndStore nested failed: %v", err)
 		}
@@ -958,7 +958,7 @@ func TestParser(t *testing.T) {
 		}
 
 		// Import a standalone config for the nested firewall using filename pattern with serial
-		_, _, err = adapter.ParseAndStore([]byte(standardFirewallXML), "nested-fw-branch-updated_0123456789.xml")
+		_, _, err = adapter.ParseAndStore([]byte(standardFirewallXML), "nested-fw-branch-updated_0123456789.xml", nil)
 		if err != nil {
 			t.Fatalf("failed to import standalone config after Panorama: %v", err)
 		}
@@ -986,7 +986,7 @@ func TestParser(t *testing.T) {
 
 	t.Run("Panorama Ingestion Ordering Standalone First", func(t *testing.T) {
 		// Import standalone firewall first
-		_, _, err := adapter.ParseAndStore([]byte(standardFirewallXML), "fw-corp-branch_9876543210.xml")
+		_, _, err := adapter.ParseAndStore([]byte(standardFirewallXML), "fw-corp-branch_9876543210.xml", nil)
 		if err != nil {
 			t.Fatalf("ParseAndStore standalone failed: %v", err)
 		}
@@ -1014,7 +1014,7 @@ func TestParser(t *testing.T) {
   </mgt-config>
 </config>
 `
-		_, _, err = adapter.ParseAndStore([]byte(panoramaWithMgtDevXML), "panorama.xml")
+		_, _, err = adapter.ParseAndStore([]byte(panoramaWithMgtDevXML), "panorama.xml", nil)
 		if err != nil {
 			t.Fatalf("ParseAndStore Panorama failed: %v", err)
 		}

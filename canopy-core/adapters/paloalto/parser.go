@@ -2162,7 +2162,14 @@ func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStat
 	return nil
 }
 
-func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, error) {
+func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func(step int, percent int, detail string)) (int, int, error) {
+	progress := func(step int, percent int, detail string) {
+		if onProgress != nil {
+			onProgress(step, percent, detail)
+		}
+	}
+	progress(0, 10, "Parsing XML structure and validating schemas...")
+
 	var config PaloAltoConfig
 	if err := xml.Unmarshal(xmlData, &config); err != nil {
 		return 0, 0, fmt.Errorf("failed to unmarshal Palo Alto XML: %w", err)
@@ -2365,6 +2372,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 		// 3. Process Shared / Global Objects
+		progress(1, 30, "Synchronizing shared objects and templates...")
 		if err := insertAddressObjects(tx, sharedUUID, "shared", config.Shared.Address, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared address objects: %w", err)
 		}
@@ -2416,6 +2424,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 		// 4. Process Device Groups (Pass 1 - Insert DG and Scopes)
+		progress(2, 55, "Synchronizing Device Group contexts...")
 		// Register default implicit "shared" root device group context
 		clearDeviceTables(tx, "paloalto-dg-shared")
 		resShared, err := dgStmt.Exec(sharedUUID, "paloalto-dg-shared", "shared", nil)
@@ -2519,6 +2528,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 
 		// 5. Write shared rules
+		progress(3, 75, "Compiling security rules and policy bases...")
 		if err := insertSecurityRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.SecurityRules, reg, dgParentMap); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared pre-security rules: %w", err)
 		}
@@ -3119,29 +3129,80 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string) (int, int, erro
 		}
 	}
 
-	// Clean up orphaned mapping tables once at the end of the transaction
-	if _, err := tx.Exec("DELETE FROM rule_address_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)"); err != nil {
+	// Clean up orphaned mapping tables once at the end of the transaction using optimized NOT EXISTS queries
+	progress(4, 90, "Committing transaction updates to SQLite database...")
+	if _, err := tx.Exec(`
+		DELETE FROM rule_address_mappings 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM security_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM nat_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM qos_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM pbf_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM decryption_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM application_override_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM tunnel_inspection_rules WHERE id = rule_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned rule address mappings: %w", err)
 	}
-	if _, err := tx.Exec("DELETE FROM rule_service_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules)"); err != nil {
+	if _, err := tx.Exec(`
+		DELETE FROM rule_service_mappings 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM security_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM nat_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM qos_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM pbf_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM decryption_rules WHERE id = rule_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned rule service mappings: %w", err)
 	}
-	if _, err := tx.Exec("DELETE FROM rule_application_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules)"); err != nil {
+	if _, err := tx.Exec(`
+		DELETE FROM rule_application_mappings 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM security_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM qos_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM pbf_rules WHERE id = rule_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned rule application mappings: %w", err)
 	}
-	if _, err := tx.Exec("DELETE FROM rule_zone_mappings WHERE rule_id NOT IN (SELECT id FROM security_rules UNION SELECT id FROM nat_rules UNION SELECT id FROM qos_rules UNION SELECT id FROM pbf_rules UNION SELECT id FROM decryption_rules UNION SELECT id FROM application_override_rules UNION SELECT id FROM tunnel_inspection_rules)"); err != nil {
+	if _, err := tx.Exec(`
+		DELETE FROM rule_zone_mappings 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM security_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM nat_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM qos_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM pbf_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM decryption_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM application_override_rules WHERE id = rule_id
+			UNION ALL SELECT 1 FROM tunnel_inspection_rules WHERE id = rule_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned rule zone mappings: %w", err)
 	}
-	if _, err := tx.Exec("DELETE FROM entity_tag_mappings WHERE tag_id NOT IN (SELECT id FROM tags)"); err != nil {
+	if _, err := tx.Exec(`
+		DELETE FROM entity_tag_mappings 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM tags WHERE id = tag_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned entity tag mappings: %w", err)
 	}
-	if _, err := tx.Exec("DELETE FROM security_rule_profiles WHERE rule_id NOT IN (SELECT id FROM security_rules)"); err != nil {
+	if _, err := tx.Exec(`
+		DELETE FROM security_rule_profiles 
+		WHERE NOT EXISTS (
+			SELECT 1 FROM security_rules WHERE id = rule_id
+		)
+	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned security rule profiles: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
+	progress(5, 100, "Ingestion complete!")
 
 	return devicesImported, topologyImported, nil
 }
