@@ -1987,20 +1987,32 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       {
         key: 'device_uuid',
         label: 'Scope Context',
-        width: '180px',
+        width: '240px',
         renderCell: (val, row, query) => {
-          const isShared = val === 'paloalto-panorama-global';
+          const hierarchy = [...getScopeHierarchy(val)].reverse();
           return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {isShared ? (
-                <span className="badge badge-info" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Globe size={11} /> <HighlightedText text="Shared" highlight={query || ''} />
-                </span>
-              ) : (
-                <span className="badge badge-neutral" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Layers size={11} /> <HighlightedText text={scopeNameMap[val] || val} highlight={query || ''} />
-                </span>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', lineHeight: '1.2' }}>
+              {hierarchy.map((scopeId, idx) => {
+                const isLast = idx === hierarchy.length - 1;
+                const isShared = scopeId === 'paloalto-panorama-global';
+                const displayName = isShared ? 'Shared' : (scopeNameMap[scopeId] || scopeId);
+                const indent = idx * 12; // 12px indent per level
+                
+                return (
+                  <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
+                    {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
+                    {isLast ? (
+                      <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px' }}>
+                        <HighlightedText text={displayName} highlight={query || ''} />
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        <HighlightedText text={displayName} highlight={query || ''} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         }
@@ -2570,77 +2582,83 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
         )}
 
-        {/* Global Search Filtering Tool */}
-        <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
-          {activeSubTab === 'Security Profiles' && (
-            <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
-              {([
-                { id: 'all', label: 'All' },
-                { id: 'antivirus', label: 'Antivirus' },
-                { id: 'spyware', label: 'Anti-Spyware' },
-                { id: 'vulnerability', label: 'Vulnerability Protection' },
-                { id: 'url-filtering', label: 'URL Filtering' },
-                { id: 'file-blocking', label: 'File Blocking' },
-                { id: 'wildfire', label: 'WildFire Analysis' }
-              ] as const).map((tab) => (
+        {/* Sub-tabs segment selector row */}
+        {(activeSubTab === 'Security Profiles' || activeSubTab === 'Custom Objects') && (
+          <div style={{ padding: '10px 20px 0 20px', backgroundColor: 'var(--bg-app)', display: 'flex', flexShrink: 0 }}>
+            {activeSubTab === 'Security Profiles' && (
+              <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'antivirus', label: 'Antivirus' },
+                  { id: 'spyware', label: 'Anti-Spyware' },
+                  { id: 'vulnerability', label: 'Vulnerability Protection' },
+                  { id: 'url-filtering', label: 'URL Filtering' },
+                  { id: 'file-blocking', label: 'File Blocking' },
+                  { id: 'wildfire', label: 'WildFire Analysis' }
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className="btn-sm"
+                    style={{
+                      borderRadius: 0,
+                      border: 'none',
+                      padding: '6px 12px',
+                      backgroundColor: activeProfileTab === tab.id ? 'var(--accent-blue)' : 'transparent',
+                      color: activeProfileTab === tab.id ? '#ffffff' : 'var(--text-main)',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      borderLeft: tab.id !== 'all' ? '1px solid var(--border-main)' : 'none'
+                    }}
+                    onClick={() => setActiveProfileTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {activeSubTab === 'Custom Objects' && (
+              <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
                 <button
-                  key={tab.id}
                   type="button"
-                  className="btn-sm"
+                  className={`btn-sm`}
                   style={{
                     borderRadius: 0,
                     border: 'none',
                     padding: '6px 12px',
-                    backgroundColor: activeProfileTab === tab.id ? 'var(--accent-blue)' : 'transparent',
-                    color: activeProfileTab === tab.id ? '#ffffff' : 'var(--text-main)',
+                    backgroundColor: activeCustomObjectTab === 'categories' ? 'var(--accent-blue)' : 'transparent',
+                    color: activeCustomObjectTab === 'categories' ? '#ffffff' : 'var(--text-main)',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setActiveCustomObjectTab('categories')}
+                >
+                  URL Categories
+                </button>
+                <button
+                  type="button"
+                  className={`btn-sm`}
+                  style={{
+                    borderRadius: 0,
+                    border: 'none',
+                    padding: '6px 12px',
+                    backgroundColor: activeCustomObjectTab === 'edls' ? 'var(--accent-blue)' : 'transparent',
+                    color: activeCustomObjectTab === 'edls' ? '#ffffff' : 'var(--text-main)',
                     fontWeight: 500,
                     cursor: 'pointer',
-                    borderLeft: tab.id !== 'all' ? '1px solid var(--border-main)' : 'none'
+                    borderLeft: '1px solid var(--border-main)'
                   }}
-                  onClick={() => setActiveProfileTab(tab.id)}
+                  onClick={() => setActiveCustomObjectTab('edls')}
                 >
-                  {tab.label}
+                  External Dynamic Lists (EDLs)
                 </button>
-              ))}
-            </div>
-          )}
-          {activeSubTab === 'Custom Objects' && (
-            <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
-              <button
-                type="button"
-                className={`btn-sm`}
-                style={{
-                  borderRadius: 0,
-                  border: 'none',
-                  padding: '6px 12px',
-                  backgroundColor: activeCustomObjectTab === 'categories' ? 'var(--accent-blue)' : 'transparent',
-                  color: activeCustomObjectTab === 'categories' ? '#ffffff' : 'var(--text-main)',
-                  fontWeight: 500,
-                  cursor: 'pointer'
-                }}
-                onClick={() => setActiveCustomObjectTab('categories')}
-              >
-                URL Categories
-              </button>
-              <button
-                type="button"
-                className={`btn-sm`}
-                style={{
-                  borderRadius: 0,
-                  border: 'none',
-                  padding: '6px 12px',
-                  backgroundColor: activeCustomObjectTab === 'edls' ? 'var(--accent-blue)' : 'transparent',
-                  color: activeCustomObjectTab === 'edls' ? '#ffffff' : 'var(--text-main)',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  borderLeft: '1px solid var(--border-main)'
-                }}
-                onClick={() => setActiveCustomObjectTab('edls')}
-              >
-                External Dynamic Lists (EDLs)
-              </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Global Search Filtering Tool */}
+        <div style={{ padding: '10px 20px', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
