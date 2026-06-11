@@ -3332,7 +3332,152 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	`); err != nil {
 		return 0, 0, fmt.Errorf("failed to clean up orphaned security rule profiles: %w", err)
 	}
+	// Automated Self-Healing: Provision missing metadata table entries (device_groups, templates, template_stacks, managed_devices_raw)
+	// for any placeholder scopes created during objects or rules ingestion.
+	
+	// 1. Repair missing device groups
+	if dgRows, err := tx.Query(`
+		SELECT uuid, name 
+		FROM scopes 
+		WHERE type = 'device-group' 
+		  AND uuid NOT IN (SELECT uuid FROM device_groups)
+	`); err == nil {
+		type missingDG struct {
+			UUID string
+			Name string
+		}
+		var missingDGs []missingDG
+		for dgRows.Next() {
+			var m missingDG
+			if err := dgRows.Scan(&m.UUID, &m.Name); err == nil {
+				missingDGs = append(missingDGs, m)
+			}
+		}
+		dgRows.Close()
 
+		var sharedID int64
+		_ = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+
+		for _, dg := range missingDGs {
+			cleanName := strings.Replace(dg.Name, " (Device Group)", "", 1)
+			if cleanName == "shared" {
+				continue
+			}
+			res, err := tx.Exec(`
+				INSERT INTO device_groups (device_uuid, uuid, name, parent_id)
+				VALUES (?, ?, ?, ?)
+			`, "paloalto-panorama-global", dg.UUID, cleanName, sharedID)
+			if err == nil {
+				newID, _ := res.LastInsertId()
+				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, dg.UUID)
+			}
+		}
+	}
+
+	// 2. Repair missing templates
+	if tmplRows, err := tx.Query(`
+		SELECT uuid, name 
+		FROM scopes 
+		WHERE type = 'template' 
+		  AND uuid NOT IN (SELECT uuid FROM templates)
+	`); err == nil {
+		type missingTmpl struct {
+			UUID string
+			Name string
+		}
+		var missingTmpls []missingTmpl
+		for tmplRows.Next() {
+			var m missingTmpl
+			if err := tmplRows.Scan(&m.UUID, &m.Name); err == nil {
+				missingTmpls = append(missingTmpls, m)
+			}
+		}
+		tmplRows.Close()
+
+		for _, t := range missingTmpls {
+			cleanName := strings.Replace(t.Name, " (Panorama)", "", 1)
+			res, err := tx.Exec(`
+				INSERT INTO templates (device_uuid, uuid, name)
+				VALUES (?, ?, ?)
+			`, "paloalto-panorama-global", t.UUID, cleanName)
+			if err == nil {
+				newID, _ := res.LastInsertId()
+				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, t.UUID)
+			}
+		}
+	}
+
+	// 3. Repair missing template stacks
+	if stackRows, err := tx.Query(`
+		SELECT uuid, name 
+		FROM scopes 
+		WHERE type = 'template-stack' 
+		  AND uuid NOT IN (SELECT uuid FROM template_stacks)
+	`); err == nil {
+		type missingStack struct {
+			UUID string
+			Name string
+		}
+		var missingStacks []missingStack
+		for stackRows.Next() {
+			var m missingStack
+			if err := stackRows.Scan(&m.UUID, &m.Name); err == nil {
+				missingStacks = append(missingStacks, m)
+			}
+		}
+		stackRows.Close()
+
+		for _, s := range missingStacks {
+			cleanName := strings.Replace(s.Name, " (Template Stack)", "", 1)
+			res, err := tx.Exec(`
+				INSERT INTO template_stacks (device_uuid, uuid, name)
+				VALUES (?, ?, ?)
+			`, "paloalto-panorama-global", s.UUID, cleanName)
+			if err == nil {
+				newID, _ := res.LastInsertId()
+				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, s.UUID)
+			}
+		}
+	}
+
+	// 4. Repair missing firewalls (managed devices)
+	if fwRows, err := tx.Query(`
+		SELECT uuid, name 
+		FROM scopes 
+		WHERE type = 'firewall' 
+		  AND uuid NOT IN (SELECT device_uuid FROM managed_devices_raw)
+	`); err == nil {
+		type missingFW struct {
+			UUID string
+			Name string
+		}
+		var missingFWs []missingFW
+		for fwRows.Next() {
+			var m missingFW
+			if err := fwRows.Scan(&m.UUID, &m.Name); err == nil {
+				missingFWs = append(missingFWs, m)
+			}
+		}
+		fwRows.Close()
+
+		for _, f := range missingFWs {
+			serial := ""
+			parts := strings.Split(f.UUID, "-")
+			if len(parts) >= 4 {
+				serial = parts[len(parts)-1]
+			} else {
+				serial = f.UUID
+			}
+			res, err := tx.Exec(`
+				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+				VALUES (?, ?, ?, NULL, NULL, NULL, NULL)
+			`, f.UUID, serial, f.Name)
+			if err == nil {
+				newID, _ := res.LastInsertId()
+				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, f.UUID)
+			}
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
