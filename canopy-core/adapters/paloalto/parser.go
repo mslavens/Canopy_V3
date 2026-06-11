@@ -2916,17 +2916,28 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					}
 				}
 
-				devUUID := sharedUUID
-				var existingDeviceUUID string
-				err = tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", mdev.Serial).Scan(&existingDeviceUUID)
-				if err == nil && existingDeviceUUID != "" && strings.HasPrefix(existingDeviceUUID, "paloalto-fw-") {
-					devUUID = existingDeviceUUID
+				devUUID := "paloalto-fw-" + name + "-" + mdev.Serial
+				
+				// Register scope for this firewall if it does not exist
+				var exists int
+				tx.QueryRow("SELECT COUNT(*) FROM scopes WHERE uuid = ?", devUUID).Scan(&exists)
+				if exists == 0 {
+					var parentScopeUUID interface{}
+					if dgName != "" {
+						parentScopeUUID = "paloalto-dg-" + dgName
+					} else if stackName != "" {
+						parentScopeUUID = "panorama-stack-" + stackName
+					}
+					
+					if _, err := tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'firewall', NULL, ?, ?)", devUUID, name, parentScopeUUID); err != nil {
+						slog.Error("Failed to register firewall scope", slog.String("error", err.Error()))
+					}
 				}
 
 				res, err := managedDevStmt.Exec(devUUID, mdev.Serial, name, ipAddr, dgID, stackID, tmplID)
 				if err != nil {
 					slog.Error("Failed to insert managed device", slog.String("error", err.Error()))
-				} else if devUUID != sharedUUID {
+				} else {
 					newID, err := res.LastInsertId()
 					if err == nil {
 						tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, devUUID)

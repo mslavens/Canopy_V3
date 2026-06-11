@@ -888,6 +888,39 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE service_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
+
+	// Ensure all firewalls in managed_devices_raw are registered as scopes in the scopes table
+	// to prevent FOREIGN KEY constraint violations when moving or cloning to those scopes.
+	rows, err := db.Query("SELECT id, device_uuid, name, device_group_id, template_stack_id, template_id FROM managed_devices_raw")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var devUUID, name string
+			var dgID, stackID, tmplID sql.NullInt64
+			if err := rows.Scan(&id, &devUUID, &name, &dgID, &stackID, &tmplID); err == nil {
+				// Check if this scope exists
+				var count int
+				db.QueryRow("SELECT COUNT(*) FROM scopes WHERE uuid = ?", devUUID).Scan(&count)
+				if count == 0 {
+					var parentScopeUUID interface{}
+					if dgID.Valid {
+						db.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", dgID.Int64).Scan(&parentScopeUUID)
+					} else if stackID.Valid {
+						db.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", stackID.Int64).Scan(&parentScopeUUID)
+					} else if tmplID.Valid {
+						db.QueryRow("SELECT uuid FROM templates WHERE id = ?", tmplID.Int64).Scan(&parentScopeUUID)
+					}
+					
+					// Insert scope
+					_, err = db.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'firewall', ?, ?, ?)", devUUID, id, name, parentScopeUUID)
+					if err != nil {
+						slog.Error("Failed to auto-seed scope for managed device", slog.String("uuid", devUUID), slog.String("error", err.Error()))
+					}
+				}
+			}
+		}
+	}
 }
 
 // mountAndSeedVault securely opens the encrypted SQLite databases, asserts the schemas, and mounts the active workspace.

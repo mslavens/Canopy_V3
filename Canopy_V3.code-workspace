@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../../Canopy_1.0"
 		}
 	],
 	"settings": {}

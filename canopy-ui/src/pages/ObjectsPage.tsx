@@ -21,7 +21,8 @@ import {
   Database,
   List,
   ChevronDown,
-  Network
+  Network,
+  Copy
 } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { DataTable, ColumnDef } from '../components/DataTable';
@@ -31,6 +32,8 @@ import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
 import { Tooltip } from '../components/Tooltip';
+import { useObjectMove } from '../hooks/useObjectMove';
+import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
 interface SearchableScopeDropdownProps {
   value: string;
@@ -1382,6 +1385,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   useEffect(() => {
     setTableData([]); // clear table data to force loading spinner on tab/scope transitions
     fetchRecords();
+    loadReferenceData();
     setSelectedRows([]);
   }, [activeSubTab, currentScope, deviceGroups, firewalls, activeCustomObjectTab]);
 
@@ -1798,6 +1802,80 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           setLoading(false);
         }
       }
+    });
+  };
+
+  // --- CLONING AND MOVING OPERATIONS WITH DEPENDENCY RESOLUTION ---
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [targetActionType, setTargetActionType] = useState<'clone' | 'move'>('clone');
+  const [targetScopeUuid, setTargetScopeUuid] = useState('paloalto-panorama-global');
+
+  const dataSources = useMemo<ObjectDataSources>(() => ({
+    addresses: allAddresses,
+    addressGroups: allAddressGroups,
+    services: allServices,
+    serviceGroups: allServiceGroups,
+    applications: allApplications,
+    applicationGroups: allApplicationGroups,
+    tags: []
+  }), [allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups]);
+
+  const { move, moveConfirmDialog, setMoveConfirmDialog } = useObjectMove(
+    dataSources,
+    apiClient,
+    fetchRecords,
+    getScopeHierarchy,
+    scopeNameMap,
+    addToast,
+    firewalls
+  );
+
+  const getActiveObjectType = () => {
+    switch (activeSubTab) {
+      case 'Address Objects': return 'address';
+      case 'Address Groups': return 'addressGroup';
+      case 'Services': return 'service';
+      case 'Service Groups': return 'serviceGroup';
+      case 'Applications': return 'application';
+      case 'Application Groups': return 'applicationGroup';
+      case 'Tags': return 'tag';
+      default: return 'genericObject';
+    }
+  };
+
+  const handleCloneToGroup = () => {
+    setTargetActionType('clone');
+    setTargetScopeUuid('paloalto-panorama-global');
+    setIsTargetModalOpen(true);
+  };
+
+  const handleMoveToGroup = () => {
+    setTargetActionType('move');
+    setTargetScopeUuid('paloalto-panorama-global');
+    setIsTargetModalOpen(true);
+  };
+
+  const handleConfirmTargetScope = () => {
+    setIsTargetModalOpen(false);
+    move(selectedRows, getActiveObjectType(), targetScopeUuid, targetActionType);
+  };
+
+  const handleClone = () => {
+    if (selectedRows.length === 0) return;
+    
+    // For local clone, we keep the original device_uuid for each item.
+    // Since we support multiple selection, we group them by device_uuid,
+    // but the move function already handles an array of items.
+    // However, the targetScopeUuid in move() is singular.
+    // So we invoke it per item, or group by device_uuid.
+    const byScope = selectedRows.reduce((acc, row) => {
+      if (!acc[row.device_uuid]) acc[row.device_uuid] = [];
+      acc[row.device_uuid].push(row);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    Object.keys(byScope).forEach(scopeUuid => {
+      move(byScope[scopeUuid], getActiveObjectType(), scopeUuid, 'clone');
     });
   };
 
@@ -2473,48 +2551,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           position: 'relative', 
           zIndex: 1010 
         }}>
-          {/* Row 1: Title & Actions */}
+          {/* Row 1: Title */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
               {activeSubTab}
             </h2>
-            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-              {selectedRows.length > 0 && (
-                <button
-                  onClick={handleBulkDelete}
-                  className="btn-danger btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Trash2 size={13} /> Bulk Delete ({selectedRows.length})
-                </button>
-              )}
-              <button
-                onClick={handleGenerateCli}
-                className="btn-secondary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Code size={13} /> {selectedRows.length > 0 ? `Generate CLI (${selectedRows.length})` : 'Generate CLI'}
-              </button>
-              {currentScope === 'show-all' ? (
-                <Tooltip content="Select a specific Device Group or Firewall to add objects" position="bottom">
-                  <button
-                    className="btn-primary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.5, cursor: 'not-allowed' }}
-                    disabled
-                  >
-                    <Plus size={14} /> Add Object
-                  </button>
-                </Tooltip>
-              ) : (
-                <button
-                  onClick={openCreateModal}
-                  className="btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Plus size={14} /> Add Object
-                </button>
-              )}
-            </div>
           </div>
 
           {/* Row 2: Device Group Dropdown & Lineage */}
@@ -2718,14 +2759,95 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               <Loader2 className="spin-animation" size={20} /> Loading database records...
             </div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={displayedTableData}
-              searchQuery={searchQuery}
-              selectable={true}
-              onSelectionChange={setSelectedRows}
-              exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
-            />
+            <>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <DataTable
+                  columns={columns}
+                  data={displayedTableData}
+                  searchQuery={searchQuery}
+                  selectable={true}
+                  onSelectionChange={setSelectedRows}
+                  exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
+                />
+              </div>
+
+              {/* Bottom Actions Bar (Below pagination controls) */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                padding: '12px 20px', 
+                backgroundColor: 'var(--bg-surface)', 
+                borderTop: '1px solid var(--border-main)',
+                flexShrink: 0,
+                marginTop: '10px',
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={openCreateModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={currentScope === 'show-all'}
+                    title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
+                  >
+                    <Plus size={14} /> Add Object
+                  </button>
+
+                  <button
+                    onClick={handleClone}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedRows.length === 0}
+                    title="Clone selected objects within this scope"
+                  >
+                    <Copy size={13} /> Clone
+                  </button>
+
+                  <button
+                    onClick={handleCloneToGroup}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedRows.length === 0}
+                    title="Clone selected objects to another device group or firewall"
+                  >
+                    <Copy size={13} /> Clone to Group...
+                  </button>
+
+                  <button
+                    onClick={handleMoveToGroup}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedRows.length === 0}
+                    title="Move selected objects to another device group or firewall"
+                  >
+                    <ArrowRight size={13} /> Move to Group...
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={handleGenerateCli}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedRows.length === 0}
+                    title="Generate CLI commands for selected objects"
+                  >
+                    <Code size={13} /> Generate CLI {selectedRows.length > 0 ? `(${selectedRows.length})` : ''}
+                  </button>
+
+                  <button
+                    onClick={handleBulkDelete}
+                    className="btn-danger btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedRows.length === 0}
+                    title="Bulk delete selected objects"
+                  >
+                    <Trash2 size={13} /> Bulk Delete {selectedRows.length > 0 ? `(${selectedRows.length})` : ''}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -3390,6 +3512,65 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           >
             {generatedCommands}
           </pre>
+        </div>
+      </Modal>
+
+      {/* 6. Target Scope Selector Modal */}
+      <Modal
+        isOpen={isTargetModalOpen}
+        onClose={() => setIsTargetModalOpen(false)}
+        title={targetActionType === 'clone' ? 'Clone Objects to Target Scope' : 'Move Objects to Target Scope'}
+        size="sm"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsTargetModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" onClick={handleConfirmTargetScope}>Continue</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            Specify the destination device group or firewall scope context:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Target Location</label>
+            <SearchableScopeDropdown
+              value={targetScopeUuid}
+              options={hierarchyOptions.filter(o => o.value !== 'show-all')} // Cannot move/clone to "Show all"
+              onChange={setTargetScopeUuid}
+              scopeNameMap={scopeNameMap}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={moveConfirmDialog.isOpen}
+        onClose={() => setMoveConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        title={moveConfirmDialog.title}
+        size={moveConfirmDialog.initialWidth && moveConfirmDialog.initialWidth > 600 ? 'lg' : 'md'}
+        footer={
+          <>
+            <button 
+              className="btn-secondary btn-sm" 
+              onClick={() => {
+                if (moveConfirmDialog.onClose) moveConfirmDialog.onClose();
+                else setMoveConfirmDialog(prev => ({ ...prev, isOpen: false }));
+              }}
+            >
+              {moveConfirmDialog.cancelText || 'Cancel'}
+            </button>
+            <button 
+              className={`btn-primary btn-sm ${moveConfirmDialog.isDestructive ? 'bg-red-500 hover:bg-red-600 border-red-600' : ''}`} 
+              onClick={() => moveConfirmDialog.onConfirm()}
+            >
+              {moveConfirmDialog.confirmText}
+            </button>
+          </>
+        }
+      >
+        <div style={{ padding: '10px 0' }}>
+          {moveConfirmDialog.message}
         </div>
       </Modal>
     </div>
