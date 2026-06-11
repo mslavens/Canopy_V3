@@ -2530,8 +2530,33 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             </div>
             <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
               {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all' }}>
-                  Scope Context: <span style={{ color: 'var(--text-sub)', fontWeight: 500 }}>{visibleScopes.slice(1).map(s => scopeNameMap[s] || s).join(' ➔ ')}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                  Scope Context: 
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', flexWrap: 'wrap' }}>
+                    {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
+                      <React.Fragment key={scopeId}>
+                        <span 
+                          onClick={() => handleScopeChange(scopeId)}
+                          style={{ 
+                            color: 'var(--accent-blue)', 
+                            cursor: 'pointer', 
+                            fontWeight: 500,
+                            transition: 'color 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent-blue-hover, #60a5fa)'; e.currentTarget.style.textDecoration = 'underline'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.textDecoration = 'none'; }}
+                          title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
+                        >
+                          {scopeNameMap[scopeId] || scopeId}
+                        </span>
+                        {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
+                      </React.Fragment>
+                    ))}
+                    <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
+                    <span style={{ color: 'var(--text-sub)', fontWeight: 600 }}>
+                      {scopeNameMap[currentScope] || currentScope}
+                    </span>
+                  </span>
                 </span>
               ) : (
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
