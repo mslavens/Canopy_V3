@@ -2,6 +2,17 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.17.0 - Backend Modularity & Dynamic Object Fixes
+**Date:** 2026-06-12
+
+### Architecture
+- **Backend Modularity:** Refactored the `canopy-core` backend monolith by extracting 54 API handlers and several middleware functions out of `main.go` and safely organizing them into strictly typed, domain-specific Go packages. `main.go` was reduced from ~7,000 lines down to ~1,500 lines. 
+
+### Fixed
+- **Object Resolution:** Fixed a bug where the Object Inspector was failing to correctly resolve nested dynamic address groups and dynamic service groups.
+- **State Synchronization:** Fixed a race condition in the React UI where object tags would visually disappear if the object edit modal was opened before the global tag mappings had finished loading.
+- **Inspector UX:** The recursive SQL paths displayed in the Inspector now use human-readable entity names (e.g. `Group A > Nested Group B`) rather than raw internal database IDs (`12 > 45`).
+
 ## v0.16.0 - API Client & Vault Initialization Security
 **Date:** 2026-05-30
 
