@@ -2734,17 +2734,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   ]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: 'calc(100vh - 120px)', margin: '-20px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       {/* 2. Main content canvas */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Scope context summary top header */}
         <div style={{ 
-          position: 'sticky', 
-          top: '-30px', 
-          backgroundColor: 'var(--bg-app)', 
-          zIndex: 10, 
-          padding: '30px 0 10px 0', 
-          margin: '-30px 0 0 0', 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
