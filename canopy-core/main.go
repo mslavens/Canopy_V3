@@ -74,6 +74,7 @@ var actSchema = `
 		UNIQUE(type, reference_id),
 		FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 	);
+	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Shared (Panorama)');
 	CREATE TABLE IF NOT EXISTS device_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -843,6 +844,9 @@ func cleanupPatchArtifacts() {
 }
 
 func migrateWorkspaceDatabase(db *sql.DB) {
+	// Ensure the global shared scope exists in all workspaces
+	db.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Shared (Panorama)')")
+
 	// Check if framework_metadata table exists
 	var exists int
 	db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'framework_metadata'").Scan(&exists)
@@ -3343,9 +3347,9 @@ func main() {
 			return
 		}
 
-		// Basic safety guardrail: only allow SELECT or PRAGMA for troubleshooting
+		// Basic safety guardrail: only allow SELECT, PRAGMA, or WITH (CTEs) for troubleshooting
 		upperQuery := strings.ToUpper(strings.TrimSpace(req.Query))
-		if !strings.HasPrefix(upperQuery, "SELECT") && !strings.HasPrefix(upperQuery, "PRAGMA") {
+		if !strings.HasPrefix(upperQuery, "SELECT") && !strings.HasPrefix(upperQuery, "PRAGMA") && !strings.HasPrefix(upperQuery, "WITH") {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Only SELECT or PRAGMA queries are permitted via the troubleshooting browser."})
 			return
@@ -4613,6 +4617,7 @@ func main() {
 	mux.HandleFunc("/api/objects/address/create", handleAddressCreate)
 	mux.HandleFunc("/api/objects/address/update", handleAddressUpdate)
 	mux.HandleFunc("/api/objects/address/delete", handleAddressDelete)
+	mux.HandleFunc("/api/objects/import", handleObjectsImport)
 
 	mux.HandleFunc("/api/objects/address-group/create", handleAddressGroupCreate)
 	mux.HandleFunc("/api/objects/address-group/update", handleAddressGroupUpdate)
@@ -4907,6 +4912,18 @@ func handleAddressCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
@@ -4985,6 +5002,30 @@ func handleAddressUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := saveEntityTags(tx, "address_object", int64(req.ID), req.DeviceUUID, req.Tags); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save object tags: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
 		return
 	}
 
@@ -5127,6 +5168,12 @@ func handleAddressGroupCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
@@ -5236,6 +5283,12 @@ func handleAddressGroupUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := saveEntityTags(tx, "address_group", int64(req.ID), req.DeviceUUID, req.Tags); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save group tags: " + err.Error()})
+		return
+	}
+
+	if err := MaterializeDynamicGroups(tx, req.DeviceUUID); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to materialize dynamic groups: " + err.Error()})
 		return
 	}
 

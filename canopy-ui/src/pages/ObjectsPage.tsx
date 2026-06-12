@@ -34,6 +34,7 @@ import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
 import { Tooltip } from '../components/Tooltip';
 import { EmptyState } from '../components/EmptyState';
+import { DataImportWizard } from '../components/DataImportWizard';
 import { useObjectMove } from '../hooks/useObjectMove';
 import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
@@ -344,6 +345,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [allSecurityProfiles, setAllSecurityProfiles] = useState<any[]>([]);
   const [allTags, setAllTags] = useState<any[]>([]);
   const [allTagMappings, setAllTagMappings] = useState<any[]>([]);
+
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
+
+  // Inspector State
+  const [flattenedMembers, setFlattenedMembers] = useState<any[]>([]);
 
   // Selection state (from table)
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -1069,141 +1075,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setCurrentScope(val);
   };
 
-  const dynamicAddressMemberMap = useMemo(() => {
-    const map = new Map<number, string[]>();
-
-    const tagIdToNameMap = new Map<number, string>();
-    allTags.forEach(t => tagIdToNameMap.set(t.id, t.name));
-
-    const entityTagsMap = new Map<string, Set<string>>();
-    allTagMappings.forEach(m => {
-      const key = `${m.entity_type}-${m.entity_id}`;
-      let tagSet = entityTagsMap.get(key);
-      if (!tagSet) {
-        tagSet = new Set<string>();
-        entityTagsMap.set(key, tagSet);
-      }
-      const name = tagIdToNameMap.get(m.tag_id);
-      if (name) tagSet.add(name);
-    });
-
-    const candidateTags = [...allAddresses, ...allAddressGroups].map(item => {
-       const isGroup = 'member_list' in item || 'filter' in item || item.type === 'dynamic' || item.type === 'static';
-       const tags = entityTagsMap.get(`${isGroup ? 'address_group' : 'address_object'}-${item.id}`) || new Set<string>();
-       return { ...item, _resolvedTags: tags };
-    });
-
-    const scopeCache = new Map<string, string[]>();
-    const getScope = (gid: string) => {
-        if (!scopeCache.has(gid)) scopeCache.set(gid, getScopeHierarchy(gid));
-        return scopeCache.get(gid) || [];
-    };
-
-    allAddressGroups.forEach(group => {
-      if (group.type === 'dynamic' && group.filter) {
-        let evalString = group.filter
-          .replace(/\band\b/gi, '&&')
-          .replace(/\bor\b/gi, '||')
-          .replace(/\bnot\b/gi, '!');
-
-        evalString = evalString.replace(/'([^']+)'|"([^"]+)"|\b([a-zA-Z0-9_.-]+)\b/g, (match, q1, q2, unquoted) => {
-          if (unquoted) {
-            const lower = match.toLowerCase();
-            if (lower === 'true' || lower === 'false' || match === '&&' || match === '||' || match === '!') return match;
-            return `hasTag(${JSON.stringify(unquoted)})`;
-          }
-          return `hasTag(${JSON.stringify(q1 || q2)})`;
-        });
-
-        let evaluator: Function;
-        try { evaluator = new Function('hasTag', `try { return !!(${evalString}); } catch(e) { return false; }`); } 
-        catch(e) { evaluator = () => false; }
-
-        const currentGroupId = group.device_uuid;
-        const allowedScopes = new Set(getScope(currentGroupId));
-
-        const members = candidateTags.filter(item => {
-            if (item.id === group.id) return false;
-            if (!allowedScopes.has(item.device_uuid)) return false;
-
-            return evaluator((t: string) => {
-                const cleanT = String(t).replace(/^['"]+|['"]+$/g, '').toLowerCase();
-                for (const tag of item._resolvedTags) {
-                    if (tag.toLowerCase() === cleanT) return true;
-                }
-                return false;
-            });
-        }).map(item => item.name);
-        
-        map.set(group.id, members);
-      }
-    });
-    return map;
-  }, [allAddressGroups, allAddresses, allTags, allTagMappings, getScopeHierarchy]);
-
-  // Recursive Address Group Resolver for total flattened view
-  const resolveAddressGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
-    if (visited.has(groupName)) return [];
-    const newVisited = new Set(visited);
-    newVisited.add(groupName);
-
-    const allowedScopes = getScopeHierarchy(scopeUuid);
-    
-    // Find closest group in scope hierarchy
-    let group: any = null;
-    for (const sc of allowedScopes) {
-      const g = allAddressGroups.find(item => item.name === groupName && item.device_uuid === sc);
-      if (g) {
-        group = g;
-        break;
-      }
-    }
-
-    if (!group) {
-      // Find closest leaf address in scope hierarchy
-      let leaf: any = null;
-      for (const sc of allowedScopes) {
-        const l = allAddresses.find(item => item.name === groupName && item.device_uuid === sc);
-        if (l) {
-          leaf = l;
-          break;
-        }
-      }
-      
-      if (leaf) {
-        return [{
-          name: leaf.name,
-          type: 'Address Object',
-          details: `${leaf.type}: ${leaf.value}`,
-          path: [...currentPath, groupName]
-        }];
-      }
-      return [{
-        name: groupName,
-        type: 'External/Tag',
-        details: 'Dynamic tag or unresolved member',
-        path: [...currentPath, groupName]
-      }];
-    }
-
-    if (group.type === 'dynamic') {
-      const members = dynamicAddressMemberMap.get(group.id) || [];
-      let resolved: any[] = [];
-      members.forEach((mName: string) => {
-        resolved = resolved.concat(resolveAddressGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
-      });
-      return resolved;
-    }
-
-    const members = group.member_list ? group.member_list.split(',') : [];
-    let resolved: any[] = [];
-    members.forEach((m: string) => {
-      const mName = m.trim();
-      if (!mName) return;
-      resolved = resolved.concat(resolveAddressGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
-    });
-    return resolved;
-  };
+  // Legacy JS recursive group resolvers removed in favor of SQLite Recursive CTEs!
 
   // Recursive Service Group Resolver for total flattened view
   const resolveServiceGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
@@ -1545,44 +1417,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setSelectedRows([]);
   }, [activeSubTab, currentScope, deviceGroups, firewalls, activeCustomObjectTab]);
 
-  // Group members slide-over panel
-  const flattenedMembers = useMemo(() => {
-    if (!selectedGroupDetails) return [];
-    let rawList: any[] = [];
-    if (activeSubTab === 'Address Groups') {
-      rawList = resolveAddressGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
-    } else if (activeSubTab === 'Service Groups') {
-      rawList = resolveServiceGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
-    } else if (activeSubTab === 'Application Groups') {
-      rawList = resolveApplicationGroupMembers(selectedGroupDetails.name, selectedGroupDetails.device_uuid);
-    }
-
-    // Deduplicate and aggregate paths
-    const aggregated: { [key: string]: any } = {};
-    rawList.forEach(item => {
-      const existing = aggregated[item.name];
-      if (existing) {
-        if (item.path && item.path.length > 1) {
-          const displayPath = item.path.slice(1).join(' > ');
-          if (displayPath && !existing.paths.includes(displayPath)) {
-            existing.paths.push(displayPath);
-          }
-        }
-      } else {
-        const displayPaths = item.path && item.path.length > 1 
-          ? [item.path.slice(1).join(' > ')] 
-          : [];
-        aggregated[item.name] = {
-          name: item.name,
-          type: item.type,
-          details: item.details,
-          paths: displayPaths
-        };
-      }
-    });
-
-    return Object.values(aggregated);
-  }, [selectedGroupDetails, activeSubTab, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups]);
+  // Group members slide-over panel flattened members state handled asynchronously in handleOpenSlideOver
 
   // Inspector Search Filters
   const filteredResolvedMembers = useMemo(() => {
@@ -1616,6 +1451,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     await loadReferenceData();
 
     let memberQuery = '';
+    let recursiveQuery = '';
+    
     switch (activeSubTab) {
       case 'Address Groups':
         memberQuery = `
@@ -1624,6 +1461,23 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
           LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
           WHERE agm.group_id = ?;
+        `;
+        recursiveQuery = `
+          WITH RECURSIVE group_tree(member_address_id, member_group_id, path, is_cycle) AS (
+              SELECT member_address_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_address_id), 0
+              FROM address_group_members
+              WHERE group_id = ?
+            UNION ALL
+              SELECT agm.member_address_id, agm.member_group_id, gt.path || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
+                     INSTR(gt.path, CAST(agm.group_id AS TEXT)) > 0
+              FROM address_group_members agm
+              JOIN group_tree gt ON agm.group_id = gt.member_group_id
+              WHERE gt.is_cycle = 0
+          )
+          SELECT gt.path, ao.name, ao.type, ao.value AS details, 'Address Object' AS obj_type
+          FROM group_tree gt
+          JOIN address_objects ao ON gt.member_address_id = ao.id
+          WHERE gt.member_address_id IS NOT NULL;
         `;
         break;
       case 'Service Groups':
@@ -1634,6 +1488,23 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
           WHERE sgm.group_id = ?;
         `;
+        recursiveQuery = `
+          WITH RECURSIVE group_tree(member_service_id, member_group_id, path, is_cycle) AS (
+              SELECT member_service_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_service_id), 0
+              FROM service_group_members
+              WHERE group_id = ?
+            UNION ALL
+              SELECT sgm.member_service_id, sgm.member_group_id, gt.path || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
+                     INSTR(gt.path, CAST(sgm.group_id AS TEXT)) > 0
+              FROM service_group_members sgm
+              JOIN group_tree gt ON sgm.group_id = gt.member_group_id
+              WHERE gt.is_cycle = 0
+          )
+          SELECT gt.path, so.name, 'Service Object' AS type, so.protocol || ':' || so.destination_port AS details, 'Service Object' AS obj_type
+          FROM group_tree gt
+          JOIN service_objects so ON gt.member_service_id = so.id
+          WHERE gt.member_service_id IS NOT NULL;
+        `;
         break;
       case 'Application Groups':
         memberQuery = `
@@ -1643,12 +1514,53 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
           WHERE appgm.group_id = ?;
         `;
+        recursiveQuery = `
+          WITH RECURSIVE group_tree(member_application_id, member_group_id, path, is_cycle) AS (
+              SELECT member_application_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_application_id), 0
+              FROM application_group_members
+              WHERE group_id = ?
+            UNION ALL
+              SELECT agm.member_application_id, agm.member_group_id, gt.path || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
+                     INSTR(gt.path, CAST(agm.group_id AS TEXT)) > 0
+              FROM application_group_members agm
+              JOIN group_tree gt ON agm.group_id = gt.member_group_id
+              WHERE gt.is_cycle = 0
+          )
+          SELECT gt.path, ao.name, 'Application Object' AS type, ao.category || ' / ' || ao.subcategory AS details, 'Application Object' AS obj_type
+          FROM group_tree gt
+          JOIN application_objects ao ON gt.member_application_id = ao.id
+          WHERE gt.member_application_id IS NOT NULL;
+        `;
         break;
     }
 
     try {
       const res = await apiClient.queryDb(memberQuery.replace('?', String(groupRow.id)));
       setResolvedMembers(res.rows || []);
+      
+      if (recursiveQuery) {
+        const flatRes = await apiClient.queryDb(recursiveQuery.replace('?', String(groupRow.id)));
+        
+        // Aggregate paths for flattened members
+        const aggregated: Record<string, any> = {};
+        (flatRes.rows || []).forEach((item: any) => {
+          if (!aggregated[item.name]) {
+            aggregated[item.name] = {
+              name: item.name,
+              type: item.type || item.obj_type,
+              details: item.details,
+              paths: []
+            };
+          }
+          if (item.path) {
+            aggregated[item.name].paths.push(item.path);
+          }
+        });
+        setFlattenedMembers(Object.values(aggregated));
+      } else {
+        setFlattenedMembers([]);
+      }
+      
     } catch (e) {
       console.error('Failed to resolve group members details', e);
       addToast('Failed to fetch group member details.', 'error');
@@ -3300,18 +3212,48 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     </div>
                   }
                   exportActions={
-                    <button
-                      onClick={handleGenerateCli}
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={displayedTableData.length === 0}
-                      title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
-                    >
-                      <Code size={13} /> Generate CLI
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        onClick={() => setImportWizardOpen(true)}
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        title="Import data from CSV or Excel"
+                      >
+                        <FileUp size={13} /> Import CSV / Excel
+                      </button>
+                      <button
+                        onClick={handleGenerateCli}
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled={displayedTableData.length === 0}
+                        title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
+                      >
+                        <Code size={13} /> Generate CLI
+                      </button>
+                    </div>
                   }
                 />
               </div>
+
+              {/* Centralized Data Import Manager Modal */}
+              <DataImportWizard 
+                isOpen={importWizardOpen} 
+                onClose={() => setImportWizardOpen(false)}
+                defaultDataType={
+                  activeSubTab === 'Address Objects' ? 'address_objects' :
+                  activeSubTab === 'Address Groups' ? 'address_groups' :
+                  activeSubTab === 'Service Objects' ? 'service_objects' :
+                  'address_objects'
+                }
+                apiClient={apiClient}
+                deviceUuid={currentScope}
+                scope={currentScope === 'shared' ? 'shared' : 'local'}
+                onSuccess={() => {
+                  fetchRecords();
+                  loadReferenceData();
+                  addToast('Data imported successfully!', 'success');
+                }}
+              />
             </>
           )}
         </div>

@@ -61,7 +61,9 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
       tables: [
         { tableName: "security_rules", label: "Security Policies", description: "Rules governing allowed or denied traffic based on zones, applications, and services.", icon: <Shield size={14} /> },
         { tableName: "nat_rules", label: "NAT Policies", description: "Network Address Translation (NAT) rules and translation details.", icon: <Shield size={14} /> },
-        { tableName: "security_profiles", label: "Security Profiles", description: "Applied profiles mapping (Antivirus, URL filtering, Anti-spyware, etc.).", icon: <Shield size={14} /> }
+        { tableName: "security_profiles", label: "Security Profiles", description: "Applied profiles mapping (Antivirus, URL filtering, Anti-spyware, etc.).", icon: <Shield size={14} /> },
+        { tableName: "security_profile_groups", label: "Security Profile Groups", description: "Groups of security profiles applied to policies.", icon: <Shield size={14} /> },
+        { tableName: "log_forwarding_profiles", label: "Log Forwarding Profiles", description: "Profiles defining where system and traffic logs are sent.", icon: <Shield size={14} /> }
       ]
     },
     {
@@ -76,7 +78,8 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         { tableName: "application_objects", label: "Application Signatures", description: "Standard Palo Alto App-ID signatures and categories catalog.", icon: <Database size={14} /> },
         { tableName: "application_groups", label: "Application Groups", description: "Logical groupings of application signatures.", icon: <Database size={14} /> },
         { tableName: "application_group_members", label: "Application Group Members", description: "Mapping table linking application groups to their nested signatures and subgroups.", icon: <Database size={14} /> },
-        { tableName: "tags", label: "Administrative Tags", description: "Tags and native color labels applied to objects and rules.", icon: <Database size={14} /> }
+        { tableName: "tags", label: "Administrative Tags", description: "Tags and native color labels applied to objects and rules.", icon: <Database size={14} /> },
+        { tableName: "entity_tag_mappings", label: "Tag Mappings", description: "Associative table mapping tags to individual objects and rules.", icon: <Database size={14} /> }
       ]
     },
     {

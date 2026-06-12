@@ -261,6 +261,12 @@ export const Dropdown: React.FC<DropdownProps> = ({
                   if (filteredOptions.length > 0) {
                     onChange(filteredOptions[0]);
                     setIsOpen(false);
+                    setSearchQuery('');
+                  } else if (searchQuery.trim().length > 0) {
+                    // Allow free-form entry if no matching options exist
+                    onChange(searchQuery.trim());
+                    setIsOpen(false);
+                    setSearchQuery('');
                   }
                 }
               }}
