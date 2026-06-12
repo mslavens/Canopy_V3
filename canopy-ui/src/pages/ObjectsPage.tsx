@@ -1463,18 +1463,28 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           WHERE agm.group_id = ?;
         `;
         recursiveQuery = `
-          WITH RECURSIVE group_tree(member_address_id, member_group_id, path, is_cycle) AS (
-              SELECT member_address_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_address_id), 0
-              FROM address_group_members
-              WHERE group_id = ?
+          WITH RECURSIVE group_tree(member_address_id, member_group_id, id_path, name_path, is_cycle) AS (
+              SELECT agm.member_address_id, agm.member_group_id, 
+                     CAST(agm.group_id AS TEXT) || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
+                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
+                     0
+              FROM address_group_members agm
+              LEFT JOIN address_groups parent ON agm.group_id = parent.id
+              LEFT JOIN address_groups child_group ON agm.member_group_id = child_group.id
+              LEFT JOIN address_objects child_obj ON agm.member_address_id = child_obj.id
+              WHERE agm.group_id = ?
             UNION ALL
-              SELECT agm.member_address_id, agm.member_group_id, gt.path || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
-                     INSTR(gt.path, CAST(agm.group_id AS TEXT)) > 0
+              SELECT agm.member_address_id, agm.member_group_id, 
+                     gt.id_path || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
+                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
+                     INSTR(gt.id_path, CAST(agm.group_id AS TEXT)) > 0
               FROM address_group_members agm
               JOIN group_tree gt ON agm.group_id = gt.member_group_id
+              LEFT JOIN address_groups child_group ON agm.member_group_id = child_group.id
+              LEFT JOIN address_objects child_obj ON agm.member_address_id = child_obj.id
               WHERE gt.is_cycle = 0
           )
-          SELECT gt.path, ao.name, ao.type, ao.value AS details, 'Address Object' AS obj_type
+          SELECT gt.name_path AS path, ao.name, ao.type, ao.value AS details, 'Address Object' AS obj_type
           FROM group_tree gt
           JOIN address_objects ao ON gt.member_address_id = ao.id
           WHERE gt.member_address_id IS NOT NULL;
@@ -1489,18 +1499,28 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           WHERE sgm.group_id = ?;
         `;
         recursiveQuery = `
-          WITH RECURSIVE group_tree(member_service_id, member_group_id, path, is_cycle) AS (
-              SELECT member_service_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_service_id), 0
-              FROM service_group_members
-              WHERE group_id = ?
+          WITH RECURSIVE group_tree(member_service_id, member_group_id, id_path, name_path, is_cycle) AS (
+              SELECT sgm.member_service_id, sgm.member_group_id, 
+                     CAST(sgm.group_id AS TEXT) || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
+                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, sgm.member_name),
+                     0
+              FROM service_group_members sgm
+              LEFT JOIN service_groups parent ON sgm.group_id = parent.id
+              LEFT JOIN service_groups child_group ON sgm.member_group_id = child_group.id
+              LEFT JOIN service_objects child_obj ON sgm.member_service_id = child_obj.id
+              WHERE sgm.group_id = ?
             UNION ALL
-              SELECT sgm.member_service_id, sgm.member_group_id, gt.path || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
-                     INSTR(gt.path, CAST(sgm.group_id AS TEXT)) > 0
+              SELECT sgm.member_service_id, sgm.member_group_id, 
+                     gt.id_path || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
+                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, sgm.member_name),
+                     INSTR(gt.id_path, CAST(sgm.group_id AS TEXT)) > 0
               FROM service_group_members sgm
               JOIN group_tree gt ON sgm.group_id = gt.member_group_id
+              LEFT JOIN service_groups child_group ON sgm.member_group_id = child_group.id
+              LEFT JOIN service_objects child_obj ON sgm.member_service_id = child_obj.id
               WHERE gt.is_cycle = 0
           )
-          SELECT gt.path, so.name, 'Service Object' AS type, so.protocol || ':' || so.destination_port AS details, 'Service Object' AS obj_type
+          SELECT gt.name_path AS path, so.name, 'Service Object' AS type, so.protocol || ':' || so.destination_port AS details, 'Service Object' AS obj_type
           FROM group_tree gt
           JOIN service_objects so ON gt.member_service_id = so.id
           WHERE gt.member_service_id IS NOT NULL;
@@ -1515,18 +1535,28 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           WHERE appgm.group_id = ?;
         `;
         recursiveQuery = `
-          WITH RECURSIVE group_tree(member_application_id, member_group_id, path, is_cycle) AS (
-              SELECT member_application_id, member_group_id, CAST(group_id AS TEXT) || ' > ' || COALESCE(member_group_id, member_application_id), 0
-              FROM application_group_members
-              WHERE group_id = ?
+          WITH RECURSIVE group_tree(member_application_id, member_group_id, id_path, name_path, is_cycle) AS (
+              SELECT agm.member_application_id, agm.member_group_id, 
+                     CAST(agm.group_id AS TEXT) || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
+                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
+                     0
+              FROM application_group_members agm
+              LEFT JOIN application_groups parent ON agm.group_id = parent.id
+              LEFT JOIN application_groups child_group ON agm.member_group_id = child_group.id
+              LEFT JOIN application_objects child_obj ON agm.member_application_id = child_obj.id
+              WHERE agm.group_id = ?
             UNION ALL
-              SELECT agm.member_application_id, agm.member_group_id, gt.path || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
-                     INSTR(gt.path, CAST(agm.group_id AS TEXT)) > 0
+              SELECT agm.member_application_id, agm.member_group_id, 
+                     gt.id_path || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
+                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
+                     INSTR(gt.id_path, CAST(agm.group_id AS TEXT)) > 0
               FROM application_group_members agm
               JOIN group_tree gt ON agm.group_id = gt.member_group_id
+              LEFT JOIN application_groups child_group ON agm.member_group_id = child_group.id
+              LEFT JOIN application_objects child_obj ON agm.member_application_id = child_obj.id
               WHERE gt.is_cycle = 0
           )
-          SELECT gt.path, ao.name, 'Application Object' AS type, ao.category || ' / ' || ao.subcategory AS details, 'Application Object' AS obj_type
+          SELECT gt.name_path AS path, ao.name, 'Application Object' AS type, ao.category || ' / ' || ao.subcategory AS details, 'Application Object' AS obj_type
           FROM group_tree gt
           JOIN application_objects ao ON gt.member_application_id = ao.id
           WHERE gt.member_application_id IS NOT NULL;
