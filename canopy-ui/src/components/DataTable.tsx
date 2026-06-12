@@ -22,9 +22,10 @@ interface DataTableProps {
   highlightRow?: (row: any) => boolean;
   rowStyle?: (row: any) => React.CSSProperties;
   bulkActions?: React.ReactNode;
+  exportActions?: React.ReactNode;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -282,6 +283,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </div>
             )}
           </div>
+          {exportActions}
           {exportFilename && (
             <button className="btn-secondary btn-sm" disabled={processedRows.length === 0} onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Upload size={14} /> Export CSV

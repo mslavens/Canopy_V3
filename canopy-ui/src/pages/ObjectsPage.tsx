@@ -390,6 +390,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [formGroupFileBlocking, setFormGroupFileBlocking] = useState('');
   const [formGroupWildfireAnalysis, setFormGroupWildfireAnalysis] = useState('');
   const [formGroupDNSSecurity, setFormGroupDNSSecurity] = useState('');
+  
+  const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
   const [formURLList, setFormURLList] = useState('');
   const [formListType, setFormListType] = useState('ip');
   const [formSourceURL, setFormSourceURL] = useState('');
@@ -2977,7 +2979,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     return isInherited ? { opacity: 0.55 } : {};
                   }}
                   bulkActions={
-                    <>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button
                         onClick={openCreateModal}
                         className="btn-primary btn-sm"
@@ -2988,100 +2990,94 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         <Plus size={14} /> Add Object
                       </button>
 
-                      {selectedRows.length > 50 ? (
-                        <Tooltip 
-                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                          position="top"
-                        >
-                          <button
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                            disabled
-                          >
-                            <Copy size={13} /> Clone
-                          </button>
-                        </Tooltip>
-                      ) : (
+                      <div style={{ position: 'relative' }}>
                         <button
-                          onClick={handleClone}
+                          onClick={() => setShowActionsMenu(!showActionsMenu)}
                           className="btn-secondary btn-sm"
                           style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                          disabled={selectedRows.length === 0}
                         >
-                          <Copy size={13} /> Clone
+                          Actions <ChevronDown size={14} />
                         </button>
-                      )}
+                        {showActionsMenu && (
+                          <>
+                            {/* Invisible overlay for click-outside */}
+                            <div 
+                              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+                              onClick={() => setShowActionsMenu(false)}
+                            />
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '100%', 
+                              left: 0, 
+                              marginTop: '6px', 
+                              backgroundColor: 'var(--bg-surface)', 
+                              border: '1px solid var(--border-main)', 
+                              borderRadius: '6px', 
+                              padding: '6px', 
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.2)', 
+                              zIndex: 1000, 
+                              display: 'flex', 
+                              flexDirection: 'column', 
+                              gap: '4px',
+                              minWidth: '180px'
+                            }}>
+                              <button
+                                onClick={() => { setShowActionsMenu(false); handleClone(); }}
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
+                              >
+                                <Copy size={13} /> Clone
+                              </button>
+                              
+                              <button
+                                onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
+                              >
+                                <Copy size={13} /> Clone to Group...
+                              </button>
 
-                      {selectedRows.length > 50 ? (
-                        <Tooltip 
-                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                          position="top"
-                        >
-                          <button
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                            disabled
-                          >
-                            <Copy size={13} /> Clone to Group...
-                          </button>
-                        </Tooltip>
-                      ) : (
-                        <button
-                          onClick={handleCloneToGroup}
-                          className="btn-secondary btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                          disabled={selectedRows.length === 0}
-                        >
-                          <Copy size={13} /> Clone to Group...
-                        </button>
-                      )}
+                              <button
+                                onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
+                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
+                              >
+                                <ArrowRight size={13} /> Move to Group...
+                              </button>
 
-                      {selectedRows.length > 50 ? (
-                        <Tooltip 
-                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                          position="top"
-                        >
-                          <button
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                            disabled
-                          >
-                            <ArrowRight size={13} /> Move to Group...
-                          </button>
-                        </Tooltip>
-                      ) : (
-                        <button
-                          onClick={handleMoveToGroup}
-                          className="btn-secondary btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                          disabled={selectedRows.length === 0}
-                        >
-                          <ArrowRight size={13} /> Move to Group...
-                        </button>
-                      )}
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
 
-                      <div style={{ width: '1px', backgroundColor: 'var(--border-main)', margin: '0 4px', height: '20px' }} />
-
-                      <button
-                        onClick={handleGenerateCli}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled={selectedRows.length === 0}
-                        title="Generate CLI commands for selected objects"
-                      >
-                        <Code size={13} /> Generate CLI
-                      </button>
-
-                      <button
-                        onClick={handleBulkDelete}
-                        className="btn-danger btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled={selectedRows.length === 0}
-                        title="Bulk delete selected objects"
-                      >
-                        <Trash2 size={13} /> Bulk Delete
-                      </button>
-                    </>
+                              <button
+                                onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
+                                className="btn-danger btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                                disabled={selectedRows.length === 0}
+                                title="Bulk delete selected objects"
+                              >
+                                <Trash2 size={13} /> Bulk Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  }
+                  exportActions={
+                    <button
+                      onClick={handleGenerateCli}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      disabled={selectedRows.length === 0}
+                      title="Generate CLI commands for selected objects"
+                    >
+                      <Code size={13} /> Generate CLI
+                    </button>
                   }
                 />
               </div>
