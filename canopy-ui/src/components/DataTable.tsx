@@ -21,9 +21,10 @@ interface DataTableProps {
   onSelectionChange?: (selectedRows: any[]) => void;
   highlightRow?: (row: any) => boolean;
   rowStyle?: (row: any) => React.CSSProperties;
+  bulkActions?: React.ReactNode;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -247,10 +248,15 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'transparent', minWidth: 0 }}>
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent' }}>
-        <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px', gap: '20px' }}>
           {selectable && selectedRows.size > 0 && (
             <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <CheckSquare size={14} /> {selectedRows.size} selected
+            </div>
+          )}
+          {bulkActions && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {bulkActions}
             </div>
           )}
         </div>

@@ -2750,6 +2750,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
               {activeSubTab}
             </h2>
+            <div style={{ width: '300px' }}>
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                width="100%"
+                variant="local"
+              />
+            </div>
           </div>
 
           {/* Row 2: Device Group Dropdown & Lineage */}
@@ -2946,19 +2955,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
         )}
 
-        {/* Global Search Filtering Tool */}
-        <div style={{ padding: '10px 0', backgroundColor: 'var(--bg-app)', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-            width="100%"
-            variant="local"
-          />
-        </div>
-
         {/* The data table area - Stretch to edge-to-edge */}
-        <div style={{ flex: 1, padding: '0 0 20px 0', margin: '0 -20px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           {loading ? (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', gap: '10px' }}>
               <Loader2 className="spin-animation" size={20} /> Loading database records...
@@ -2978,126 +2976,114 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     const isInherited = !isShowAll && row.device_uuid !== currentScope;
                     return isInherited ? { opacity: 0.55 } : {};
                   }}
+                  bulkActions={
+                    <>
+                      <button
+                        onClick={openCreateModal}
+                        className="btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled={currentScope === 'show-all'}
+                        title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
+                      >
+                        <Plus size={14} /> Add Object
+                      </button>
+
+                      {selectedRows.length > 50 ? (
+                        <Tooltip 
+                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                          position="top"
+                        >
+                          <button
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            disabled
+                          >
+                            <Copy size={13} /> Clone
+                          </button>
+                        </Tooltip>
+                      ) : (
+                        <button
+                          onClick={handleClone}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          disabled={selectedRows.length === 0}
+                        >
+                          <Copy size={13} /> Clone
+                        </button>
+                      )}
+
+                      {selectedRows.length > 50 ? (
+                        <Tooltip 
+                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                          position="top"
+                        >
+                          <button
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            disabled
+                          >
+                            <Copy size={13} /> Clone to Group...
+                          </button>
+                        </Tooltip>
+                      ) : (
+                        <button
+                          onClick={handleCloneToGroup}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          disabled={selectedRows.length === 0}
+                        >
+                          <Copy size={13} /> Clone to Group...
+                        </button>
+                      )}
+
+                      {selectedRows.length > 50 ? (
+                        <Tooltip 
+                          content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
+                          position="top"
+                        >
+                          <button
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            disabled
+                          >
+                            <ArrowRight size={13} /> Move to Group...
+                          </button>
+                        </Tooltip>
+                      ) : (
+                        <button
+                          onClick={handleMoveToGroup}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          disabled={selectedRows.length === 0}
+                        >
+                          <ArrowRight size={13} /> Move to Group...
+                        </button>
+                      )}
+
+                      <div style={{ width: '1px', backgroundColor: 'var(--border-main)', margin: '0 4px', height: '20px' }} />
+
+                      <button
+                        onClick={handleGenerateCli}
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled={selectedRows.length === 0}
+                        title="Generate CLI commands for selected objects"
+                      >
+                        <Code size={13} /> Generate CLI
+                      </button>
+
+                      <button
+                        onClick={handleBulkDelete}
+                        className="btn-danger btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled={selectedRows.length === 0}
+                        title="Bulk delete selected objects"
+                      >
+                        <Trash2 size={13} /> Bulk Delete
+                      </button>
+                    </>
+                  }
                 />
-              </div>
-
-              {/* Bottom Actions Bar (Below pagination controls) */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                padding: '12px 20px', 
-                backgroundColor: 'var(--bg-surface)', 
-                borderTop: '1px solid var(--border-main)',
-                flexShrink: 0,
-                marginTop: '10px',
-                borderRadius: '8px'
-              }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={openCreateModal}
-                    className="btn-primary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={currentScope === 'show-all'}
-                    title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
-                  >
-                    <Plus size={14} /> Add Object
-                  </button>
-
-                  {selectedRows.length > 50 ? (
-                    <Tooltip 
-                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                      position="top"
-                    >
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled
-                      >
-                        <Copy size={13} /> Clone
-                      </button>
-                    </Tooltip>
-                  ) : (
-                    <button
-                      onClick={handleClone}
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0}
-                    >
-                      <Copy size={13} /> Clone
-                    </button>
-                  )}
-
-                  {selectedRows.length > 50 ? (
-                    <Tooltip 
-                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                      position="top"
-                    >
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled
-                      >
-                        <Copy size={13} /> Clone to Group...
-                      </button>
-                    </Tooltip>
-                  ) : (
-                    <button
-                      onClick={handleCloneToGroup}
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0}
-                    >
-                      <Copy size={13} /> Clone to Group...
-                    </button>
-                  )}
-
-                  {selectedRows.length > 50 ? (
-                    <Tooltip 
-                      content="Bulk operations are limited to 50 items at a time to prevent performance issues." 
-                      position="top"
-                    >
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled
-                      >
-                        <ArrowRight size={13} /> Move to Group...
-                      </button>
-                    </Tooltip>
-                  ) : (
-                    <button
-                      onClick={handleMoveToGroup}
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0}
-                    >
-                      <ArrowRight size={13} /> Move to Group...
-                    </button>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={handleGenerateCli}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0}
-                    title="Generate CLI commands for selected objects"
-                  >
-                    <Code size={13} /> Generate CLI {selectedRows.length > 0 ? `(${selectedRows.length})` : ''}
-                  </button>
-
-                  <button
-                    onClick={handleBulkDelete}
-                    className="btn-danger btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedRows.length === 0}
-                    title="Bulk delete selected objects"
-                  >
-                    <Trash2 size={13} /> Bulk Delete {selectedRows.length > 0 ? `(${selectedRows.length})` : ''}
-                  </button>
-                </div>
               </div>
             </>
           )}
