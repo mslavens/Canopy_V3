@@ -40,8 +40,14 @@ const App = () => {
   });
 
   // Navigation & Layout State
-  const [activeMainTab, setActiveMainTab] = useState<string>('Dashboard');
-  const [activeSubTab, setActiveSubTab] = useState<string>('Overview');
+  const [activeMainTab, setActiveMainTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('mainTab') || 'Dashboard';
+  });
+  const [activeSubTab, setActiveSubTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('subTab') || 'Overview';
+  });
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [notificationsHistory, setNotificationsHistory] = useState<ToastMessage[]>(() => {
     if (typeof window !== 'undefined') {
@@ -72,6 +78,22 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('canopy-notifications', JSON.stringify(notificationsHistory));
   }, [notificationsHistory]);
+
+  // Sync notifications history from other windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'canopy-notifications' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setNotificationsHistory(parsed.map((n: any) => ({ ...n, timestamp: new Date(n.timestamp) })));
+        } catch (err) {
+          console.error('Failed to parse remote storage update for notifications', err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -170,11 +192,43 @@ const App = () => {
     events.forEach(e => window.addEventListener(e, resetTimer));
     resetTimer(); // Start initially
 
+    const handleVaultLockedEvent = () => {
+      setIsVaultLocked(true);
+      setIsSessionExpired(true);
+    };
+    window.addEventListener('vault-locked', handleVaultLockedEvent);
+
     return () => {
       events.forEach(e => window.removeEventListener(e, resetTimer));
+      window.removeEventListener('vault-locked', handleVaultLockedEvent);
       clearTimeout(idleTimer);
     };
   }, [auth, isVaultLocked, autoLockMinutes]);
+
+  // Poll backend health to auto-lock if another window encrypted the vault
+  useEffect(() => {
+    if (!auth || isVaultLocked) return;
+
+    const apiClient = new CanopyApiClient(auth);
+    const interval = setInterval(async () => {
+      try {
+        const data = await apiClient.healthCheck();
+        if (data && data.vault_locked === true) {
+          setIsVaultLocked(true);
+          setIsSessionExpired(true);
+        }
+      } catch (err: any) {
+        // If the health check fails with a 423 Locked, the API client will emit 'vault-locked'
+        // which our other event listener will catch. We can also just handle it here.
+        if (err.message && err.message.includes('423')) {
+          setIsVaultLocked(true);
+          setIsSessionExpired(true);
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [auth, isVaultLocked]);
 
   const handleManualLock = async () => {
     if (!auth) return;

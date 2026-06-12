@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
-import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Tooltip } from '../components/Tooltip';
 import { HelpModal } from '../components/HelpModal';
 import { ToastContainer, ToastMessage } from '../components/ToastContainer';
@@ -611,6 +611,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           <Tooltip content="Documentation & Help" align="right">
             <button onClick={() => setIsHelpOpen(true)} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <HelpCircle size={18} />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Open in New Window" align="right">
+            <button 
+              onClick={() => {
+                if (window.electron && window.electron.spawnWindow) {
+                  window.electron.spawnWindow(`mainTab=${encodeURIComponent(activeMainTab)}&subTab=${encodeURIComponent(activeSubTab)}`);
+                }
+              }} 
+              style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <ExternalLink size={18} />
             </button>
           </Tooltip>
 

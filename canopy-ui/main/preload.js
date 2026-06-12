@@ -15,5 +15,10 @@ contextBridge.exposeInMainWorld('electron', {
     isSafeStorageAvailable: () => ipcRenderer.invoke('is-safe-storage-available'),
     encryptString: (plainText) => ipcRenderer.invoke('encrypt-string', plainText),
     decryptString: (base64Str) => ipcRenderer.invoke('decrypt-string', base64Str),
-    promptBiometric: (reason) => ipcRenderer.invoke('prompt-biometric', reason)
+    promptBiometric: (reason) => ipcRenderer.invoke('prompt-biometric', reason),
+    spawnWindow: (queryStr) => ipcRenderer.send('spawn-window', queryStr),
+    broadcastMutation: (targetType) => ipcRenderer.send('broadcast-mutation', targetType),
+    onMutationDetected: (callback) => {
+        ipcRenderer.on('mutation-detected', (event, targetType) => callback(targetType));
+    }
 });

@@ -20,6 +20,11 @@ export class CanopyApiClient {
     });
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 423) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('vault-locked'));
+        }
+      }
       const text = await response.text();
       let errorMessage = `Engine fault (${response.status}): ${text}`;
       try {
@@ -31,10 +36,28 @@ export class CanopyApiClient {
 
     // Handle cases with no content
     if (response.status === 204) {
+      if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase())) {
+        if (!endpoint.includes('/api/db/query') && !endpoint.includes('/api/vault') && !endpoint.includes('/api/system')) {
+          if (window.electron && window.electron.broadcastMutation) {
+            window.electron.broadcastMutation();
+          }
+        }
+      }
       return null as T;
     }
 
-    return response.json();
+    const data = await response.json();
+
+    // Broadcast mutation after successfully parsing the JSON response
+    if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase())) {
+      if (!endpoint.includes('/api/db/query') && !endpoint.includes('/api/vault') && !endpoint.includes('/api/system')) {
+        if (window.electron && window.electron.broadcastMutation) {
+          window.electron.broadcastMutation();
+        }
+      }
+    }
+
+    return data;
   }
 
   public queryDb = (query: string) => this.request<any>('/api/db/query', { method: 'POST', body: JSON.stringify({ query }) });

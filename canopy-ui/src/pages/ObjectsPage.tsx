@@ -304,6 +304,7 @@ interface ObjectsPageProps {
 }
 
 export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, activeSubTab }) => {
+  const [dataViewTab, setDataViewTab] = useState(activeSubTab);
   const apiClient = useMemo(() => auth ? new CanopyApiClient(auth) : null, [auth]);
   const confirm = useConfirm();
 
@@ -317,11 +318,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [activeProfileTab, setActiveProfileTab] = useState<'all' | 'antivirus' | 'spyware' | 'vulnerability' | 'url-filtering' | 'file-blocking' | 'wildfire'>('all');
 
   const displayedTableData = useMemo(() => {
-    if (activeSubTab === 'Security Profiles' && activeProfileTab !== 'all') {
+    if (dataViewTab === 'Security Profiles' && activeProfileTab !== 'all') {
       return tableData.filter(row => row.type === activeProfileTab);
     }
     return tableData;
-  }, [tableData, activeSubTab, activeProfileTab]);
+  }, [tableData, dataViewTab, activeProfileTab]);
 
   useEffect(() => {
     setActiveProfileTab('all');
@@ -1355,6 +1356,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       console.error('Failed to load table data:', err);
       addToast('Failed to load objects from the database.', 'error');
     } finally {
+      setDataViewTab(activeSubTab);
       setLoading(false);
     }
   };
@@ -1411,11 +1413,29 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   };
 
   useEffect(() => {
-    setTableData([]); // clear table data to force loading spinner on tab/scope transitions
     fetchRecords();
     loadReferenceData();
     setSelectedRows([]);
   }, [activeSubTab, currentScope, deviceGroups, firewalls, activeCustomObjectTab]);
+
+  const [syncTrigger, setSyncTrigger] = useState(0);
+
+  // Sync Data Across Windows
+  useEffect(() => {
+    if (window.electron && window.electron.onMutationDetected) {
+      window.electron.onMutationDetected(() => {
+        setSyncTrigger(prev => prev + 1);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (syncTrigger > 0) {
+      fetchRecords();
+      loadReferenceData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncTrigger]);
 
   // Group members slide-over panel flattened members state handled asynchronously in handleOpenSlideOver
 
@@ -2266,7 +2286,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     ];
 
     let subtabCols: ColumnDef[] = [];
-    switch (activeSubTab) {
+    switch (dataViewTab) {
       case 'Address Objects':
         subtabCols = [
           { key: 'type', label: 'Type', width: '130px' },
@@ -2830,7 +2850,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     ];
 
     return [...defaultCols, ...subtabCols, ...actionCols];
-  }, [activeSubTab, scopeNameMap, currentScope, activeCustomObjectTab]);
+  }, [dataViewTab, scopeNameMap, currentScope, activeCustomObjectTab, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings]);
 
   const isFormDirty = useMemo(() => {
     if (crudMode !== 'edit' || !selectedObject) return true;
@@ -3137,21 +3157,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
         {/* The data table area - Stretch to edge-to-edge */}
         <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-          {loading ? (
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', gap: '10px' }}>
-              <Loader2 className="spin-animation" size={20} /> Loading database records...
-            </div>
-          ) : (
-            <>
-              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                <DataTable
-                  key={activeSubTab}
-                  columns={columns}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <DataTable
+              key={dataViewTab}
+              loading={loading}
+              columns={columns}
                   data={displayedTableData}
                   searchQuery={searchQuery}
                   selectable={true}
                   onSelectionChange={setSelectedRows}
-                  exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
+                  exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
                   additionalExportColumns={[{
                     header: 'CLI Output',
                     getValue: (row) => generateCliCommandsForRow(row).join('\n')
@@ -3284,8 +3299,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   addToast('Data imported successfully!', 'success');
                 }}
               />
-            </>
-          )}
         </div>
       </div>
 

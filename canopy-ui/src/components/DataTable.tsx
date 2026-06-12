@@ -24,9 +24,10 @@ interface DataTableProps {
   bulkActions?: React.ReactNode;
   exportActions?: React.ReactNode;
   additionalExportColumns?: { header: string; getValue: (row: any) => string }[];
+  loading?: boolean;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, additionalExportColumns }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, additionalExportColumns, loading = false }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -386,7 +387,15 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </tr>
               );
             })}
-            {processedRows.length === 0 && (
+            {loading && processedRows.length === 0 && (
+              <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                  <div className="spin-animation" style={{ width: '24px', height: '24px', border: '2px solid var(--border-main)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%' }} />
+                  <span style={{ fontSize: '13px' }}>Loading database records...</span>
+                </div>
+              </td></tr>
+            )}
+            {!loading && processedRows.length === 0 && (
               <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: 0, borderBottom: pageSize > 1 ? '1px solid var(--border-main)' : 'none' }}>
                 <EmptyState icon={<Search size={32} />} title="No results found" description={searchQuery ? `No entries match "${searchQuery}".` : "This table is currently empty."} minHeight="250px" />
               </td></tr>

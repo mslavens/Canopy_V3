@@ -25,14 +25,8 @@ function getFreePort() {
     });
 }
 
-app.whenReady().then(async () => {
-    const activePort = await getFreePort();
-    // 1. Get the dedicated, writable path for user data and boot the Go daemon
-    const userDataPath = app.getPath('userData');
-    const token = startBackendCore(userDataPath, activePort);
-
-    // 2. Spin up the native browser window shell
-    mainWindow = new BrowserWindow({
+function createAppWindow(queryStr = '') {
+    const newWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         minWidth: 1024,
@@ -40,30 +34,54 @@ app.whenReady().then(async () => {
         backgroundColor: '#1e1e2e',
         show: false,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'), // For secure IPC mapping
+            preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false
         }
     });
 
-    // Prevent visual flash: Wait until the React renderer has painted the initial frame
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show();
+    newWindow.once('ready-to-show', () => {
+        newWindow.show();
     });
 
-    // Load your local React app pipeline
     const isPackaged = app.isPackaged;
 
     if (isPackaged) {
-        mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+        newWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { search: queryStr });
         
-        // Security Guardrail: Force-close DevTools if a user tries to open them via shortcuts in production
-        mainWindow.webContents.on('devtools-opened', () => {
-            mainWindow.webContents.closeDevTools();
+        newWindow.webContents.on('devtools-opened', () => {
+            newWindow.webContents.closeDevTools();
         });
     } else {
-        mainWindow.loadURL('http://localhost:5173');
+        const querySuffix = queryStr ? `?${queryStr}` : '';
+        newWindow.loadURL(`http://localhost:5173/${querySuffix}`);
     }
+
+    return newWindow;
+}
+
+app.whenReady().then(async () => {
+    const activePort = await getFreePort();
+    // 1. Get the dedicated, writable path for user data and boot the Go daemon
+    const userDataPath = app.getPath('userData');
+    const token = startBackendCore(userDataPath, activePort);
+
+    // 2. Spin up the native browser window shell
+    mainWindow = createAppWindow();
+
+    // Support spawning multiple windows securely
+    ipcMain.on('spawn-window', (event, queryStr) => {
+        createAppWindow(queryStr);
+    });
+
+    // Broadcast database mutations to all open windows
+    ipcMain.on('broadcast-mutation', (event, targetType) => {
+        BrowserWindow.getAllWindows().forEach(w => {
+            if (w.webContents !== event.sender) {
+                w.webContents.send('mutation-detected', targetType);
+            }
+        });
+    });
     
     // 3. Expose an IPC channel so your React components can securely request the token on boot
     ipcMain.handle('get-backend-auth', () => {

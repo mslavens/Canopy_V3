@@ -39,6 +39,26 @@ export const VaultUnlockPage: React.FC<VaultUnlockPageProps> = ({ auth, onUnlock
     checkSafeStorage();
   }, []);
 
+  // Poll backend health to auto-unlock if another window decrypted the vault
+  useEffect(() => {
+    if (isSetupRequired || !auth) return;
+
+    const apiClient = new CanopyApiClient(auth);
+    const interval = setInterval(async () => {
+      try {
+        const data = await apiClient.healthCheck();
+        // If the vault is unlocked, the healthCheck succeeds and returns vault_locked: false
+        if (data && data.vault_locked === false) {
+          onUnlock();
+        }
+      } catch (err) {
+        // Expected behavior: API returns 423 Locked when the vault is actually locked.
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [auth, isSetupRequired, onUnlock]);
+
   const strength = calculateStrength(password);
 
   let passwordError = '';
