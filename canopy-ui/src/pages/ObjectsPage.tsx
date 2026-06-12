@@ -373,6 +373,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // CLI Command generation modal
   const [isCliModalOpen, setIsCliModalOpen] = useState<boolean>(false);
   const [generatedCommands, setGeneratedCommands] = useState<string>('');
+  const [includeNestedCli, setIncludeNestedCli] = useState<boolean>(false);
 
   // Row Inspection
   const [inspectRow, setInspectRow] = useState<any | null>(null);
@@ -1624,27 +1625,27 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     if (!apiClient) return;
     try {
       const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes, secProfRes, tagsRes, mappingsRes] = await Promise.all([
-        apiClient.queryDb("SELECT id, name, device_uuid, type, value FROM address_objects;"),
+        apiClient.queryDb("SELECT id, name, device_uuid, type, value, description FROM address_objects;"),
         apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, g.type, g.filter, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
+          SELECT g.id, g.name, g.device_uuid, g.type, g.filter, g.description, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
           FROM address_groups g
           LEFT JOIN address_group_members agm ON g.id = agm.group_id
           LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
           LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
           GROUP BY g.id;
         `),
-        apiClient.queryDb("SELECT id, name, device_uuid, protocol, destination_port FROM service_objects;"),
+        apiClient.queryDb("SELECT id, name, device_uuid, protocol, destination_port, source_port, description FROM service_objects;"),
         apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
+          SELECT g.id, g.name, g.device_uuid, g.description, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
           FROM service_groups g
           LEFT JOIN service_group_members sgm ON g.id = sgm.group_id
           LEFT JOIN service_objects so ON sgm.member_service_id = so.id
           LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
           GROUP BY g.id;
         `),
-        apiClient.queryDb("SELECT id, name, device_uuid, category, risk FROM application_objects;"),
+        apiClient.queryDb("SELECT id, name, device_uuid, category, subcategory, technology, risk, ports, description FROM application_objects;"),
         apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
+          SELECT g.id, g.name, g.device_uuid, g.description, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
           FROM application_groups g
           LEFT JOIN application_group_members appgm ON g.id = appgm.group_id
           LEFT JOIN application_objects app ON appgm.member_application_id = app.id
@@ -2322,69 +2323,106 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   };
 
   // Generate CLI commands for a single row
-  const generateCliCommandsForRow = (row: any): string[] => {
+  const generateCliCommandsForRow = (row: any, overrideType?: string): string[] => {
     let commands: string[] = [];
     const isShared = row.device_uuid === 'paloalto-panorama-global';
     const scopePrefix = isShared
       ? 'set shared'
       : `set device-group ${scopeNameMap[row.device_uuid] || 'DG'}`;
 
-    switch (activeSubTab) {
-      case 'Address Objects':
-        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}`);
+    const typeToUse = overrideType || activeSubTab;
+
+    const getTagsForObject = (entityId: number | string, entityType: string) => {
+      const mappings = allTagMappings.filter(m => m.entity_id === entityId && m.entity_type === entityType);
+      if (mappings.length > 0) {
+        const tagNames = mappings.map(m => {
+          const tag = allTags.find(t => t.id === m.tag_id);
+          return tag ? `"${tag.name}"` : null;
+        }).filter(Boolean);
+        if (tagNames.length > 0) {
+          return ` tag [ ${tagNames.join(' ')} ]`;
+        }
+      }
+      return '';
+    };
+
+    switch (typeToUse) {
+      case 'Address Objects': {
+        const tags = getTagsForObject(row.id, 'address_object');
+        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}${tags}`);
         if (row.description) {
           commands.push(`${scopePrefix} address ${row.name} description "${row.description}"`);
         }
         break;
-        case 'Address Groups':
-          if (row.type === 'dynamic') {
-            commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"`);
-          } else {
-            const members = row.member_list ? row.member_list.split(',') : [];
-            members.forEach((m: string) => {
-              commands.push(`${scopePrefix} address-group ${row.name} static ${m}`);
-            });
-          }
-          if (row.description) {
-            commands.push(`${scopePrefix} address-group ${row.name} description "${row.description}"`);
-          }
-          break;
-        case 'Services':
-          commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} port ${row.destination_port}`);
-          if (row.source_port) {
-            commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} source-port ${row.source_port}`);
-          }
-          if (row.description) {
-            commands.push(`${scopePrefix} service ${row.name} description "${row.description}"`);
-          }
-          break;
-        case 'Service Groups':
-          const svcMembers = row.member_list ? row.member_list.split(',') : [];
-          svcMembers.forEach((m: string) => {
-            commands.push(`${scopePrefix} service-group ${row.name} members ${m}`);
+      }
+      case 'Address Groups': {
+        const tags = getTagsForObject(row.id, 'address_group');
+        if (row.type === 'dynamic') {
+          commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"${tags}`);
+        } else {
+          const members = row.member_list ? row.member_list.split(',') : [];
+          members.forEach((m: string) => {
+            commands.push(`${scopePrefix} address-group ${row.name} static ${m}`);
           });
-          if (row.description) {
-            commands.push(`${scopePrefix} service-group ${row.name} description "${row.description}"`);
+          if (tags) {
+            commands.push(`${scopePrefix} address-group ${row.name}${tags}`);
           }
-          break;
-        case 'Applications':
-          commands.push(`${scopePrefix} application ${row.name} category ${row.category} subcategory ${row.subcategory || row.subcategory} technology ${row.technology} risk ${row.risk}`);
-          if (row.ports) {
-            commands.push(`${scopePrefix} application ${row.name} ports ${row.ports}`);
-          }
-          if (row.description) {
-            commands.push(`${scopePrefix} application ${row.name} description "${row.description}"`);
-          }
-          break;
-        case 'Application Groups':
-          const appMembers = row.member_list ? row.member_list.split(',') : [];
-          appMembers.forEach((m: string) => {
-            commands.push(`${scopePrefix} application-group ${row.name} members ${m}`);
-          });
-          if (row.description) {
-            commands.push(`${scopePrefix} application-group ${row.name} description "${row.description}"`);
-          }
-          break;
+        }
+        if (row.description) {
+          commands.push(`${scopePrefix} address-group ${row.name} description "${row.description}"`);
+        }
+        break;
+      }
+      case 'Services': {
+        const tags = getTagsForObject(row.id, 'service');
+        commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} port ${row.destination_port}${tags}`);
+        if (row.source_port) {
+          commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} source-port ${row.source_port}`);
+        }
+        if (row.description) {
+          commands.push(`${scopePrefix} service ${row.name} description "${row.description}"`);
+        }
+        break;
+      }
+      case 'Service Groups': {
+        const tags = getTagsForObject(row.id, 'service_group');
+        const svcMembers = row.member_list ? row.member_list.split(',') : [];
+        svcMembers.forEach((m: string) => {
+          commands.push(`${scopePrefix} service-group ${row.name} members ${m}`);
+        });
+        if (tags) {
+          commands.push(`${scopePrefix} service-group ${row.name}${tags}`);
+        }
+        if (row.description) {
+          commands.push(`${scopePrefix} service-group ${row.name} description "${row.description}"`);
+        }
+        break;
+      }
+      case 'Applications': {
+        const tags = getTagsForObject(row.id, 'application');
+        commands.push(`${scopePrefix} application ${row.name} category ${row.category} subcategory ${row.subcategory || row.subcategory} technology ${row.technology} risk ${row.risk}${tags}`);
+        if (row.ports) {
+          commands.push(`${scopePrefix} application ${row.name} ports ${row.ports}`);
+        }
+        if (row.description) {
+          commands.push(`${scopePrefix} application ${row.name} description "${row.description}"`);
+        }
+        break;
+      }
+      case 'Application Groups': {
+        const tags = getTagsForObject(row.id, 'application_group');
+        const appMembers = row.member_list ? row.member_list.split(',') : [];
+        appMembers.forEach((m: string) => {
+          commands.push(`${scopePrefix} application-group ${row.name} members ${m}`);
+        });
+        if (tags) {
+          commands.push(`${scopePrefix} application-group ${row.name}${tags}`);
+        }
+        if (row.description) {
+          commands.push(`${scopePrefix} application-group ${row.name} description "${row.description}"`);
+        }
+        break;
+      }
         case 'Tags':
           commands.push(`${scopePrefix} tag ${row.name} color ${row.color || 'color1'}`);
           if (row.description) {
@@ -2427,22 +2465,100 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       return commands;
     };
 
+  // Recursive helper for generating CLI commands
+  const generateRecursiveCliCommands = (row: any, visitedNames: Set<string>, typeContext: string): string[] => {
+    if (!row || !row.name) return [];
+    if (visitedNames.has(row.name)) return []; // Prevent circular dependencies
+    visitedNames.add(row.name);
+
+    const childCommands: string[] = [];
+
+    // Recursively resolve children based on group type
+    if (typeContext === 'Address Groups') {
+      const members = row.member_list ? row.member_list.split(',') : [];
+      members.forEach((m: string) => {
+        let child = allAddressGroups.find(g => g.name === m);
+        if (child) {
+          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Address Groups'));
+        } else {
+          child = allAddresses.find(a => a.name === m);
+          if (child) {
+            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Address Objects'));
+          }
+        }
+      });
+    } else if (typeContext === 'Service Groups') {
+      const members = row.member_list ? row.member_list.split(',') : [];
+      members.forEach((m: string) => {
+        let child = allServiceGroups.find(g => g.name === m);
+        if (child) {
+          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Service Groups'));
+        } else {
+          child = allServices.find(s => s.name === m);
+          if (child) {
+            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Services'));
+          }
+        }
+      });
+    } else if (typeContext === 'Application Groups') {
+      const members = row.member_list ? row.member_list.split(',') : [];
+      members.forEach((m: string) => {
+        let child = allApplicationGroups.find(g => g.name === m);
+        if (child) {
+          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Application Groups'));
+        } else {
+          child = allApplications.find(a => a.name === m);
+          if (child) {
+            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Applications'));
+          }
+        }
+      });
+    }
+
+    // Now append the current row's commands
+    const currentCommands = generateCliCommandsForRow(row, typeContext);
+    return [...childCommands, ...currentCommands];
+  };
+
   // Generate CLI commands for the modal
-  const handleGenerateCli = () => {
-    const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
+  const handleGenerateCli = (overrideRows?: any[]) => {
+    const rows = overrideRows || (selectedRows.length > 0 ? selectedRows : displayedTableData);
     if (rows.length === 0) {
       addToast('No records available to generate commands.', 'info');
       return;
     }
 
     let allCommands: string[] = [];
+    const visitedNames = new Set<string>();
+
     rows.forEach(row => {
-      allCommands.push(...generateCliCommandsForRow(row));
+      if (includeNestedCli) {
+        allCommands.push(...generateRecursiveCliCommands(row, visitedNames, activeSubTab));
+      } else {
+        allCommands.push(...generateCliCommandsForRow(row));
+      }
     });
 
     setGeneratedCommands(allCommands.join('\n'));
     setIsCliModalOpen(true);
   };
+
+  // Dynamically re-generate commands if toggle changes while modal is open
+  useEffect(() => {
+    if (isCliModalOpen) {
+      const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
+      let allCommands: string[] = [];
+      const visitedNames = new Set<string>();
+      rows.forEach(row => {
+        if (includeNestedCli) {
+          allCommands.push(...generateRecursiveCliCommands(row, visitedNames, activeSubTab));
+        } else {
+          allCommands.push(...generateCliCommandsForRow(row));
+        }
+      });
+      setGeneratedCommands(allCommands.join('\n'));
+    }
+  }, [includeNestedCli]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(generatedCommands);
@@ -3461,7 +3577,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         onClick={() => {
                           closeMenu();
-                          setSelectedRows([row]);
+                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                           handleClone();
                         }}
                       >
@@ -3472,7 +3589,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         onClick={() => {
                           closeMenu();
-                          setSelectedRows([row]);
+                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                           handleCloneToGroup();
                         }}
                       >
@@ -3483,7 +3601,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         onClick={() => {
                           closeMenu();
-                          setSelectedRows([row]);
+                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                           handleMoveToGroup();
                         }}
                       >
@@ -3495,8 +3614,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         onClick={() => {
                           closeMenu();
-                          setSelectedRows([row]);
-                          handleGenerateCli();
+                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                          handleGenerateCli(targetRows);
                         }}
                       >
                         <Code size={13} /> Generate CLI
@@ -3507,7 +3627,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         onClick={() => {
                           closeMenu();
-                          setSelectedRows([row]);
+                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                           handleBulkDelete();
                         }}
                       >
@@ -4410,8 +4531,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Execute the following native PAN-OS CLI commands in your device or Panorama terminal shell:
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Execute the following native PAN-OS CLI commands in your device or Panorama terminal shell for {selectedRows.length > 0 ? `${selectedRows.length} selected` : `all ${displayedTableData.length}`} {activeSubTab.toLowerCase()}:
+            </div>
+            
+            {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)' }}>
+                <input 
+                  type="checkbox" 
+                  checked={includeNestedCli}
+                  onChange={(e) => setIncludeNestedCli(e.target.checked)}
+                />
+                Include nested child objects
+              </label>
+            )}
           </div>
           <pre
             style={{
