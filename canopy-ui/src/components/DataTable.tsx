@@ -41,6 +41,9 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
   const [showTableActionsMenu, setShowTableActionsMenu] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   
+  // Feature: Column Filtering
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
   const startWidth = useRef<number>(0);
@@ -124,6 +127,17 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       );
     }
 
+    const filterKeys = Object.keys(columnFilters).filter(k => columnFilters[k].trim() !== '');
+    if (filterKeys.length > 0) {
+      rows = rows.filter(row => {
+        return filterKeys.every(k => {
+          const filterVal = columnFilters[k].toLowerCase();
+          const rowVal = String(row[k] || '').toLowerCase();
+          return rowVal.includes(filterVal);
+        });
+      });
+    }
+
     if (sortConfig) {
       rows = [...rows].sort((a, b) => {
         const valA = a[sortConfig.key] !== null && a[sortConfig.key] !== undefined ? String(a[sortConfig.key]) : '';
@@ -138,7 +152,7 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       });
     }
     return rows;
-  }, [data, searchQuery, sortConfig, columns]);
+  }, [data, searchQuery, sortConfig, columns, columnFilters]);
 
   useEffect(() => setCurrentPage(1), [searchQuery, data]);
 
@@ -381,10 +395,29 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
                 const colDef = getColDef(colKey);
                 return (
                   <th key={colKey} draggable onDragStart={(e) => handleDragStart(e, colKey)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, colKey)} style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', cursor: 'grab', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'hidden' }} title="Drag to reorder">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <div onClick={() => handleSort(colKey)} style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{colDef.label || colDef.key}</span>
-                        <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                        <div onClick={() => handleSort(colKey)} style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
+                          <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)', padding: '2px 6px', height: '22px' }}>
+                        <input 
+                          type="text"
+                          placeholder="Filter..."
+                          value={columnFilters[colKey] || ''}
+                          onChange={(e) => { setColumnFilters(prev => ({ ...prev, [colKey]: e.target.value })); setCurrentPage(1); }}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '11px', outline: 'none', width: '100%', minWidth: '30px' }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        />
+                        {columnFilters[colKey] && (
+                          <button onClick={(e) => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [colKey]: '' })); setCurrentPage(1); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div 

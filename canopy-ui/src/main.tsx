@@ -257,7 +257,7 @@ const App = () => {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;
     }
     if (activeMainTab === 'Monitor') {
-      return <MonitorPage auth={auth} />;
+      return <MonitorPage auth={auth} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
     if (activeMainTab === 'Network' && activeSubTab === 'Path Resolution') {
       return <PathResolutionPage auth={auth} addToast={addToast} />;

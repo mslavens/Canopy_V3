@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Database, Trash2, FileUp } from 'lucide-react';
+import { RefreshCw, Trash2, FileUp, Database, Copy, Eye } from 'lucide-react';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { LogImporter } from '../components/LogImporter';
 import { CanopyApiClient } from '../api/client';
@@ -9,6 +9,8 @@ import { SearchBar } from '../components/SearchBar';
 interface LogEntry {
   id: string;
   count: number;
+  device_name: string;
+  serial: string;
   source_zone: string;
   dest_zone: string;
   source_ip: string;
@@ -24,10 +26,11 @@ interface LogEntry {
 
 interface MonitorPageProps {
   auth: { url: string; token: string } | null;
+  activeSubTab: string;
+  setActiveSubTab: (tab: string) => void;
 }
 
-export const MonitorPage: React.FC<MonitorPageProps> = ({ auth }) => {
-  const [activeTab, setActiveTab] = useState<'traffic' | 'threat' | 'import'>('traffic');
+export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, setActiveSubTab }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,10 +56,10 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth }) => {
   };
 
   useEffect(() => {
-    if (activeTab === 'traffic') {
+    if (activeSubTab === 'Traffic Logs') {
       fetchLogs();
     }
-  }, [activeTab]);
+  }, [activeSubTab]);
 
   const handleDeleteLogs = async () => {
     if (!auth) return;
@@ -78,6 +81,8 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth }) => {
 
   const trafficColumns = useMemo<ColumnDef<LogEntry>[]>(() => [
     { key: 'count', header: 'Count', sortable: true, width: '80px' },
+    { key: 'device_name', header: 'Device Name', sortable: true, width: '160px' },
+    { key: 'serial', header: 'Serial #', sortable: true, width: '140px' },
     { key: 'source_zone', header: 'From Zone', sortable: true, width: '120px' },
     { key: 'dest_zone', header: 'To Zone', sortable: true, width: '120px' },
     { key: 'source_ip', header: 'Source IP', sortable: true, width: '140px' },
@@ -90,71 +95,65 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth }) => {
     { key: 'packets', header: 'Packets', sortable: true, width: '100px' }
   ], []);
 
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  if (activeSubTab === 'Log Import') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '30px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <LogImporter auth={auth} onSuccess={() => setActiveSubTab('Traffic Logs')} />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '30px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>Monitor</h1>
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {activeTab !== 'import' && (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', margin: '-30px' }}>
+      <DataTable
+        columns={trafficColumns}
+        data={logs}
+        searchQuery={searchQuery}
+        loading={loading}
+        toolbarTitle={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
             <SearchBar 
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search logs..."
-            />
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)' }}>
-        <button
-          className={`tab-item ${activeTab === 'traffic' ? 'active' : ''}`}
-          onClick={() => setActiveTab('traffic')}
-        >
-          <Database size={16} /> Traffic Logs
-        </button>
-        <button
-          className={`tab-item ${activeTab === 'threat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('threat')}
-        >
-          <Database size={16} /> Threat Logs
-        </button>
-        <button
-          className={`tab-item ${activeTab === 'import' ? 'active' : ''}`}
-          onClick={() => setActiveTab('import')}
-        >
-          <FileUp size={16} /> Import Logs
-        </button>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {activeTab === 'import' ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px' }}>
-            <LogImporter auth={auth} onSuccess={() => setActiveTab('traffic')} />
-          </div>
-        ) : (
-          <div style={{ flex: 1, margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column' }}>
-            <DataTable
-              key={activeTab}
-              loading={loading}
-              toolbarTitle={<h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{activeTab === 'traffic' ? 'Traffic' : 'Threat'}</h2>}
-              topRightActions={
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={fetchLogs} className="btn-secondary btn-sm" title="Refresh Logs">
-                    <RefreshCw size={14} /> Refresh
-                  </button>
-                  <button onClick={handleDeleteLogs} className="btn-danger btn-sm" title="Clear Logs">
-                    <Trash2 size={14} /> Clear Logs
-                  </button>
-                </div>
-              }
-              columns={trafficColumns}
-              data={logs}
-              searchQuery={searchQuery}
+              placeholder="Search all columns..."
             />
           </div>
+        }
+        topRightActions={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={fetchLogs} className="btn-secondary btn-sm" title="Refresh Logs">
+              <RefreshCw size={14} /> Refresh
+            </button>
+            <button onClick={handleDeleteLogs} className="btn-danger btn-sm" title="Clear Logs">
+              <Trash2 size={14} /> Clear Logs
+            </button>
+          </div>
+        }
+        rowContextMenuActions={(row, closeMenu) => (
+          <>
+            <button className="dropdown-option-row" onClick={() => { handleCopy(row.source_ip); closeMenu(); }}>
+              <Copy size={14} /> Copy Source IP
+            </button>
+            <button className="dropdown-option-row" onClick={() => { handleCopy(row.dest_ip); closeMenu(); }}>
+              <Copy size={14} /> Copy Destination IP
+            </button>
+            <button className="dropdown-option-row" onClick={() => { handleCopy(row.rule_name); closeMenu(); }}>
+              <Copy size={14} /> Copy Rule Name
+            </button>
+            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+            <button className="dropdown-option-row" onClick={() => { console.log('Details for', row); closeMenu(); }}>
+              <Eye size={14} /> View Full Details
+            </button>
+          </>
         )}
-      </div>
+      />
     </div>
   );
 };

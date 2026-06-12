@@ -47,7 +47,7 @@ const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Netw
 const subTabsMap: Record<string, string[]> = {
   'Device Management': ['Inventory', 'Device Groups', 'Templates'],
   'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
-  'Monitor': ['Traffic', 'Threat'],
+  'Monitor': ['Traffic Logs', 'Log Import'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
   'Policies': ['Security Rules', 'NAT Rules'],
