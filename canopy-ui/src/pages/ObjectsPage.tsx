@@ -308,6 +308,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const apiClient = useMemo(() => auth ? new CanopyApiClient(auth) : null, [auth]);
   const confirm = useConfirm();
 
+  const [exportIncludeChildren, setExportIncludeChildren] = useState(true);
+
   // Scopes states
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [firewalls, setFirewalls] = useState<any[]>([]);
@@ -2334,38 +2336,49 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
     const getTagsForObject = (entityId: number | string, entityType: string) => {
       const mappings = allTagMappings.filter(m => m.entity_id === entityId && m.entity_type === entityType);
+      const tags: any[] = [];
       if (mappings.length > 0) {
-        const tagNames = mappings.map(m => {
+        mappings.forEach(m => {
           const tag = allTags.find(t => t.id === m.tag_id);
-          return tag ? `"${tag.name}"` : null;
-        }).filter(Boolean);
-        if (tagNames.length > 0) {
-          return ` tag [ ${tagNames.join(' ')} ]`;
-        }
+          if (tag) tags.push(tag);
+        });
       }
-      return '';
+      let tagString = '';
+      if (tags.length > 0) {
+        const tagNames = tags.map(t => `"${t.name}"`);
+        tagString = ` tag [ ${tagNames.join(' ')} ]`;
+      }
+      return { tags, tagString };
+    };
+
+    const appendTagCreationCommands = (tags: any[]) => {
+      tags.forEach(t => {
+        commands.push(`${scopePrefix} tag ${t.name} color ${t.color || 'color1'}`);
+      });
     };
 
     switch (typeToUse) {
       case 'Address Objects': {
-        const tags = getTagsForObject(row.id, 'address_object');
-        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}${tags}`);
+        const { tags, tagString } = getTagsForObject(row.id, 'address_object');
+        appendTagCreationCommands(tags);
+        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}${tagString}`);
         if (row.description) {
           commands.push(`${scopePrefix} address ${row.name} description "${row.description}"`);
         }
         break;
       }
       case 'Address Groups': {
-        const tags = getTagsForObject(row.id, 'address_group');
+        const { tags, tagString } = getTagsForObject(row.id, 'address_group');
+        appendTagCreationCommands(tags);
         if (row.type === 'dynamic') {
-          commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"${tags}`);
+          commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"${tagString}`);
         } else {
           const members = row.member_list ? row.member_list.split(',') : [];
           members.forEach((m: string) => {
             commands.push(`${scopePrefix} address-group ${row.name} static ${m}`);
           });
-          if (tags) {
-            commands.push(`${scopePrefix} address-group ${row.name}${tags}`);
+          if (tagString) {
+            commands.push(`${scopePrefix} address-group ${row.name}${tagString}`);
           }
         }
         if (row.description) {
@@ -2374,8 +2387,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         break;
       }
       case 'Services': {
-        const tags = getTagsForObject(row.id, 'service');
-        commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} port ${row.destination_port}${tags}`);
+        const { tags, tagString } = getTagsForObject(row.id, 'service');
+        appendTagCreationCommands(tags);
+        commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} port ${row.destination_port}${tagString}`);
         if (row.source_port) {
           commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} source-port ${row.source_port}`);
         }
@@ -2385,13 +2399,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         break;
       }
       case 'Service Groups': {
-        const tags = getTagsForObject(row.id, 'service_group');
+        const { tags, tagString } = getTagsForObject(row.id, 'service_group');
+        appendTagCreationCommands(tags);
         const svcMembers = row.member_list ? row.member_list.split(',') : [];
         svcMembers.forEach((m: string) => {
           commands.push(`${scopePrefix} service-group ${row.name} members ${m}`);
         });
-        if (tags) {
-          commands.push(`${scopePrefix} service-group ${row.name}${tags}`);
+        if (tagString) {
+          commands.push(`${scopePrefix} service-group ${row.name}${tagString}`);
         }
         if (row.description) {
           commands.push(`${scopePrefix} service-group ${row.name} description "${row.description}"`);
@@ -2399,8 +2414,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         break;
       }
       case 'Applications': {
-        const tags = getTagsForObject(row.id, 'application');
-        commands.push(`${scopePrefix} application ${row.name} category ${row.category} subcategory ${row.subcategory || row.subcategory} technology ${row.technology} risk ${row.risk}${tags}`);
+        const { tags, tagString } = getTagsForObject(row.id, 'application');
+        appendTagCreationCommands(tags);
+        commands.push(`${scopePrefix} application ${row.name} category ${row.category} subcategory ${row.subcategory || row.subcategory} technology ${row.technology} risk ${row.risk}${tagString}`);
         if (row.ports) {
           commands.push(`${scopePrefix} application ${row.name} ports ${row.ports}`);
         }
@@ -2410,13 +2426,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         break;
       }
       case 'Application Groups': {
-        const tags = getTagsForObject(row.id, 'application_group');
+        const { tags, tagString } = getTagsForObject(row.id, 'application_group');
+        appendTagCreationCommands(tags);
         const appMembers = row.member_list ? row.member_list.split(',') : [];
         appMembers.forEach((m: string) => {
           commands.push(`${scopePrefix} application-group ${row.name} members ${m}`);
         });
-        if (tags) {
-          commands.push(`${scopePrefix} application-group ${row.name}${tags}`);
+        if (tagString) {
+          commands.push(`${scopePrefix} application-group ${row.name}${tagString}`);
         }
         if (row.description) {
           commands.push(`${scopePrefix} application-group ${row.name} description "${row.description}"`);
@@ -2515,8 +2532,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       });
     }
 
-    // Now append the current row's commands
-    const currentCommands = generateCliCommandsForRow(row, typeContext);
+    // Now append the current row's commands, filtering out commands for tags we've already generated
+    const currentCommands = generateCliCommandsForRow(row, typeContext).filter(cmd => {
+      if (cmd.includes(' tag ') && cmd.includes(' color ')) {
+        const parts = cmd.split(' ');
+        const tagIndex = parts.indexOf('tag');
+        if (tagIndex !== -1 && tagIndex + 1 < parts.length) {
+          const tagName = parts[tagIndex + 1];
+          const tagKey = `tag:${tagName}`;
+          if (visitedNames.has(tagKey)) return false;
+          visitedNames.add(tagKey);
+        }
+      }
+      return true;
+    });
+    
     return [...childCommands, ...currentCommands];
   };
 
@@ -3639,7 +3669,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
                   additionalExportColumns={[{
                     header: 'CLI Output',
-                    getValue: (row) => generateCliCommandsForRow(row).join('\n')
+                    getValue: (row) => {
+                      if (exportIncludeChildren && ['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab)) {
+                        const visited = new Set<string>();
+                        return generateRecursiveCliCommands(row, visited, activeSubTab).join('\n');
+                      }
+                      return generateCliCommandsForRow(row).join('\n');
+                    }
                   }]}
                   rowStyle={(row) => {
                     const isShowAll = currentScope === 'show-all';
@@ -3648,6 +3684,19 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   }}
                   exportActions={
                     <>
+                      {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
+                        <>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', padding: '6px 16px' }} onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={exportIncludeChildren}
+                              onChange={(e) => setExportIncludeChildren(e.target.checked)}
+                            />
+                            Include nested dependencies
+                          </label>
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        </>
+                      )}
                       {selectedRows.length > 0 && (
                         <>
                           <button
