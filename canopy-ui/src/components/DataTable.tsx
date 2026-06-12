@@ -276,8 +276,8 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </div>
             )}
           </div>
-          {exportFilename && processedRows.length > 0 && (
-            <button className="btn-secondary btn-sm" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {exportFilename && (
+            <button className="btn-secondary btn-sm" disabled={processedRows.length === 0} onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Upload size={14} /> Export CSV
             </button>
           )}

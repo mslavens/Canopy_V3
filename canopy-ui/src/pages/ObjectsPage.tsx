@@ -2958,7 +2958,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         </div>
 
         {/* The data table area - Stretch to edge-to-edge */}
-        <div style={{ flex: 1, padding: '0 0 20px 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ flex: 1, padding: '0 0 20px 0', margin: '0 -20px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           {loading ? (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', gap: '10px' }}>
               <Loader2 className="spin-animation" size={20} /> Loading database records...
