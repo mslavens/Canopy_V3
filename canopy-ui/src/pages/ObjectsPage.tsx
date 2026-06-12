@@ -310,7 +310,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // Scopes states
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [firewalls, setFirewalls] = useState<any[]>([]);
-  const [currentScope, setCurrentScope] = useState<string>('show-all');
+  const [currentScope, setCurrentScope] = useState<string>('paloalto-panorama-global');
 
   // Data Loading States
   const [tableData, setTableData] = useState<any[]>([]);
