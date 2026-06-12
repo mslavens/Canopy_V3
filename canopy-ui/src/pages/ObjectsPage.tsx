@@ -331,10 +331,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSelectorModalOpen, setIsSelectorModalOpen] = useState<boolean>(false);
+  const [selectorType, setSelectorType] = useState<'members' | 'tags'>('members');
   const [selectorSearchQuery, setSelectorSearchQuery] = useState<string>('');
   const [selectorCheckedNames, setSelectorCheckedNames] = useState<string[]>([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState<string>('');
   const [memberCheckedNames, setMemberCheckedNames] = useState<string[]>([]);
+  const [tagSearchQuery, setTagSearchQuery] = useState<string>('');
+  const [tagCheckedNames, setTagCheckedNames] = useState<string[]>([]);
 
   // Dropdown options lists for relationships
   const [allAddresses, setAllAddresses] = useState<any[]>([]);
@@ -467,6 +470,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     });
     return Object.values(map);
   }, []);
+
+  const tagAvailableItems = useMemo(() => {
+    const colorMap: Record<string, string> = {
+      color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
+      color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
+      color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
+      color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
+    };
+    return allTags.map(t => ({
+      name: t.name,
+      type: 'tag',
+      value: '',
+      icon: <Tag size={12} style={{ color: colorMap[t.color] || 'inherit' }} />
+    }));
+  }, [allTags]);
 
   // Dual List available items for group CRUD editors
   const addressGroupAvailableItems = useMemo(() => {
@@ -812,6 +830,234 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     );
   };
 
+  const renderTagsSection = (selectedTags: string[]) => {
+    const filteredSelected = selectedTags.filter(name => name.toLowerCase().includes(tagSearchQuery.toLowerCase()));
+
+    const handleToggleCheck = (name: string) => {
+      if (tagCheckedNames.includes(name)) {
+        setTagCheckedNames(tagCheckedNames.filter(n => n !== name));
+      } else {
+        setTagCheckedNames([...tagCheckedNames, name]);
+      }
+    };
+
+    const handleSelectAll = () => {
+      const allCheckedOnScreen = filteredSelected.every(name => tagCheckedNames.includes(name));
+      if (allCheckedOnScreen) {
+        setTagCheckedNames(tagCheckedNames.filter(name => !filteredSelected.includes(name)));
+      } else {
+        const newChecked = [...tagCheckedNames];
+        filteredSelected.forEach(name => {
+          if (!newChecked.includes(name)) {
+            newChecked.push(name);
+          }
+        });
+        setTagCheckedNames(newChecked);
+      }
+    };
+
+    const handleRemoveSelected = (e: React.MouseEvent) => {
+      e.preventDefault();
+      const newTags = selectedTags.filter(name => !tagCheckedNames.includes(name));
+      setFormTags(newTags);
+      setTagCheckedNames([]);
+    };
+
+    const isAllChecked = filteredSelected.length > 0 && filteredSelected.every(name => tagCheckedNames.includes(name));
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden', height: '180px', marginTop: '5px' }}>
+        {/* Header with Title and Actions */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '41px', flexShrink: 0 }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Selected Tags ({selectedTags.length})</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {tagCheckedNames.length > 0 && (
+              <button
+                onClick={handleRemoveSelected}
+                style={{
+                  backgroundColor: 'var(--status-red)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  height: '24px'
+                }}
+              >
+                <Trash2 size={11} />
+                Remove ({tagCheckedNames.length})
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectorType('tags');
+                setSelectorCheckedNames([]);
+                setSelectorSearchQuery('');
+                setIsSelectorModalOpen(true);
+              }}
+              className="btn-primary"
+              style={{
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                height: '24px'
+              }}
+            >
+              <Plus size={12} />
+              Add Tags
+            </button>
+          </div>
+        </div>
+
+        {/* Search Input */}
+        {selectedTags.length > 0 && (
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-main)', display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+              <Search size={12} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search tags..."
+                value={tagSearchQuery}
+                onChange={(e) => setTagSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '4px 24px 4px 24px',
+                  fontSize: '11px',
+                  backgroundColor: 'var(--bg-app)',
+                  border: '1px solid var(--border-main)',
+                  borderRadius: '4px',
+                  color: 'var(--text-main)',
+                  outline: 'none'
+                }}
+              />
+              {tagSearchQuery && (
+                <button
+                  onClick={() => setTagSearchQuery('')}
+                  style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Select All Checkbox */}
+        {filteredSelected.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', flexShrink: 0 }}>
+            <input 
+              type="checkbox"
+              id="select-all-tags"
+              checked={isAllChecked}
+              onChange={handleSelectAll}
+              style={{ cursor: 'pointer' }}
+            />
+            <label htmlFor="select-all-tags" style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
+              {isAllChecked ? 'Deselect All' : 'Select All matching'}
+            </label>
+          </div>
+        )}
+
+        {/* Scrollable Tags List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          {selectedTags.length === 0 ? (
+            <div style={{ padding: '30px 20px' }}>
+              <EmptyState icon={<Tag size={24} />} title="No tags selected" description="Click '+ Add Tags' to assign tags." minHeight="80px" />
+            </div>
+          ) : filteredSelected.length === 0 ? (
+            <div style={{ padding: '20px' }}>
+              <EmptyState icon={<Search size={24} />} title="No tags match search query" description="Try a different term." minHeight="80px" />
+            </div>
+          ) : (
+            filteredSelected.map(name => {
+              const isChecked = tagCheckedNames.includes(name);
+              const tagObj = allTags.find(t => t.name === name);
+              const colorMap: Record<string, string> = {
+                color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
+                color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
+                color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
+                color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
+              };
+              const hex = colorMap[tagObj?.color || 'color1'] || 'var(--text-muted)';
+              
+              return (
+                <div
+                  key={name}
+                  onClick={() => handleToggleCheck(name)}
+                  style={{
+                    padding: '6px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '12px',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.02)',
+                    backgroundColor: isChecked ? 'var(--bg-element)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  className="dropdown-option-row"
+                  onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
+                  onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <input 
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                    />
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: `${hex}22`,
+                        color: hex,
+                        border: `1px solid ${hex}44`,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {name}
+                      </span>
+                    </span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormTags(selectedTags.filter(n => n !== name));
+                      setTagCheckedNames(tagCheckedNames.filter(n => n !== name));
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+                    title="Remove Tag"
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--status-red)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderSelectorModal = (availableItems: { name: string; type: string; value: string; icon: React.ReactNode }[]) => {
     const searchFiltered = availableItems.filter(item => 
       item.name.toLowerCase().includes(selectorSearchQuery.toLowerCase()) ||
@@ -829,7 +1075,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       }
     };
 
-    const selectableSearchFilteredTotal = searchFiltered.filter(item => !formMembers.includes(item.name));
+    const currentList = selectorType === 'tags' ? formTags : formMembers;
+    const selectableSearchFilteredTotal = searchFiltered.filter(item => !currentList.includes(item.name));
 
     const handleSelectAll = () => {
       const allSelectableNames = selectableSearchFilteredTotal.map(item => item.name);
@@ -849,7 +1096,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     };
 
     const handleAddSelected = () => {
-      setFormMembers([...formMembers, ...selectorCheckedNames]);
+      if (selectorType === 'tags') {
+        setFormTags([...formTags, ...selectorCheckedNames]);
+      } else {
+        setFormMembers([...formMembers, ...selectorCheckedNames]);
+      }
       setIsSelectorModalOpen(false);
       setSelectorCheckedNames([]);
       setSelectorSearchQuery('');
@@ -1221,11 +1472,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
   }, [currentScope, deviceGroups, firewalls]);
 
+  const hasInitiallyLoaded = useRef(false);
+
   // Fetch active tab records
   const fetchRecords = async () => {
     if (!apiClient) return;
-    const isInitialLoad = tableData.length === 0;
-    if (isInitialLoad) {
+    if (!hasInitiallyLoaded.current) {
       setLoading(true);
     }
     try {
@@ -1357,7 +1609,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       addToast('Failed to load objects from the database.', 'error');
     } finally {
       setDataViewTab(activeSubTab);
-      setLoading(false);
+      if (!hasInitiallyLoaded.current) {
+        setLoading(false);
+        hasInitiallyLoaded.current = true;
+      }
     }
   };
 
@@ -3580,59 +3835,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   required
                 />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags (Optional)</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                  {formTags.map(tName => {
-                    const tagObj = allTags.find(t => t.name === tName);
-                    const colorMap: Record<string, string> = {
-                      color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
-                      color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
-                      color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
-                      color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
-                    };
-                    const hex = tagObj ? (colorMap[tagObj.color] || 'var(--text-muted)') : 'var(--text-muted)';
-                    return (
-                      <span
-                        key={tName}
-                        style={{
-                          fontSize: '11px',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          backgroundColor: `${hex}22`,
-                          color: hex,
-                          border: `1px solid ${hex}44`,
-                          fontWeight: 600,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
-                        {tName}
-                        <button
-                          type="button"
-                          onClick={() => setFormTags(formTags.filter(t => t !== tName))}
-                          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                        >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-                <Dropdown
-                  width="100%"
-                  value=""
-                  onChange={(val) => {
-                    if (val && !formTags.includes(val)) {
-                      setFormTags([...formTags, val]);
-                    }
-                  }}
-                  options={['', ...allTags.map(t => t.name).filter(name => !formTags.includes(name))]}
-                  renderOption={(opt) => opt || 'Select tag...'}
-                  searchable={true}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                {renderTagsSection(formTags)}
               </div>
             </>
           )}
@@ -3820,58 +4024,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags (Optional)</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                  {formTags.map(tName => {
-                    const tagObj = allTags.find(t => t.name === tName);
-                    const colorMap: Record<string, string> = {
-                      color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
-                      color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
-                      color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
-                      color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
-                    };
-                    const hex = tagObj ? (colorMap[tagObj.color] || 'var(--text-muted)') : 'var(--text-muted)';
-                    return (
-                      <span
-                        key={tName}
-                        style={{
-                          fontSize: '11px',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          backgroundColor: `${hex}22`,
-                          color: hex,
-                          border: `1px solid ${hex}44`,
-                          fontWeight: 600,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}
-                      >
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
-                        {tName}
-                        <button
-                          type="button"
-                          onClick={() => setFormTags(formTags.filter(t => t !== tName))}
-                          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                        >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-                <Dropdown
-                  width="100%"
-                  value=""
-                  onChange={(val) => {
-                    if (val && !formTags.includes(val)) {
-                      setFormTags([...formTags, val]);
-                    }
-                  }}
-                  options={['', ...allTags.map(t => t.name).filter(name => !formTags.includes(name))]}
-                  renderOption={(opt) => opt || 'Select tag...'}
-                  searchable={true}
-                />
+                {renderTagsSection(formTags)}
               </div>
             </>
           )}
@@ -4173,11 +4326,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
       {/* Secondary Selection Modal for adding group members */}
       {isSelectorModalOpen && renderSelectorModal(
-        activeSubTab === 'Address Groups' 
-          ? addressGroupAvailableItems 
-          : activeSubTab === 'Service Groups' 
-            ? serviceGroupAvailableItems 
-            : applicationGroupAvailableItems
+        selectorType === 'tags' 
+          ? tagAvailableItems 
+          : activeSubTab === 'Address Groups' 
+            ? addressGroupAvailableItems 
+            : activeSubTab === 'Service Groups' 
+              ? serviceGroupAvailableItems 
+              : applicationGroupAvailableItems
       )}
 
       {/* 5. CLI Commands Output Modal */}
