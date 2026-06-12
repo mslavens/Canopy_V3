@@ -51,12 +51,12 @@ type XMLAddressGroupEntry struct {
 }
 
 type XMLServiceEntry struct {
-	Name        string `xml:"name,attr"`
-	TCP         *struct {
+	Name string `xml:"name,attr"`
+	TCP  *struct {
 		Port       string `xml:"port"`
 		SourcePort string `xml:"source-port"`
 	} `xml:"protocol>tcp"`
-	UDP         *struct {
+	UDP *struct {
 		Port       string `xml:"port"`
 		SourcePort string `xml:"source-port"`
 	} `xml:"protocol>udp"`
@@ -199,7 +199,7 @@ type XMLProfiles struct {
 	FileBlocking []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"file-blocking>entry"`
-	CustomURLCategories   []XMLCustomURLCategoryEntry    `xml:"custom-url-category>entry"`
+	CustomURLCategories []XMLCustomURLCategoryEntry `xml:"custom-url-category>entry"`
 }
 
 // Rules XML representation
@@ -271,9 +271,9 @@ type XMLPBFRuleEntry struct {
 		NextHop   string `xml:"next-hop"`
 		Monitor   string `xml:"monitor>profile"`
 	} `xml:"forward"`
-	Disabled    string   `xml:"disabled"`
-	Description string   `xml:"description"`
-	Schedule    string   `xml:"schedule"`
+	Disabled    string `xml:"disabled"`
+	Description string `xml:"description"`
+	Schedule    string `xml:"schedule"`
 }
 
 type XMLDecryptionRuleEntry struct {
@@ -323,8 +323,8 @@ type XMLRulebase struct {
 	QoSRules              []XMLQoSRuleEntry              `xml:"qos>rules>entry"`
 	PBFRules              []XMLPBFRuleEntry              `xml:"pbf>rules>entry"`
 	DecryptionRules       []XMLDecryptionRuleEntry       `xml:"decryption>rules>entry"`
-	AppOverrideRules      []XMLAppOverrideRuleEntry        `xml:"application-override>rules>entry"`
-	TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"tunnel-inspection>rules>entry"`
+	AppOverrideRules      []XMLAppOverrideRuleEntry      `xml:"application-override>rules>entry"`
+	TunnelInspectionRules []XMLTunnelInspectionRuleEntry `xml:"tunnel-inspection>rules>entry"`
 }
 
 type XMLDeviceGroup struct {
@@ -494,8 +494,8 @@ type PaloAltoConfig struct {
 			QoSRules              []XMLQoSRuleEntry              `xml:"rulebase>qos>rules>entry"`
 			PBFRules              []XMLPBFRuleEntry              `xml:"rulebase>pbf>rules>entry"`
 			DecryptionRules       []XMLDecryptionRuleEntry       `xml:"rulebase>decryption>rules>entry"`
-			AppOverrideRules      []XMLAppOverrideRuleEntry        `xml:"rulebase>application-override>rules>entry"`
-			TunnelInspectionRules []XMLTunnelInspectionRuleEntry   `xml:"rulebase>tunnel-inspection>rules>entry"`
+			AppOverrideRules      []XMLAppOverrideRuleEntry      `xml:"rulebase>application-override>rules>entry"`
+			TunnelInspectionRules []XMLTunnelInspectionRuleEntry `xml:"rulebase>tunnel-inspection>rules>entry"`
 			Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 			Profiles              XMLProfiles                    `xml:"profiles"`
 			SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
@@ -607,27 +607,37 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 		if add, mod, unc, err := a.compareAddressObjects(sharedUUID, "shared", config.Shared.Address); err != nil {
 			return nil, fmt.Errorf("compareAddressObjects shared: %w", err)
 		} else {
-			addedCount += add; modifiedCount += mod; unchangedCount += unc
+			addedCount += add
+			modifiedCount += mod
+			unchangedCount += unc
 		}
 		if add, mod, unc, err := a.compareServiceObjects(sharedUUID, "shared", config.Shared.Service); err != nil {
 			return nil, fmt.Errorf("compareServiceObjects shared: %w", err)
 		} else {
-			addedCount += add; modifiedCount += mod; unchangedCount += unc
+			addedCount += add
+			modifiedCount += mod
+			unchangedCount += unc
 		}
 		if add, mod, unc, err := a.compareAddressGroups(sharedUUID, "shared", config.Shared.AddressGroup); err != nil {
 			return nil, fmt.Errorf("compareAddressGroups shared: %w", err)
 		} else {
-			addedCount += add; modifiedCount += mod; unchangedCount += unc
+			addedCount += add
+			modifiedCount += mod
+			unchangedCount += unc
 		}
 		if add, mod, unc, err := a.compareServiceGroups(sharedUUID, "shared", config.Shared.ServiceGroup); err != nil {
 			return nil, fmt.Errorf("compareServiceGroups shared: %w", err)
 		} else {
-			addedCount += add; modifiedCount += mod; unchangedCount += unc
+			addedCount += add
+			modifiedCount += mod
+			unchangedCount += unc
 		}
 		if add, mod, unc, err := a.compareApplicationObjects(sharedUUID, "shared", config.Shared.Application); err != nil {
 			return nil, fmt.Errorf("compareApplicationObjects shared: %w", err)
 		} else {
-			addedCount += add; modifiedCount += mod; unchangedCount += unc
+			addedCount += add
+			modifiedCount += mod
+			unchangedCount += unc
 		}
 
 		// Calculate object deltas for Device Groups
@@ -636,27 +646,37 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			if add, mod, unc, err := a.compareAddressObjects(dgUUID, dg.Name, dg.Address); err != nil {
 				return nil, fmt.Errorf("compareAddressObjects dg %s: %w", dg.Name, err)
 			} else {
-				addedCount += add; modifiedCount += mod; unchangedCount += unc
+				addedCount += add
+				modifiedCount += mod
+				unchangedCount += unc
 			}
 			if add, mod, unc, err := a.compareServiceObjects(dgUUID, dg.Name, dg.Service); err != nil {
 				return nil, fmt.Errorf("compareServiceObjects dg %s: %w", dg.Name, err)
 			} else {
-				addedCount += add; modifiedCount += mod; unchangedCount += unc
+				addedCount += add
+				modifiedCount += mod
+				unchangedCount += unc
 			}
 			if add, mod, unc, err := a.compareAddressGroups(dgUUID, dg.Name, dg.AddressGroup); err != nil {
 				return nil, fmt.Errorf("compareAddressGroups dg %s: %w", dg.Name, err)
 			} else {
-				addedCount += add; modifiedCount += mod; unchangedCount += unc
+				addedCount += add
+				modifiedCount += mod
+				unchangedCount += unc
 			}
 			if add, mod, unc, err := a.compareServiceGroups(dgUUID, dg.Name, dg.ServiceGroup); err != nil {
 				return nil, fmt.Errorf("compareServiceGroups dg %s: %w", dg.Name, err)
 			} else {
-				addedCount += add; modifiedCount += mod; unchangedCount += unc
+				addedCount += add
+				modifiedCount += mod
+				unchangedCount += unc
 			}
 			if add, mod, unc, err := a.compareApplicationObjects(dgUUID, dg.Name, dg.Application); err != nil {
 				return nil, fmt.Errorf("compareApplicationObjects dg %s: %w", dg.Name, err)
 			} else {
-				addedCount += add; modifiedCount += mod; unchangedCount += unc
+				addedCount += add
+				modifiedCount += mod
+				unchangedCount += unc
 			}
 		}
 
@@ -672,11 +692,21 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 				if md.Serial != "" && md.Serial != "localhost.localdomain" {
 					existing, exists := allManagedDevices[md.Serial]
 					if exists {
-						if existing.Hostname == "" { existing.Hostname = md.Hostname }
-						if existing.IPAddress == "" { existing.IPAddress = md.IPAddress }
-						if existing.IP == "" { existing.IP = md.IP }
-						if existing.TemplateStack == "" { existing.TemplateStack = md.TemplateStack }
-						if existing.Template == "" { existing.Template = md.Template }
+						if existing.Hostname == "" {
+							existing.Hostname = md.Hostname
+						}
+						if existing.IPAddress == "" {
+							existing.IPAddress = md.IPAddress
+						}
+						if existing.IP == "" {
+							existing.IP = md.IP
+						}
+						if existing.TemplateStack == "" {
+							existing.TemplateStack = md.TemplateStack
+						}
+						if existing.Template == "" {
+							existing.Template = md.Template
+						}
 						allManagedDevices[md.Serial] = existing
 					} else {
 						allManagedDevices[md.Serial] = md
@@ -689,11 +719,21 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 				if md.Serial != "" && md.Serial != "localhost.localdomain" {
 					existing, exists := allManagedDevices[md.Serial]
 					if exists {
-						if existing.Hostname == "" { existing.Hostname = md.Hostname }
-						if existing.IPAddress == "" { existing.IPAddress = md.IPAddress }
-						if existing.IP == "" { existing.IP = md.IP }
-						if existing.TemplateStack == "" { existing.TemplateStack = md.TemplateStack }
-						if existing.Template == "" { existing.Template = md.Template }
+						if existing.Hostname == "" {
+							existing.Hostname = md.Hostname
+						}
+						if existing.IPAddress == "" {
+							existing.IPAddress = md.IPAddress
+						}
+						if existing.IP == "" {
+							existing.IP = md.IP
+						}
+						if existing.TemplateStack == "" {
+							existing.TemplateStack = md.TemplateStack
+						}
+						if existing.Template == "" {
+							existing.Template = md.Template
+						}
 						allManagedDevices[md.Serial] = existing
 					} else {
 						allManagedDevices[md.Serial] = md
@@ -736,7 +776,9 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 						break
 					}
 				}
-				if dgName != "" { break }
+				if dgName != "" {
+					break
+				}
 			}
 
 			stackName := mdev.TemplateStack
@@ -751,14 +793,18 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 							break
 						}
 					}
-					if stackName != "" { break }
+					if stackName != "" {
+						break
+					}
 					for _, devEntry := range stack.DevicesEntries {
 						if devEntry.Name == mdev.Serial {
 							stackName = stack.Name
 							break
 						}
 					}
-					if stackName != "" { break }
+					if stackName != "" {
+						break
+					}
 				}
 			}
 
@@ -895,27 +941,37 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 				if add, mod, unc, err := a.compareAddressObjects(deviceUUID, scope, vsys.Address); err != nil {
 					return nil, fmt.Errorf("compareAddressObjects standalone vsys %s: %w", vsys.Name, err)
 				} else {
-					addedCount += add; modifiedCount += mod; unchangedCount += unc
+					addedCount += add
+					modifiedCount += mod
+					unchangedCount += unc
 				}
 				if add, mod, unc, err := a.compareServiceObjects(deviceUUID, scope, vsys.Service); err != nil {
 					return nil, fmt.Errorf("compareServiceObjects standalone vsys %s: %w", vsys.Name, err)
 				} else {
-					addedCount += add; modifiedCount += mod; unchangedCount += unc
+					addedCount += add
+					modifiedCount += mod
+					unchangedCount += unc
 				}
 				if add, mod, unc, err := a.compareAddressGroups(deviceUUID, scope, vsys.AddressGroup); err != nil {
 					return nil, fmt.Errorf("compareAddressGroups standalone vsys %s: %w", vsys.Name, err)
 				} else {
-					addedCount += add; modifiedCount += mod; unchangedCount += unc
+					addedCount += add
+					modifiedCount += mod
+					unchangedCount += unc
 				}
 				if add, mod, unc, err := a.compareServiceGroups(deviceUUID, scope, vsys.ServiceGroup); err != nil {
 					return nil, fmt.Errorf("compareServiceGroups standalone vsys %s: %w", vsys.Name, err)
 				} else {
-					addedCount += add; modifiedCount += mod; unchangedCount += unc
+					addedCount += add
+					modifiedCount += mod
+					unchangedCount += unc
 				}
 				if add, mod, unc, err := a.compareApplicationObjects(deviceUUID, scope, vsys.Application); err != nil {
 					return nil, fmt.Errorf("compareApplicationObjects standalone vsys %s: %w", vsys.Name, err)
 				} else {
-					addedCount += add; modifiedCount += mod; unchangedCount += unc
+					addedCount += add
+					modifiedCount += mod
+					unchangedCount += unc
 				}
 			}
 
@@ -1576,7 +1632,9 @@ func insertSecurityProfiles(tx *sql.Tx, deviceUUID, scope string, profiles XMLPr
 	}
 	defer stmt.Close()
 
-	insertSlice := func(typeStr string, entries []struct{ Name string `xml:"name,attr"` }) error {
+	insertSlice := func(typeStr string, entries []struct {
+		Name string `xml:"name,attr"`
+	}) error {
 		for _, entry := range entries {
 			res, err := stmt.Exec(deviceUUID, scope, entry.Name, typeStr)
 			if err != nil {
@@ -2395,7 +2453,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	if isPanorama {
 		sharedUUID := "paloalto-panorama-global"
 		clearDeviceTables(tx, sharedUUID)
-		
+
 		// Register shared scope
 		if _, err := scopeStmt.Exec(sharedUUID, "shared", nil, "Shared", nil); err != nil {
 			return 0, 0, fmt.Errorf("failed to register shared panorama global scope: %w", err)
@@ -2414,7 +2472,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			tmplID, _ := res.LastInsertId()
 			templateNameToID[tmpl.Name] = tmplID
 
-			if _, err := scopeStmt.Exec(deviceUUID, "template", tmplID, tmpl.Name + " (Panorama)", nil); err != nil {
+			if _, err := scopeStmt.Exec(deviceUUID, "template", tmplID, tmpl.Name+" (Panorama)", nil); err != nil {
 				return 0, 0, fmt.Errorf("failed to register template scope %s: %w", tmpl.Name, err)
 			}
 			devicesImported++
@@ -2481,7 +2539,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			stackID, _ := res.LastInsertId()
 			stackNameToID[stack.Name] = stackID
 
-			if _, err := scopeStmt.Exec(stackUUID, "template-stack", stackID, stack.Name + " (Template Stack)", nil); err != nil {
+			if _, err := scopeStmt.Exec(stackUUID, "template-stack", stackID, stack.Name+" (Template Stack)", nil); err != nil {
 				return 0, 0, fmt.Errorf("failed to register template stack scope %s: %w", stack.Name, err)
 			}
 			devicesImported++
@@ -2497,7 +2555,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					tmplID, _ = res.LastInsertId()
 					templateNameToID[tmplMember] = tmplID
 
-					if _, err := scopeStmt.Exec("panorama-tmpl-"+tmplMember, "template", tmplID, tmplMember + " (Panorama)", nil); err != nil {
+					if _, err := scopeStmt.Exec("panorama-tmpl-"+tmplMember, "template", tmplID, tmplMember+" (Panorama)", nil); err != nil {
 						return 0, 0, fmt.Errorf("failed to register placeholder template scope: %w", err)
 					}
 				}
@@ -2592,7 +2650,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			dgID, _ := res.LastInsertId()
 			dgNameToID[dg.Name] = dgID
 
-			if _, err := scopeStmt.Exec(dgUUID, "device-group", dgID, dg.Name + " (Device Group)", nil); err != nil {
+			if _, err := scopeStmt.Exec(dgUUID, "device-group", dgID, dg.Name+" (Device Group)", nil); err != nil {
 				return 0, 0, fmt.Errorf("failed to register device group scope %s: %w", dg.Name, err)
 			}
 			devicesImported++
@@ -2948,7 +3006,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 
 				devUUID := "paloalto-fw-" + name + "-" + mdev.Serial
-				
+
 				// Register scope for this firewall if it does not exist
 				var exists int
 				tx.QueryRow("SELECT COUNT(*) FROM scopes WHERE uuid = ?", devUUID).Scan(&exists)
@@ -2959,7 +3017,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					} else if stackName != "" {
 						parentScopeUUID = "panorama-stack-" + stackName
 					}
-					
+
 					if _, err := tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'firewall', NULL, ?, ?)", devUUID, name, parentScopeUUID); err != nil {
 						slog.Error("Failed to register firewall scope", slog.String("error", err.Error()))
 					}
@@ -3365,7 +3423,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	}
 	// Automated Self-Healing: Provision missing metadata table entries (device_groups, templates, template_stacks, managed_devices_raw)
 	// for any placeholder scopes created during objects or rules ingestion.
-	
+
 	// 1. Repair missing device groups
 	if dgRows, err := tx.Query(`
 		SELECT uuid, name 

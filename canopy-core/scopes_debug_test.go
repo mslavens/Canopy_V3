@@ -51,7 +51,7 @@ func TestPrintDatabaseScopes(t *testing.T) {
 		if errOpen != nil {
 			continue
 		}
-		
+
 		// Try to query scopes to see if key works
 		var count int
 		errQuery := testDB.QueryRow("SELECT COUNT(*) FROM scopes").Scan(&count)

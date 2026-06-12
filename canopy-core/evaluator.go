@@ -70,15 +70,16 @@ func (l *lexer) nextToken() Token {
 	val := string(l.input[start:l.pos])
 	upperVal := strings.ToUpper(val)
 
-	if upperVal == "AND" {
+	switch upperVal {
+	case "AND":
 		return Token{Type: TokenAnd, Value: val}
-	} else if upperVal == "OR" {
+	case "OR":
 		return Token{Type: TokenOr, Value: val}
-	} else if upperVal == "NOT" {
+	case "NOT":
 		return Token{Type: TokenNot, Value: val}
+	default:
+		return Token{Type: TokenTag, Value: val}
 	}
-
-	return Token{Type: TokenTag, Value: val}
 }
 
 func (l *lexer) skipWhitespace() {
@@ -212,7 +213,7 @@ func EvaluateFilter(filter string, tags []string) bool {
 	if strings.TrimSpace(filter) == "" {
 		return false
 	}
-	
+
 	tagMap := make(map[string]bool)
 	for _, t := range tags {
 		tagMap[strings.ToLower(strings.TrimSpace(t))] = true

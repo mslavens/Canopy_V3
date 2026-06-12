@@ -43,7 +43,7 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 	defer rows.Close()
 
 	type dynGroup struct {
-		id    int64
+		id     int64
 		filter string
 		scope  string
 	}
@@ -133,7 +133,7 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			if c.eType == "address_group" && c.id == g.id {
 				continue // Can't contain itself
 			}
-			
+
 			// Determine if candidate scope is valid for this group
 			// Local groups can see local and shared candidates.
 			// Shared groups can ONLY see shared candidates.
@@ -142,17 +142,21 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			}
 
 			tags := tagMap[c.eType][c.id]
-			
+
 			slog.Info("Evaluating candidate for dynamic group", slog.Int64("candidate_id", c.id), slog.String("eType", c.eType), slog.Int64("group_id", g.id), slog.String("filter", g.filter), slog.Any("tags", tags))
-			
+
 			if EvaluateFilter(g.filter, tags) {
 				slog.Info("Candidate MATCHED filter!", slog.Int64("candidate_id", c.id), slog.Int64("group_id", g.id))
 				if c.eType == "address_object" {
 					_, err := tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", g.id, c.id)
-					if err != nil { slog.Error("Failed to insert dynamic member object", slog.String("err", err.Error())) }
+					if err != nil {
+						slog.Error("Failed to insert dynamic member object", slog.String("err", err.Error()))
+					}
 				} else {
 					_, err := tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", g.id, c.id)
-					if err != nil { slog.Error("Failed to insert dynamic member group", slog.String("err", err.Error())) }
+					if err != nil {
+						slog.Error("Failed to insert dynamic member group", slog.String("err", err.Error()))
+					}
 				}
 			}
 		}

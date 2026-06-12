@@ -82,7 +82,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 			res, err := currentStmt.Exec(req.DeviceUUID, req.Scope, name, addrType, value, desc)
 			if err == nil {
 				insertedCount++
-				
+
 				if tagsStr != "" {
 					id, err := res.LastInsertId()
 					if err == nil {
@@ -95,7 +95,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 								parsedTags = append(parsedTags, trimmed)
 							}
 						}
-						
+
 						if len(parsedTags) > 0 {
 							// Using saveEntityTags handles removing old tags and mapping the new ones.
 							if err := saveEntityTags(tx, "address_object", id, req.DeviceUUID, parsedTags); err != nil {

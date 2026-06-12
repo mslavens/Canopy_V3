@@ -280,7 +280,6 @@ const nestedPanoramaXML = `
 </config>
 `
 
-
 func TestParser(t *testing.T) {
 	// Setup a temporary directory for the sqlite DB
 	tmpDir, err := os.MkdirTemp("", "canopy-test-*")
