@@ -1069,6 +1069,78 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setCurrentScope(val);
   };
 
+  const dynamicAddressMemberMap = useMemo(() => {
+    const map = new Map<number, string[]>();
+
+    const tagIdToNameMap = new Map<number, string>();
+    allTags.forEach(t => tagIdToNameMap.set(t.id, t.name));
+
+    const entityTagsMap = new Map<string, Set<string>>();
+    allTagMappings.forEach(m => {
+      const key = `${m.entity_type}-${m.entity_id}`;
+      let tagSet = entityTagsMap.get(key);
+      if (!tagSet) {
+        tagSet = new Set<string>();
+        entityTagsMap.set(key, tagSet);
+      }
+      const name = tagIdToNameMap.get(m.tag_id);
+      if (name) tagSet.add(name);
+    });
+
+    const candidateTags = [...allAddresses, ...allAddressGroups].map(item => {
+       const isGroup = 'member_list' in item || 'filter' in item || item.type === 'dynamic' || item.type === 'static';
+       const tags = entityTagsMap.get(`${isGroup ? 'address_group' : 'address_object'}-${item.id}`) || new Set<string>();
+       return { ...item, _resolvedTags: tags };
+    });
+
+    const scopeCache = new Map<string, string[]>();
+    const getScope = (gid: string) => {
+        if (!scopeCache.has(gid)) scopeCache.set(gid, getScopeHierarchy(gid));
+        return scopeCache.get(gid) || [];
+    };
+
+    allAddressGroups.forEach(group => {
+      if (group.type === 'dynamic' && group.filter) {
+        let evalString = group.filter
+          .replace(/\band\b/gi, '&&')
+          .replace(/\bor\b/gi, '||')
+          .replace(/\bnot\b/gi, '!');
+
+        evalString = evalString.replace(/'([^']+)'|"([^"]+)"|\b([a-zA-Z0-9_.-]+)\b/g, (match, q1, q2, unquoted) => {
+          if (unquoted) {
+            const lower = match.toLowerCase();
+            if (lower === 'true' || lower === 'false' || match === '&&' || match === '||' || match === '!') return match;
+            return `hasTag(${JSON.stringify(unquoted)})`;
+          }
+          return `hasTag(${JSON.stringify(q1 || q2)})`;
+        });
+
+        let evaluator: Function;
+        try { evaluator = new Function('hasTag', `try { return !!(${evalString}); } catch(e) { return false; }`); } 
+        catch(e) { evaluator = () => false; }
+
+        const currentGroupId = group.device_uuid;
+        const allowedScopes = new Set(getScope(currentGroupId));
+
+        const members = candidateTags.filter(item => {
+            if (item.id === group.id) return false;
+            if (!allowedScopes.has(item.device_uuid)) return false;
+
+            return evaluator((t: string) => {
+                const cleanT = String(t).replace(/^['"]+|['"]+$/g, '').toLowerCase();
+                for (const tag of item._resolvedTags) {
+                    if (tag.toLowerCase() === cleanT) return true;
+                }
+                return false;
+            });
+        }).map(item => item.name);
+        
+        map.set(group.id, members);
+      }
+    });
+    return map;
+  }, [allAddressGroups, allAddresses, allTags, allTagMappings, getScopeHierarchy]);
+
   // Recursive Address Group Resolver for total flattened view
   const resolveAddressGroupMembers = (groupName: string, scopeUuid: string, currentPath: string[] = [], visited = new Set<string>()): any[] => {
     if (visited.has(groupName)) return [];
@@ -1115,101 +1187,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
 
     if (group.type === 'dynamic') {
-      const evaluateFilterExpression = (filter: string, tagNames: Set<string>): boolean => {
-        if (!filter) return false;
-        let evalString = filter
-          .replace(/\band\b/gi, '&&')
-          .replace(/\bor\b/gi, '||')
-          .replace(/\bnot\b/gi, '!');
-
-        evalString = evalString.replace(/'([^']+)'|"([^"]+)"|\b([a-zA-Z0-9_.-]+)\b/g, (match, q1, q2, unquoted) => {
-          if (unquoted) {
-            const lower = match.toLowerCase();
-            if (lower === 'true' || lower === 'false' || match === '&&' || match === '||' || match === '!') return match;
-            return `hasTag(${JSON.stringify(unquoted)})`;
-          }
-          return `hasTag(${JSON.stringify(q1 || q2)})`;
-        });
-
-        try {
-          const evaluator = new Function('hasTag', `try { return !!(${evalString}); } catch(e) { return false; }`);
-          const hasTag = (t: string) => {
-            const cleanT = String(t).replace(/^['"]+|['"]+$/g, '').toLowerCase();
-            for (const tag of tagNames) {
-              if (tag.toLowerCase() === cleanT) return true;
-            }
-            return false;
-          };
-          return evaluator(hasTag);
-        } catch (e) {
-          return false;
-        }
-      };
-
-      const tagIdToNameMap = new Map<number, string>();
-      allTags.forEach(t => {
-        tagIdToNameMap.set(t.id, t.name);
-      });
-
-      const getTagsForEntity = (entityType: string, entityId: number): Set<string> => {
-        const tagNames = new Set<string>();
-        allTagMappings.forEach(m => {
-          if (m.entity_type === entityType && m.entity_id === entityId) {
-            const name = tagIdToNameMap.get(m.tag_id);
-            if (name) tagNames.add(name);
-          }
-        });
-        return tagNames;
-      };
-
-      const uniqueNames = new Set<string>();
-      allAddresses.forEach(a => {
-        if (allowedScopes.includes(a.device_uuid)) {
-          uniqueNames.add(a.name);
-        }
-      });
-      allAddressGroups.forEach(g => {
-        if (g.name !== groupName && allowedScopes.includes(g.device_uuid)) {
-          uniqueNames.add(g.name);
-        }
-      });
-
+      const members = dynamicAddressMemberMap.get(group.id) || [];
       let resolved: any[] = [];
-      uniqueNames.forEach(name => {
-        let foundAddress = null;
-        for (const sc of allowedScopes) {
-          const a = allAddresses.find(item => item.name === name && item.device_uuid === sc);
-          if (a) {
-            foundAddress = a;
-            break;
-          }
-        }
-
-        let foundGroup = null;
-        for (const sc of allowedScopes) {
-          const g = allAddressGroups.find(item => item.name === name && item.device_uuid === sc);
-          if (g) {
-            foundGroup = g;
-            break;
-          }
-        }
-
-        if (foundAddress) {
-          const tags = getTagsForEntity('address_object', foundAddress.id);
-          if (evaluateFilterExpression(group.filter, tags)) {
-            resolved.push({
-              name: foundAddress.name,
-              type: 'Address Object',
-              details: `${foundAddress.type}: ${foundAddress.value}`,
-              path: [...currentPath, groupName]
-            });
-          }
-        } else if (foundGroup) {
-          const tags = getTagsForEntity('address_group', foundGroup.id);
-          if (evaluateFilterExpression(group.filter, tags)) {
-            resolved = resolved.concat(resolveAddressGroupMembers(foundGroup.name, scopeUuid, [...currentPath, groupName], newVisited));
-          }
-        }
+      members.forEach((mName: string) => {
+        resolved = resolved.concat(resolveAddressGroupMembers(mName, group.device_uuid, [...currentPath, groupName], newVisited));
       });
       return resolved;
     }
