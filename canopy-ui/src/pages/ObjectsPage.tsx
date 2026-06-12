@@ -33,6 +33,7 @@ import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
 import { Tooltip } from '../components/Tooltip';
+import { EmptyState } from '../components/EmptyState';
 import { useObjectMove } from '../hooks/useObjectMove';
 import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
@@ -133,8 +134,8 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
       {/* Options list */}
       <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
         {filteredOptions.length === 0 ? (
-          <div style={{ padding: '12px', fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
-            No scopes match search
+          <div style={{ padding: '12px' }}>
+            <EmptyState icon={<Search size={24} />} title="No scopes match search" description="Try adjusting your query." minHeight="100px" />
           </div>
         ) : (
           filteredOptions.map((opt) => {
@@ -702,13 +703,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         {/* Scrollable Members List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
           {selectedNames.length === 0 ? (
-            <div style={{ padding: '30px 20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-              <span>No members selected.</span>
-              <span style={{ fontSize: '11px' }}>Click "+ Add Members" to select config objects.</span>
+            <div style={{ padding: '30px 20px' }}>
+              <EmptyState icon={<Layers size={24} />} title="No members selected" description="Click '+ Add Members' to select config objects." minHeight="150px" />
             </div>
           ) : filteredSelected.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-              No members match search query
+            <div style={{ padding: '20px' }}>
+              <EmptyState icon={<Search size={24} />} title="No members match search query" description="Try a different term." minHeight="100px" />
             </div>
           ) : (
             filteredSelected.map(name => {
@@ -913,8 +913,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
           <div style={{ height: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)' }}>
             {displayedItems.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No objects match your search.
+              <div style={{ padding: '40px 20px' }}>
+                <EmptyState icon={<Search size={32} />} title="No results found" description="No objects match your search." minHeight="200px" />
               </div>
             ) : (
               displayedItems.map(item => {
@@ -2674,23 +2674,83 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     return [...defaultCols, ...subtabCols, ...actionCols];
   }, [activeSubTab, scopeNameMap, currentScope, activeCustomObjectTab]);
 
+  const isFormDirty = useMemo(() => {
+    if (crudMode !== 'edit' || !selectedObject) return true;
+    if (formName !== selectedObject.name) return true;
+    if (formScopeUuid !== selectedObject.device_uuid) return true;
+    if (formDescription !== (selectedObject.description || '')) return true;
+    
+    if (activeSubTab === 'Address Objects') {
+      if (formType !== selectedObject.type) return true;
+      if (formValue !== selectedObject.value) return true;
+    } else if (activeSubTab === 'Address Groups') {
+      if (formType !== (selectedObject.type || 'static')) return true;
+      if (formFilter !== (selectedObject.filter || '')) return true;
+      if (formMembers.join(',') !== (selectedObject.member_list || '')) return true;
+    } else if (activeSubTab === 'Services') {
+      if (formProtocol !== selectedObject.protocol) return true;
+      if (formSourcePort !== (selectedObject.source_port || '')) return true;
+      if (formDestPort !== selectedObject.destination_port) return true;
+    } else if (activeSubTab === 'Service Groups') {
+      if (formMembers.join(',') !== (selectedObject.member_list || '')) return true;
+    } else if (activeSubTab === 'Applications') {
+      if (formCategory !== selectedObject.category) return true;
+      if (formSubcategory !== selectedObject.subcategory) return true;
+      if (formTechnology !== selectedObject.technology) return true;
+      if (formRisk !== (selectedObject.risk || 1)) return true;
+      if (formPorts !== (selectedObject.ports || '')) return true;
+    } else if (activeSubTab === 'Application Groups') {
+      if (formMembers.join(',') !== (selectedObject.member_list || '')) return true;
+    } else if (activeSubTab === 'Tags') {
+      if (formColor !== (selectedObject.color || 'color1')) return true;
+    } else if (activeSubTab === 'Security Profiles') {
+      if (formProfileType !== (selectedObject.type || 'antivirus')) return true;
+    } else if (activeSubTab === 'Security Profile Groups') {
+      if (formGroupAntivirus !== (selectedObject.antivirus || '')) return true;
+      if (formGroupSpyware !== (selectedObject.spyware || '')) return true;
+      if (formGroupVulnerability !== (selectedObject.vulnerability || '')) return true;
+      if (formGroupURLFiltering !== (selectedObject.url_filtering || '')) return true;
+      if (formGroupFileBlocking !== (selectedObject.file_blocking || '')) return true;
+      if (formGroupWildfireAnalysis !== (selectedObject.wildfire_analysis || '')) return true;
+      if (formGroupDNSSecurity !== (selectedObject.dns_security || '')) return true;
+    } else if (activeSubTab === 'Custom Objects') {
+      if (activeCustomObjectTab === 'categories') {
+        if (formURLList !== (selectedObject.url_list || '')) return true;
+      } else {
+        if (formListType !== (selectedObject.type || 'ip')) return true;
+        if (formSourceURL !== (selectedObject.source_url || '')) return true;
+        if (formRecurring !== (selectedObject.recurring || 'five-minute')) return true;
+      }
+    }
+    
+    return false;
+  }, [
+    crudMode, selectedObject, formName, formScopeUuid, formDescription, activeSubTab,
+    formType, formValue, formFilter, formMembers, formProtocol, formSourcePort, formDestPort,
+    formCategory, formSubcategory, formTechnology, formRisk, formPorts, formColor, formProfileType,
+    formGroupAntivirus, formGroupSpyware, formGroupVulnerability, formGroupURLFiltering,
+    formGroupFileBlocking, formGroupWildfireAnalysis, formGroupDNSSecurity, activeCustomObjectTab,
+    formURLList, formListType, formSourceURL, formRecurring
+  ]);
+
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 120px)', margin: '-20px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: 'calc(100vh - 120px)', margin: '-20px', overflow: 'hidden' }}>
       {/* 2. Main content canvas */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Scope context summary top header */}
         <div style={{ 
-          padding: '20px 20px 15px 20px', 
-          backgroundColor: 'var(--bg-surface)', 
-          borderBottom: '1px solid var(--border-main)', 
+          position: 'sticky', 
+          top: '-30px', 
+          backgroundColor: 'var(--bg-app)', 
+          zIndex: 10, 
+          padding: '30px 0 10px 0', 
+          margin: '-30px 0 0 0', 
           display: 'flex', 
-          flexDirection: 'column', 
-          gap: '12px', 
-          flexShrink: 0, 
-          overflow: 'visible', 
-          position: 'relative', 
-          zIndex: 1010 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexShrink: 0
         }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
           {/* Row 1: Title */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -2755,6 +2815,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 </span>
               )}
             </div>
+          </div>
           </div>
         </div>
 
@@ -2903,7 +2964,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         </div>
 
         {/* The data table area - Stretch to edge-to-edge */}
-        <div style={{ flex: 1, padding: '0 0 20px 0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, padding: '0 0 20px 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
           {loading ? (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', gap: '10px' }}>
               <Loader2 className="spin-animation" size={20} /> Loading database records...
@@ -3251,7 +3312,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         footer={
           <>
             <button className="btn-secondary btn-sm" onClick={() => setIsCrudModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveObject}>Save Changes</button>
+            <button className="btn-primary btn-sm" onClick={handleSaveObject} disabled={!isFormDirty}>Save Changes</button>
           </>
         }
       >
