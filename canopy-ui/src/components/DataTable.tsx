@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronUp, ChevronDown, Upload, Search, Columns, CheckSquare, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronUp, ChevronDown, Upload, Search, Columns, CheckSquare, X, MoreHorizontal } from 'lucide-react';
 import { Dropdown } from './Dropdown';
 import { HighlightedText } from './HighlightedText';
 import { EmptyState } from './EmptyState';
@@ -23,17 +24,22 @@ interface DataTableProps {
   rowStyle?: (row: any) => React.CSSProperties;
   bulkActions?: React.ReactNode;
   exportActions?: React.ReactNode;
+  topRightActions?: React.ReactNode;
+  toolbarTitle?: React.ReactNode;
   additionalExportColumns?: { header: string; getValue: (row: any) => string }[];
   loading?: boolean;
+  rowContextMenuActions?: (row: any, closeMenu: () => void) => React.ReactNode;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, additionalExportColumns, loading = false }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, rowContextMenuActions }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [orderedColumnKeys, setOrderedColumnKeys] = useState<string[]>([]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [activeResizeCol, setActiveResizeCol] = useState<string | null>(null);
+  const [showTableActionsMenu, setShowTableActionsMenu] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
   
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
@@ -41,6 +47,10 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
 
   // Feature: Row Selection
   const [selectedRows, setSelectedRows] = useState<Set<any>>(new Set());
+
+  // Feature: Context Menu
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, row: any } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (onSelectionChange) onSelectionChange(Array.from(selectedRows));
@@ -69,6 +79,12 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
     const handleClickOutside = (event: MouseEvent) => {
       if (columnToggleRef.current && !columnToggleRef.current.contains(event.target as Node)) {
         setShowColumnToggle(false);
+      }
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target as Node)) {
+        setShowTableActionsMenu(false);
+      }
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -275,6 +291,11 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent' }}>
         <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px', gap: '20px' }}>
+          {toolbarTitle && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {toolbarTitle}
+            </div>
+          )}
           {selectable && (
             <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', visibility: selectedRows.size > 0 ? 'visible' : 'hidden', minWidth: '85px' }}>
               <CheckSquare size={14} /> {selectedRows.size > 0 ? selectedRows.size : 0} selected
@@ -291,18 +312,36 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
             </>
           )}
 
-          {exportActions}
-          {exportFilename && (
-            <button 
-              className="btn-secondary btn-sm" 
-              disabled={processedRows.length === 0} 
-              onClick={handleExportCSV} 
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              title={selectedRows.size > 0 ? `Export ${selectedRows.size} selected rows to CSV` : "Export all displayed rows to CSV"}
-            >
-              <Upload size={14} /> Export CSV
-            </button>
+          {(exportActions || exportFilename) && (
+            <div ref={actionsMenuRef} style={{ position: 'relative' }}>
+              <button className="btn-secondary btn-sm" onClick={() => setShowTableActionsMenu(!showTableActionsMenu)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MoreHorizontal size={14} /> Actions
+              </button>
+              {showTableActionsMenu && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Table Actions</span>
+                    <button onClick={() => setShowTableActionsMenu(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 0 }}><X size={14}/></button>
+                  </div>
+                  
+                  {exportActions}
+                  
+                  {exportFilename && (
+                    <button 
+                      className="btn-secondary btn-sm" 
+                      disabled={processedRows.length === 0} 
+                      onClick={() => { handleExportCSV(); setShowTableActionsMenu(false); }} 
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+                      title={selectedRows.size > 0 ? `Export ${selectedRows.size} selected rows to CSV` : "Export all displayed rows to CSV"}
+                    >
+                      <Upload size={13} /> Export to CSV
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
+
           <div ref={columnToggleRef} style={{ position: 'relative' }}>
             <button className="btn-secondary btn-sm" onClick={() => setShowColumnToggle(!showColumnToggle)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Columns size={14} /> Columns
@@ -324,6 +363,8 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </div>
             )}
           </div>
+          
+          {topRightActions}
         </div>
       </div>
 
@@ -370,7 +411,17 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               const isHighlighted = highlightRow ? highlightRow(row) : false;
               const customStyle = rowStyle ? rowStyle(row) : {};
               return (
-              <tr key={rIdx} className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} style={customStyle}>
+              <tr 
+                key={rIdx} 
+                className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} 
+                style={customStyle}
+                onContextMenu={(e) => {
+                  if (rowContextMenuActions) {
+                    e.preventDefault();
+                    setContextMenu({ x: e.pageX, y: e.pageY, row });
+                  }
+                }}
+              >
                 {selectable && (
                   <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)' }}>
                     <input type="checkbox" checked={selectedRows.has(row)} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />
@@ -420,6 +471,35 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
           <button className="btn-secondary btn-sm" onClick={() => setCurrentPage(p => Math.min(totalPages, Number(p) + 1))} disabled={safeCurrentPage === totalPages}>Next</button>
         </div>
       </div>
+
+      {contextMenu && rowContextMenuActions && createPortal(
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+          onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+        >
+          <div
+            ref={contextMenuRef}
+            style={{
+              position: 'absolute',
+              top: `${contextMenu.y}px`,
+              left: `${contextMenu.x}px`,
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-main)',
+              borderRadius: '6px',
+              padding: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              minWidth: '180px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {rowContextMenuActions(contextMenu.row, () => setContextMenu(null))}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

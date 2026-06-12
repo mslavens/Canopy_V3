@@ -374,6 +374,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [isCliModalOpen, setIsCliModalOpen] = useState<boolean>(false);
   const [generatedCommands, setGeneratedCommands] = useState<string>('');
 
+  // Row Inspection
+  const [inspectRow, setInspectRow] = useState<any | null>(null);
+
   // CRUD Form states
   const [formName, setFormName] = useState('');
   const [formValue, setFormValue] = useState('');
@@ -3189,89 +3192,77 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           flexShrink: 0
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-          {/* Row 1: Title */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-              {activeSubTab}
-            </h2>
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <button
-                onClick={openCreateModal}
-                className="btn-primary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                disabled={currentScope === 'show-all'}
-                title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
-              >
-                <Plus size={14} /> Add Object
-              </button>
-              <div style={{ width: '300px' }}>
-                <SearchBar
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-                  width="100%"
-                  variant="local"
+          {/* Top Row: Device Group Dropdown, Lineage, and Search */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
+                <SearchableScopeDropdown
+                  value={currentScope}
+                  options={hierarchyOptions}
+                  onChange={handleScopeChange}
+                  scopeNameMap={scopeNameMap}
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Row 2: Device Group Dropdown & Lineage */}
-          <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', width: '100%', gap: '24px', minHeight: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>Device Group:</span>
-              <SearchableScopeDropdown
-                value={currentScope}
-                options={hierarchyOptions}
-                onChange={handleScopeChange}
-                scopeNameMap={scopeNameMap}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
-              {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                  Scope Context: 
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', flexWrap: 'wrap' }}>
-                    {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
-                      <React.Fragment key={scopeId}>
-                        <span 
-                          onClick={() => handleScopeChange(scopeId)}
-                          style={{ 
-                            color: 'var(--text-muted)', 
-                            cursor: 'pointer', 
-                            fontWeight: 400,
-                            transition: 'color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
-                          title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
-                        >
-                          {scopeNameMap[scopeId] || scopeId}
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', maxWidth: '600px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                  {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                      Scope Context: 
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', flexWrap: 'wrap' }}>
+                        {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
+                          <React.Fragment key={scopeId}>
+                            <span 
+                              onClick={() => handleScopeChange(scopeId)}
+                              style={{ 
+                                color: 'var(--text-muted)', 
+                                cursor: 'pointer', 
+                                fontWeight: 400,
+                                transition: 'color 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
+                              title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
+                            >
+                              {scopeNameMap[scopeId] || scopeId}
+                            </span>
+                            {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
+                          </React.Fragment>
+                        ))}
+                        <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
+                        <span style={{ 
+                          backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                          color: 'var(--accent-blue)', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px', 
+                          border: '1px solid rgba(59, 130, 246, 0.25)', 
+                          fontWeight: 600, 
+                          fontSize: '11px',
+                          display: 'inline-flex',
+                          alignItems: 'center'
+                        }}>
+                          {scopeNameMap[currentScope] || currentScope}
                         </span>
-                        {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
-                      </React.Fragment>
-                    ))}
-                    <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                    <span style={{ 
-                      backgroundColor: 'rgba(59, 130, 246, 0.15)', 
-                      color: 'var(--accent-blue)', 
-                      padding: '2px 8px', 
-                      borderRadius: '4px', 
-                      border: '1px solid rgba(59, 130, 246, 0.25)', 
-                      fontWeight: 600, 
-                      fontSize: '11px',
-                      display: 'inline-flex',
-                      alignItems: 'center'
-                    }}>
-                      {scopeNameMap[currentScope] || currentScope}
+                      </span>
                     </span>
-                  </span>
-                </span>
-              ) : (
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
-                </span>
-              )}
+                  ) : (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div style={{ width: '300px', flexShrink: 0 }}>
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                width="100%"
+                variant="local"
+              />
             </div>
           </div>
           </div>
@@ -3416,11 +3407,114 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <DataTable
               key={dataViewTab}
               loading={loading}
+              toolbarTitle={
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  {activeSubTab}
+                </h2>
+              }
+              topRightActions={
+                <button
+                  onClick={openCreateModal}
+                  className="btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  disabled={currentScope === 'show-all'}
+                  title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
+                >
+                  <Plus size={14} /> Add Object
+                </button>
+              }
               columns={columns}
                   data={displayedTableData}
                   searchQuery={searchQuery}
                   selectable={true}
                   onSelectionChange={setSelectedRows}
+                  rowContextMenuActions={(row, closeMenu) => (
+                    <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          const isShowAll = currentScope === 'show-all';
+                          const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                          if (!isInherited && !isShowAll) {
+                            openEditModal(row);
+                          } else {
+                            addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
+                          }
+                        }}
+                      >
+                        <Edit2 size={13} /> Edit
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setInspectRow(row);
+                        }}
+                      >
+                        <Eye size={13} /> Inspect
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setSelectedRows([row]);
+                          handleClone();
+                        }}
+                      >
+                        <Copy size={13} /> Clone
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setSelectedRows([row]);
+                          handleCloneToGroup();
+                        }}
+                      >
+                        <Copy size={13} /> Clone to Group...
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setSelectedRows([row]);
+                          handleMoveToGroup();
+                        }}
+                      >
+                        <ArrowRight size={13} /> Move to Group...
+                      </button>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setSelectedRows([row]);
+                          handleGenerateCli();
+                        }}
+                      >
+                        <Code size={13} /> Generate CLI
+                      </button>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                      <button
+                        className="btn-danger btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          setSelectedRows([row]);
+                          handleBulkDelete();
+                        }}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </>
+                  )}
                   exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
                   additionalExportColumns={[{
                     header: 'CLI Output',
@@ -3431,106 +3525,73 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     const isInherited = !isShowAll && row.device_uuid !== currentScope;
                     return isInherited ? { opacity: 0.55 } : {};
                   }}
-                  bulkActions={
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <div style={{ position: 'relative' }}>
-                        <button
-                          onClick={() => setShowActionsMenu(!showActionsMenu)}
-                          className="btn-secondary btn-sm"
-                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          Actions <ChevronDown size={14} />
-                        </button>
-                        {showActionsMenu && (
-                          <>
-                            {/* Invisible overlay for click-outside */}
-                            <div 
-                              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
-                              onClick={() => setShowActionsMenu(false)}
-                            />
-                            <div style={{ 
-                              position: 'absolute', 
-                              top: '100%', 
-                              left: 0, 
-                              marginTop: '6px', 
-                              backgroundColor: 'var(--bg-surface)', 
-                              border: '1px solid var(--border-main)', 
-                              borderRadius: '6px', 
-                              padding: '6px', 
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.2)', 
-                              zIndex: 1000, 
-                              display: 'flex', 
-                              flexDirection: 'column', 
-                              gap: '4px',
-                              minWidth: '180px'
-                            }}>
-                              <button
-                                onClick={() => { setShowActionsMenu(false); handleClone(); }}
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
-                              >
-                                <Copy size={13} /> Clone
-                              </button>
-                              
-                              <button
-                                onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
-                              >
-                                <Copy size={13} /> Clone to Group...
-                              </button>
-
-                              <button
-                                onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                                disabled={selectedRows.length === 0 || selectedRows.length > 50}
-                                title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
-                              >
-                                <ArrowRight size={13} /> Move to Group...
-                              </button>
-
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-
-                              <button
-                                onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
-                                className="btn-danger btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                                disabled={selectedRows.length === 0}
-                                title="Bulk delete selected objects"
-                              >
-                                <Trash2 size={13} /> Bulk Delete
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  }
                   exportActions={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <>
+                      {selectedRows.length > 0 && (
+                        <>
+                          <button
+                            onClick={() => { setShowActionsMenu(false); handleClone(); }}
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                            disabled={selectedRows.length > 50}
+                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
+                          >
+                            <Copy size={13} /> Clone
+                          </button>
+                          
+                          <button
+                            onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                            disabled={selectedRows.length > 50}
+                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
+                          >
+                            <Copy size={13} /> Clone to Group...
+                          </button>
+
+                          <button
+                            onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
+                            className="btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                            disabled={selectedRows.length > 50}
+                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
+                          >
+                            <ArrowRight size={13} /> Move to Group...
+                          </button>
+
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                          <button
+                            onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
+                            className="btn-danger btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                            title="Bulk delete selected objects"
+                          >
+                            <Trash2 size={13} /> Bulk Delete
+                          </button>
+
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        </>
+                      )}
+
                       <button
-                        onClick={() => setImportWizardOpen(true)}
+                        onClick={() => { setShowActionsMenu(false); setImportWizardOpen(true); }}
                         className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
                         title="Import data from CSV or Excel"
                       >
-                        <FileUp size={13} /> Import CSV / Excel
+                        <Download size={13} /> Import CSV / Excel
                       </button>
                       <button
-                        onClick={handleGenerateCli}
+                        onClick={() => { setShowActionsMenu(false); handleGenerateCli(); }}
                         className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
                         disabled={displayedTableData.length === 0}
                         title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
                       >
                         <Code size={13} /> Generate CLI
                       </button>
-                    </div>
+                    </>
                   }
                 />
               </div>
@@ -4454,6 +4515,35 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </span>
         </div>
       )}
+
+      {/* Row Inspect Modal */}
+      <Modal
+        isOpen={!!inspectRow}
+        onClose={() => setInspectRow(null)}
+        title="Inspect Object Raw JSON"
+        size="md"
+        footer={<button className="btn-secondary btn-sm" onClick={() => setInspectRow(null)}>Close</button>}
+      >
+        <pre
+          style={{
+            backgroundColor: 'var(--bg-app)',
+            border: '1px solid var(--border-main)',
+            borderRadius: '4px',
+            padding: '15px',
+            color: 'var(--text-main)',
+            fontFamily: 'Courier New, monospace',
+            fontSize: '12px',
+            overflowY: 'auto',
+            maxHeight: '400px',
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all'
+          }}
+        >
+          {inspectRow ? JSON.stringify(inspectRow, null, 2) : ''}
+        </pre>
+      </Modal>
+
     </div>
   );
 };
