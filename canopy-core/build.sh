@@ -25,9 +25,9 @@ fi
 build_mac() {
     echo "🚀 Building Canopy Core (Universal macOS Binary)..."
     echo "📦 Compiling for Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-intel .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-intel .
     echo "📦 Compiling for Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-arm64 .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-arm64 .
     echo "🔗 Merging into Universal Binary using lipo..."
     lipo -create -output canopy-core canopy-core-intel canopy-core-arm64
     echo "🧹 Cleaning up intermediate binaries..."

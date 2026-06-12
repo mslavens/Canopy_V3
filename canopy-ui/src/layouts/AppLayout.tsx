@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
-import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight, ExternalLink, Activity } from 'lucide-react';
 import { Tooltip } from '../components/Tooltip';
 import { HelpModal } from '../components/HelpModal';
 import { ToastContainer, ToastMessage } from '../components/ToastContainer';
@@ -43,10 +43,11 @@ interface AppLayoutProps {
 }
 
 // Navigation configurations
-const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'XML Import', 'Analytics', 'System'];
+const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'Monitor', 'XML Import', 'Analytics', 'System'];
 const subTabsMap: Record<string, string[]> = {
   'Device Management': ['Inventory', 'Device Groups', 'Templates'],
   'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
+  'Monitor': ['Traffic', 'Threat'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
   'Policies': ['Security Rules', 'NAT Rules'],

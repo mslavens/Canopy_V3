@@ -53,6 +53,7 @@ var (
 	systemDB    StateVault
 	activeDB    StateVault
 	telemetryDB StateVault
+	logDB       *storage.LogDB
 	masterKey   string
 	vaultMutex  sync.RWMutex
 )
@@ -903,6 +904,15 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 	}
 	telemetryDB = tel
 
+	// --- INITIALIZE LOG DB ---
+	log, logErr := storage.InitializeLogStore("canopy_logs.duckdb")
+	if logErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to mount logs database."})
+		return
+	}
+	logDB = log
+
 	telemetryDB.WriteLock()
 	telSchema := `
 	CREATE TABLE IF NOT EXISTS audit_logs (
@@ -1181,6 +1191,10 @@ func main() {
 			telemetryDB.Close()
 			telemetryDB = nil
 		}
+		if logDB != nil {
+			logDB.Close()
+			logDB = nil
+		}
 		if systemDB != nil {
 			systemDB.Close()
 			systemDB = nil
@@ -1209,6 +1223,10 @@ func main() {
 			telemetryDB.DB().Exec("INSERT INTO audit_logs (action, module, details) VALUES (?, ?, ?)", "Vault Wiped", "Security", "The encrypted vault was permanently destroyed via Factory Reset.")
 			telemetryDB.Close()
 			telemetryDB = nil
+		}
+		if logDB != nil {
+			logDB.Close()
+			logDB = nil
 		}
 		if systemDB != nil {
 			systemDB.Close()
@@ -4591,6 +4609,17 @@ func main() {
 	mux.HandleFunc("/api/objects/external-dynamic-list/update", handleExternalDynamicListUpdate)
 	mux.HandleFunc("/api/objects/external-dynamic-list/delete", handleExternalDynamicListDelete)
 
+	// --- LOGS MODULE ENDPOINTS ---
+	mux.HandleFunc("/api/logs/import", func(w http.ResponseWriter, r *http.Request) {
+		HandleImportLogs(w, r, nil, logDB)
+	})
+	mux.HandleFunc("/api/logs", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetLogs(w, r, logDB)
+	})
+	mux.HandleFunc("/api/logs/delete", func(w http.ResponseWriter, r *http.Request) {
+		HandleDeleteLogs(w, r, logDB)
+	})
+
 	// --- MULTI-LAYER MIDDLEWARE STACK ---
 	protectedMux := authMiddleware(token, mux)
 	finalHandler := globalCORSMiddleware(protectedMux)
@@ -4640,6 +4669,9 @@ func main() {
 	}
 	if telemetryDB != nil {
 		telemetryDB.Close()
+	}
+	if logDB != nil {
+		logDB.Close()
 	}
 	vaultMutex.Unlock()
 

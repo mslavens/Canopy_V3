@@ -177,4 +177,9 @@ export class CanopyApiClient {
   public createExternalDynamicList = (data: any) => this.request<any>('/api/objects/external-dynamic-list/create', { method: 'POST', body: JSON.stringify(data) });
   public updateExternalDynamicList = (data: any) => this.request<any>('/api/objects/external-dynamic-list/update', { method: 'POST', body: JSON.stringify(data) });
   public deleteExternalDynamicList = (id: number) => this.request<any>('/api/objects/external-dynamic-list/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Logs API
+  public getLogs = (client_id: string, limit: number = 1000) => this.request<any[]>(`/api/logs?client_id=${client_id}&limit=${limit}`);
+  public importLogs = (client_id: string, formData: FormData) => this.request<any>(`/api/logs/import?client_id=${client_id}`, { method: 'POST', body: formData });
+  public deleteLogs = (client_id: string) => this.request<any>(`/api/logs/delete?client_id=${client_id}`, { method: 'DELETE' });
 }

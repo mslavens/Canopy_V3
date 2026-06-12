@@ -8,6 +8,7 @@ import { PathResolutionPage } from './pages/PathResolutionPage';
 import { InterfacesPage } from './pages/InterfacesPage';
 import { XMLImportPage } from './pages/XMLImportPage';
 import { ObjectsPage } from './pages/ObjectsPage';
+import { MonitorPage } from './pages/MonitorPage';
 import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { ChangelogPage } from './pages/ChangelogPage';
 import { DatabaseBrowserPage } from './pages/DatabaseBrowserPage';
@@ -254,6 +255,9 @@ const App = () => {
     }
     if (activeMainTab === 'XML Import') {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;
+    }
+    if (activeMainTab === 'Monitor') {
+      return <MonitorPage auth={auth} />;
     }
     if (activeMainTab === 'Network' && activeSubTab === 'Path Resolution') {
       return <PathResolutionPage auth={auth} addToast={addToast} />;
