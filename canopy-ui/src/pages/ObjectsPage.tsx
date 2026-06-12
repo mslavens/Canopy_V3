@@ -342,6 +342,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [allApplications, setAllApplications] = useState<any[]>([]);
   const [allApplicationGroups, setAllApplicationGroups] = useState<any[]>([]);
   const [allSecurityProfiles, setAllSecurityProfiles] = useState<any[]>([]);
+  const [allTags, setAllTags] = useState<any[]>([]);
+  const [allTagMappings, setAllTagMappings] = useState<any[]>([]);
 
   // Selection state (from table)
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -364,10 +366,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   // CRUD Form states
   const [formName, setFormName] = useState('');
+  const [formValue, setFormValue] = useState('');
   const [formScopeUuid, setFormScopeUuid] = useState('paloalto-panorama-global');
   const [formType, setFormType] = useState('');
-  const [formValue, setFormValue] = useState('');
   const [formFilter, setFormFilter] = useState('');
+  const [filterLogic, setFilterLogic] = useState('and');
+  const [showFilterTagSelector, setShowFilterTagSelector] = useState(false);
+  const [filterTagSearch, setFilterTagSearch] = useState('');
   const [formProtocol, setFormProtocol] = useState('tcp');
   const [formSourcePort, setFormSourcePort] = useState('');
   const [formDestPort, setFormDestPort] = useState('');
@@ -378,6 +383,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [formPorts, setFormPorts] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formMembers, setFormMembers] = useState<string[]>([]);
+  const [formTags, setFormTags] = useState<string[]>([]);
 
   // Form states for Palo Alto specific objects
   const [activeCustomObjectTab, setActiveCustomObjectTab] = useState<'categories' | 'edls'>('categories');
@@ -1072,7 +1078,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     const allowedScopes = getScopeHierarchy(scopeUuid);
     
     // Find closest group in scope hierarchy
-    let group = null;
+    let group: any = null;
     for (const sc of allowedScopes) {
       const g = allAddressGroups.find(item => item.name === groupName && item.device_uuid === sc);
       if (g) {
@@ -1083,7 +1089,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
     if (!group) {
       // Find closest leaf address in scope hierarchy
-      let leaf = null;
+      let leaf: any = null;
       for (const sc of allowedScopes) {
         const l = allAddresses.find(item => item.name === groupName && item.device_uuid === sc);
         if (l) {
@@ -1109,12 +1115,103 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
 
     if (group.type === 'dynamic') {
-      return [{
-        name: `Filter: ${group.filter}`,
-        type: 'Dynamic Filter',
-        details: 'Matches objects matching this filter tag',
-        path: [...currentPath, groupName]
-      }];
+      const evaluateFilterExpression = (filter: string, tagNames: Set<string>): boolean => {
+        if (!filter) return false;
+        let evalString = filter
+          .replace(/\band\b/gi, '&&')
+          .replace(/\bor\b/gi, '||')
+          .replace(/\bnot\b/gi, '!');
+
+        evalString = evalString.replace(/'([^']+)'|"([^"]+)"|\b([a-zA-Z0-9_.-]+)\b/g, (match, q1, q2, unquoted) => {
+          if (unquoted) {
+            const lower = match.toLowerCase();
+            if (lower === 'true' || lower === 'false' || match === '&&' || match === '||' || match === '!') return match;
+            return `hasTag(${JSON.stringify(unquoted)})`;
+          }
+          return `hasTag(${JSON.stringify(q1 || q2)})`;
+        });
+
+        try {
+          const evaluator = new Function('hasTag', `try { return !!(${evalString}); } catch(e) { return false; }`);
+          const hasTag = (t: string) => {
+            const cleanT = String(t).replace(/^['"]+|['"]+$/g, '').toLowerCase();
+            for (const tag of tagNames) {
+              if (tag.toLowerCase() === cleanT) return true;
+            }
+            return false;
+          };
+          return evaluator(hasTag);
+        } catch (e) {
+          return false;
+        }
+      };
+
+      const tagIdToNameMap = new Map<number, string>();
+      allTags.forEach(t => {
+        tagIdToNameMap.set(t.id, t.name);
+      });
+
+      const getTagsForEntity = (entityType: string, entityId: number): Set<string> => {
+        const tagNames = new Set<string>();
+        allTagMappings.forEach(m => {
+          if (m.entity_type === entityType && m.entity_id === entityId) {
+            const name = tagIdToNameMap.get(m.tag_id);
+            if (name) tagNames.add(name);
+          }
+        });
+        return tagNames;
+      };
+
+      const uniqueNames = new Set<string>();
+      allAddresses.forEach(a => {
+        if (allowedScopes.includes(a.device_uuid)) {
+          uniqueNames.add(a.name);
+        }
+      });
+      allAddressGroups.forEach(g => {
+        if (g.name !== groupName && allowedScopes.includes(g.device_uuid)) {
+          uniqueNames.add(g.name);
+        }
+      });
+
+      let resolved: any[] = [];
+      uniqueNames.forEach(name => {
+        let foundAddress = null;
+        for (const sc of allowedScopes) {
+          const a = allAddresses.find(item => item.name === name && item.device_uuid === sc);
+          if (a) {
+            foundAddress = a;
+            break;
+          }
+        }
+
+        let foundGroup = null;
+        for (const sc of allowedScopes) {
+          const g = allAddressGroups.find(item => item.name === name && item.device_uuid === sc);
+          if (g) {
+            foundGroup = g;
+            break;
+          }
+        }
+
+        if (foundAddress) {
+          const tags = getTagsForEntity('address_object', foundAddress.id);
+          if (evaluateFilterExpression(group.filter, tags)) {
+            resolved.push({
+              name: foundAddress.name,
+              type: 'Address Object',
+              details: `${foundAddress.type}: ${foundAddress.value}`,
+              path: [...currentPath, groupName]
+            });
+          }
+        } else if (foundGroup) {
+          const tags = getTagsForEntity('address_group', foundGroup.id);
+          if (evaluateFilterExpression(group.filter, tags)) {
+            resolved = resolved.concat(resolveAddressGroupMembers(foundGroup.name, scopeUuid, [...currentPath, groupName], newVisited));
+          }
+        }
+      });
+      return resolved;
     }
 
     const members = group.member_list ? group.member_list.split(',') : [];
@@ -1413,7 +1510,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const loadReferenceData = async () => {
     if (!apiClient) return;
     try {
-      const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes, secProfRes] = await Promise.all([
+      const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes, secProfRes, tagsRes, mappingsRes] = await Promise.all([
         apiClient.queryDb("SELECT id, name, device_uuid, type, value FROM address_objects;"),
         apiClient.queryDb(`
           SELECT g.id, g.name, g.device_uuid, g.type, g.filter, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
@@ -1442,6 +1539,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           GROUP BY g.id;
         `),
         apiClient.queryDb("SELECT id, name, device_uuid, type FROM security_profiles;"),
+        apiClient.queryDb("SELECT id, name, device_uuid, color FROM tags;"),
+        apiClient.queryDb("SELECT entity_type, entity_id, tag_id FROM entity_tag_mappings;"),
       ]);
 
       setAllAddresses(addRes.rows || []);
@@ -1451,6 +1550,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setAllApplications(appRes.rows || []);
       setAllApplicationGroups(appGrpRes.rows || []);
       setAllSecurityProfiles(secProfRes.rows || []);
+      setAllTags(tagsRes.rows || []);
+      setAllTagMappings(mappingsRes.rows || []);
     } catch (e) {
       console.error('Failed to load validation reference lists', e);
     }
@@ -1575,7 +1676,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
   };
 
-  // CRUD Forms handlers
   const openCreateModal = () => {
     loadReferenceData();
     setSelectorSearchQuery('');
@@ -1589,6 +1689,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setFormScopeUuid(currentScope);
     setFormDescription('');
     setFormMembers([]);
+    setFormTags([]);
 
     // Set subtab specific defaults
     if (activeSubTab === 'Address Objects') {
@@ -1644,6 +1745,18 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     setFormName(obj.name);
     setFormScopeUuid(obj.device_uuid);
     setFormDescription(obj.description || '');
+
+    // Resolve active tag mappings
+    const tags: string[] = [];
+    const mappings = allTagMappings.filter(m => 
+      m.entity_id === obj.id && 
+      m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
+    );
+    mappings.forEach(m => {
+      const tagObj = allTags.find(t => t.id === m.tag_id);
+      if (tagObj) tags.push(tagObj.name);
+    });
+    setFormTags(tags);
 
     // Set fields
     if (activeSubTab === 'Address Objects') {
@@ -1725,12 +1838,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       if (activeSubTab === 'Address Objects') {
         payload.type = formType;
         payload.value = formValue.trim();
+        payload.tags = formTags;
         if (crudMode === 'create') result = await apiClient.createAddressObject(payload);
         else result = await apiClient.updateAddressObject(payload);
       } else if (activeSubTab === 'Address Groups') {
         payload.type = formType;
         payload.filter = formType === 'dynamic' ? formFilter.trim() : '';
         payload.members = formType === 'static' ? formMembers : [];
+        payload.tags = formTags;
         if (crudMode === 'create') result = await apiClient.createAddressGroup(payload);
         else result = await apiClient.updateAddressGroup(payload);
       } else if (activeSubTab === 'Services') {
@@ -2005,29 +2120,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
   };
 
-  // Generate CLI commands
-  const handleGenerateCli = () => {
-    const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
-    if (rows.length === 0) {
-      addToast('No records available to generate commands.', 'info');
-      return;
-    }
-
+  // Generate CLI commands for a single row
+  const generateCliCommandsForRow = (row: any): string[] => {
     let commands: string[] = [];
+    const isShared = row.device_uuid === 'paloalto-panorama-global';
+    const scopePrefix = isShared
+      ? 'set shared'
+      : `set device-group ${scopeNameMap[row.device_uuid] || 'DG'}`;
 
-    rows.forEach(row => {
-      const isShared = row.device_uuid === 'paloalto-panorama-global';
-      const scopePrefix = isShared
-        ? 'set shared'
-        : `set device-group ${scopeNameMap[row.device_uuid] || 'DG'}`;
-
-      switch (activeSubTab) {
-        case 'Address Objects':
-          commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}`);
-          if (row.description) {
-            commands.push(`${scopePrefix} address ${row.name} description "${row.description}"`);
-          }
-          break;
+    switch (activeSubTab) {
+      case 'Address Objects':
+        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}`);
+        if (row.description) {
+          commands.push(`${scopePrefix} address ${row.name} description "${row.description}"`);
+        }
+        break;
         case 'Address Groups':
           if (row.type === 'dynamic') {
             commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"`);
@@ -2116,9 +2223,23 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           }
           break;
       }
+      return commands;
+    };
+
+  // Generate CLI commands for the modal
+  const handleGenerateCli = () => {
+    const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
+    if (rows.length === 0) {
+      addToast('No records available to generate commands.', 'info');
+      return;
+    }
+
+    let allCommands: string[] = [];
+    rows.forEach(row => {
+      allCommands.push(...generateCliCommandsForRow(row));
     });
 
-    setGeneratedCommands(commands.join('\n'));
+    setGeneratedCommands(allCommands.join('\n'));
     setIsCliModalOpen(true);
   };
 
@@ -2227,6 +2348,62 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         subtabCols = [
           { key: 'type', label: 'Type', width: '130px' },
           { key: 'value', label: 'Address / Netmask / Range', width: '220px' },
+          {
+            key: 'tags',
+            label: 'Tags',
+            width: '180px',
+            renderCell: (val, row, query) => {
+              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_object');
+              if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+              const colorMap: Record<string, string> = {
+                color1: '#ef4444',
+                color2: '#3b82f6',
+                color3: '#10b981',
+                color4: '#f59e0b',
+                color5: '#ec4899',
+                color6: '#8b5cf6',
+                color7: '#06b6d4',
+                color8: '#14b8a6',
+                color9: '#f97316',
+                color10: '#64748b',
+                color11: '#22c55e',
+                color12: '#a855f7',
+                color13: '#e11d48',
+                color14: '#d97706',
+                color15: '#2563eb',
+                color16: '#059669',
+              };
+              return (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {mappings.map(m => {
+                    const tagObj = allTags.find(t => t.id === m.tag_id);
+                    if (!tagObj) return null;
+                    const hex = colorMap[tagObj.color] || 'var(--text-muted)';
+                    return (
+                      <span
+                        key={tagObj.id}
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: `${hex}22`,
+                          color: hex,
+                          border: `1px solid ${hex}44`,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
+                        <HighlightedText text={tagObj.name} highlight={query || ''} />
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            }
+          }
         ];
         break;
       case 'Address Groups':
@@ -2278,6 +2455,62 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                       +{list.length - 3} more
                     </span>
                   )}
+                </div>
+              );
+            }
+          },
+          {
+            key: 'tags',
+            label: 'Tags',
+            width: '180px',
+            renderCell: (val, row, query) => {
+              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_group');
+              if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+              const colorMap: Record<string, string> = {
+                color1: '#ef4444',
+                color2: '#3b82f6',
+                color3: '#10b981',
+                color4: '#f59e0b',
+                color5: '#ec4899',
+                color6: '#8b5cf6',
+                color7: '#06b6d4',
+                color8: '#14b8a6',
+                color9: '#f97316',
+                color10: '#64748b',
+                color11: '#22c55e',
+                color12: '#a855f7',
+                color13: '#e11d48',
+                color14: '#d97706',
+                color15: '#2563eb',
+                color16: '#059669',
+              };
+              return (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {mappings.map(m => {
+                    const tagObj = allTags.find(t => t.id === m.tag_id);
+                    if (!tagObj) return null;
+                    const hex = colorMap[tagObj.color] || 'var(--text-muted)';
+                    return (
+                      <span
+                        key={tagObj.id}
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: `${hex}22`,
+                          color: hex,
+                          border: `1px solid ${hex}44`,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
+                        <HighlightedText text={tagObj.name} highlight={query || ''} />
+                      </span>
+                    );
+                  })}
                 </div>
               );
             }
@@ -2724,6 +2957,17 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         if (formRecurring !== (selectedObject.recurring || 'five-minute')) return true;
       }
     }
+    // Verify tag mappings
+    const originalTags: string[] = [];
+    const mappings = allTagMappings.filter(m => 
+      m.entity_id === selectedObject.id && 
+      m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
+    );
+    mappings.forEach(m => {
+      const tagObj = allTags.find(t => t.id === m.tag_id);
+      if (tagObj) originalTags.push(tagObj.name);
+    });
+    if ([...formTags].sort().join(',') !== [...originalTags].sort().join(',')) return true;
     
     return false;
   }, [
@@ -2732,7 +2976,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     formCategory, formSubcategory, formTechnology, formRisk, formPorts, formColor, formProfileType,
     formGroupAntivirus, formGroupSpyware, formGroupVulnerability, formGroupURLFiltering,
     formGroupFileBlocking, formGroupWildfireAnalysis, formGroupDNSSecurity, activeCustomObjectTab,
-    formURLList, formListType, formSourceURL, formRecurring
+    formURLList, formListType, formSourceURL, formRecurring, formTags, allTagMappings, allTags
   ]);
 
   return (
@@ -2752,14 +2996,25 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
               {activeSubTab}
             </h2>
-            <div style={{ width: '300px' }}>
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-                width="100%"
-                variant="local"
-              />
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <button
+                onClick={openCreateModal}
+                className="btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                disabled={currentScope === 'show-all'}
+                title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
+              >
+                <Plus size={14} /> Add Object
+              </button>
+              <div style={{ width: '300px' }}>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                  width="100%"
+                  variant="local"
+                />
+              </div>
             </div>
           </div>
 
@@ -2967,12 +3222,17 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 <DataTable
+                  key={activeSubTab}
                   columns={columns}
                   data={displayedTableData}
                   searchQuery={searchQuery}
                   selectable={true}
                   onSelectionChange={setSelectedRows}
                   exportFilename={`${activeSubTab.toLowerCase().replace(' ', '_')}_export.csv`}
+                  additionalExportColumns={[{
+                    header: 'CLI Output',
+                    getValue: (row) => generateCliCommandsForRow(row).join('\n')
+                  }]}
                   rowStyle={(row) => {
                     const isShowAll = currentScope === 'show-all';
                     const isInherited = !isShowAll && row.device_uuid !== currentScope;
@@ -2980,16 +3240,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   }}
                   bulkActions={
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <button
-                        onClick={openCreateModal}
-                        className="btn-primary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        disabled={currentScope === 'show-all'}
-                        title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
-                      >
-                        <Plus size={14} /> Add Object
-                      </button>
-
                       <div style={{ position: 'relative' }}>
                         <button
                           onClick={() => setShowActionsMenu(!showActionsMenu)}
@@ -3073,8 +3323,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                       onClick={handleGenerateCli}
                       className="btn-secondary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedRows.length === 0}
-                      title="Generate CLI commands for selected objects"
+                      disabled={displayedTableData.length === 0}
+                      title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
                     >
                       <Code size={13} /> Generate CLI
                     </button>
@@ -3364,6 +3614,60 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   required
                 />
               </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags (Optional)</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                  {formTags.map(tName => {
+                    const tagObj = allTags.find(t => t.name === tName);
+                    const colorMap: Record<string, string> = {
+                      color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
+                      color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
+                      color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
+                      color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
+                    };
+                    const hex = tagObj ? (colorMap[tagObj.color] || 'var(--text-muted)') : 'var(--text-muted)';
+                    return (
+                      <span
+                        key={tName}
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: `${hex}22`,
+                          color: hex,
+                          border: `1px solid ${hex}44`,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
+                        {tName}
+                        <button
+                          type="button"
+                          onClick={() => setFormTags(formTags.filter(t => t !== tName))}
+                          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <Dropdown
+                  width="100%"
+                  value=""
+                  onChange={(val) => {
+                    if (val && !formTags.includes(val)) {
+                      setFormTags([...formTags, val]);
+                    }
+                  }}
+                  options={['', ...allTags.map(t => t.name).filter(name => !formTags.includes(name))]}
+                  renderOption={(opt) => opt || 'Select tag...'}
+                  searchable={true}
+                />
+              </div>
             </>
           )}
 
@@ -3385,15 +3689,160 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               </div>
               {formType === 'dynamic' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tag Filter Expression</label>
-                  <input
-                    type="text"
-                    className="input-text"
-                    value={formFilter}
-                    onChange={(e) => setFormFilter(e.target.value)}
-                    placeholder="e.g. 'tag-web' and 'tag-internal'"
-                    required
-                  />
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Match Filter</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <textarea 
+                      className="input-text"
+                      style={{ height: '80px', resize: 'none', fontFamily: 'monospace', fontSize: '12px' }}
+                      value={formFilter} 
+                      onChange={e => setFormFilter(e.target.value)} 
+                      placeholder="e.g. 'tag1' and ('tag2' or 'tag3')" 
+                    />
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', backgroundColor: 'var(--bg-main)', borderRadius: '4px', border: '1px solid var(--border-main)', padding: '2px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setFilterLogic('and')}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            borderRadius: '3px',
+                            fontWeight: 500,
+                            backgroundColor: filterLogic === 'and' ? 'var(--button-primary)' : 'transparent',
+                            color: filterLogic === 'and' ? '#fff' : 'var(--text-muted)',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >AND</button>
+                        <button
+                          type="button"
+                          onClick={() => setFilterLogic('or')}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            borderRadius: '3px',
+                            fontWeight: 500,
+                            backgroundColor: filterLogic === 'or' ? 'var(--button-primary)' : 'transparent',
+                            color: filterLogic === 'or' ? '#fff' : 'var(--text-muted)',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >OR</button>
+                      </div>
+                      
+                      <div style={{ height: '16px', width: '1px', backgroundColor: 'var(--border-main)' }}></div>
+                      
+                      {['NOT', '(', ')'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => {
+                            const val = op.toLowerCase();
+                            setFormFilter(prev => prev + (prev && !prev.endsWith(' ') && !['(', ')'].includes(op) ? ' ' : '') + val + ' ');
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: 'var(--bg-card)',
+                            border: '1px solid var(--border-main)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            color: 'var(--text-main)',
+                            cursor: 'pointer'
+                          }}
+                        >{op}</button>
+                      ))}
+                      
+                      {!showFilterTagSelector && (
+                        <button
+                          type="button"
+                          onClick={() => setShowFilterTagSelector(true)}
+                          style={{
+                            padding: '4px 8px',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            color: '#3b82f6',
+                            cursor: 'pointer',
+                            marginLeft: 'auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >Select Tags</button>
+                      )}
+                    </div>
+                    
+                    {showFilterTagSelector && (
+                      <div style={{ border: '1px solid var(--border-main)', borderRadius: '4px', display: 'flex', flexDirection: 'column', height: '192px', backgroundColor: 'var(--bg-card)' }}>
+                        <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-main)' }}>
+                          <div style={{ position: 'relative', flex: 1 }}>
+                            <input
+                              type="text"
+                              placeholder="Search tags..."
+                              className="input-text"
+                              style={{ paddingLeft: '8px', paddingRight: '24px', width: '100%' }}
+                              value={filterTagSearch}
+                              onChange={e => setFilterTagSearch(e.target.value)}
+                            />
+                            {filterTagSearch && (
+                              <button
+                                type="button"
+                                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                onClick={() => setFilterTagSearch('')}
+                              >×</button>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowFilterTagSelector(false)}
+                            style={{
+                              fontSize: '12px',
+                              backgroundColor: 'var(--button-primary)',
+                              color: '#fff',
+                              padding: '4px 12px',
+                              borderRadius: '4px',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >Done</button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
+                          {allTags.filter(t => t.name.toLowerCase().includes(filterTagSearch.toLowerCase())).map(tag => (
+                            <div
+                              key={tag.id}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              onClick={() => {
+                                const tagText = `'${tag.name}'`;
+                                let newFilter = formFilter.trim();
+                                if (newFilter) {
+                                  const lower = newFilter.toLowerCase();
+                                  const endsWithOp = lower.endsWith('(') || lower.endsWith('not') || lower.endsWith('and') || lower.endsWith('or');
+                                  if (!endsWithOp) {
+                                    newFilter += ` ${filterLogic} `;
+                                  } else {
+                                    newFilter += ' ';
+                                  }
+                                }
+                                newFilter += tagText;
+                                setFormFilter(newFilter);
+                              }}
+                            >
+                              <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{tag.name}</span>
+                            </div>
+                          ))}
+                          {allTags.filter(t => t.name.toLowerCase().includes(filterTagSearch.toLowerCase())).length === 0 && (
+                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                              No matching tags found
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3404,6 +3853,60 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   )}
                 </div>
               )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags (Optional)</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                  {formTags.map(tName => {
+                    const tagObj = allTags.find(t => t.name === tName);
+                    const colorMap: Record<string, string> = {
+                      color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b',
+                      color5: '#ec4899', color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6',
+                      color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
+                      color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
+                    };
+                    const hex = tagObj ? (colorMap[tagObj.color] || 'var(--text-muted)') : 'var(--text-muted)';
+                    return (
+                      <span
+                        key={tName}
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: `${hex}22`,
+                          color: hex,
+                          border: `1px solid ${hex}44`,
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
+                        {tName}
+                        <button
+                          type="button"
+                          onClick={() => setFormTags(formTags.filter(t => t !== tName))}
+                          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <Dropdown
+                  width="100%"
+                  value=""
+                  onChange={(val) => {
+                    if (val && !formTags.includes(val)) {
+                      setFormTags([...formTags, val]);
+                    }
+                  }}
+                  options={['', ...allTags.map(t => t.name).filter(name => !formTags.includes(name))]}
+                  renderOption={(opt) => opt || 'Select tag...'}
+                  searchable={true}
+                />
+              </div>
             </>
           )}
 

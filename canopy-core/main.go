@@ -4810,18 +4810,47 @@ func validatePorts(ports string) error {
 	return nil
 }
 
+func saveEntityTags(tx *sql.Tx, entityType string, entityID int64, deviceUUID string, tags []string) error {
+	_, err := tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_type = ? AND entity_id = ?", entityType, entityID)
+	if err != nil {
+		return err
+	}
+	for _, tagName := range tags {
+		tagName = strings.TrimSpace(tagName)
+		if tagName == "" {
+			continue
+		}
+		var tagID int64
+		err := tx.QueryRow("SELECT id FROM tags WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", tagName, deviceUUID).Scan(&tagID)
+		if err == sql.ErrNoRows {
+			res, err := tx.Exec("INSERT INTO tags (device_uuid, scope, name, color) VALUES (?, ?, ?, 'color1')", deviceUUID, "shared", tagName)
+			if err == nil {
+				tagID, _ = res.LastInsertId()
+			}
+		}
+		if tagID > 0 {
+			_, err = tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES (?, ?, ?)", entityType, entityID, tagID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func handleAddressCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req struct {
-		DeviceUUID  string `json:"device_uuid"`
-		Scope       string `json:"scope"`
-		Name        string `json:"name"`
-		Type        string `json:"type"`
-		Value       string `json:"value"`
-		Description string `json:"description"`
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Type        string   `json:"type"`
+		Value       string   `json:"value"`
+		Description string   `json:"description"`
+		Tags        []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
@@ -4845,15 +4874,23 @@ func handleAddressCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
 	var count int
-	err = dbConn.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
+	err = tx.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ?", req.DeviceUUID, req.Name).Scan(&count)
 	if err == nil && count > 0 {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": "An address object with this name already exists in the selected scope."})
 		return
 	}
 
-	res, err := dbConn.Exec(`
+	res, err := tx.Exec(`
 		INSERT INTO address_objects (device_uuid, scope, name, type, value, description, dirty)
 		VALUES (?, ?, ?, ?, ?, ?, 1)
 	`, req.DeviceUUID, req.Scope, req.Name, req.Type, req.Value, req.Description)
@@ -4864,6 +4901,18 @@ func handleAddressCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := res.LastInsertId()
+	if err := saveEntityTags(tx, "address_object", id, req.DeviceUUID, req.Tags); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save object tags: " + err.Error()})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
+		return
+	}
+
 	logAuditSafe("Address Object Created", "Objects", "Created address object: "+req.Name+" ("+req.Value+") in scope: "+req.Scope)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "id": id})
@@ -4875,13 +4924,14 @@ func handleAddressUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID          int    `json:"id"`
-		DeviceUUID  string `json:"device_uuid"`
-		Scope       string `json:"scope"`
-		Name        string `json:"name"`
-		Type        string `json:"type"`
-		Value       string `json:"value"`
-		Description string `json:"description"`
+		ID          int      `json:"id"`
+		DeviceUUID  string   `json:"device_uuid"`
+		Scope       string   `json:"scope"`
+		Name        string   `json:"name"`
+		Type        string   `json:"type"`
+		Value       string   `json:"value"`
+		Description string   `json:"description"`
+		Tags        []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
@@ -4905,15 +4955,23 @@ func handleAddressUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := dbConn.Begin()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to start database transaction"})
+		return
+	}
+	defer tx.Rollback()
+
 	var count int
-	err = dbConn.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
+	err = tx.QueryRow("SELECT COUNT(*) FROM address_objects WHERE device_uuid = ? AND name = ? AND id != ?", req.DeviceUUID, req.Name, req.ID).Scan(&count)
 	if err == nil && count > 0 {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{"error": "An address object with this name already exists in the selected scope."})
 		return
 	}
 
-	_, err = dbConn.Exec(`
+	_, err = tx.Exec(`
 		UPDATE address_objects
 		SET device_uuid = ?, scope = ?, name = ?, type = ?, value = ?, description = ?, dirty = 1
 		WHERE id = ?
@@ -4921,6 +4979,18 @@ func handleAddressUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update object: " + err.Error()})
+		return
+	}
+
+	if err := saveEntityTags(tx, "address_object", int64(req.ID), req.DeviceUUID, req.Tags); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save object tags: " + err.Error()})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
 		return
 	}
 
@@ -4977,6 +5047,7 @@ func handleAddressGroupCreate(w http.ResponseWriter, r *http.Request) {
 		Filter      string   `json:"filter"`
 		Description string   `json:"description"`
 		Members     []string `json:"members"`
+		Tags        []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
@@ -5050,6 +5121,12 @@ func handleAddressGroupCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := saveEntityTags(tx, "address_group", groupID, req.DeviceUUID, req.Tags); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save group tags: " + err.Error()})
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to commit transaction"})
@@ -5075,6 +5152,7 @@ func handleAddressGroupUpdate(w http.ResponseWriter, r *http.Request) {
 		Filter      string   `json:"filter"`
 		Description string   `json:"description"`
 		Members     []string `json:"members"`
+		Tags        []string `json:"tags"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
@@ -5153,6 +5231,12 @@ func handleAddressGroupUpdate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+
+	if err := saveEntityTags(tx, "address_group", int64(req.ID), req.DeviceUUID, req.Tags); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save group tags: " + err.Error()})
+		return
 	}
 
 	if err := tx.Commit(); err != nil {

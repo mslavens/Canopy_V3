@@ -32,17 +32,22 @@ type VendorMetadata struct {
 
 // XML entry structs
 type XMLAddressEntry struct {
-	Name        string `xml:"name,attr"`
-	IPNetmask   string `xml:"ip-netmask"`
-	IPRange     string `xml:"ip-range"`
-	FQDN        string `xml:"fqdn"`
-	Description string `xml:"description"`
+	Name        string   `xml:"name,attr"`
+	IPNetmask   string   `xml:"ip-netmask"`
+	IPRange     string   `xml:"ip-range"`
+	FQDN        string   `xml:"fqdn"`
+	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 }
 
 type XMLAddressGroupEntry struct {
 	Name        string   `xml:"name,attr"`
 	Static      []string `xml:"static>member"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
+	Dynamic     *struct {
+		Filter string `xml:"filter"`
+	} `xml:"dynamic"`
 }
 
 type XMLServiceEntry struct {
@@ -1158,7 +1163,7 @@ func clearDeviceTables(tx *sql.Tx, deviceUUID string) {
 	tx.Exec("DELETE FROM scopes WHERE uuid = ?", deviceUUID)
 }
 
-func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry, reg *registry) error {
+func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressEntry, reg *registry, dgParentMap map[string]string) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO address_objects (device_uuid, scope, name, type, value, description)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -1167,6 +1172,13 @@ func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAdd
 		return err
 	}
 	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
 
 	for _, entry := range entries {
 		addrType := ""
@@ -1191,29 +1203,48 @@ func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAdd
 		id, err := res.LastInsertId()
 		if err == nil {
 			reg.registerAddress(scope, entry.Name, id)
+			if len(entry.Tag) > 0 {
+				insertRuleTags(tx, "address_object", id, entry.Tag, scopes, reg)
+			}
 		}
 	}
 	return nil
 }
 
-func insertAddressGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressGroupEntry, reg *registry) error {
+func insertAddressGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XMLAddressGroupEntry, reg *registry, dgParentMap map[string]string) error {
 	groupStmt, err := tx.Prepare(`
-		INSERT INTO address_groups (device_uuid, scope, name, description)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO address_groups (device_uuid, scope, name, type, filter, description)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
 	}
 	defer groupStmt.Close()
 
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
 	for _, entry := range entries {
-		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, entry.Description)
+		groupType := "static"
+		groupFilter := ""
+		if entry.Dynamic != nil {
+			groupType = "dynamic"
+			groupFilter = entry.Dynamic.Filter
+		}
+		res, err := groupStmt.Exec(deviceUUID, scope, entry.Name, groupType, groupFilter, entry.Description)
 		if err != nil {
 			return err
 		}
 		id, err := res.LastInsertId()
 		if err == nil {
 			reg.registerAddressGroup(scope, entry.Name, id)
+			if len(entry.Tag) > 0 {
+				insertRuleTags(tx, "address_group", id, entry.Tag, scopes, reg)
+			}
 		}
 	}
 	return nil
@@ -2479,7 +2510,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 
 		// 3. Process Shared / Global Objects
 		progress(1, 30, "Synchronizing shared objects and templates...")
-		if err := insertAddressObjects(tx, sharedUUID, "shared", config.Shared.Address, reg); err != nil {
+		if err := insertTags(tx, sharedUUID, "shared", config.Shared.Tags, reg); err != nil {
+			return 0, 0, fmt.Errorf("failed to insert shared tags: %w", err)
+		}
+		if err := insertAddressObjects(tx, sharedUUID, "shared", config.Shared.Address, reg, dgParentMap); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared address objects: %w", err)
 		}
 		if err := insertServiceObjects(tx, sharedUUID, "shared", config.Shared.Service, reg); err != nil {
@@ -2487,9 +2521,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		}
 		if err := insertApplicationObjects(tx, sharedUUID, "shared", config.Shared.Application, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared application objects: %w", err)
-		}
-		if err := insertTags(tx, sharedUUID, "shared", config.Shared.Tags, reg); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared tags: %w", err)
 		}
 		if err := insertSchedules(tx, sharedUUID, "shared", config.Shared.Schedule, reg); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared schedules: %w", err)
@@ -2514,7 +2545,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		}
 
 		// Address / Service / Application groups Pass 1 (insert groups)
-		if err := insertAddressGroupsPass1(tx, sharedUUID, "shared", config.Shared.AddressGroup, reg); err != nil {
+		if err := insertAddressGroupsPass1(tx, sharedUUID, "shared", config.Shared.AddressGroup, reg, dgParentMap); err != nil {
 			return 0, 0, fmt.Errorf("failed to insert shared address groups: %w", err)
 		}
 		if err := insertServiceGroupsPass1(tx, sharedUUID, "shared", config.Shared.ServiceGroup, reg); err != nil {
@@ -2566,7 +2597,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 			devicesImported++
 
-			if err := insertAddressObjects(tx, dgUUID, dg.Name, dg.Address, reg); err != nil {
+			if err := insertTags(tx, dgUUID, dg.Name, dg.Tags, reg); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert dg tags for %s: %w", dg.Name, err)
+			}
+			if err := insertAddressObjects(tx, dgUUID, dg.Name, dg.Address, reg, dgParentMap); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg address objects for %s: %w", dg.Name, err)
 			}
 			if err := insertServiceObjects(tx, dgUUID, dg.Name, dg.Service, reg); err != nil {
@@ -2574,9 +2608,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 			if err := insertApplicationObjects(tx, dgUUID, dg.Name, dg.Application, reg); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg application objects for %s: %w", dg.Name, err)
-			}
-			if err := insertTags(tx, dgUUID, dg.Name, dg.Tags, reg); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg tags for %s: %w", dg.Name, err)
 			}
 			if err := insertSchedules(tx, dgUUID, dg.Name, dg.Schedule, reg); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg schedules for %s: %w", dg.Name, err)
@@ -2601,7 +2632,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 
 			// Groups Pass 1
-			if err := insertAddressGroupsPass1(tx, dgUUID, dg.Name, dg.AddressGroup, reg); err != nil {
+			if err := insertAddressGroupsPass1(tx, dgUUID, dg.Name, dg.AddressGroup, reg, dgParentMap); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert dg address groups for %s: %w", dg.Name, err)
 			}
 			if err := insertServiceGroupsPass1(tx, dgUUID, dg.Name, dg.ServiceGroup, reg); err != nil {
@@ -3182,7 +3213,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			for _, vsys := range dev.Vsys {
 				scope := "vsys:" + vsys.Name
 
-				if err := insertAddressObjects(tx, deviceUUID, scope, vsys.Address, reg); err != nil {
+				if err := insertTags(tx, deviceUUID, scope, vsys.Tags, reg); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert vsys tags: %w", err)
+				}
+				if err := insertAddressObjects(tx, deviceUUID, scope, vsys.Address, reg, dgParentMap); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys address objects: %w", err)
 				}
 				if err := insertServiceObjects(tx, deviceUUID, scope, vsys.Service, reg); err != nil {
@@ -3190,9 +3224,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 				if err := insertApplicationObjects(tx, deviceUUID, scope, vsys.Application, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys custom applications: %w", err)
-				}
-				if err := insertTags(tx, deviceUUID, scope, vsys.Tags, reg); err != nil {
-					return 0, 0, fmt.Errorf("failed to insert vsys tags: %w", err)
 				}
 				if err := insertSchedules(tx, deviceUUID, scope, vsys.Schedule, reg); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys schedules: %w", err)
@@ -3217,7 +3248,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 
 				// Groups Pass 1
-				if err := insertAddressGroupsPass1(tx, deviceUUID, scope, vsys.AddressGroup, reg); err != nil {
+				if err := insertAddressGroupsPass1(tx, deviceUUID, scope, vsys.AddressGroup, reg, dgParentMap); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert vsys address groups: %w", err)
 				}
 				if err := insertServiceGroupsPass1(tx, deviceUUID, scope, vsys.ServiceGroup, reg); err != nil {

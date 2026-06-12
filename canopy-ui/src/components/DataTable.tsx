@@ -23,9 +23,10 @@ interface DataTableProps {
   rowStyle?: (row: any) => React.CSSProperties;
   bulkActions?: React.ReactNode;
   exportActions?: React.ReactNode;
+  additionalExportColumns?: { header: string; getValue: (row: any) => string }[];
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions }) => {
+export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, additionalExportColumns }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -220,16 +221,33 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
   };
 
   const handleExportCSV = () => {
-    if (processedRows.length === 0) return;
+    const rowsToExport = selectedRows.size > 0 ? processedRows.filter(r => selectedRows.has(r)) : processedRows;
+    if (rowsToExport.length === 0) return;
     
-    const headers = visibleColumnKeys.map(k => getColDef(k).label || k).join(',');
-    const csvRows = processedRows.map(row => {
-      return visibleColumnKeys.map(k => {
+    const exportKeys = visibleColumnKeys.filter(k => getColDef(k).label !== 'Actions');
+    const baseHeaders = exportKeys.map(k => getColDef(k).label || k);
+    const extraHeaders = additionalExportColumns ? additionalExportColumns.map(c => c.header) : [];
+    const headers = [...baseHeaders, ...extraHeaders].join(',');
+
+    const csvRows = rowsToExport.map(row => {
+      const baseValues = exportKeys.map(k => {
         let val = row[k];
         if (val === null || val === undefined) val = '';
+        
+        // Format known multi-value fields with semicolons for strict Enterprise parsers
+        if (typeof val === 'string' && ['member_list', 'url_list', 'ports'].includes(k)) {
+          val = val.split(',').map(s => s.trim()).join('; ');
+        }
+        
         const stringVal = String(val).replace(/"/g, '""');
         return `"${stringVal}"`;
-      }).join(',');
+      });
+      const extraValues = additionalExportColumns ? additionalExportColumns.map(c => {
+        const val = c.getValue(row) || '';
+        const stringVal = String(val).replace(/"/g, '""');
+        return `"${stringVal}"`;
+      }) : [];
+      return [...baseValues, ...extraValues].join(',');
     });
     
     const csvContent = [headers, ...csvRows].join('\n');
@@ -237,7 +255,13 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', exportFilename || 'export.csv');
+    
+    // Generate YYYYMMDD_HHMMSS timestamp
+    const d = new Date();
+    const ts = `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}${d.getSeconds().toString().padStart(2, '0')}`;
+    const baseName = (exportFilename || 'export.csv').replace(/\.csv$/i, '');
+    
+    link.setAttribute('download', `${baseName}_${ts}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -250,18 +274,34 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent' }}>
         <div style={{ display: 'flex', alignItems: 'center', minHeight: '26px', gap: '20px' }}>
-          {selectable && selectedRows.size > 0 && (
-            <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckSquare size={14} /> {selectedRows.size} selected
-            </div>
-          )}
-          {bulkActions && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {bulkActions}
+          {selectable && (
+            <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', visibility: selectedRows.size > 0 ? 'visible' : 'hidden', minWidth: '85px' }}>
+              <CheckSquare size={14} /> {selectedRows.size > 0 ? selectedRows.size : 0} selected
             </div>
           )}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {bulkActions && (
+            <>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {bulkActions}
+              </div>
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-main)', margin: '0 4px' }} />
+            </>
+          )}
+
+          {exportActions}
+          {exportFilename && (
+            <button 
+              className="btn-secondary btn-sm" 
+              disabled={processedRows.length === 0} 
+              onClick={handleExportCSV} 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              title={selectedRows.size > 0 ? `Export ${selectedRows.size} selected rows to CSV` : "Export all displayed rows to CSV"}
+            >
+              <Upload size={14} /> Export CSV
+            </button>
+          )}
           <div ref={columnToggleRef} style={{ position: 'relative' }}>
             <button className="btn-secondary btn-sm" onClick={() => setShowColumnToggle(!showColumnToggle)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Columns size={14} /> Columns
@@ -283,12 +323,6 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </div>
             )}
           </div>
-          {exportActions}
-          {exportFilename && (
-            <button className="btn-secondary btn-sm" disabled={processedRows.length === 0} onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Upload size={14} /> Export CSV
-            </button>
-          )}
         </div>
       </div>
 
