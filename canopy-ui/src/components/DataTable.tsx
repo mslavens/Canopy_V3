@@ -29,9 +29,18 @@ interface DataTableProps {
   additionalExportColumns?: { header: string; getValue: (row: any) => string }[];
   loading?: boolean;
   rowContextMenuActions?: (row: any, closeMenu: () => void) => React.ReactNode;
+  totalRows?: number;
+  pagination?: boolean;
+  currentPage?: number;
+  rowsPerPage?: number;
+  onPageChange?: (page: number) => void;
+  onRowsPerPageChange?: (limit: number) => void;
 }
 
-export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, rowContextMenuActions }) => {
+export const DataTable: React.FC<DataTableProps> = ({ 
+  columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, rowContextMenuActions,
+  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange
+}) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -154,16 +163,44 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
     return rows;
   }, [data, searchQuery, sortConfig, columns, columnFilters]);
 
-  useEffect(() => setCurrentPage(1), [searchQuery, data]);
+  useEffect(() => {
+    if (!pagination) setCurrentPage(1);
+  }, [searchQuery, data, pagination]);
 
-  const safeCurrentPage = Number(currentPage) || 1;
-  const totalPages = Math.max(1, Math.ceil(processedRows.length / pageSize));
-  const startIndex = (safeCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, processedRows.length);
+  const effectiveCurrentPage = pagination ? (externalCurrentPage !== undefined ? externalCurrentPage + 1 : 1) : currentPage;
+  const effectivePageSize = pagination ? (externalRowsPerPage || 50) : pageSize;
+
+  const setEffectiveCurrentPage = (p: React.SetStateAction<number | string>) => {
+    if (pagination && onPageChange) {
+      if (typeof p === 'function') {
+        const next = Number(p(effectiveCurrentPage));
+        onPageChange(next - 1);
+      } else {
+        onPageChange(Number(p) - 1);
+      }
+    } else {
+      setCurrentPage(p);
+    }
+  };
+
+  const setEffectivePageSize = (s: number) => {
+    if (pagination && onRowsPerPageChange) {
+      onRowsPerPageChange(s);
+    } else {
+      setPageSize(s);
+    }
+  };
+
+  const safeCurrentPage = Number(effectiveCurrentPage) || 1;
+  const totalRecords = pagination && totalRows !== undefined ? totalRows : processedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / effectivePageSize));
+  
+  const startIndex = (safeCurrentPage - 1) * effectivePageSize;
+  const endIndex = Math.min(startIndex + effectivePageSize, totalRecords);
   
   const paginatedRows = useMemo(() => {
-    return processedRows.slice(startIndex, endIndex);
-  }, [processedRows, startIndex, endIndex]);
+    return pagination ? processedRows : processedRows.slice(startIndex, endIndex);
+  }, [processedRows, startIndex, endIndex, pagination]);
 
   const handleSort = (colKey: string) => {
     setSortConfig(prev => {
@@ -407,14 +444,14 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
                           type="text"
                           placeholder="Filter..."
                           value={columnFilters[colKey] || ''}
-                          onChange={(e) => { setColumnFilters(prev => ({ ...prev, [colKey]: e.target.value })); setCurrentPage(1); }}
+                          onChange={(e) => { setColumnFilters(prev => ({ ...prev, [colKey]: e.target.value })); setEffectiveCurrentPage(1); }}
                           style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '11px', outline: 'none', width: '100%', minWidth: '30px' }}
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                           onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         />
                         {columnFilters[colKey] && (
-                          <button onClick={(e) => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [colKey]: '' })); setCurrentPage(1); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
+                          <button onClick={(e) => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [colKey]: '' })); setEffectiveCurrentPage(1); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
                             <X size={12} />
                           </button>
                         )}
@@ -485,9 +522,9 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
               </td></tr>
             )}
             {/* Zero-CLS Padding: Fill the remaining space with a height-matched empty row so the pagination footer never jumps */}
-            {paginatedRows.length < pageSize && (
+            {paginatedRows.length < effectivePageSize && (
               <tr>
-                <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${(pageSize - Math.max(1, paginatedRows.length)) * 37}px`, borderBottom: 'none', padding: 0 }}></td>
+                <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${(effectivePageSize - Math.max(1, paginatedRows.length)) * 37}px`, borderBottom: 'none', padding: 0 }}></td>
               </tr>
             )}
           </tbody>
@@ -495,13 +532,13 @@ export const DataTable: React.FC<DataTableProps> = ({ columns, data, searchQuery
       </div>
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows per page:</span><Dropdown options={['25', '50', '100', '500']} value={pageSize.toString()} onChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }} width="80px" direction="up" /></div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Showing {processedRows.length === 0 ? 0 : startIndex + 1} to {endIndex} of {processedRows.length} entries</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows per page:</span><Dropdown options={['25', '50', '100', '500']} value={effectivePageSize.toString()} onChange={(val) => { setEffectivePageSize(Number(val)); setEffectiveCurrentPage(1); }} width="80px" direction="up" /></div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Showing {totalRecords === 0 ? 0 : startIndex + 1} to {endIndex} of {totalRecords} entries</div>
         </div>
         <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-          <button className="btn-secondary btn-sm" onClick={() => setCurrentPage(p => Math.max(1, Number(p) - 1))} disabled={safeCurrentPage === 1}>Previous</button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '0 5px', whiteSpace: 'nowrap' }}><span style={{ fontSize: '12px', color: 'var(--text-main)' }}>Page</span><input type="number" min={1} max={totalPages} value={currentPage} onChange={(e) => { if (e.target.value === '') { setCurrentPage('' as any); return; } let val = parseInt(e.target.value, 10); if (!isNaN(val)) { if (val < 1) val = 1; if (val > totalPages) val = totalPages; setCurrentPage(val); } }} onBlur={() => { if (!currentPage || isNaN(Number(currentPage))) setCurrentPage(1); }} className="input-text no-spinners" style={{ width: '45px', padding: '4px', textAlign: 'center', fontSize: '12px', height: '26px' }} /><span style={{ fontSize: '12px', color: 'var(--text-main)' }}>of {totalPages}</span></div>
-          <button className="btn-secondary btn-sm" onClick={() => setCurrentPage(p => Math.min(totalPages, Number(p) + 1))} disabled={safeCurrentPage === totalPages}>Next</button>
+          <button className="btn-secondary btn-sm" onClick={() => setEffectiveCurrentPage(p => Math.max(1, Number(p) - 1))} disabled={safeCurrentPage === 1}>Previous</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '0 5px', whiteSpace: 'nowrap' }}><span style={{ fontSize: '12px', color: 'var(--text-main)' }}>Page</span><input type="number" min={1} max={totalPages} value={effectiveCurrentPage} onChange={(e) => { if (e.target.value === '') { setEffectiveCurrentPage('' as any); return; } let val = parseInt(e.target.value, 10); if (!isNaN(val)) { if (val < 1) val = 1; if (val > totalPages) val = totalPages; setEffectiveCurrentPage(val); } }} onBlur={() => { if (!effectiveCurrentPage || isNaN(Number(effectiveCurrentPage))) setEffectiveCurrentPage(1); }} className="input-text no-spinners" style={{ width: '45px', padding: '4px', textAlign: 'center', fontSize: '12px', height: '26px' }} /><span style={{ fontSize: '12px', color: 'var(--text-main)' }}>of {totalPages}</span></div>
+          <button className="btn-secondary btn-sm" onClick={() => setEffectiveCurrentPage(p => Math.min(totalPages, Number(p) + 1))} disabled={safeCurrentPage === totalPages}>Next</button>
         </div>
       </div>
 

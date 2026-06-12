@@ -73,6 +73,44 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 		return
 	}
 
+	colRows, err := logDB.DB().Query(fmt.Sprintf("PRAGMA table_info('%s');", stagingTable))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get staging columns: %v", err), http.StatusInternalServerError)
+		return
+	}
+	existingCols := make(map[string]bool)
+	for colRows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull bool
+		var dfltValue interface{}
+		var pk int
+		colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
+		existingCols[name] = true
+	}
+	colRows.Close()
+
+	getStrCol := func(name string) string {
+		if existingCols[name] {
+			return fmt.Sprintf(`"%s"`, name)
+		}
+		return "'na'"
+	}
+	
+	getNumCol := func(name string) string {
+		if existingCols[name] {
+			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 0))`, name)
+		}
+		return "0"
+	}
+	
+	getCountCol := func(name string) string {
+		if existingCols[name] {
+			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 1))`, name)
+		}
+		return "SUM(1)"
+	}
+
 	insertCmd := fmt.Sprintf(`
 		INSERT INTO traffic_logs (
 			device_name, serial, rule_name, source_user, category, source_zone, source_ip, 
@@ -81,34 +119,52 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 			app_technology, count, bytes, bytes_sent, bytes_received, packets, packets_sent, packets_received, client_id
 		)
 		SELECT 
-			"Device Name", "Serial #", "Rule", "Source User", "Category", "Source Zone", "Source address",
-			"Destination Zone", "Destination address", "Application", 
-			TRY_CAST("Destination Port" AS BIGINT), 
-			"IP Protocol", "Action", "Threat/Content Type", 
-			"Session End Reason", "NAT Source IP", "NAT Destination IP", 
-			"Subcategory of app", "Category of app", "Technology of app",
-			TRY_CAST("Count" AS BIGINT),
-			TRY_CAST("Bytes" AS BIGINT), 
-			TRY_CAST("Bytes Sent" AS BIGINT), 
-			TRY_CAST("Bytes Received" AS BIGINT), 
-			TRY_CAST("Packets" AS BIGINT),
-			TRY_CAST("Packets Sent" AS BIGINT), 
-			TRY_CAST("Packets Received" AS BIGINT),
+			%s, %s, %s, %s, %s, %s, %s,
+			%s, %s, %s, 
+			TRY_CAST(%s AS BIGINT), 
+			%s, %s, %s, 
+			%s, %s, %s, 
+			%s, %s, %s,
+			%s, %s, %s, %s, %s, %s, %s,
 			'%s'
-		FROM %s;
-	`, clientID, stagingTable)
+		FROM %s
+		GROUP BY 
+			%s, %s, %s, %s, %s, %s, %s,
+			%s, %s, %s, 
+			TRY_CAST(%s AS BIGINT), 
+			%s, %s, %s, 
+			%s, %s, %s, 
+			%s, %s, %s;
+	`, 
+		getStrCol("Device Name"), getStrCol("Serial #"), getStrCol("Rule"), getStrCol("Source User"), getStrCol("Category"), getStrCol("Source Zone"), getStrCol("Source address"),
+		getStrCol("Destination Zone"), getStrCol("Destination address"), getStrCol("Application"), 
+		getStrCol("Destination Port"), 
+		getStrCol("IP Protocol"), getStrCol("Action"), getStrCol("Threat/Content Type"), 
+		getStrCol("Session End Reason"), getStrCol("NAT Source IP"), getStrCol("NAT Destination IP"), 
+		getStrCol("Subcategory of app"), getStrCol("Category of app"), getStrCol("Technology of app"),
+		getCountCol("Count"), getNumCol("Bytes"), getNumCol("Bytes Sent"), getNumCol("Bytes Received"), getNumCol("Packets"), getNumCol("Packets Sent"), getNumCol("Packets Received"),
+		clientID, stagingTable,
+		getStrCol("Device Name"), getStrCol("Serial #"), getStrCol("Rule"), getStrCol("Source User"), getStrCol("Category"), getStrCol("Source Zone"), getStrCol("Source address"),
+		getStrCol("Destination Zone"), getStrCol("Destination address"), getStrCol("Application"), 
+		getStrCol("Destination Port"), 
+		getStrCol("IP Protocol"), getStrCol("Action"), getStrCol("Threat/Content Type"), 
+		getStrCol("Session End Reason"), getStrCol("NAT Source IP"), getStrCol("NAT Destination IP"), 
+		getStrCol("Subcategory of app"), getStrCol("Category of app"), getStrCol("Technology of app"),
+	)
 
-	_, err = logDB.DB().Exec(insertCmd)
+	res, err := logDB.DB().Exec(insertCmd)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to map staging data to logs table: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	rowsAffected, _ := res.RowsAffected()
+
 	// Drop staging
 	logDB.DB().Exec(fmt.Sprintf("DROP TABLE %s;", stagingTable))
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"success"}`))
+	w.Write([]byte(fmt.Sprintf(`{"status":"success", "rows": %d}`, rowsAffected)))
 }
 
 func HandleGetLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB) {
@@ -166,8 +222,26 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB)
 		results = append(results, m)
 	}
 
+	var total int
+	err = logDB.DB().QueryRow("SELECT COUNT(*) FROM traffic_logs WHERE client_id = ?", clientID).Scan(&total)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get total count: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if results == nil {
+		results = []map[string]interface{}{}
+	}
+
+	response := map[string]interface{}{
+		"data":   results,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
+	json.NewEncoder(w).Encode(response)
 }
 
 func HandleDeleteLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB) {

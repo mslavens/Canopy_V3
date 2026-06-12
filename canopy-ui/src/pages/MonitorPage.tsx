@@ -32,6 +32,9 @@ interface MonitorPageProps {
 
 export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, setActiveSubTab }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(50);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const confirm = useConfirm();
@@ -41,15 +44,18 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
     setLoading(true);
     try {
       const client = new CanopyApiClient(auth);
-      const response = await client.getLogs('global', 1000);
-      if (Array.isArray(response)) {
-        setLogs(response);
+      const response = await client.getLogs('global', limit, page * limit);
+      if (response && Array.isArray(response.data)) {
+        setLogs(response.data);
+        setTotalLogs(response.total || 0);
       } else {
         setLogs([]);
+        setTotalLogs(0);
       }
     } catch (err) {
       console.error('Failed to fetch logs', err);
       setLogs([]);
+      setTotalLogs(0);
     } finally {
       setLoading(false);
     }
@@ -59,27 +65,29 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
     if (activeSubTab === 'Traffic Logs') {
       fetchLogs();
     }
-  }, [activeSubTab]);
+  }, [activeSubTab, page, limit]);
 
-  const handleDeleteLogs = async () => {
+  const handleDeleteLogs = () => {
     if (!auth) return;
-    if (await confirm({
+    confirm({
       title: 'Clear All Traffic Logs',
       message: 'Are you sure you want to permanently delete all imported traffic logs? This action cannot be undone.',
       confirmText: 'Delete Logs',
-      confirmStyle: 'danger'
-    })) {
-      try {
-        const client = new CanopyApiClient(auth);
-        await client.deleteLogs('global');
-        setLogs([]);
-      } catch (err) {
-        console.error('Failed to delete logs', err);
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const client = new CanopyApiClient(auth);
+          await client.deleteLogs('global');
+          setLogs([]);
+          setTotalLogs(0);
+        } catch (err) {
+          console.error('Failed to delete logs', err);
+        }
       }
-    }
+    });
   };
 
-  const trafficColumns = useMemo<ColumnDef<LogEntry>[]>(() => [
+  const trafficColumns = useMemo<ColumnDef[]>(() => [
     { key: 'count', header: 'Count', sortable: true, width: '80px' },
     { key: 'device_name', header: 'Device Name', sortable: true, width: '160px' },
     { key: 'serial', header: 'Serial #', sortable: true, width: '140px' },
@@ -116,6 +124,12 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
         data={logs}
         searchQuery={searchQuery}
         loading={loading}
+        totalRows={totalLogs}
+        pagination={true}
+        currentPage={page}
+        rowsPerPage={limit}
+        onPageChange={(newPage) => setPage(newPage)}
+        onRowsPerPageChange={(newLimit) => { setLimit(newLimit); setPage(0); }}
         toolbarTitle={
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
