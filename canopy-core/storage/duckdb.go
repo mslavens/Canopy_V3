@@ -31,8 +31,7 @@ func InitializeLogStore(dbName string) (*LogDB, error) {
 
 	// Initialize traffic logs table
 	trafficSchema := `
-	DROP TABLE IF EXISTS traffic_logs;
-	CREATE TABLE traffic_logs (
+	CREATE TABLE IF NOT EXISTS traffic_logs (
 		id UUID DEFAULT gen_random_uuid(),
 		device_name VARCHAR,
 		serial VARCHAR,

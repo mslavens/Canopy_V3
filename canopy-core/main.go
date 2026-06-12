@@ -4619,6 +4619,9 @@ func main() {
 	mux.HandleFunc("/api/logs/delete", func(w http.ResponseWriter, r *http.Request) {
 		HandleDeleteLogs(w, r, logDB)
 	})
+	mux.HandleFunc("/api/logs/delete-batch", func(w http.ResponseWriter, r *http.Request) {
+		HandleDeleteLogsBatch(w, r, logDB)
+	})
 
 	// --- MULTI-LAYER MIDDLEWARE STACK ---
 	protectedMux := authMiddleware(token, mux)

@@ -182,4 +182,5 @@ export class CanopyApiClient {
   public getLogs = (client_id: string, limit: number = 50, offset: number = 0) => this.request<{data: any[], total: number, limit: number, offset: number}>(`/api/logs?client_id=${client_id}&limit=${limit}&offset=${offset}`);
   public importLogs = (client_id: string, formData: FormData) => this.request<any>(`/api/logs/import?client_id=${client_id}`, { method: 'POST', body: formData });
   public deleteLogs = (client_id: string) => this.request<any>(`/api/logs/delete?client_id=${client_id}`, { method: 'DELETE' });
+  public deleteLogsBatch = (client_id: string, ids: string[]) => this.request<any>(`/api/logs/delete-batch?client_id=${client_id}`, { method: 'POST', body: JSON.stringify({ ids }) });
 }

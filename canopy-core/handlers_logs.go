@@ -268,3 +268,53 @@ func HandleDeleteLogs(w http.ResponseWriter, r *http.Request, logDB *storage.Log
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"success"}`))
 }
+
+func HandleDeleteLogsBatch(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	clientID := r.URL.Query().Get("client_id")
+	if clientID == "" {
+		http.Error(w, "client_id is required", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	if len(payload.IDs) == 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"success"}`))
+		return
+	}
+
+	logDB.WriteLock()
+	defer logDB.WriteUnlock()
+
+	// Use IN clause to delete multiple UUIDs
+	placeholders := make([]string, len(payload.IDs))
+	args := make([]interface{}, len(payload.IDs)+1)
+	args[0] = clientID
+	for i, id := range payload.IDs {
+		placeholders[i] = "?"
+		args[i+1] = id
+	}
+
+	query := fmt.Sprintf("DELETE FROM traffic_logs WHERE client_id = ? AND id IN (%s)", strings.Join(placeholders, ","))
+	
+	_, err := logDB.DB().Exec(query, args...)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete logs: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"success"}`))
+}

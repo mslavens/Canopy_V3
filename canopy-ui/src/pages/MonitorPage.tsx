@@ -37,6 +37,7 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
   const [limit, setLimit] = useState(50);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLogs, setSelectedLogs] = useState<LogEntry[]>([]);
   const confirm = useConfirm();
 
   const fetchLogs = async () => {
@@ -80,8 +81,32 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
           await client.deleteLogs('global');
           setLogs([]);
           setTotalLogs(0);
+          setSelectedLogs([]);
         } catch (err) {
           console.error('Failed to delete logs', err);
+        }
+      }
+    });
+  };
+
+  const handleDeleteSelectedLogs = () => {
+    if (!auth || selectedLogs.length === 0) return;
+    confirm({
+      title: `Delete ${selectedLogs.length} Logs`,
+      message: `Are you sure you want to permanently delete these ${selectedLogs.length} selected logs?`,
+      confirmText: 'Delete Selected',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          const client = new CanopyApiClient(auth);
+          const ids = selectedLogs.map(l => l.id).filter(id => id);
+          if (ids.length > 0) {
+            await client.deleteLogsBatch('global', ids);
+            fetchLogs();
+            setSelectedLogs([]);
+          }
+        } catch (err) {
+          console.error('Failed to delete selected logs', err);
         }
       }
     });
@@ -130,6 +155,15 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
         rowsPerPage={limit}
         onPageChange={(newPage) => setPage(newPage)}
         onRowsPerPageChange={(newLimit) => { setLimit(newLimit); setPage(0); }}
+        selectable={true}
+        onSelectionChange={setSelectedLogs}
+        bulkActions={
+          selectedLogs.length > 0 ? (
+            <button className="btn-danger btn-sm" onClick={handleDeleteSelectedLogs} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Trash2 size={14} /> Delete Selected ({selectedLogs.length})
+            </button>
+          ) : null
+        }
         toolbarTitle={
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
