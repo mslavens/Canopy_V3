@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Trash2, FileUp, Database, Copy, Eye, Filter, FilterX } from 'lucide-react';
+import { RefreshCw, Trash2, FileUp, Database, Copy, Eye, Filter, FilterX, Plus } from 'lucide-react';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { LogImporter } from '../components/LogImporter';
 import { CanopyApiClient } from '../api/client';
 import { useConfirm } from '../components/ConfirmProvider';
 import { SearchBar } from '../components/SearchBar';
+import { PageHeader } from '../components/PageHeader';
 
 interface LogEntry {
   id: string;
@@ -124,19 +125,19 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
   };
 
   const trafficColumns = useMemo<ColumnDef[]>(() => [
-    { key: 'count', header: 'Count', sortable: true, width: '90px' },
-    { key: 'device_name', header: 'Device Name', sortable: true, width: '180px' },
-    { key: 'serial', header: 'Serial #', sortable: true, width: '160px' },
-    { key: 'source_zone', header: 'From Zone', sortable: true, width: '140px' },
-    { key: 'dest_zone', header: 'To Zone', sortable: true, width: '140px' },
-    { key: 'source_ip', header: 'Source IP', sortable: true, width: '160px' },
-    { key: 'dest_ip', header: 'Dest IP', sortable: true, width: '160px' },
-    { key: 'dest_port', header: 'Dest Port', sortable: true, width: '120px' },
-    { key: 'action', header: 'Action', sortable: true, width: '120px' },
-    { key: 'rule_name', header: 'Rule', sortable: true, width: '180px' },
-    { key: 'application', header: 'Application', sortable: true, width: '140px' },
-    { key: 'bytes', header: 'Bytes', sortable: true, width: '120px' },
-    { key: 'packets', header: 'Packets', sortable: true, width: '120px' }
+    { key: 'count', header: 'Count', sortable: true, width: '130px' },
+    { key: 'device_name', header: 'Device Name', sortable: true, width: '240px' },
+    { key: 'serial', header: 'Serial #', sortable: true, width: '200px' },
+    { key: 'source_zone', header: 'From Zone', sortable: true, width: '180px' },
+    { key: 'dest_zone', header: 'To Zone', sortable: true, width: '180px' },
+    { key: 'source_ip', header: 'Source IP', sortable: true, width: '200px' },
+    { key: 'dest_ip', header: 'Dest IP', sortable: true, width: '200px' },
+    { key: 'dest_port', header: 'Dest Port', sortable: true, width: '160px' },
+    { key: 'action', header: 'Action', sortable: true, width: '160px' },
+    { key: 'rule_name', header: 'Rule', sortable: true, width: '220px' },
+    { key: 'application', header: 'Application', sortable: true, width: '180px' },
+    { key: 'bytes', header: 'Bytes', sortable: true, width: '160px' },
+    { key: 'packets', header: 'Packets', sortable: true, width: '160px' }
   ], []);
 
   const handleCopy = (text: string) => {
@@ -145,8 +146,9 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
 
   if (activeSubTab === 'Log Import') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '30px' }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <PageHeader title="Log Importer" description="Import network traffic logs from external CSV or XML files." isSticky={true} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '10px' }}>
           <LogImporter auth={auth} addToast={addToast} onSuccess={() => setActiveSubTab('Traffic Logs')} />
         </div>
       </div>
@@ -154,10 +156,23 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100% + 60px)', margin: '-30px' }}>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', overflow: 'hidden' }}>
-          <DataTable
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <PageHeader 
+        title="Traffic Logs" 
+        description="Monitor, filter, and manage real-time and historical network traffic logs." 
+        isSticky={true}
+        actions={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <SearchBar 
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search all columns..."
+            />
+          </div>
+        }
+      />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', overflow: 'hidden', margin: '15px -30px -30px -30px' }}>
+        <DataTable
             columns={trafficColumns}
             data={logs}
             searchQuery={searchQuery}
@@ -177,25 +192,24 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
                 </button>
               ) : null
             }
-            toolbarTitle={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
-                <SearchBar 
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Search all columns..."
-                />
-              </div>
+            exportFilename="traffic_logs_export.csv"
+            exportActions={
+              <>
+                <button onClick={handleDeleteLogs} className="btn-danger btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }} title="Clear Logs">
+                  <Trash2 size={13} /> Clear All Logs
+                </button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+              </>
             }
             topRightActions={
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={fetchLogs} className="btn-secondary btn-sm" title="Refresh Logs">
-                  <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
-                </button>
-                <button onClick={handleDeleteLogs} className="btn-danger btn-sm" title="Clear Logs">
-                  <Trash2 size={14} /> Clear Logs
-                </button>
-              </div>
+              <button 
+                onClick={() => setActiveSubTab('Log Import')} 
+                className="btn-secondary btn-sm" 
+                title="Add Logs"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={14} /> Add Logs
+              </button>
             }
             rowContextMenuActions={(row, closeMenu, colKey, cellValue, setFilterValue, clearColumnFilter, clearAllFilters) => (
               <>
@@ -269,7 +283,6 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
               </>
             )}
           />
-        </div>
       </div>
     </div>
   );

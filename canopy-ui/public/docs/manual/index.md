@@ -10,6 +10,7 @@ Welcome to the Canopy Framework Help Center. Select a topic below to read the do
 * [Security Audit Logs](system-audit-logs)
 
 ### Network & Analytics
+* [Network Monitor & Logs](monitor-traffic-logs)
 * [Path Resolution Analysis](network-path-resolution)
 
 ### Maintenance
