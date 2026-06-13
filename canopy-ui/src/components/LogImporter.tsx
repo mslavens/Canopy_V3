@@ -4,10 +4,11 @@ import { CanopyApiClient } from '../api/client';
 
 interface LogImporterProps {
   auth: { url: string; token: string } | null;
+  addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   onSuccess?: () => void;
 }
 
-export const LogImporter: React.FC<LogImporterProps> = ({ auth, onSuccess }) => {
+export const LogImporter: React.FC<LogImporterProps> = ({ auth, addToast, onSuccess }) => {
     const [status, setStatus] = useState("Ready to import logs.");
     const [stats, setStats] = useState({ files: 0, rows: 0 });
     const [isProcessing, setIsProcessing] = useState(false);
@@ -66,16 +67,17 @@ export const LogImporter: React.FC<LogImporterProps> = ({ auth, onSuccess }) => 
             } catch (err: any) {
                 console.error(`Import failed for ${file.name}:`, err);
                 updateStatus(`Import failed for ${file.name}: ${err.message}`);
+                addToast(`Failed to import ${file.name}: ${err.message || String(err)}`, 'error');
             }
         }
 
-        setStats({ files: successfulFiles, rows: totalRows });
+        setStats(prev => ({ files: prev.files + successfulFiles, rows: prev.rows + totalRows }));
         setPendingFiles([]);
         setIsProcessing(false);
         
         if (successfulFiles > 0) {
             updateStatus("Import complete.");
-            if (onSuccess) onSuccess();
+            addToast(`Successfully imported ${totalRows.toLocaleString()} rows from ${successfulFiles} file(s).`, 'success');
         }
     };
 
@@ -140,6 +142,15 @@ export const LogImporter: React.FC<LogImporterProps> = ({ auth, onSuccess }) => 
                     >
                         <Trash2 size={16} /> Clear
                     </button>
+                    {stats.rows > 0 && onSuccess && (
+                        <button 
+                            onClick={onSuccess}
+                            className="btn-secondary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--bg-element)' }}
+                        >
+                            View Logs <ArrowRight size={16} />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

@@ -68,6 +68,21 @@ export const DataTable: React.FC<DataTableProps> = ({
     if (onSelectionChange) onSelectionChange(Array.from(selectedRows));
   }, [selectedRows, onSelectionChange]);
 
+  // Clear selections for objects that no longer exist in the data (e.g. after a delete or refresh)
+  useEffect(() => {
+    setSelectedRows(prev => {
+      if (prev.size === 0) return prev;
+      const next = new Set<any>();
+      for (const row of prev) {
+        // If the data objects are re-fetched, references change and selection naturally clears.
+        // If data objects are mutated in place, this preserves valid selections.
+        if (data.includes(row)) next.add(row);
+      }
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [data]);
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedRows(new Set(processedRows));
     else setSelectedRows(new Set());

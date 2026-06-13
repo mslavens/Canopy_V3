@@ -26,11 +26,12 @@ interface LogEntry {
 
 interface MonitorPageProps {
   auth: { url: string; token: string } | null;
+  addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   activeSubTab: string;
   setActiveSubTab: (tab: string) => void;
 }
 
-export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, setActiveSubTab }) => {
+export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, activeSubTab, setActiveSubTab }) => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [totalLogs, setTotalLogs] = useState(0);
   const [page, setPage] = useState(0);
@@ -78,12 +79,16 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
       onConfirm: async () => {
         try {
           const client = new CanopyApiClient(auth);
-          await client.deleteLogs('global');
+          // Optimistic UI update
           setLogs([]);
           setTotalLogs(0);
           setSelectedLogs([]);
-        } catch (err) {
+          
+          await client.deleteLogs('global');
+          addToast('Successfully cleared all traffic logs.', 'success');
+        } catch (err: any) {
           console.error('Failed to delete logs', err);
+          addToast('Failed to clear logs: ' + (err.message || String(err)), 'error');
         }
       }
     });
@@ -101,12 +106,18 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
           const client = new CanopyApiClient(auth);
           const ids = selectedLogs.map(l => l.id).filter(id => id);
           if (ids.length > 0) {
-            await client.deleteLogsBatch('global', ids);
-            fetchLogs();
+            // Optimistic UI update
+            setLogs(prev => prev.filter(l => !ids.includes(l.id)));
+            setTotalLogs(prev => Math.max(0, prev - ids.length));
             setSelectedLogs([]);
+            
+            await client.deleteLogsBatch('global', ids);
+            fetchLogs(); // Background refresh
+            addToast(`Successfully deleted ${ids.length} selected logs.`, 'success');
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error('Failed to delete selected logs', err);
+          addToast('Failed to delete selected logs: ' + (err.message || String(err)), 'error');
         }
       }
     });
@@ -136,72 +147,76 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, activeSubTab, se
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '30px' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <LogImporter auth={auth} onSuccess={() => setActiveSubTab('Traffic Logs')} />
+          <LogImporter auth={auth} addToast={addToast} onSuccess={() => setActiveSubTab('Traffic Logs')} />
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', margin: '-30px' }}>
-      <DataTable
-        columns={trafficColumns}
-        data={logs}
-        searchQuery={searchQuery}
-        loading={loading}
-        totalRows={totalLogs}
-        pagination={true}
-        currentPage={page}
-        rowsPerPage={limit}
-        onPageChange={(newPage) => setPage(newPage)}
-        onRowsPerPageChange={(newLimit) => { setLimit(newLimit); setPage(0); }}
-        selectable={true}
-        onSelectionChange={setSelectedLogs}
-        bulkActions={
-          selectedLogs.length > 0 ? (
-            <button className="btn-danger btn-sm" onClick={handleDeleteSelectedLogs} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Trash2 size={14} /> Delete Selected ({selectedLogs.length})
-            </button>
-          ) : null
-        }
-        toolbarTitle={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
-            <SearchBar 
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search all columns..."
-            />
-          </div>
-        }
-        topRightActions={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={fetchLogs} className="btn-secondary btn-sm" title="Refresh Logs">
-              <RefreshCw size={14} /> Refresh
-            </button>
-            <button onClick={handleDeleteLogs} className="btn-danger btn-sm" title="Clear Logs">
-              <Trash2 size={14} /> Clear Logs
-            </button>
-          </div>
-        }
-        rowContextMenuActions={(row, closeMenu) => (
-          <>
-            <button className="dropdown-option-row" onClick={() => { handleCopy(row.source_ip); closeMenu(); }}>
-              <Copy size={14} /> Copy Source IP
-            </button>
-            <button className="dropdown-option-row" onClick={() => { handleCopy(row.dest_ip); closeMenu(); }}>
-              <Copy size={14} /> Copy Destination IP
-            </button>
-            <button className="dropdown-option-row" onClick={() => { handleCopy(row.rule_name); closeMenu(); }}>
-              <Copy size={14} /> Copy Rule Name
-            </button>
-            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-            <button className="dropdown-option-row" onClick={() => { console.log('Details for', row); closeMenu(); }}>
-              <Eye size={14} /> View Full Details
-            </button>
-          </>
-        )}
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100% + 60px)', margin: '-30px' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', overflow: 'hidden' }}>
+          <DataTable
+            columns={trafficColumns}
+            data={logs}
+            searchQuery={searchQuery}
+            loading={loading}
+            totalRows={totalLogs}
+            pagination={true}
+            currentPage={page}
+            rowsPerPage={limit}
+            onPageChange={(newPage) => setPage(newPage)}
+            onRowsPerPageChange={(newLimit) => { setLimit(newLimit); setPage(0); }}
+            selectable={true}
+            onSelectionChange={setSelectedLogs}
+            bulkActions={
+              selectedLogs.length > 0 ? (
+                <button className="btn-danger btn-sm" onClick={handleDeleteSelectedLogs} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Trash2 size={14} /> Delete Selected ({selectedLogs.length})
+                </button>
+              ) : null
+            }
+            toolbarTitle={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Traffic Logs</h2>
+                <SearchBar 
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search all columns..."
+                />
+              </div>
+            }
+            topRightActions={
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={fetchLogs} className="btn-secondary btn-sm" title="Refresh Logs">
+                  <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+                </button>
+                <button onClick={handleDeleteLogs} className="btn-danger btn-sm" title="Clear Logs">
+                  <Trash2 size={14} /> Clear Logs
+                </button>
+              </div>
+            }
+            rowContextMenuActions={(row, closeMenu) => (
+              <>
+                <button className="dropdown-option-row" onClick={() => { handleCopy(row.source_ip); closeMenu(); }}>
+                  <Copy size={14} /> Copy Source IP
+                </button>
+                <button className="dropdown-option-row" onClick={() => { handleCopy(row.dest_ip); closeMenu(); }}>
+                  <Copy size={14} /> Copy Destination IP
+                </button>
+                <button className="dropdown-option-row" onClick={() => { handleCopy(row.rule_name); closeMenu(); }}>
+                  <Copy size={14} /> Copy Rule Name
+                </button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                <button className="dropdown-option-row" onClick={() => { console.log('Details for', row); closeMenu(); }}>
+                  <Eye size={14} /> View Full Details
+                </button>
+              </>
+            )}
+          />
+        </div>
+      </div>
     </div>
   );
 };

@@ -152,16 +152,22 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 		getStrCol("Subcategory of app"), getStrCol("Category of app"), getStrCol("Technology of app"),
 	)
 
+	logDB.WriteLock()
+	defer logDB.WriteUnlock()
+
 	res, err := logDB.DB().Exec(insertCmd)
 	if err != nil {
+		slog.Error("Failed to copy data from staging to logs table", slog.String("error", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to map staging data to logs table: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	logAuditSafe("Logs Imported", "Diagnostics", fmt.Sprintf("Imported traffic logs via CSV into workspace: %s", clientID))
+
 	rowsAffected, _ := res.RowsAffected()
 
 	// Drop staging
-	logDB.DB().Exec(fmt.Sprintf("DROP TABLE %s;", stagingTable))
+	logDB.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", stagingTable))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf(`{"status":"success", "rows": %d}`, rowsAffected)))
@@ -192,7 +198,7 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB)
 		}
 	}
 
-	query := "SELECT * FROM traffic_logs WHERE client_id = ? ORDER BY id DESC LIMIT ? OFFSET ?"
+	query := "SELECT * EXCLUDE (id), CAST(id AS VARCHAR) as id FROM traffic_logs WHERE client_id = ? ORDER BY id DESC LIMIT ? OFFSET ?"
 	rows, err := logDB.DB().Query(query, clientID, limit, offset)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Query failed: %v", err), http.StatusInternalServerError)
@@ -265,6 +271,8 @@ func HandleDeleteLogs(w http.ResponseWriter, r *http.Request, logDB *storage.Log
 		return
 	}
 
+	logAuditSafe("Logs Cleared", "Diagnostics", "Cleared all traffic logs from workspace: "+clientID)
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"success"}`))
 }
@@ -314,6 +322,8 @@ func HandleDeleteLogsBatch(w http.ResponseWriter, r *http.Request, logDB *storag
 		http.Error(w, fmt.Sprintf("Failed to delete logs: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	logAuditSafe("Logs Deleted", "Diagnostics", fmt.Sprintf("Deleted %d specific traffic logs from workspace: %s", len(payload.IDs), clientID))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"success"}`))
