@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Trash2, FileUp, Database, Copy, Eye } from 'lucide-react';
+import { RefreshCw, Trash2, FileUp, Database, Copy, Eye, Filter, FilterX } from 'lucide-react';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { LogImporter } from '../components/LogImporter';
 import { CanopyApiClient } from '../api/client';
@@ -197,20 +197,74 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
                 </button>
               </div>
             }
-            rowContextMenuActions={(row, closeMenu) => (
+            rowContextMenuActions={(row, closeMenu, colKey, cellValue, setFilterValue, clearColumnFilter, clearAllFilters) => (
               <>
-                <button className="dropdown-option-row" onClick={() => { handleCopy(row.source_ip); closeMenu(); }}>
-                  <Copy size={14} /> Copy Source IP
-                </button>
-                <button className="dropdown-option-row" onClick={() => { handleCopy(row.dest_ip); closeMenu(); }}>
-                  <Copy size={14} /> Copy Destination IP
-                </button>
-                <button className="dropdown-option-row" onClick={() => { handleCopy(row.rule_name); closeMenu(); }}>
-                  <Copy size={14} /> Copy Rule Name
-                </button>
+                {colKey && cellValue !== undefined && cellValue !== null && setFilterValue && (
+                  <button 
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => { 
+                      setFilterValue(colKey, String(cellValue)); 
+                      closeMenu(); 
+                    }}
+                  >
+                    <Filter size={13} /> Add '{String(cellValue).length > 20 ? String(cellValue).substring(0, 20) + '...' : String(cellValue)}' to Filter
+                  </button>
+                )}
+                {colKey && clearColumnFilter && (
+                  <button 
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => { 
+                      clearColumnFilter(colKey); 
+                      closeMenu(); 
+                    }}
+                  >
+                    <FilterX size={13} /> Clear Filter for Column
+                  </button>
+                )}
+                {clearAllFilters && (
+                  <button 
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => { 
+                      clearAllFilters(); 
+                      closeMenu(); 
+                    }}
+                  >
+                    <FilterX size={13} /> Clear All Filters
+                  </button>
+                )}
                 <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                <button className="dropdown-option-row" onClick={() => { console.log('Details for', row); closeMenu(); }}>
-                  <Eye size={14} /> View Full Details
+                <button 
+                  className="btn-secondary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--text-danger)' }}
+                  onClick={() => { 
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Delete Log',
+                      message: 'Are you sure you want to permanently delete this log?',
+                      confirmText: 'Delete',
+                      isDestructive: true,
+                      onConfirm: async () => {
+                        try {
+                          const client = new CanopyApiClient(auth);
+                          setLogs(prev => prev.filter(l => l.id !== row.id));
+                          setTotalLogs(prev => Math.max(0, prev - 1));
+                          
+                          await client.deleteLogsBatch('global', [row.id]);
+                          fetchLogs();
+                          addToast('Successfully deleted log.', 'success');
+                        } catch (err: any) {
+                          console.error('Failed to delete log', err);
+                          addToast('Failed to delete log: ' + (err.message || String(err)), 'error');
+                        }
+                      }
+                    });
+                    closeMenu(); 
+                  }}
+                >
+                  <Trash2 size={13} /> Delete Log
                 </button>
               </>
             )}

@@ -28,7 +28,7 @@ interface DataTableProps {
   toolbarTitle?: React.ReactNode;
   additionalExportColumns?: { header: string; getValue: (row: any) => string }[];
   loading?: boolean;
-  rowContextMenuActions?: (row: any, closeMenu: () => void) => React.ReactNode;
+  rowContextMenuActions?: (row: any, closeMenu: () => void, colKey?: string, cellValue?: any, setFilterValue?: (col: string, val: string) => void, clearColumnFilter?: (col: string) => void, clearAllFilters?: () => void) => React.ReactNode;
   totalRows?: number;
   pagination?: boolean;
   currentPage?: number;
@@ -49,6 +49,8 @@ export const DataTable: React.FC<DataTableProps> = ({
   const [activeResizeCol, setActiveResizeCol] = useState<string | null>(null);
   const [showTableActionsMenu, setShowTableActionsMenu] = useState(false);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; row: any; colKey?: string; cellValue?: any } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   
   // Feature: Column Filtering
   const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
@@ -80,8 +82,6 @@ export const DataTable: React.FC<DataTableProps> = ({
   const [selectedRows, setSelectedRows] = useState<Set<any>>(new Set());
 
   // Feature: Context Menu
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, row: any } | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (onSelectionChange) onSelectionChange(Array.from(selectedRows));
@@ -669,7 +669,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                 className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} 
                 style={customStyle}
                 onContextMenu={(e) => {
-                  if (rowContextMenuActions) {
+                  if (rowContextMenuActions && !visibleColumnKeys.length) {
                     e.preventDefault();
                     setContextMenu({ x: e.pageX, y: e.pageY, row });
                   }
@@ -683,7 +683,17 @@ export const DataTable: React.FC<DataTableProps> = ({
                 {visibleColumnKeys.map((colKey, cIdx) => {
                   const colDef = getColDef(colKey);
                   return (
-                    <td key={cIdx} style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}>
+                    <td 
+                      key={cIdx} 
+                      onContextMenu={(e) => {
+                        if (rowContextMenuActions) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setContextMenu({ x: e.pageX, y: e.pageY, row, colKey, cellValue: row[colKey] });
+                        }
+                      }}
+                      style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}
+                    >
                       {colDef.renderCell ? colDef.renderCell(row[colKey], row, searchQuery) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
                     </td>
                   );
@@ -748,7 +758,28 @@ export const DataTable: React.FC<DataTableProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {rowContextMenuActions(contextMenu.row, () => setContextMenu(null))}
+            {rowContextMenuActions(
+              contextMenu.row, 
+              () => setContextMenu(null), 
+              contextMenu.colKey, 
+              contextMenu.cellValue, 
+              (col: string, val: string) => {
+                setColumnFilters(prev => ({ ...prev, [col]: new Set([val]) }));
+                setEffectiveCurrentPage(1);
+              },
+              (col: string) => {
+                setColumnFilters(prev => {
+                  const next = { ...prev };
+                  delete next[col];
+                  return next;
+                });
+                setEffectiveCurrentPage(1);
+              },
+              () => {
+                setColumnFilters({});
+                setEffectiveCurrentPage(1);
+              }
+            )}
           </div>
         </div>,
         document.body
