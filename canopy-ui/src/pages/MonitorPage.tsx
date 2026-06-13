@@ -124,19 +124,19 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
   };
 
   const trafficColumns = useMemo<ColumnDef[]>(() => [
-    { key: 'count', header: 'Count', sortable: true, width: '80px' },
-    { key: 'device_name', header: 'Device Name', sortable: true, width: '160px' },
-    { key: 'serial', header: 'Serial #', sortable: true, width: '140px' },
-    { key: 'source_zone', header: 'From Zone', sortable: true, width: '120px' },
-    { key: 'dest_zone', header: 'To Zone', sortable: true, width: '120px' },
-    { key: 'source_ip', header: 'Source IP', sortable: true, width: '140px' },
-    { key: 'dest_ip', header: 'Dest IP', sortable: true, width: '140px' },
-    { key: 'dest_port', header: 'Dest Port', sortable: true, width: '100px' },
-    { key: 'action', header: 'Action', sortable: true, width: '100px' },
-    { key: 'rule_name', header: 'Rule', sortable: true, width: '160px' },
-    { key: 'application', header: 'Application', sortable: true, width: '120px' },
-    { key: 'bytes', header: 'Bytes', sortable: true, width: '100px' },
-    { key: 'packets', header: 'Packets', sortable: true, width: '100px' }
+    { key: 'count', header: 'Count', sortable: true, width: '90px' },
+    { key: 'device_name', header: 'Device Name', sortable: true, width: '180px' },
+    { key: 'serial', header: 'Serial #', sortable: true, width: '160px' },
+    { key: 'source_zone', header: 'From Zone', sortable: true, width: '140px' },
+    { key: 'dest_zone', header: 'To Zone', sortable: true, width: '140px' },
+    { key: 'source_ip', header: 'Source IP', sortable: true, width: '160px' },
+    { key: 'dest_ip', header: 'Dest IP', sortable: true, width: '160px' },
+    { key: 'dest_port', header: 'Dest Port', sortable: true, width: '120px' },
+    { key: 'action', header: 'Action', sortable: true, width: '120px' },
+    { key: 'rule_name', header: 'Rule', sortable: true, width: '180px' },
+    { key: 'application', header: 'Application', sortable: true, width: '140px' },
+    { key: 'bytes', header: 'Bytes', sortable: true, width: '120px' },
+    { key: 'packets', header: 'Packets', sortable: true, width: '120px' }
   ], []);
 
   const handleCopy = (text: string) => {
