@@ -44,7 +44,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isSplitView, setIsSplitView] = useState(false);
+  const [isSplitView, setIsSplitView] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'heatmap'|'analysis'>('heatmap');
 
   const [xAxis, setXAxis] = useState<string[]>(['dest_zone']);
@@ -425,7 +425,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
 
   useEffect(() => {
       const timer = setTimeout(() => {
-          if (activeCellFilter.length > 0 && passes.length > 0 && analysisColumns.length > 0) {
+          if (passes.length > 0 && analysisColumns.length > 0) {
               generateCandidates(true);
           } else {
               setCandidates([]);
@@ -831,7 +831,12 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}><Box size={16} color="var(--accent-blue)" /> Raw Flow Matrix</h3>
                 </div>
-                <button className="btn-secondary" onClick={fetchHeatmap} disabled={isLoading}><RefreshCw size={14} className={isLoading ? "animate-spin" : ""} /> Refresh</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {selectedRegions.length > 0 && (
+                    <button className="btn-secondary" onClick={() => setSelectedRegions([])}>Clear Selection</button>
+                  )}
+                  <button className="btn-secondary" onClick={fetchHeatmap} disabled={isLoading}><RefreshCw size={14} className={isLoading ? "animate-spin" : ""} /> Refresh</button>
+                </div>
               </div>
               {isLoading && data.length === 0 ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)' }}>
@@ -966,11 +971,14 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
           {(isSplitView) && (
             <div style={{ flex: 1, overflow: 'auto', padding: '0', backgroundColor: 'var(--bg-app)' }}>
                <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, left: 0, zIndex: 20, backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)' }}>
-                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}><GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules</h3>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules
+                  {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
+                </h3>
               </div>
               
-              <div>
-              {isGenerating ? (
+              <div style={{ opacity: isGenerating && candidates.length > 0 ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isGenerating ? 'none' : 'auto' }}>
+              {isGenerating && candidates.length === 0 ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)' }}>
                   <Loader2 size={24} className="animate-spin" />
                   <span style={{ marginLeft: '12px' }}>Executing Passes...</span>
