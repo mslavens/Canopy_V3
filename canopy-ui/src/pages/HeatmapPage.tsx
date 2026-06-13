@@ -967,36 +967,31 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                 <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}><GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules</h3>
               </div>
               
-              <div style={{ padding: '16px' }}>
+              <div>
               {isGenerating ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)' }}>
                   <Loader2 size={24} className="animate-spin" />
                   <span style={{ marginLeft: '12px' }}>Executing Passes...</span>
                 </div>
               ) : candidates.length === 0 ? (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '8px', padding: '32px' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '8px', margin: '32px' }}>
                   <Shield size={32} color="var(--text-muted)" />
                   <span>No candidates generated. Configure your passes in the Rule Analysis tab and click Generate.</span>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {[candidates[candidates.length - 1]].filter(Boolean).map((passResult: any, idx) => (
-                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
-                      <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-app)', borderBottom: '1px solid var(--border-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Layers size={16} color="var(--accent-purple)"/>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Final Candidate Rules</span>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({passResult.rules.length} candidates)</span>
-                      </div>
+                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', overflow: 'hidden' }}>
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                           <thead>
                             <tr>
                               {analysisColumns.map(col => (
-                                <th key={col} style={{ padding: '12px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
+                                <th key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
                                   {availableColumns.find(c => c === col) || col}
                                 </th>
                               ))}
-                              <th style={{ padding: '12px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', width: '100px' }}>Hits</th>
+                              <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', width: '100px' }}>Hits</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1013,13 +1008,13 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                                     }
                                     
                                     return (
-                                      <td key={col} style={{ padding: '12px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)' }}>
+                                      <td key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)' }}>
                                         {displayVal || '-'}
                                       </td>
                                     );
                                   })}
-                                  <td style={{ padding: '12px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)', fontWeight: 600 }}>
-                                    {rule.total_count?.toLocaleString() || 0}
+                                  <td style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)', fontWeight: 600 }}>
+                                    {rule.count?.toLocaleString() || 0}
                                   </td>
                                 </tr>
                               );
