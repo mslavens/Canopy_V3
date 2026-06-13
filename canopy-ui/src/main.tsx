@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './global.css';
 
 import { AppLayout } from './layouts/AppLayout';
+import { CandidatesPopoutPage } from './pages/CandidatesPopoutPage';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { PathResolutionPage } from './pages/PathResolutionPage';
 import { InterfacesPage } from './pages/InterfacesPage';
@@ -69,8 +70,8 @@ const App = () => {
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = document.documentElement.getAttribute('data-theme');
-      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+      const savedTheme = localStorage.getItem('canopy-theme') || document.documentElement.getAttribute('data-theme');
+      if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme as 'light' | 'dark';
       return 'dark'; // Force dark mode as the default baseline
     }
     return 'dark';
@@ -99,7 +100,19 @@ const App = () => {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('canopy-theme', theme);
   }, [theme]);
+
+  // Sync theme changes from other windows
+  useEffect(() => {
+    const handleThemeStorage = (e: StorageEvent) => {
+      if (e.key === 'canopy-theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+        setTheme(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleThemeStorage);
+    return () => window.removeEventListener('storage', handleThemeStorage);
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
@@ -345,6 +358,13 @@ const App = () => {
         />
       </>
     );
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const isPopout = params.get('popout') === 'candidates';
+
+  if (isPopout) {
+    return <CandidatesPopoutPage />;
   }
 
   return (

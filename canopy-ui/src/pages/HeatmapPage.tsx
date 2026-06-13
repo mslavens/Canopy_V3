@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
-import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings } from 'lucide-react';
+import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings, ExternalLink } from 'lucide-react';
 
 interface HeatmapPageProps {
   auth: { url: string; token: string } | null;
@@ -74,6 +74,23 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
     "source_zone", "source_ip", "dest_zone", "dest_ip", "dest_port", 
 		"protocol", "application", "action"
   ]);
+
+  // Synchronize candidate state to localStorage for popout window support
+  useEffect(() => {
+    localStorage.setItem('canopy-candidates-data', JSON.stringify(candidates));
+  }, [candidates]);
+
+  useEffect(() => {
+    localStorage.setItem('canopy-candidates-generating', JSON.stringify(isGenerating));
+  }, [isGenerating]);
+
+  useEffect(() => {
+    localStorage.setItem('canopy-candidates-columns', JSON.stringify(analysisColumns));
+  }, [analysisColumns]);
+
+  useEffect(() => {
+    localStorage.setItem('canopy-candidates-available-columns', JSON.stringify(availableColumns));
+  }, [availableColumns]);
 
   useEffect(() => {
     const loadSchema = async () => {
@@ -975,6 +992,30 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules
                   {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
                 </h3>
+                <button
+                  onClick={() => {
+                    if (window.electron && window.electron.spawnWindow) {
+                      window.electron.spawnWindow('popout=candidates');
+                    }
+                  }}
+                  title="Pop out Candidate Rules to a new window"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px',
+                    borderRadius: '4px',
+                    transition: 'all 0.1s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <ExternalLink size={14} />
+                </button>
               </div>
               
               <div style={{ opacity: isGenerating && candidates.length > 0 ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isGenerating ? 'none' : 'auto' }}>
