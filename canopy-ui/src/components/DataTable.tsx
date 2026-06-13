@@ -209,8 +209,8 @@ export const DataTable: React.FC<DataTableProps> = ({
     if (!pagination) setCurrentPage(1);
   }, [searchQuery, data, pagination]);
 
-  const effectiveCurrentPage = pagination ? (externalCurrentPage !== undefined ? externalCurrentPage + 1 : 1) : currentPage;
-  const effectivePageSize = pagination ? (externalRowsPerPage || 50) : pageSize;
+  const effectiveCurrentPage = externalCurrentPage !== undefined ? externalCurrentPage + 1 : currentPage;
+  const effectivePageSize = externalRowsPerPage !== undefined ? externalRowsPerPage : pageSize;
 
   const setEffectiveCurrentPage = (p: React.SetStateAction<number | string>) => {
     if (pagination && onPageChange) {
@@ -241,7 +241,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   const endIndex = Math.min(startIndex + effectivePageSize, totalRecords);
   
   const paginatedRows = useMemo(() => {
-    return pagination ? processedRows : processedRows.slice(startIndex, endIndex);
+    return pagination ? processedRows.slice(startIndex, endIndex) : processedRows;
   }, [processedRows, startIndex, endIndex, pagination]);
 
   const handleSort = (colKey: string) => {
@@ -476,7 +476,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   <th 
                     key={colKey} 
                     className="data-table-th"
-                    style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'visible' }} 
+                    style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: filterMenuCol === colKey ? 100 : 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'visible' }} 
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -489,7 +489,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                           style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
                           title="Drag to reorder, click to sort"
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
+                          <span style={{ whiteSpace: 'normal', wordBreak: 'break-word', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
                           <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
                         </div>
                         <button 
@@ -561,28 +561,39 @@ export const DataTable: React.FC<DataTableProps> = ({
                               <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>No matching values.</div>
                             ) : (
                               <>
-                                {!filterMenuSearch && (
                                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer', paddingBottom: '6px', borderBottom: '1px solid var(--border-main)', marginBottom: '4px' }}>
                                     <input 
                                       type="checkbox" 
-                                      checked={columnFilters[colKey] === undefined || columnFilters[colKey].size === uniqueValuesForFilter.length}
+                                      checked={
+                                        columnFilters[colKey] === undefined 
+                                          ? true 
+                                          : filteredUniqueValues.every(v => columnFilters[colKey]?.has(v))
+                                      }
                                       onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setColumnFilters(prev => {
-                                            const next = { ...prev };
+                                        const checked = e.target.checked;
+                                        setColumnFilters(prev => {
+                                          const next = { ...prev };
+                                          let currentSet = prev[colKey] ? new Set(prev[colKey]) : new Set(uniqueValuesForFilter);
+                                          
+                                          if (checked) {
+                                            filteredUniqueValues.forEach(v => currentSet.add(v));
+                                          } else {
+                                            filteredUniqueValues.forEach(v => currentSet.delete(v));
+                                          }
+                                          
+                                          if (currentSet.size === uniqueValuesForFilter.length) {
                                             delete next[colKey];
-                                            return next;
-                                          });
-                                        } else {
-                                          setColumnFilters(prev => ({ ...prev, [colKey]: new Set() }));
-                                        }
+                                          } else {
+                                            next[colKey] = currentSet;
+                                          }
+                                          return next;
+                                        });
                                         setEffectiveCurrentPage(1);
                                       }}
                                       style={{ cursor: 'pointer', margin: 0 }}
                                     />
-                                    <span style={{ fontWeight: 600, flex: 1 }}>(Select All)</span>
+                                    <span style={{ fontWeight: 600, flex: 1 }}>{filterMenuSearch ? '(Select All Search Results)' : '(Select All)'}</span>
                                   </label>
-                                )}
                                 {filteredUniqueValues.map(val => {
                                   const isActive = columnFilters[colKey] === undefined || columnFilters[colKey].has(val);
                                   return (

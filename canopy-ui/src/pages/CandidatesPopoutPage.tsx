@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GitMerge, Loader2, Shield } from 'lucide-react';
+import { DataTable } from '../components/DataTable';
 
 export const CandidatesPopoutPage: React.FC = () => {
   const [candidates, setCandidates] = useState<any[]>(() => {
@@ -59,6 +60,33 @@ export const CandidatesPopoutPage: React.FC = () => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  const dataTableColumns = useMemo(() => {
+    return [
+      ...analysisColumns.map(col => ({
+        key: col,
+        label: availableColumns.find(c => c === col) || col,
+        width: '200px',
+        renderCell: (val: any) => {
+          let displayVal = val;
+          if (Array.isArray(val)) {
+            displayVal = val.join(', ');
+          } else if (typeof val === 'string' && val.startsWith('[') && val.endsWith(']')) {
+            try { displayVal = JSON.parse(val).join(', '); } catch (e) { displayVal = val; }
+          }
+          return displayVal || '-';
+        }
+      })),
+      {
+        key: 'count',
+        label: 'Hits',
+        width: '100px',
+        renderCell: (val: any) => val?.toLocaleString() || 0
+      }
+    ];
+  }, [analysisColumns, availableColumns]);
+
+  const activePassResult = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+
   return (
     <div style={{
       display: 'flex',
@@ -87,10 +115,13 @@ export const CandidatesPopoutPage: React.FC = () => {
 
       <div style={{
         flex: 1,
-        overflow: 'auto',
+        overflow: 'hidden',
+        minHeight: 0,
         opacity: isGenerating && candidates.length > 0 ? 0.5 : 1,
         transition: 'opacity 0.2s',
-        pointerEvents: isGenerating ? 'none' : 'auto'
+        pointerEvents: isGenerating ? 'none' : 'auto',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {isGenerating && candidates.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
@@ -114,49 +145,16 @@ export const CandidatesPopoutPage: React.FC = () => {
             <span>No candidates generated. Configure your passes in the main window Heatmap page and click Generate.</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {[candidates[candidates.length - 1]].filter(Boolean).map((passResult: any, idx) => (
-              <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                    <thead>
-                      <tr>
-                        {analysisColumns.map(col => (
-                          <th key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)' }}>
-                            {availableColumns.find(c => c === col) || col}
-                          </th>
-                        ))}
-                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', width: '100px', backgroundColor: 'var(--bg-surface)' }}>Hits</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {passResult.rules.map((rule: any, ruleIdx: number) => (
-                        <tr key={ruleIdx} style={{ borderBottom: '1px solid var(--border-main)' }}>
-                          {analysisColumns.map(col => {
-                            const val = rule[col];
-                            let displayVal = val;
-                            if (Array.isArray(val)) {
-                              displayVal = val.join(', ');
-                            } else if (typeof val === 'string' && val.startsWith('[') && val.endsWith(']')) {
-                              try { displayVal = JSON.parse(val).join(', '); } catch (e) { displayVal = val; }
-                            }
-
-                            return (
-                              <td key={col} style={{ padding: '12px 16px', color: 'var(--text-main)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={displayVal || '-'}>
-                                {displayVal || '-'}
-                              </td>
-                            );
-                          })}
-                          <td style={{ padding: '12px 16px', color: 'var(--text-main)', fontWeight: 600 }}>
-                            {rule.count?.toLocaleString() || 0}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+             {activePassResult && (
+               <DataTable 
+                 columns={dataTableColumns}
+                 data={activePassResult.rules || []}
+                 exportFilename="candidate_rules_popout"
+                 pagination={true}
+                 selectable={true}
+               />
+             )}
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
+import { DataTable } from '../components/DataTable';
 import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings, ExternalLink } from 'lucide-react';
 
 interface HeatmapPageProps {
@@ -456,6 +457,33 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
     const intensity = Math.max(0.1, value / matrixData.maxVal);
     return `rgba(245, 158, 11, ${intensity})`;
   };
+
+  const dataTableColumns = React.useMemo(() => {
+    return [
+      ...analysisColumns.map(col => ({
+        key: col,
+        label: availableColumns.find(c => c === col) || col,
+        width: '200px',
+        renderCell: (val: any) => {
+          let displayVal = val;
+          if (Array.isArray(val)) {
+            displayVal = val.join(', ');
+          } else if (typeof val === 'string' && val.startsWith('[') && val.endsWith(']')) {
+            try { displayVal = JSON.parse(val).join(', '); } catch (e) { displayVal = val; }
+          }
+          return displayVal || '-';
+        }
+      })),
+      {
+        key: 'count',
+        label: 'Hits',
+        width: '100px',
+        renderCell: (val: any) => val?.toLocaleString() || 0
+      }
+    ];
+  }, [analysisColumns, availableColumns]);
+
+  const activePassResult = candidates.length > 0 ? candidates[candidates.length - 1] : null;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -986,7 +1014,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
 
           {/* Analysis View (Shown if split) */}
           {(isSplitView) && (
-            <div style={{ flex: 1, overflow: 'auto', padding: '0', backgroundColor: 'var(--bg-app)' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '0', backgroundColor: 'var(--bg-app)' }}>
                <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, left: 0, zIndex: 20, backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)' }}>
                 <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules
@@ -1018,7 +1046,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                 </button>
               </div>
               
-              <div style={{ opacity: isGenerating && candidates.length > 0 ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isGenerating ? 'none' : 'auto' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', opacity: isGenerating && candidates.length > 0 ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isGenerating ? 'none' : 'auto' }}>
               {isGenerating && candidates.length === 0 ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: 'var(--text-muted)' }}>
                   <Loader2 size={24} className="animate-spin" />
@@ -1030,51 +1058,16 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   <span>No candidates generated. Configure your passes in the Rule Analysis tab and click Generate.</span>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {[candidates[candidates.length - 1]].filter(Boolean).map((passResult: any, idx) => (
-                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', overflow: 'hidden' }}>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                          <thead>
-                            <tr>
-                              {analysisColumns.map(col => (
-                                <th key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
-                                  {availableColumns.find(c => c === col) || col}
-                                </th>
-                              ))}
-                              <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', width: '100px' }}>Hits</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {passResult.rules.map((rule: any, ruleIdx: number) => {
-                              return (
-                                <tr key={ruleIdx}>
-                                  {analysisColumns.map(col => {
-                                    const val = rule[col];
-                                    let displayVal = val;
-                                    if (Array.isArray(val)) {
-                                      displayVal = val.join(', ');
-                                    } else if (typeof val === 'string' && val.startsWith('[') && val.endsWith(']')) {
-                                      try { displayVal = JSON.parse(val).join(', '); } catch (e) { displayVal = val; }
-                                    }
-                                    
-                                    return (
-                                      <td key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={displayVal || '-'}>
-                                        {displayVal || '-'}
-                                      </td>
-                                    );
-                                  })}
-                                  <td style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)', fontWeight: 600 }}>
-                                    {rule.count?.toLocaleString() || 0}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                  {activePassResult && (
+                    <DataTable 
+                      columns={dataTableColumns}
+                      data={activePassResult.rules || []}
+                      exportFilename="candidate_rules"
+                      pagination={true}
+                      selectable={true}
+                    />
+                  )}
                 </div>
               )}
               </div>
