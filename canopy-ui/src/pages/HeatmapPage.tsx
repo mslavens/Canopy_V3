@@ -843,7 +843,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   No aggregated data found. Check your axes or import logs.
                 </div>
               ) : (
-                <div ref={containerRef} style={{ display: 'inline-block', minWidth: '100%', position: 'relative', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div ref={containerRef} style={{ minWidth: '100%', width: 'max-content', position: 'relative', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
                   <div 
                     ref={selectionBoxRef} 
                     style={{
@@ -855,7 +855,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   <table 
                     onMouseDown={handleTableMouseDown}
                     onMouseOver={handleTableMouseOver}
-                    style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', tableLayout: 'fixed', userSelect: 'none' }}
+                    style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', userSelect: 'none' }}
                   >
                     <thead>
                       {matrixData.xHeaderRows.map((row, level) => (
@@ -884,6 +884,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                               onClick={(e) => handleHeaderClick(e, headerItem.label, headerItem.parentPath, 'x')}
                               style={{ 
                                 padding: '8px 12px', backgroundColor: 'var(--bg-surface)', 
+                                minWidth: '100px',
                                 borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', 
                                 position: 'sticky', top: `${level * 36}px`, zIndex: 10, whiteSpace: 'nowrap',
                                 overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer'
@@ -933,6 +934,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                                   data-c={colIdx}
                                   style={{ 
                                     padding: '12px', 
+                                    minWidth: '80px',
                                     borderBottom: '1px solid var(--border-main)', 
                                     borderRight: '1px solid var(--border-main)', 
                                     backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.4)' : getHeatmapColor(val),
@@ -983,7 +985,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   {[candidates[candidates.length - 1]].filter(Boolean).map((passResult: any, idx) => (
                     <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', overflow: 'hidden' }}>
                       <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                        <table style={{ width: 'max-content', minWidth: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                           <thead>
                             <tr>
                               {analysisColumns.map(col => (
@@ -1008,7 +1010,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                                     }
                                     
                                     return (
-                                      <td key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)' }}>
+                                      <td key={col} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={displayVal || '-'}>
                                         {displayVal || '-'}
                                       </td>
                                     );

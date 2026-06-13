@@ -2,6 +2,29 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.19.0 - Analytics Parity & Data Grid Integrity
+**Date:** 2026-06-12
+
+### Added
+- **Analytics Engine:** Migrated the Candidate Rules log analysis engine to V3. It now utilizes DuckDB's native memory-optimized arrays (`list_sort`, `list_distinct`) and recursive Common Table Expressions (CTEs) to execute massive, cascading multi-pass rollups locally in milliseconds.
+- **Cross-Platform Compilation:** Modernized `build.sh` to enforce CGO enablement and strictly enforce cross-compiler dependencies (MinGW/Linux GCC) when building the DuckDB payload for alternate platforms from a macOS host.
+
+### Changed
+- **Heatmap UX:** Restored native X/Y scrolling capabilities to the Raw Flow Matrix by discarding restrictive fixed layouts and enforcing strict cell minimum widths, preserving legibility on 20x20+ datasets.
+- **Analytics UX:** Discarded the restrictive box-model framing around the Candidate Rules data grid in favor of a clean, edge-to-edge spreadsheet presentation. Grids now enforce maximum widths on merged text columns, complete with native hover tooltips to view long, comma-separated arrays without breaking the layout.
+- **Data Fidelity:** Configured the Go engine to automatically infer and inject all non-aggregated columns into the analytic `GROUP BY` clause, strictly mirroring the V1 Web Worker's logic and preventing orphaned SQL bindings during progressive passes.
+
+### Fixed
+- **System Stability:** Resolved a critical race condition (deadlock) in `/api/logs/import` that caused the entire application to hang indefinitely due to a non-reentrant `RWMutex` lock conflict during CSV ingestion.
+- **Data Integrity:** Corrected a JSON payload mapping error where Candidate Rule total `Hits` were being discarded by the UI due to a key mismatch with the DuckDB backend (`count` vs `total_count`).
+
+## v0.18.0 - Log Import & Viewer Architecture
+**Date:** 2026-06-12
+
+### Added
+- **Log Management:** Implemented the core data pipelines and DuckDB staging architecture for ingesting external CSV log exports.
+- **Log Viewer:** Built the interactive Log Viewer interface for querying, filtering, and paginating raw traffic data directly from the headless engine.
+
 ## v0.17.0 - Backend Modularity & Dynamic Object Fixes
 **Date:** 2026-06-12
 

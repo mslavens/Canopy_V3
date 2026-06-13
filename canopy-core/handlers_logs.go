@@ -154,9 +154,6 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 		getStrCol("Subcategory of app"), getStrCol("Category of app"), getStrCol("Technology of app"),
 	)
 
-	logDB.WriteLock()
-	defer logDB.WriteUnlock()
-
 	res, err := logDB.DB().Exec(insertCmd)
 	if err != nil {
 		slog.Error("Failed to copy data from staging to logs table", slog.String("error", err.Error()))
