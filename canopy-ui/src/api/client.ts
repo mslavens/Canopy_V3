@@ -180,7 +180,15 @@ export class CanopyApiClient {
 
   // Logs API
   public getLogs = (client_id: string, limit: number = 50, offset: number = 0) => this.request<{data: any[], total: number, limit: number, offset: number}>(`/api/logs?client_id=${client_id}&limit=${limit}&offset=${offset}`);
+  public getLogHeatmap = (client_id: string, x_axis: string[], y_axis: string[]) => {
+    const params = new URLSearchParams({ client_id });
+    if (x_axis?.length) params.append('x_axis', x_axis.join(','));
+    if (y_axis?.length) params.append('y_axis', y_axis.join(','));
+    return this.request<any>(`/api/logs/heatmap?${params.toString()}`);
+  };
   public importLogs = (client_id: string, formData: FormData) => this.request<any>(`/api/logs/import?client_id=${client_id}`, { method: 'POST', body: formData });
   public deleteLogs = (client_id: string) => this.request<any>(`/api/logs/delete?client_id=${client_id}`, { method: 'DELETE' });
   public deleteLogsBatch = (client_id: string, ids: string[]) => this.request<any>(`/api/logs/delete-batch?client_id=${client_id}`, { method: 'POST', body: JSON.stringify({ ids }) });
+  public generateCandidateRules = (client_id: string, passes: any[], limit: number = 1000, activeCellFilter: Record<string, string[]>[] = [], analysisColumns: string[] = []) => this.request<any>(`/api/logs/candidates`, { method: 'POST', body: JSON.stringify({ client_id, passes, limit, active_cell_filter: activeCellFilter, analysis_columns: analysisColumns }) });
+  public getLogSchema = () => this.request<string[]>(`/api/logs/schema`);
 }

@@ -49,7 +49,7 @@ const subTabsMap: Record<string, string[]> = {
   'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
-  'Analytics': ['Traffic Logs', 'Threat Logs', 'System Logs'],
+  'Analytics': ['Traffic Heatmap'],
   'Policies': ['Security Rules', 'NAT Rules'],
   'Objects': ['Address Objects', 'Address Groups', 'Services', 'Service Groups', 'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 'Security Profiles', 'Security Profile Groups', 'Custom Objects'],
   'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
@@ -688,7 +688,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             />
           </>
         )}
-        <main style={{ flex: 1, padding: '30px', overflowY: 'scroll', backgroundColor: 'var(--bg-app)' }}>
+        <main style={{ flex: 1, padding: activeSubTab === 'Traffic Heatmap' ? '0' : '30px', overflowY: 'scroll', backgroundColor: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
           {systemError && (
             <div style={{ backgroundColor: 'var(--bg-surface)', borderLeft: '4px solid var(--status-red)', padding: '12px 15px', borderRadius: '4px', color: 'var(--status-red)', marginBottom: '20px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0 }} />

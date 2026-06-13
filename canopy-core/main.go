@@ -4610,6 +4610,9 @@ func main() {
 	mux.HandleFunc("/api/objects/external-dynamic-list/delete", handleExternalDynamicListDelete)
 
 	// --- LOGS MODULE ENDPOINTS ---
+	mux.HandleFunc("/api/logs/schema", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetLogSchema(w, r, logDB)
+	})
 	mux.HandleFunc("/api/logs/import", func(w http.ResponseWriter, r *http.Request) {
 		HandleImportLogs(w, r, nil, logDB)
 	})
@@ -4621,6 +4624,12 @@ func main() {
 	})
 	mux.HandleFunc("/api/logs/delete-batch", func(w http.ResponseWriter, r *http.Request) {
 		HandleDeleteLogsBatch(w, r, logDB)
+	})
+	mux.HandleFunc("/api/logs/heatmap", func(w http.ResponseWriter, r *http.Request) {
+		HandleGetHeatmap(w, r, logDB)
+	})
+	mux.HandleFunc("/api/logs/candidates", func(w http.ResponseWriter, r *http.Request) {
+		HandleGenerateCandidateRules(w, r, logDB)
 	})
 
 	// --- MULTI-LAYER MIDDLEWARE STACK ---

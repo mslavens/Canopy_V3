@@ -12,6 +12,7 @@ import { MonitorPage } from './pages/MonitorPage';
 import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { ChangelogPage } from './pages/ChangelogPage';
 import { DatabaseBrowserPage } from './pages/DatabaseBrowserPage';
+import { HeatmapPage } from './pages/HeatmapPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { DesignSystemPage } from './pages/DesignSystemPage';
@@ -246,6 +247,9 @@ const App = () => {
   const renderActivePage = () => {
     if (activeMainTab === 'Network' && activeSubTab === 'Interfaces') {
       return <InterfacesPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'Analytics' && activeSubTab === 'Traffic Heatmap') {
+      return <HeatmapPage auth={auth} addToast={addToast} />;
     }
     if (activeMainTab === 'Device Management') {
       return <DeviceManagementPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;

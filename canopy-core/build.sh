@@ -37,13 +37,33 @@ build_mac() {
 
 build_win() {
     echo "🚀 Building Canopy Core (Windows amd64)..."
-    GOOS=windows GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core.exe .
+    if ! command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+        echo "❌ Error: Windows cross-compiler (mingw-w64) not found."
+        echo "Please install it via Homebrew: brew install mingw-w64"
+        exit 1
+    fi
+    CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ GOOS=windows GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core.exe .
     echo "✅ Done! Windows binary 'canopy-core.exe' is ready."
 }
 
 build_linux() {
     echo "🚀 Building Canopy Core (Linux amd64)..."
-    GOOS=linux GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-linux .
+    if ! command -v x86_64-linux-musl-gcc &> /dev/null && ! command -v x86_64-linux-gnu-gcc &> /dev/null; then
+        echo "❌ Error: Linux cross-compiler not found."
+        echo "Please install via Homebrew: brew tap messense/macos-cross-toolchains && brew install x86_64-unknown-linux-gnu"
+        exit 1
+    fi
+    
+    # Determine which linux compiler is available
+    if command -v x86_64-linux-gnu-gcc &> /dev/null; then
+        LINUX_CC="x86_64-linux-gnu-gcc"
+        LINUX_CXX="x86_64-linux-gnu-g++"
+    else
+        LINUX_CC="x86_64-linux-musl-gcc"
+        LINUX_CXX="x86_64-linux-musl-g++"
+    fi
+
+    CGO_ENABLED=1 CC=$LINUX_CC CXX=$LINUX_CXX GOOS=linux GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-linux .
     echo "✅ Done! Linux binary 'canopy-core-linux' is ready."
 }
 
