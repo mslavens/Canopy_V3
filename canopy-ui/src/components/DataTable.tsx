@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp, ChevronDown, Upload, Search, Columns, CheckSquare, X, MoreHorizontal } from 'lucide-react';
+import { ChevronUp, ChevronDown, Upload, Search, Columns, CheckSquare, X, MoreHorizontal, Filter } from 'lucide-react';
 import { Dropdown } from './Dropdown';
 import { HighlightedText } from './HighlightedText';
 import { EmptyState } from './EmptyState';
@@ -51,7 +51,26 @@ export const DataTable: React.FC<DataTableProps> = ({
   const actionsMenuRef = useRef<HTMLDivElement>(null);
   
   // Feature: Column Filtering
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+  const [filterMenuCol, setFilterMenuCol] = useState<string | null>(null);
+  const [filterMenuSearch, setFilterMenuSearch] = useState('');
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  const uniqueValuesForFilter = useMemo(() => {
+    if (!filterMenuCol) return [];
+    const vals = new Set<string>();
+    data.forEach(row => {
+      const v = row[filterMenuCol];
+      vals.add(v !== null && v !== undefined ? String(v) : '');
+    });
+    return Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [data, filterMenuCol]);
+
+  const filteredUniqueValues = useMemo(() => {
+    if (!filterMenuSearch) return uniqueValuesForFilter;
+    const lower = filterMenuSearch.toLowerCase();
+    return uniqueValuesForFilter.filter(v => v.toLowerCase().includes(lower));
+  }, [uniqueValuesForFilter, filterMenuSearch]);
 
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
@@ -113,6 +132,15 @@ export const DataTable: React.FC<DataTableProps> = ({
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
         setContextMenu(null);
       }
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        // If clicking outside, close the filter menu
+        // We ensure we don't close it if they just clicked the filter icon itself
+        const target = event.target as HTMLElement;
+        if (!target.closest('.filter-icon-btn')) {
+          setFilterMenuCol(null);
+          setFilterMenuSearch('');
+        }
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -151,13 +179,12 @@ export const DataTable: React.FC<DataTableProps> = ({
       );
     }
 
-    const filterKeys = Object.keys(columnFilters).filter(k => columnFilters[k].trim() !== '');
+    const filterKeys = Object.keys(columnFilters).filter(k => columnFilters[k] !== undefined);
     if (filterKeys.length > 0) {
       rows = rows.filter(row => {
         return filterKeys.every(k => {
-          const filterVal = columnFilters[k].toLowerCase();
-          const rowVal = String(row[k] || '').toLowerCase();
-          return rowVal.includes(filterVal);
+          const rowVal = row[k] !== null && row[k] !== undefined ? String(row[k]) : '';
+          return columnFilters[k].has(rowVal);
         });
       });
     }
@@ -446,31 +473,172 @@ export const DataTable: React.FC<DataTableProps> = ({
               {visibleColumnKeys.map((colKey, idx) => {
                 const colDef = getColDef(colKey);
                 return (
-                  <th key={colKey} draggable onDragStart={(e) => handleDragStart(e, colKey)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, colKey)} style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', cursor: 'grab', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'hidden' }} title="Drag to reorder">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <th 
+                    key={colKey} 
+                    className="data-table-th"
+                    style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'visible' }} 
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                        <div onClick={() => handleSort(colKey)} style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}>
+                        <div 
+                          draggable 
+                          onDragStart={(e) => handleDragStart(e, colKey)} 
+                          onDragOver={handleDragOver} 
+                          onDrop={(e) => handleDrop(e, colKey)}
+                          onClick={() => handleSort(colKey)} 
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                          title="Drag to reorder, click to sort"
+                        >
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
                           <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
                         </div>
+                        <button 
+                          className="filter-icon-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (filterMenuCol === colKey) {
+                              setFilterMenuCol(null);
+                            } else {
+                              setFilterMenuCol(colKey);
+                              setFilterMenuSearch('');
+                            }
+                          }}
+                          style={{ 
+                            background: 'none', border: 'none', padding: '2px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px',
+                            color: columnFilters[colKey] ? 'var(--accent-blue)' : 'var(--text-muted)',
+                            backgroundColor: columnFilters[colKey] ? 'rgba(137, 180, 250, 0.1)' : 'transparent',
+                            opacity: columnFilters[colKey] ? 1 : 0,
+                            pointerEvents: columnFilters[colKey] ? 'auto' : 'none',
+                            transition: 'opacity 0.2s ease, background-color 0.2s ease'
+                          }}
+                          title={columnFilters[colKey] ? "Filter Active. Click to modify." : "Filter column"}
+                        >
+                          <Filter size={14} />
+                        </button>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)', padding: '2px 6px', height: '22px' }}>
-                        <input 
-                          type="text"
-                          placeholder="Filter..."
-                          value={columnFilters[colKey] || ''}
-                          onChange={(e) => { setColumnFilters(prev => ({ ...prev, [colKey]: e.target.value })); setEffectiveCurrentPage(1); }}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '11px', outline: 'none', width: '100%', minWidth: '30px' }}
+                      
+                      {filterMenuCol === colKey && (
+                        <div 
+                          ref={filterMenuRef}
+                          style={{ 
+                            position: 'absolute', 
+                            top: '100%', 
+                            left: 0, 
+                            marginTop: '8px',
+                            zIndex: 10, 
+                            backgroundColor: 'var(--bg-surface)', 
+                            border: '1px solid var(--border-main)', 
+                            borderRadius: '6px', 
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.25)', 
+                            width: '240px', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            overflow: 'hidden'
+                          }}
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                        />
-                        {columnFilters[colKey] && (
-                          <button onClick={(e) => { e.stopPropagation(); setColumnFilters(prev => ({ ...prev, [colKey]: '' })); setEffectiveCurrentPage(1); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
+                        >
+                          <div style={{ padding: '12px', borderBottom: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Filter: {colDef.label || colKey}</span>
+                              <button onClick={() => setFilterMenuCol(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 0 }}><X size={14}/></button>
+                            </div>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                              <Search size={12} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
+                              <input 
+                                type="text" 
+                                placeholder="Search values..." 
+                                value={filterMenuSearch}
+                                onChange={(e) => setFilterMenuSearch(e.target.value)}
+                                style={{ width: '100%', padding: '6px 8px 6px 26px', fontSize: '12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-main)', outline: 'none' }}
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          
+                          <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {filteredUniqueValues.length === 0 ? (
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>No matching values.</div>
+                            ) : (
+                              <>
+                                {!filterMenuSearch && (
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer', paddingBottom: '6px', borderBottom: '1px solid var(--border-main)', marginBottom: '4px' }}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={columnFilters[colKey] === undefined || columnFilters[colKey].size === uniqueValuesForFilter.length}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setColumnFilters(prev => {
+                                            const next = { ...prev };
+                                            delete next[colKey];
+                                            return next;
+                                          });
+                                        } else {
+                                          setColumnFilters(prev => ({ ...prev, [colKey]: new Set() }));
+                                        }
+                                        setEffectiveCurrentPage(1);
+                                      }}
+                                      style={{ cursor: 'pointer', margin: 0 }}
+                                    />
+                                    <span style={{ fontWeight: 600, flex: 1 }}>(Select All)</span>
+                                  </label>
+                                )}
+                                {filteredUniqueValues.map(val => {
+                                  const isActive = columnFilters[colKey] === undefined || columnFilters[colKey].has(val);
+                                  return (
+                                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={isActive}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          setColumnFilters(prev => {
+                                            const next = { ...prev };
+                                            let currentSet = prev[colKey] ? new Set(prev[colKey]) : new Set(uniqueValuesForFilter);
+                                            
+                                            if (checked) currentSet.add(val);
+                                            else currentSet.delete(val);
+                                            
+                                            if (currentSet.size === uniqueValuesForFilter.length) {
+                                              delete next[colKey];
+                                            } else {
+                                              next[colKey] = currentSet;
+                                            }
+                                            return next;
+                                          });
+                                          setEffectiveCurrentPage(1);
+                                        }}
+                                        style={{ cursor: 'pointer', margin: 0 }}
+                                      />
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={val || '(Blanks)'}>{val || '(Blanks)'}</span>
+                                    </label>
+                                  );
+                                })}
+                              </>
+                            )}
+                          </div>
+                          
+                          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                              className="btn-secondary btn-sm"
+                              onClick={() => {
+                                setColumnFilters(prev => {
+                                  const next = { ...prev };
+                                  delete next[colKey];
+                                  return next;
+                                });
+                                setEffectiveCurrentPage(1);
+                                setFilterMenuSearch('');
+                                setFilterMenuCol(null);
+                              }}
+                              style={{ fontSize: '11px', padding: '4px 8px' }}
+                              disabled={columnFilters[colKey] === undefined}
+                            >
+                              Clear Filter
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div 
                       onMouseDown={(e) => handleResizeStart(e, colKey)}
@@ -585,6 +753,15 @@ export const DataTable: React.FC<DataTableProps> = ({
         </div>,
         document.body
       )}
+      <style>{`
+        .data-table-th:hover .filter-icon-btn {
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
+        .filter-icon-btn:hover {
+          background-color: var(--bg-app) !important;
+        }
+      `}</style>
     </div>
   );
 };

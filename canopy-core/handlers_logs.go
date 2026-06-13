@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"log/slog"
 	"canopy-core/storage"
 )
 
