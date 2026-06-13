@@ -83,17 +83,9 @@ export const LogImporter: React.FC<LogImporterProps> = ({ auth, addToast, onSucc
 
     return (
         <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ marginBottom: '8px' }}>
-                <h1 style={{ fontSize: '28px', fontWeight: 600, color: 'var(--text-main)', margin: '0 0 8px 0' }}>Log Import</h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0 }}>
-                    Import raw Palo Alto Networks firewall logs. Logs are natively deduplicated and aggregated directly in the DuckDB backend engine for maximum performance.
-                </p>
-            </div>
-
             <div style={{ backgroundColor: 'var(--bg-surface)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-main)', margin: 0 }}>Native Backend Log Processor</h2>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                    Drag and drop raw Palo Alto logs here. The Go backend will stream and process the files without hitting memory limits.
+                    Select or drag and drop CSV files containing raw Palo Alto Networks firewall logs. The files will be processed and imported into the database.
                 </p>
 
                 <div style={{ position: 'relative', border: '2px dashed var(--border-main)', borderRadius: '8px', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-app)', transition: 'border-color 0.2s ease', cursor: 'pointer' }}>
