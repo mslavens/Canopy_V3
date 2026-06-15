@@ -1,6 +1,14 @@
 # Canopy Framework Changelog
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
+## v0.20.0 - Go CLI Generation & Accordion Layout
+**Date:** 2026-06-14
+
+### Added
+- **Accordion Object Menus**: Custom Objects and Security Profiles have been refactored out of messy horizontal tabs and nested securely as individual pages within an intuitive accordion sidebar.
+- **Go Engine CLI Generation**: The Set Command generator logic was migrated from the React frontend to the native Go core for significantly improved performance and stability.
+- **Dynamic Group CLI Expansion**: "Include nested child objects" now accurately generates dependent address objects for dynamically evaluated tags on the fly.
+
 
 ## v0.19.0 - Analytics Parity & Data Grid Integrity
 **Date:** 2026-06-12
