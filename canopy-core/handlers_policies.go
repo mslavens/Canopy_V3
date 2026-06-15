@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -137,7 +138,7 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		if matchSuffix != "" {
 			query += " AND scope LIKE ?"
 			args = append(args, matchSuffix)
-		} else if scopeType != "show-all" {
+		} else {
 			// For local device rules, exclude anything that has :pre or :post
 			query += " AND scope NOT LIKE '%:pre' AND scope NOT LIKE '%:post'"
 		}
@@ -155,6 +156,7 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		}
 		defer rows.Close()
 
+		var batch []PolicyRule
 		for rows.Next() {
 			var r PolicyRule
 			if err := rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Action, &r.Disabled, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID); err != nil {
@@ -169,8 +171,34 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			}
 			r.Stack = stack
 			r.StackOrder = stackOrder
-			rules = append(rules, r)
+			batch = append(batch, r)
 		}
+
+		// Sort the batch to respect hierarchy evaluation order
+		sort.Slice(batch, func(i, j int) bool {
+			// If show-all, we rely on the DB's ORDER BY device_uuid, id ASC
+			if scopeType == "show-all" {
+				if batch[i].DeviceUUID != batch[j].DeviceUUID {
+					return batch[i].DeviceUUID < batch[j].DeviceUUID
+				}
+				return batch[i].ID < batch[j].ID
+			}
+
+			// Pre rules: evaluated top-down (Root -> Leaf). Root has highest level, Leaf has level 0.
+			if matchSuffix == "%:pre" && batch[i].HierarchyLevel != batch[j].HierarchyLevel {
+				return batch[i].HierarchyLevel > batch[j].HierarchyLevel
+			}
+
+			// Post rules: evaluated bottom-up (Leaf -> Root).
+			if matchSuffix == "%:post" && batch[i].HierarchyLevel != batch[j].HierarchyLevel {
+				return batch[i].HierarchyLevel < batch[j].HierarchyLevel
+			}
+
+			// For same level (or local rules), respect insertion/DB order
+			return batch[i].ID < batch[j].ID
+		})
+
+		rules = append(rules, batch...)
 		return nil
 	}
 
