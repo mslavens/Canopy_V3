@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
 import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings, ExternalLink } from 'lucide-react';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { SearchBar } from '../components/SearchBar';
 
 interface HeatmapPageProps {
   auth: { url: string; token: string } | null;
@@ -70,6 +71,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
   // Candidate Rules state
   const [passes, setPasses] = useState<{id: string, groupBy: string[], aggregate: string[]}[]>(DEFAULT_PRESETS[0].passes);
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [analysisColumns, setAnalysisColumns] = useState<string[]>([
@@ -583,6 +585,15 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
   }, [analysisColumns, availableColumns]);
 
   const activePassResult = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+
+  const filteredCandidateRules = useMemo(() => {
+    if (!activePassResult?.rules) return [];
+    if (!candidateSearchQuery) return activePassResult.rules;
+    const q = candidateSearchQuery.toLowerCase();
+    return activePassResult.rules.filter((rule: any) => {
+      return Object.values(rule).some(v => String(v).toLowerCase().includes(q));
+    });
+  }, [activePassResult, candidateSearchQuery]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -1180,30 +1191,41 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules
                   {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
                 </h3>
-                <button
-                  onClick={() => {
-                    if (window.electron && window.electron.spawnWindow) {
-                      window.electron.spawnWindow('popout=candidates');
-                    }
-                  }}
-                  title="Pop out Candidate Rules to a new window"
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    transition: 'all 0.1s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                >
-                  <ExternalLink size={14} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: '250px' }}>
+                    <SearchBar 
+                      value={candidateSearchQuery} 
+                      onChange={setCandidateSearchQuery} 
+                      placeholder="Search candidates..." 
+                      width="100%" 
+                      variant="local" 
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (window.electron && window.electron.spawnWindow) {
+                        window.electron.spawnWindow('popout=candidates');
+                      }
+                    }}
+                    title="Pop out Candidate Rules to a new window"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      transition: 'all 0.1s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <ExternalLink size={14} />
+                  </button>
+                </div>
               </div>
               
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', opacity: isGenerating && candidates.length > 0 ? 0.5 : 1, transition: 'opacity 0.2s', pointerEvents: isGenerating ? 'none' : 'auto' }}>
@@ -1222,7 +1244,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   {activePassResult && (
                     <DataTable 
                       columns={dataTableColumns}
-                      data={activePassResult.rules || []}
+                      data={filteredCandidateRules}
                       exportFilename="candidate_rules"
                       pagination={true}
                       selectable={true}

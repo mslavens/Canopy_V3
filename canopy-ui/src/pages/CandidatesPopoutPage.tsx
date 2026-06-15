@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GitMerge, Loader2, Shield } from 'lucide-react';
 import { DataTable } from '../components/DataTable';
+import { SearchBar } from '../components/SearchBar';
 
 export const CandidatesPopoutPage: React.FC = () => {
   const [candidates, setCandidates] = useState<any[]>(() => {
@@ -87,6 +88,17 @@ export const CandidatesPopoutPage: React.FC = () => {
 
   const activePassResult = candidates.length > 0 ? candidates[candidates.length - 1] : null;
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredCandidateRules = useMemo(() => {
+    if (!activePassResult?.rules) return [];
+    if (!searchQuery) return activePassResult.rules;
+    const q = searchQuery.toLowerCase();
+    return activePassResult.rules.filter((rule: any) => {
+      return Object.values(rule).some(v => String(v).toLowerCase().includes(q));
+    });
+  }, [activePassResult, searchQuery]);
+
   return (
     <div style={{
       display: 'flex',
@@ -111,6 +123,15 @@ export const CandidatesPopoutPage: React.FC = () => {
           <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules (Popout View)
           {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
         </h3>
+        <div style={{ width: '250px' }}>
+          <SearchBar 
+            value={searchQuery} 
+            onChange={setSearchQuery} 
+            placeholder="Search candidates..." 
+            width="100%" 
+            variant="local" 
+          />
+        </div>
       </div>
 
       <div style={{
@@ -149,7 +170,7 @@ export const CandidatesPopoutPage: React.FC = () => {
              {activePassResult && (
                <DataTable 
                  columns={dataTableColumns}
-                 data={activePassResult.rules || []}
+                 data={filteredCandidateRules}
                  exportFilename="candidate_rules_popout"
                  pagination={true}
                  selectable={true}
