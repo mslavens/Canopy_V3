@@ -43,15 +43,30 @@ interface AppLayoutProps {
 }
 
 // Navigation configurations
+export type NavGroup = { group: string; items: string[] };
+export type NavItem = string | NavGroup;
+
+const getFirstSubTab = (items: NavItem[]): string => {
+  if (!items || items.length === 0) return 'Overview';
+  const first = items[0];
+  return typeof first === 'string' ? first : first.items[0];
+};
+
 const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'Monitor', 'XML Import', 'Analytics', 'System'];
-const subTabsMap: Record<string, string[]> = {
+const subTabsMap: Record<string, NavItem[]> = {
   'Device Management': ['Inventory', 'Device Groups', 'Templates'],
   'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Heatmap'],
   'Policies': ['Security Rules', 'NAT Rules'],
-  'Objects': ['Address Objects', 'Address Groups', 'Services', 'Service Groups', 'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 'Security Profiles', 'Security Profile Groups', 'Custom Objects'],
+  'Objects': [
+    'Address Objects', 'Address Groups', 'Services', 'Service Groups', 
+    'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 
+    { group: 'Security Profiles', items: ['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'] }, 
+    'Security Profile Groups', 
+    { group: 'Custom Objects', items: ['URL Categories', 'External Dynamic Lists'] }
+  ],
   'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
 };
 
@@ -525,7 +540,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <button 
                   key={tab}
                   className="nav-tab"
-                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(subTabsMap[tab]?.[0] || 'Overview'); }}
+                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(getFirstSubTab(subTabsMap[tab])); }}
                   style={{ 
                     background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
                     color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
@@ -671,9 +686,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               </div>
               <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '5px 10px 15px 10px', flexShrink: 0 }} />
               <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginBottom: '8px' }}>{activeMainTab} Elements</div>
-              {visibleSubTabs.map(subTab => (
-                <button key={subTab} onClick={() => handleNavigation(() => setActiveSubTab(subTab))} style={{ textAlign: 'left', background: activeSubTab === subTab ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === subTab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '8px 10px', borderRadius: '4px', color: activeSubTab === subTab ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === subTab ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{subTab}</button>
-              ))}
+              {visibleSubTabs.map((subTab) => {
+                if (typeof subTab === 'string') {
+                  return (
+                    <button key={subTab} onClick={() => handleNavigation(() => setActiveSubTab(subTab))} style={{ textAlign: 'left', background: activeSubTab === subTab ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === subTab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '8px 10px', borderRadius: '4px', color: activeSubTab === subTab ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === subTab ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{subTab}</button>
+                  );
+                } else {
+                  return (
+                    <div key={subTab.group} style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '6px 0' }}>
+                      <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginTop: '2px', marginBottom: '4px' }}>{subTab.group}</div>
+                      {subTab.items.map(item => (
+                        <button key={item} onClick={() => handleNavigation(() => setActiveSubTab(item))} style={{ textAlign: 'left', background: activeSubTab === item ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === item ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === item ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === item ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{item}</button>
+                      ))}
+                    </div>
+                  );
+                }
+              })}
             </aside>
             <div 
               onMouseDown={handleResizeMouseDown}

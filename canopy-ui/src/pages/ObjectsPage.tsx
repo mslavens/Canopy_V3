@@ -317,18 +317,24 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   // Data Loading States
   const [tableData, setTableData] = useState<any[]>([]);
-  const [activeProfileTab, setActiveProfileTab] = useState<'all' | 'antivirus' | 'spyware' | 'vulnerability' | 'url-filtering' | 'file-blocking' | 'wildfire'>('all');
 
   const displayedTableData = useMemo(() => {
-    if (dataViewTab === 'Security Profiles' && activeProfileTab !== 'all') {
-      return tableData.filter(row => row.type === activeProfileTab);
+    // Client-side filtering for Security Profiles when they are their own sidebar pages
+    const profileTypes: Record<string, string> = {
+      'Antivirus': 'antivirus',
+      'Anti-Spyware': 'spyware',
+      'Vulnerability Protection': 'vulnerability',
+      'URL Filtering': 'url-filtering',
+      'File Blocking': 'file-blocking',
+      'WildFire Analysis': 'wildfire'
+    };
+    if (profileTypes[dataViewTab]) {
+      return tableData.filter(row => row.type === profileTypes[dataViewTab]);
     }
     return tableData;
-  }, [tableData, dataViewTab, activeProfileTab]);
+  }, [tableData, dataViewTab]);
 
-  useEffect(() => {
-    setActiveProfileTab('all');
-  }, [activeSubTab]);
+
 
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -402,7 +408,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [formTags, setFormTags] = useState<string[]>([]);
 
   // Form states for Palo Alto specific objects
-  const [activeCustomObjectTab, setActiveCustomObjectTab] = useState<'categories' | 'edls'>('categories');
+
   const [formColor, setFormColor] = useState('color1');
   const [formProfileType, setFormProfileType] = useState('antivirus');
   const [formGroupAntivirus, setFormGroupAntivirus] = useState('');
@@ -1583,7 +1589,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             ? `SELECT * FROM log_forwarding_profiles ORDER BY name ASC;`
             : `SELECT * FROM log_forwarding_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
           break;
-        case 'Security Profiles':
+        case 'Antivirus':
+        case 'Anti-Spyware':
+        case 'Vulnerability Protection':
+        case 'URL Filtering':
+        case 'File Blocking':
+        case 'WildFire Analysis':
           query = isShowAll
             ? `SELECT * FROM security_profiles ORDER BY name ASC;`
             : `SELECT * FROM security_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
@@ -1593,16 +1604,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             ? `SELECT * FROM security_profile_groups ORDER BY name ASC;`
             : `SELECT * FROM security_profile_groups WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
           break;
-        case 'Custom Objects':
-          if (activeCustomObjectTab === 'categories') {
-            query = isShowAll
-              ? `SELECT * FROM custom_url_categories ORDER BY name ASC;`
-              : `SELECT * FROM custom_url_categories WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          } else {
-            query = isShowAll
-              ? `SELECT * FROM external_dynamic_lists ORDER BY name ASC;`
-              : `SELECT * FROM external_dynamic_lists WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          }
+        case 'URL Categories':
+          query = isShowAll
+            ? `SELECT * FROM custom_url_categories ORDER BY name ASC;`
+            : `SELECT * FROM custom_url_categories WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
+          break;
+        case 'External Dynamic Lists':
+          query = isShowAll
+            ? `SELECT * FROM external_dynamic_lists ORDER BY name ASC;`
+            : `SELECT * FROM external_dynamic_lists WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
           break;
       }
 
@@ -1677,7 +1687,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     fetchRecords();
     loadReferenceData();
     setSelectedRows([]);
-  }, [activeSubTab, currentScope, deviceGroups, firewalls, activeCustomObjectTab]);
+  }, [activeSubTab, currentScope, deviceGroups, firewalls]);
 
   const [syncTrigger, setSyncTrigger] = useState(0);
 
@@ -1914,8 +1924,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormPorts('');
     } else if (activeSubTab === 'Tags') {
       setFormColor('color1');
-    } else if (activeSubTab === 'Security Profiles') {
-      setFormProfileType('antivirus');
+    } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
+      setFormProfileType(activeSubTab.toLowerCase());
     } else if (activeSubTab === 'Security Profile Groups') {
       setFormGroupAntivirus('');
       setFormGroupSpyware('');
@@ -1924,14 +1934,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormGroupFileBlocking('');
       setFormGroupWildfireAnalysis('');
       setFormGroupDNSSecurity('');
-    } else if (activeSubTab === 'Custom Objects') {
-      if (activeCustomObjectTab === 'categories') {
-        setFormURLList('');
-      } else {
-        setFormListType('ip');
-        setFormSourceURL('');
-        setFormRecurring('five-minute');
-      }
+    } else if (activeSubTab === 'URL Categories') {
+      setFormURLList('');
+    } else if (activeSubTab === 'External Dynamic Lists') {
+      setFormListType('ip');
+      setFormSourceURL('');
+      setFormRecurring('five-minute');
     }
 
     setIsCrudModalOpen(true);
@@ -1986,7 +1994,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormMembers(obj.member_list ? obj.member_list.split(',') : []);
     } else if (activeSubTab === 'Tags') {
       setFormColor(obj.color || 'color1');
-    } else if (activeSubTab === 'Security Profiles') {
+    } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
       setFormProfileType(obj.type || 'antivirus');
     } else if (activeSubTab === 'Security Profile Groups') {
       setFormGroupAntivirus(obj.antivirus || '');
@@ -1996,14 +2004,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       setFormGroupFileBlocking(obj.file_blocking || '');
       setFormGroupWildfireAnalysis(obj.wildfire_analysis || '');
       setFormGroupDNSSecurity(obj.dns_security || '');
-    } else if (activeSubTab === 'Custom Objects') {
-      if (activeCustomObjectTab === 'categories') {
-        setFormURLList(obj.url_list || '');
-      } else {
-        setFormListType(obj.list_type || 'ip');
-        setFormSourceURL(obj.source_url || '');
-        setFormRecurring(obj.recurring || 'five-minute');
-      }
+    } else if (activeSubTab === 'URL Categories') {
+      setFormURLList(obj.url_list || '');
+    } else if (activeSubTab === 'External Dynamic Lists') {
+      setFormListType(obj.list_type || 'ip');
+      setFormSourceURL(obj.source_url || '');
+      setFormRecurring(obj.recurring || 'five-minute');
     }
 
     setIsCrudModalOpen(true);
@@ -2081,7 +2087,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       } else if (activeSubTab === 'Log Forwarding Profiles') {
         if (crudMode === 'create') result = await apiClient.createLogForwardingProfile(payload);
         else result = await apiClient.updateLogForwardingProfile(payload);
-      } else if (activeSubTab === 'Security Profiles') {
+      } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
         payload.type = formProfileType;
         if (crudMode === 'create') result = await apiClient.createSecurityProfile(payload);
         else result = await apiClient.updateSecurityProfile(payload);
@@ -2095,18 +2101,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         payload.dns_security = formGroupDNSSecurity || null;
         if (crudMode === 'create') result = await apiClient.createSecurityProfileGroup(payload);
         else result = await apiClient.updateSecurityProfileGroup(payload);
-      } else if (activeSubTab === 'Custom Objects') {
-        if (activeCustomObjectTab === 'categories') {
-          payload.url_list = formURLList.trim();
-          if (crudMode === 'create') result = await apiClient.createCustomURLCategory(payload);
-          else result = await apiClient.updateCustomURLCategory(payload);
-        } else {
-          payload.list_type = formListType;
-          payload.source_url = formSourceURL.trim();
-          payload.recurring = formRecurring;
-          if (crudMode === 'create') result = await apiClient.createExternalDynamicList(payload);
-          else result = await apiClient.updateExternalDynamicList(payload);
-        }
+      } else if (activeSubTab === 'URL Categories') {
+        payload.url_list = formURLList.trim();
+        if (crudMode === 'create') result = await apiClient.createCustomURLCategory(payload);
+        else result = await apiClient.updateCustomURLCategory(payload);
+      } else if (activeSubTab === 'External Dynamic Lists') {
+        payload.list_type = formListType;
+        payload.source_url = formSourceURL.trim();
+        payload.recurring = formRecurring;
+        if (crudMode === 'create') result = await apiClient.createExternalDynamicList(payload);
+        else result = await apiClient.updateExternalDynamicList(payload);
       }
 
       addToast(
@@ -2138,12 +2142,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(obj.id);
           else if (activeSubTab === 'Tags') await apiClient.deleteTag(obj.id);
           else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(obj.id);
-          else if (activeSubTab === 'Security Profiles') await apiClient.deleteSecurityProfile(obj.id);
+          else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) await apiClient.deleteSecurityProfile(obj.id);
           else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(obj.id);
-          else if (activeSubTab === 'Custom Objects') {
-            if (activeCustomObjectTab === 'categories') await apiClient.deleteCustomURLCategory(obj.id);
-            else await apiClient.deleteExternalDynamicList(obj.id);
-          }
+          else if (activeSubTab === 'URL Categories') await apiClient.deleteCustomURLCategory(obj.id);
+          else if (activeSubTab === 'External Dynamic Lists') await apiClient.deleteExternalDynamicList(obj.id);
 
           addToast(`Deleted object "${obj.name}" successfully.`, 'success');
           fetchRecords();
@@ -2176,12 +2178,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(row.id);
             else if (activeSubTab === 'Tags') await apiClient.deleteTag(row.id);
             else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(row.id);
-            else if (activeSubTab === 'Security Profiles') await apiClient.deleteSecurityProfile(row.id);
+            else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) await apiClient.deleteSecurityProfile(row.id);
             else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(row.id);
-            else if (activeSubTab === 'Custom Objects') {
-              if (activeCustomObjectTab === 'categories') await apiClient.deleteCustomURLCategory(row.id);
-              else await apiClient.deleteExternalDynamicList(row.id);
-            }
+            else if (activeSubTab === 'URL Categories') await apiClient.deleteCustomURLCategory(row.id);
+            else if (activeSubTab === 'External Dynamic Lists') await apiClient.deleteExternalDynamicList(row.id);
             deletedCount++;
           }
           addToast(`Successfully deleted ${deletedCount} objects.`, 'success');
@@ -2449,7 +2449,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       case 'Log Forwarding Profiles':
         commands.push(`${scopePrefix} log-settings profiles ${row.name}`);
         break;
-      case 'Security Profiles': {
+      case 'Antivirus':
+      case 'Anti-Spyware':
+      case 'Vulnerability Protection':
+      case 'URL Filtering':
+      case 'File Blocking':
+      case 'WildFire Analysis': {
         const typeMapping: Record<string, string> = {
           'url-filtering': 'url-filtering',
           'antivirus': 'virus',
@@ -2471,12 +2476,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         if (row.file_blocking) commands.push(`${scopePrefix} profiles profile-group ${row.name} file-blocking ${row.file_blocking}`);
         if (row.wildfire_analysis) commands.push(`${scopePrefix} profiles profile-group ${row.name} wildfire-analysis ${row.wildfire_analysis}`);
         break;
-      case 'Custom Objects':
-        if (activeCustomObjectTab === 'categories') {
-          commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
-        } else {
-          commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
-        }
+      case 'URL Categories':
+        commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
+        break;
+      case 'External Dynamic Lists':
+        commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
         break;
     }
     return commands;
@@ -3043,7 +3047,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         subtabCols = [];
         break;
 
-      case 'Security Profiles':
+      case 'Antivirus':
+      case 'Anti-Spyware':
+      case 'Vulnerability Protection':
+      case 'URL Filtering':
+      case 'File Blocking':
+      case 'WildFire Analysis':
         subtabCols = [
           {
             key: 'type',
@@ -3100,67 +3109,48 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         ];
         break;
 
-      case 'Custom Objects':
-        if (activeCustomObjectTab === 'categories') {
-          subtabCols = [
-            {
-              key: 'url_list',
-              label: 'URLs List',
-              width: '320px',
-              renderCell: (val, row, query) => {
-                const list = val ? String(val).split(',') : [];
-                if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No URLs</span>;
-                return (
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
-                    {list.slice(0, 3).map((u: string) => (
-                      <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>
-                        <HighlightedText text={u} highlight={query || ''} />
-                      </span>
-                    ))}
-                    {list.length > 3 && (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                        +{list.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                );
-              }
+      case 'URL Categories':
+        subtabCols = [
+          {
+            key: 'url_list',
+            label: 'URLs List',
+            width: '320px',
+            renderCell: (val, row, query) => {
+              const list = val ? String(val).split(',') : [];
+              if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No URLs</span>;
+              return (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
+                  {list.slice(0, 3).map((u: string) => (
+                    <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                      <HighlightedText text={u} highlight={query || ''} />
+                    </span>
+                  ))}
+                  {list.length > 3 && <span style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)' }}>+{list.length - 3}</span>}
+                </div>
+              );
             }
-          ];
-        } else {
-          subtabCols = [
-            {
-              key: 'list_type',
-              label: 'List Type',
-              width: '120px',
-              renderCell: (val, row, query) => (
-                <span className="badge badge-info" style={{ fontWeight: 600 }}>
-                  <HighlightedText text={String(val).toUpperCase()} highlight={query || ''} />
-                </span>
-              )
-            },
-            {
-              key: 'source_url',
-              label: 'Source URL',
-              width: '200px',
-              renderCell: (val, row, query) => (
-                <span style={{ fontFamily: 'monospace', fontSize: '11px' }}>
-                  <HighlightedText text={String(val)} highlight={query || ''} />
-                </span>
-              )
-            },
-            {
-              key: 'recurring',
-              label: 'Check Rate',
-              width: '110px',
-              renderCell: (val, row, query) => (
-                <span className="badge badge-neutral">
-                  <HighlightedText text={String(val)} highlight={query || ''} />
-                </span>
-              )
-            }
-          ];
-        }
+          }
+        ];
+        break;
+      case 'External Dynamic Lists':
+        subtabCols = [
+          {
+            key: 'list_type',
+            label: 'List Type',
+            width: '120px',
+            renderCell: (val, row, query) => <span className="badge badge-default"><HighlightedText text={String(val).toUpperCase()} highlight={query || ''} /></span>
+          },
+          {
+            key: 'source_url',
+            label: 'Source',
+            width: '240px',
+            renderCell: (val, row, query) => (
+              <a href={String(val)} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>
+                <HighlightedText text={String(val)} highlight={query || ''} />
+              </a>
+            )
+          }
+        ];
         break;
     }
 
@@ -3254,7 +3244,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     ];
 
     return [...defaultCols, ...subtabCols, ...actionCols];
-  }, [dataViewTab, scopeNameMap, currentScope, activeCustomObjectTab, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings]);
+  }, [dataViewTab, scopeNameMap, currentScope, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings]);
 
   const isFormDirty = useMemo(() => {
     if (crudMode !== 'edit' || !selectedObject) return true;
@@ -3285,7 +3275,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       if (formMembers.join(',') !== (selectedObject.member_list || '')) return true;
     } else if (activeSubTab === 'Tags') {
       if (formColor !== (selectedObject.color || 'color1')) return true;
-    } else if (activeSubTab === 'Security Profiles') {
+    } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
       if (formProfileType !== (selectedObject.type || 'antivirus')) return true;
     } else if (activeSubTab === 'Security Profile Groups') {
       if (formGroupAntivirus !== (selectedObject.antivirus || '')) return true;
@@ -3295,15 +3285,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       if (formGroupFileBlocking !== (selectedObject.file_blocking || '')) return true;
       if (formGroupWildfireAnalysis !== (selectedObject.wildfire_analysis || '')) return true;
       if (formGroupDNSSecurity !== (selectedObject.dns_security || '')) return true;
-    } else if (activeSubTab === 'Custom Objects') {
-      if (activeCustomObjectTab === 'categories') {
-        if (formURLList !== (selectedObject.url_list || '')) return true;
-      } else {
-        if (formListType !== (selectedObject.type || 'ip')) return true;
-        if (formSourceURL !== (selectedObject.source_url || '')) return true;
-        if (formRecurring !== (selectedObject.recurring || 'five-minute')) return true;
-      }
+    } else if (activeSubTab === 'URL Categories') {
+      if (formURLList !== (selectedObject.url_list || '')) return true;
+    } else if (activeSubTab === 'External Dynamic Lists') {
+      if (formListType !== (selectedObject.type || 'ip')) return true;
+      if (formSourceURL !== (selectedObject.source_url || '')) return true;
+      if (formRecurring !== (selectedObject.recurring || 'five-minute')) return true;
     }
+
     // Verify tag mappings
     const originalTags: string[] = [];
     const mappings = allTagMappings.filter(m =>
@@ -3322,7 +3311,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     formType, formValue, formFilter, formMembers, formProtocol, formSourcePort, formDestPort,
     formCategory, formSubcategory, formTechnology, formRisk, formPorts, formColor, formProfileType,
     formGroupAntivirus, formGroupSpyware, formGroupVulnerability, formGroupURLFiltering,
-    formGroupFileBlocking, formGroupWildfireAnalysis, formGroupDNSSecurity, activeCustomObjectTab,
+    formGroupFileBlocking, formGroupWildfireAnalysis, formGroupDNSSecurity,
     formURLList, formListType, formSourceURL, formRecurring, formTags, allTagMappings, allTags
   ]);
 
@@ -3473,80 +3462,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
         )}
 
-        {/* Sub-tabs segment selector row */}
-        {(activeSubTab === 'Security Profiles' || activeSubTab === 'Custom Objects') && (
-          <div style={{ padding: '10px 20px 0 20px', backgroundColor: 'var(--bg-app)', display: 'flex', flexShrink: 0 }}>
-            {activeSubTab === 'Security Profiles' && (
-              <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
-                {([
-                  { id: 'all', label: 'All' },
-                  { id: 'antivirus', label: 'Antivirus' },
-                  { id: 'spyware', label: 'Anti-Spyware' },
-                  { id: 'vulnerability', label: 'Vulnerability Protection' },
-                  { id: 'url-filtering', label: 'URL Filtering' },
-                  { id: 'file-blocking', label: 'File Blocking' },
-                  { id: 'wildfire', label: 'WildFire Analysis' }
-                ] as const).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className="btn-sm"
-                    style={{
-                      borderRadius: 0,
-                      border: 'none',
-                      padding: '6px 12px',
-                      backgroundColor: activeProfileTab === tab.id ? 'var(--accent-blue)' : 'transparent',
-                      color: activeProfileTab === tab.id ? '#ffffff' : 'var(--text-main)',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      borderLeft: tab.id !== 'all' ? '1px solid var(--border-main)' : 'none'
-                    }}
-                    onClick={() => setActiveProfileTab(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            {activeSubTab === 'Custom Objects' && (
-              <div style={{ display: 'flex', border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', flexShrink: 0 }}>
-                <button
-                  type="button"
-                  className={`btn-sm`}
-                  style={{
-                    borderRadius: 0,
-                    border: 'none',
-                    padding: '6px 12px',
-                    backgroundColor: activeCustomObjectTab === 'categories' ? 'var(--accent-blue)' : 'transparent',
-                    color: activeCustomObjectTab === 'categories' ? '#ffffff' : 'var(--text-main)',
-                    fontWeight: 500,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setActiveCustomObjectTab('categories')}
-                >
-                  URL Categories
-                </button>
-                <button
-                  type="button"
-                  className={`btn-sm`}
-                  style={{
-                    borderRadius: 0,
-                    border: 'none',
-                    padding: '6px 12px',
-                    backgroundColor: activeCustomObjectTab === 'edls' ? 'var(--accent-blue)' : 'transparent',
-                    color: activeCustomObjectTab === 'edls' ? '#ffffff' : 'var(--text-main)',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    borderLeft: '1px solid var(--border-main)'
-                  }}
-                  onClick={() => setActiveCustomObjectTab('edls')}
-                >
-                  External Dynamic Lists (EDLs)
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Sub-tabs segment selector row (Removed) */}
 
         {/* The data table area - Stretch to edge-to-edge */}
         <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
@@ -4391,7 +4307,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             </div>
           )}
 
-          {activeSubTab === 'Security Profiles' && (
+          {['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Profile Type</label>
               <Dropdown
@@ -4491,7 +4407,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             </>
           )}
 
-          {activeSubTab === 'Custom Objects' && activeCustomObjectTab === 'categories' && (
+          {activeSubTab === 'URL Categories' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Member URL List (comma-separated)</label>
               <textarea
@@ -4505,7 +4421,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             </div>
           )}
 
-          {activeSubTab === 'Custom Objects' && activeCustomObjectTab === 'edls' && (
+          {activeSubTab === 'External Dynamic Lists' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
