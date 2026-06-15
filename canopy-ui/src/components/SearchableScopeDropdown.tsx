@@ -71,9 +71,19 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
   const selectedOption = options.find(o => o.value === value);
 
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return options;
-    const q = searchQuery.toLowerCase();
-    return options.filter(o => o.label.toLowerCase().includes(q));
+    let result = options;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = options.filter(o => o.label.toLowerCase().includes(q) || o.value === 'show-all');
+    }
+    
+    const showAllIndex = result.findIndex(o => o.value === 'show-all');
+    if (showAllIndex > 0) {
+      const showAllOpt = result[showAllIndex];
+      const withoutShowAll = result.filter(o => o.value !== 'show-all');
+      return [showAllOpt, ...withoutShowAll];
+    }
+    return result;
   }, [options, searchQuery]);
 
   const dropdownMenu = (isOpen && coords.ready) ? (

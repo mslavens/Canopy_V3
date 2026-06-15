@@ -35,11 +35,13 @@ interface DataTableProps {
   rowsPerPage?: number;
   onPageChange?: (page: number) => void;
   onRowsPerPageChange?: (limit: number) => void;
+  groupByField?: string | ((row: any) => string);
+  groupByRender?: (groupVal: any) => React.ReactNode;
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, rowContextMenuActions,
-  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange
+  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender
 }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
@@ -674,9 +676,21 @@ export const DataTable: React.FC<DataTableProps> = ({
             {paginatedRows.map((row, rIdx) => {
               const isHighlighted = highlightRow ? highlightRow(row) : false;
               const customStyle = rowStyle ? rowStyle(row) : {};
+              const getGroupVal = (r: any) => typeof groupByField === 'function' ? groupByField(r) : (groupByField ? r[groupByField] : undefined);
+              const groupVal = groupByField ? getGroupVal(row) : undefined;
+              const prevGroupVal = groupByField && rIdx > 0 ? getGroupVal(paginatedRows[rIdx - 1]) : undefined;
+              const showGroupHeader = groupByField && groupVal !== prevGroupVal;
+
               return (
+                <React.Fragment key={rIdx}>
+                  {showGroupHeader && (
+                    <tr>
+                      <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ position: 'sticky', top: '41px', zIndex: 5, backgroundColor: 'var(--bg-element)', padding: '6px 15px', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border-main)', fontSize: '12px' }}>
+                        {groupByRender ? groupByRender(groupVal) : groupVal}
+                      </td>
+                    </tr>
+                  )}
               <tr 
-                key={rIdx} 
                 className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} 
                 style={customStyle}
                 onContextMenu={(e) => {
@@ -710,6 +724,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   );
                 })}
               </tr>
+              </React.Fragment>
               );
             })}
             {loading && processedRows.length === 0 && (
@@ -726,7 +741,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               </td></tr>
             )}
             {/* Zero-CLS Padding: Fill the remaining space with a height-matched empty row so the pagination footer never jumps */}
-            {paginatedRows.length < effectivePageSize && (
+            {effectivePageSize !== 999999 && paginatedRows.length < effectivePageSize && (
               <tr>
                 <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${(effectivePageSize - Math.max(1, paginatedRows.length)) * 37}px`, borderBottom: 'none', padding: 0 }}></td>
               </tr>
@@ -736,7 +751,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
       <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', backgroundColor: 'transparent', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows per page:</span><Dropdown options={['25', '50', '100', '500']} value={effectivePageSize.toString()} onChange={(val) => { setEffectivePageSize(Number(val)); setEffectiveCurrentPage(1); }} width="80px" direction="up" /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Rows per page:</span><Dropdown options={['25', '50', '100', '500', 'All']} value={effectivePageSize === 999999 ? 'All' : effectivePageSize.toString()} onChange={(val) => { setEffectivePageSize(val === 'All' ? 999999 : Number(val)); setEffectiveCurrentPage(1); }} width="80px" direction="up" /></div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Showing {totalRecords === 0 ? 0 : startIndex + 1} to {endIndex} of {totalRecords} entries</div>
         </div>
         <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>

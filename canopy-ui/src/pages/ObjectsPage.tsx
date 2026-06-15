@@ -40,7 +40,6 @@ import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
-import { MultiSelectCombobox } from '../components/MultiSelectCombobox';
 
 interface ObjectsPageProps {
   auth: { url: string; token: string } | null;

@@ -56,81 +56,98 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Determine Scope Type and get Ancestry
 	var scopeType string
-	err = db.QueryRow("SELECT type FROM scopes WHERE uuid = ?", scopeID).Scan(&scopeType)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "scope not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Get full hierarchy from leaf up to root
 	hierarchyUUIDs := []string{}
 	hierarchyMap := make(map[string]int) // uuid -> level (0=target, 1=parent, etc.)
 
-	currUUID := scopeID
-	level := 0
-	for currUUID != "" {
-		hierarchyUUIDs = append(hierarchyUUIDs, currUUID)
-		hierarchyMap[currUUID] = level
-
-		var parentUUID sql.NullString
-		err = db.QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = ?", currUUID).Scan(&parentUUID)
-		if err != nil || !parentUUID.Valid {
-			break
+	if scopeID == "show-all" {
+		scopeType = "show-all"
+	} else {
+		err = db.QueryRow("SELECT type FROM scopes WHERE uuid = ?", scopeID).Scan(&scopeType)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "scope not found", http.StatusNotFound)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			return
 		}
-		currUUID = parentUUID.String
-		level++
-	}
 
-	// If the scope is a firewall, we still want to grab shared if it's not directly parented (though it usually is)
-	hasShared := false
-	for _, u := range hierarchyUUIDs {
-		if u == "paloalto-panorama-global" {
-			hasShared = true
-			break
+		currUUID := scopeID
+		level := 0
+		for currUUID != "" {
+			hierarchyUUIDs = append(hierarchyUUIDs, currUUID)
+			hierarchyMap[currUUID] = level
+
+			var parentUUID sql.NullString
+			err = db.QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = ?", currUUID).Scan(&parentUUID)
+			if err != nil || !parentUUID.Valid {
+				break
+			}
+			currUUID = parentUUID.String
+			level++
 		}
-	}
-	if !hasShared {
-		hierarchyUUIDs = append(hierarchyUUIDs, "paloalto-panorama-global")
-		level++
-		hierarchyMap["paloalto-panorama-global"] = level
+
+		// If the scope is a firewall, we still want to grab shared if it's not directly parented (though it usually is)
+		hasShared := false
+		for _, u := range hierarchyUUIDs {
+			if u == "paloalto-panorama-global" {
+				hasShared = true
+				break
+			}
+		}
+		if !hasShared {
+			hierarchyUUIDs = append(hierarchyUUIDs, "paloalto-panorama-global")
+			level++
+			hierarchyMap["paloalto-panorama-global"] = level
+		}
 	}
 
 	// 2. Fetch Rules Based on Rulebase & ScopeType
 	var rules []PolicyRule
 	
 	fetchRules := func(targetUUIDs []string, matchSuffix string, stack string, stackOrder int) error {
-		if len(targetUUIDs) == 0 {
+		if scopeType != "show-all" && len(targetUUIDs) == 0 {
 			return nil
 		}
 		
-		placeholders := make([]string, len(targetUUIDs))
-		args := make([]interface{}, len(targetUUIDs))
-		for i, u := range targetUUIDs {
-			placeholders[i] = "?"
-			args[i] = u
-		}
+		var query string
+		var args []interface{}
 		
-		query := fmt.Sprintf(`
-			SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
-			FROM security_rules
-			WHERE device_uuid IN (%s)
-		`, strings.Join(placeholders, ","))
+		if scopeType == "show-all" {
+			query = `
+				SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
+				FROM security_rules
+				WHERE 1=1
+			`
+		} else {
+			placeholders := make([]string, len(targetUUIDs))
+			args = make([]interface{}, len(targetUUIDs))
+			for i, u := range targetUUIDs {
+				placeholders[i] = "?"
+				args[i] = u
+			}
+			query = fmt.Sprintf(`
+				SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
+				FROM security_rules
+				WHERE device_uuid IN (%s)
+			`, strings.Join(placeholders, ","))
+		}
 		
 		// Optional suffix matching for Pre/Post
 		if matchSuffix != "" {
 			query += " AND scope LIKE ?"
 			args = append(args, matchSuffix)
-		} else {
+		} else if scopeType != "show-all" {
 			// For local device rules, exclude anything that has :pre or :post
 			query += " AND scope NOT LIKE '%:pre' AND scope NOT LIKE '%:post'"
 		}
 		
 		// Ensure stable ordering by ID (which maps to parser order)
-		query += " ORDER BY id ASC"
+		if scopeType == "show-all" {
+			query += " ORDER BY device_uuid, id ASC"
+		} else {
+			query += " ORDER BY id ASC"
+		}
 
 		rows, err := db.Query(query, args...)
 		if err != nil {
@@ -143,8 +160,13 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			if err := rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Action, &r.Disabled, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID); err != nil {
 				return err
 			}
-			r.IsInherited = (r.DeviceUUID != scopeID)
-			r.HierarchyLevel = hierarchyMap[r.DeviceUUID]
+			if scopeType == "show-all" {
+				r.IsInherited = false
+				r.HierarchyLevel = 0
+			} else {
+				r.IsInherited = (r.DeviceUUID != scopeID)
+				r.HierarchyLevel = hierarchyMap[r.DeviceUUID]
+			}
 			r.Stack = stack
 			r.StackOrder = stackOrder
 			rules = append(rules, r)
@@ -152,7 +174,27 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}
 
-	if scopeType == "firewall" && rulebase == "device" {
+	if scopeType == "show-all" {
+		var suffix string
+		var stackName string
+		
+		switch rulebase {
+		case "post":
+			suffix = "%:post"
+			stackName = "Post Rules"
+		case "device":
+			suffix = ""
+			stackName = "Local Rules"
+		default: // "pre"
+			suffix = "%:pre"
+			stackName = "Pre Rules"
+		}
+
+		if err := fetchRules(nil, suffix, stackName, 1); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if scopeType == "firewall" && rulebase == "device" {
 		// Device Rules View: Pre (Inherited) -> Local -> Post (Inherited)
 		dgUUIDs := []string{}
 		for _, u := range hierarchyUUIDs {

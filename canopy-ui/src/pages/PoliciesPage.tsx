@@ -36,15 +36,13 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   // Pre/Post requires Device Groups, Device requires Firewalls.
   useEffect(() => {
     if (rulebase === 'device') {
-      // If currently on a device group or shared, switch to a firewall
+      // If currently on a device group or shared, switch to no device (forces them to pick one)
       if (selectedScopeUuid === 'paloalto-panorama-global' || deviceGroups.some(g => g.uuid === selectedScopeUuid)) {
-        if (devices.length > 0) {
-          setSelectedScopeUuid(devices[0].uuid);
-        }
+        setSelectedScopeUuid('');
       }
     } else {
-      // If currently on a firewall, switch to shared
-      if (devices.some(d => d.uuid === selectedScopeUuid)) {
+      // If currently on a firewall or empty, switch to shared
+      if (!selectedScopeUuid || devices.some(d => d.uuid === selectedScopeUuid)) {
         setSelectedScopeUuid('paloalto-panorama-global');
       }
     }
@@ -75,7 +73,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   }, [auth]);
 
   const { hierarchyOptions: allHierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, devices, {
-    includeShowAll: false,
+    includeShowAll: true,
     firewallValueKey: 'uuid'
   });
 
@@ -84,15 +82,20 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const hierarchyOptions = useMemo(() => {
     // Filter options based on rulebase
     if (rulebase === 'device') {
-      return allHierarchyOptions.filter(o => o.type === 'firewall');
+      return allHierarchyOptions.filter(o => o.type === 'firewall' || o.value === 'show-all');
     } else {
-      return allHierarchyOptions.filter(o => o.type === 'global' || o.type === 'shared' || o.type === 'device-group');
+      return allHierarchyOptions.filter(o => o.type === 'global' || o.type === 'shared' || o.type === 'device-group' || o.value === 'show-all');
     }
   }, [allHierarchyOptions, rulebase]);
 
   const loadRules = useCallback(async () => {
     if (!auth || !selectedScopeUuid) return;
-    setIsLoading(true);
+    
+    let timer: NodeJS.Timeout | null = setTimeout(() => {
+      setIsLoading(true);
+      timer = null;
+    }, 150);
+
     try {
       const res = await fetch(`${auth.url}/api/policies/security?scope=${selectedScopeUuid}&rulebase=${rulebase}`, {
         headers: { 'Authorization': `Bearer ${auth.token}` }
@@ -108,6 +111,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');
     } finally {
+      if (timer) clearTimeout(timer);
       setIsLoading(false);
     }
   }, [auth, selectedScopeUuid, rulebase, addToast]);
@@ -145,7 +149,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         key: 'device_uuid',
         label: 'Scope Context',
         width: '260px',
-        renderCell: (val: any, row: any, query: string) => {
+        renderCell: (val: any, row: any, query?: string) => {
           const hierarchy = [...getVisibleScopes(val)].reverse();
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', lineHeight: '1.2' }}>
@@ -438,6 +442,36 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
               exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
               pagination={true}
               selectable={true}
+              groupByField={
+                rulebase === 'device'
+                  ? (selectedScopeUuid === 'show-all' ? ((row: any) => `${row.device_uuid}::${row._stack || ''}`) : "_stack")
+                  : "device_uuid"
+              }
+              groupByRender={(val) => {
+                if (rulebase === 'device') {
+                  if (selectedScopeUuid === 'show-all') {
+                    const [deviceUuid, stack] = val.split('::');
+                    const scopeName = scopeNameMap[deviceUuid] || deviceUuid;
+                    let label = stack || 'Rules';
+                    if (label === 'Device Rules') label = 'Local Rules';
+                    else if (!label.includes('Rules')) label = label + ' Rules';
+                    
+                    return (
+                      <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
+                        {label} <span style={{ color: 'var(--text-muted)', margin: '0 8px' }}>•</span> {scopeName}
+                      </span>
+                    );
+                  } else {
+                    let label = val || 'Rules';
+                    if (label === 'Device Rules') label = 'Local Rules';
+                    return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{label}</span>;
+                  }
+                } else {
+                  // pre or post rulebase
+                  const scopeName = scopeNameMap[val] || val;
+                  return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{scopeName}</span>;
+                }
+              }}
               rowStyle={(row: any) => {
                 if (row.disabled === 1) return { opacity: 0.6 };
                 if (row._isInherited) return { backgroundColor: 'var(--bg-app)', opacity: 0.9 };

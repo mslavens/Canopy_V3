@@ -76,11 +76,23 @@ export function useScopeHierarchy(
     };
 
     buildNode(null, 1);
+    
+    // Add unassigned firewalls at the root level
+    const unassignedFirewalls = firewalls.filter(fw => !fw.device_group_id);
+    unassignedFirewalls.forEach(fw => {
+      opts.push({
+        label: fw.name,
+        value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
+        depth: 1,
+        type: 'firewall'
+      });
+    });
+    
     return opts;
   }, [deviceGroups, firewalls, includeShowAll, firewallValueKey]);
 
   const getVisibleScopes = useCallback((currentScope: string) => {
-    if (currentScope === 'show-all') return [];
+    if (!currentScope || currentScope === 'show-all') return [];
     
     const scopes: string[] = [];
     scopes.push(currentScope);
