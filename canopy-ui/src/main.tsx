@@ -121,7 +121,7 @@ const App = () => {
   const addToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const id = Math.random().toString(36).substring(2, 9);
     const newToast: ToastMessage = { id, message, type, timestamp: new Date() };
-    
+
     setToasts((prev) => [...prev, newToast]);
     setNotificationsHistory((prev) => [newToast, ...prev]); // Prepend so newest is at the top
     setTimeout(() => {
@@ -139,7 +139,7 @@ const App = () => {
     const initAuthBridge = async () => {
       try {
         const credentials = await window.electron.getBackendAuth();
-        
+
         const isSwitching = sessionStorage.getItem('canopy-is-switching') === 'true';
         if (isSwitching) {
           // Intentionally pad the hot-swap loading screen so the transition doesn't feel like a jagged flash.
@@ -349,10 +349,10 @@ const App = () => {
     return (
       <>
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-        <VaultUnlockPage 
-          auth={auth} 
-          addToast={addToast} 
-          onUnlock={() => { setIsVaultLocked(false); setIsSessionExpired(false); setIsVaultInitialized(true); }} 
+        <VaultUnlockPage
+          auth={auth}
+          addToast={addToast}
+          onUnlock={() => { setIsVaultLocked(false); setIsSessionExpired(false); setIsVaultInitialized(true); }}
           isSetupRequired={!isVaultInitialized}
           isSessionExpired={isSessionExpired}
         />

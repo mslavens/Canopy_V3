@@ -405,8 +405,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   }, [selectedTemplateName, inventory, searchQuery]);
 
   const rootGroups = useMemo(() => {
-    return deviceGroups.filter(g => 
-      g.uuid !== 'paloalto-dg-shared' && 
+    return deviceGroups.filter(g =>
+      g.uuid !== 'paloalto-dg-shared' &&
       (!g.parent_uuid || g.parent_uuid === 'paloalto-dg-shared' || !deviceGroups.some(p => p.uuid === g.parent_uuid))
     );
   }, [deviceGroups]);
@@ -683,15 +683,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       width: '100px',
       renderCell: (_, row) => (
         <div style={{ display: 'flex', gap: '4px' }}>
-          <button 
-            className="btn-table-action" 
+          <button
+            className="btn-table-action"
             onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
             title="Edit Device"
           >
             <Edit2 size={14} />
           </button>
-          <button 
-            className="btn-table-action-danger" 
+          <button
+            className="btn-table-action-danger"
             onClick={(e) => { e.stopPropagation(); handleDeleteDevice(row); }}
             title="Delete Device"
           >
@@ -710,8 +710,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   // --- Mappings for Dropdown elements ---
   // 1. Device Group Assignment Dropdown
   const groupOptions = ['Unassigned', ...deviceGroups.map(g => cleanGroupName(g.name))];
-  const activeGroupLabel = deviceGroupId 
-    ? cleanGroupName(deviceGroups.find(g => g.id === deviceGroupId)?.name || '') 
+  const activeGroupLabel = deviceGroupId
+    ? cleanGroupName(deviceGroups.find(g => g.id === deviceGroupId)?.name || '')
     : 'Unassigned';
 
   // 2. Parent Config Assignment Dropdown (Templates & Stacks)
@@ -734,8 +734,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   // 3. Parent Device Group Dropdown
   const parentGroupList = deviceGroups.filter(g => g.uuid !== 'paloalto-dg-shared' && (!editingGroup || g.id !== editingGroup.id));
   const parentGroupOptions = ['shared (Root)', ...parentGroupList.map(g => cleanGroupName(g.name))];
-  const activeParentGroupLabel = groupParentId 
-    ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '') 
+  const activeParentGroupLabel = groupParentId
+    ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '')
     : 'shared (Root)';
 
   // 4. Member Templates Dropdown for Stack Modal
@@ -760,9 +760,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           activeSubTab === 'Inventory' ? (
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search inventory..." variant="local" />
-              <button 
-                className="btn-primary btn-sm" 
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+              <button
+                className="btn-primary btn-sm"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                 onClick={handleOpenAddDeviceModal}
               >
                 <Plus size={14} /> Add Firewall
@@ -781,7 +781,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         />
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          
+
           {/* 1. Inventory View */}
           {activeSubTab === 'Inventory' && (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -797,7 +797,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           {/* 2. Device Groups Tree Explorer */}
           {activeSubTab === 'Device Groups' && (
             <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
-              
+
               {/* Left Tree Pane */}
               <div style={{
                 width: '320px',
@@ -814,9 +814,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   <h3 style={{ margin: 0, fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
                     Hierarchy Tree
                   </h3>
-                  <button 
-                    className="btn-secondary btn-sm" 
-                    style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }} 
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
                     onClick={handleOpenAddGroupModal}
                   >
                     <Plus size={12} /> Add Group
@@ -863,16 +863,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
                           <>
-                            <button 
-                              className="btn-secondary btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-secondary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => handleOpenEditGroupModal(selectedGroupDetails)}
                             >
                               <Edit2 size={13} /> Edit Group
                             </button>
-                            <button 
-                              className="btn-danger btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-danger btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => handleDeleteGroup(selectedGroupDetails)}
                             >
                               <Trash2 size={13} /> Delete Group
@@ -927,7 +927,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           {/* 3. Templates & Stacks explorer */}
           {activeSubTab === 'Templates' && (
             <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
-              
+
               {/* Left Tree/Stacks List Pane */}
               <div style={{
                 width: '320px',
@@ -945,9 +945,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
                       Template Stacks
                     </h3>
-                    <button 
-                      className="btn-secondary btn-sm" 
-                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }} 
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
                       onClick={handleOpenAddStackModal}
                     >
                       <Plus size={11} /> Add Stack
@@ -974,9 +974,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
                       Base Templates
                     </h3>
-                    <button 
-                      className="btn-secondary btn-sm" 
-                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }} 
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
                       onClick={handleOpenAddTemplateModal}
                     >
                       <Plus size={11} /> Add Template
@@ -1048,9 +1048,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {selectedTemplateId.startsWith('stack-') ? (
                           <>
-                            <button 
-                              className="btn-secondary btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-secondary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => {
                                 const stackId = parseInt(selectedTemplateId.slice(6), 10);
                                 const stack = templateStacks.find(s => s.id === stackId);
@@ -1059,9 +1059,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                             >
                               <Edit2 size={13} /> Edit Stack
                             </button>
-                            <button 
-                              className="btn-danger btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-danger btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => {
                                 const stackId = parseInt(selectedTemplateId.slice(6), 10);
                                 const stack = templateStacks.find(s => s.id === stackId);
@@ -1073,9 +1073,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           </>
                         ) : (
                           <>
-                            <button 
-                              className="btn-secondary btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-secondary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => {
                                 const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
                                 if (tmpl) handleOpenEditTemplateModal(tmpl);
@@ -1083,9 +1083,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                             >
                               <Edit2 size={13} /> Edit Template
                             </button>
-                            <button 
-                              className="btn-danger btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }} 
+                            <button
+                              className="btn-danger btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => {
                                 const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
                                 if (tmpl) handleDeleteTemplate(tmpl);
@@ -1162,32 +1162,32 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Firewall Name</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. Corp-FW-01" 
-              value={deviceName} 
-              onChange={(e) => setDeviceName(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. Corp-FW-01"
+              value={deviceName}
+              onChange={(e) => setDeviceName(e.target.value)}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Serial Number (Unique)</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. 0123456789ABC" 
-              value={deviceSerial} 
-              onChange={(e) => setDeviceSerial(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 0123456789ABC"
+              value={deviceSerial}
+              onChange={(e) => setDeviceSerial(e.target.value)}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Management IP Address</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. 192.168.1.1" 
-              value={deviceIp} 
-              onChange={(e) => setDeviceIp(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 192.168.1.1"
+              value={deviceIp}
+              onChange={(e) => setDeviceIp(e.target.value)}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1247,12 +1247,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Group Name</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. Branch-Offices" 
-              value={groupName} 
-              onChange={(e) => setGroupName(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. Branch-Offices"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1291,12 +1291,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template Name</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. Global-Config" 
-              value={templateName} 
-              onChange={(e) => setTemplateName(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. Global-Config"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
             />
           </div>
         </div>
@@ -1320,12 +1320,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Stack Name</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g. Edge-Router-Stack" 
-              value={stackName} 
-              onChange={(e) => setStackName(e.target.value)} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. Edge-Router-Stack"
+              value={stackName}
+              onChange={(e) => setStackName(e.target.value)}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1356,16 +1356,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   const t = baseTemplates.find(bt => bt.id === id);
                   if (!t) return null;
                   return (
-                    <div 
-                      key={id} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        padding: '6px 10px', 
-                        backgroundColor: 'var(--bg-surface)', 
-                        border: '1px solid var(--border-main)', 
-                        borderRadius: '4px' 
+                    <div
+                      key={id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 10px',
+                        backgroundColor: 'var(--bg-surface)',
+                        border: '1px solid var(--border-main)',
+                        borderRadius: '4px'
                       }}
                     >
                       <span style={{ fontSize: '13px' }}>{cleanTemplateName(t.name)}</span>

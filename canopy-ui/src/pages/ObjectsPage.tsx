@@ -280,8 +280,8 @@ const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value
             </>
           )}
         </div>
-        <ChevronDown 
-          size={14} 
+        <ChevronDown
+          size={14}
           style={{ color: 'var(--text-muted)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease', cursor: 'pointer' }}
           onClick={(e) => {
             if (isOpen) {
@@ -412,7 +412,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const [formGroupFileBlocking, setFormGroupFileBlocking] = useState('');
   const [formGroupWildfireAnalysis, setFormGroupWildfireAnalysis] = useState('');
   const [formGroupDNSSecurity, setFormGroupDNSSecurity] = useState('');
-  
+
   const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
   const [formURLList, setFormURLList] = useState('');
   const [formListType, setFormListType] = useState('ip');
@@ -495,7 +495,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // Dual List available items for group CRUD editors
   const addressGroupAvailableItems = useMemo(() => {
     const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
-    
+
     const shadowedAddresses = getShadowedItems(allAddresses, formVisibleScopes);
     const shadowedAddressGroups = getShadowedItems(allAddressGroups, formVisibleScopes);
 
@@ -524,7 +524,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   const serviceGroupAvailableItems = useMemo(() => {
     const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
-    
+
     const shadowedServices = getShadowedItems(allServices, formVisibleScopes);
     const shadowedServiceGroups = getShadowedItems(allServiceGroups, formVisibleScopes);
 
@@ -553,7 +553,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   const applicationGroupAvailableItems = useMemo(() => {
     const items: { name: string; type: string; value: string; icon: React.ReactNode }[] = [];
-    
+
     const shadowedApplications = getShadowedItems(allApplications, formVisibleScopes);
     const shadowedApplicationGroups = getShadowedItems(allApplicationGroups, formVisibleScopes);
 
@@ -726,7 +726,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         {/* Select All Checkbox */}
         {filteredSelected.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', flexShrink: 0 }}>
-            <input 
+            <input
               type="checkbox"
               id="select-all-members"
               checked={isAllChecked}
@@ -755,7 +755,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               const isAddr = allAddresses.some(a => a.name === name) || allAddressGroups.some(g => g.name === name);
               const isSvc = allServices.some(s => s.name === name) || allServiceGroups.some(g => g.name === name);
               const isApp = allApplications.some(a => a.name === name) || allApplicationGroups.some(g => g.name === name);
-              
+
               let icon = <Tag size={12} />;
               if (isAddr) {
                 const isGroup = allAddressGroups.some(g => g.name === name);
@@ -790,10 +790,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    <input 
+                    <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => {}}
+                      onChange={() => { }}
                       style={{ cursor: 'pointer', flexShrink: 0 }}
                     />
                     {icon}
@@ -961,7 +961,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         {/* Select All Checkbox */}
         {filteredSelected.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', flexShrink: 0 }}>
-            <input 
+            <input
               type="checkbox"
               id="select-all-tags"
               checked={isAllChecked}
@@ -995,7 +995,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
               };
               const hex = colorMap[tagObj?.color || 'color1'] || 'var(--text-muted)';
-              
+
               return (
                 <div
                   key={name}
@@ -1016,10 +1016,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    <input 
+                    <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => {}}
+                      onChange={() => { }}
                       style={{ cursor: 'pointer', pointerEvents: 'none' }}
                     />
                     <span
@@ -1065,7 +1065,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   };
 
   const renderSelectorModal = (availableItems: { name: string; type: string; value: string; icon: React.ReactNode }[]) => {
-    const searchFiltered = availableItems.filter(item => 
+    const searchFiltered = availableItems.filter(item =>
       item.name.toLowerCase().includes(selectorSearchQuery.toLowerCase()) ||
       (item.value || '').toLowerCase().includes(selectorSearchQuery.toLowerCase())
     );
@@ -1087,7 +1087,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     const handleSelectAll = () => {
       const allSelectableNames = selectableSearchFilteredTotal.map(item => item.name);
       const allChecked = allSelectableNames.every(name => selectorCheckedNames.includes(name));
-      
+
       if (allChecked) {
         setSelectorCheckedNames(selectorCheckedNames.filter(name => !allSelectableNames.includes(name)));
       } else {
@@ -1123,8 +1123,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         footer={
           <div style={{ display: 'flex', gap: '10px' }}>
             <button className="btn-secondary btn-md" onClick={() => setIsSelectorModalOpen(false)}>Cancel</button>
-            <button 
-              className="btn-primary btn-md" 
+            <button
+              className="btn-primary btn-md"
               onClick={handleAddSelected}
               disabled={selectorCheckedNames.length === 0}
             >
@@ -1164,7 +1164,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input 
+              <input
                 type="checkbox"
                 id="select-all-objects"
                 checked={isAllChecked}
@@ -1210,11 +1210,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     onMouseEnter={(e) => { if (!checked && !isAlreadyMember) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
                     onMouseLeave={(e) => { if (!checked && !isAlreadyMember) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
-                    <input 
+                    <input
                       type="checkbox"
                       checked={checked}
                       disabled={isAlreadyMember}
-                      onChange={() => {}}
+                      onChange={() => { }}
                       style={{ cursor: isAlreadyMember ? 'default' : 'pointer', flexShrink: 0 }}
                     />
                     {item.icon}
@@ -1342,7 +1342,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     newVisited.add(groupName);
 
     const allowedScopes = getScopeHierarchy(scopeUuid);
-    
+
     let group = null;
     for (const sc of allowedScopes) {
       const g = allServiceGroups.find(item => item.name === groupName && item.device_uuid === sc);
@@ -1394,7 +1394,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     newVisited.add(groupName);
 
     const allowedScopes = getScopeHierarchy(scopeUuid);
-    
+
     let group = null;
     for (const sc of allowedScopes) {
       const g = allApplicationGroups.find(item => item.name === groupName && item.device_uuid === sc);
@@ -1733,7 +1733,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
     let memberQuery = '';
     let recursiveQuery = '';
-    
+
     switch (activeSubTab) {
       case 'Address Groups':
         memberQuery = `
@@ -1848,10 +1848,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     try {
       const res = await apiClient.queryDb(memberQuery.replace('?', String(groupRow.id)));
       setResolvedMembers(res.rows || []);
-      
+
       if (recursiveQuery) {
         const flatRes = await apiClient.queryDb(recursiveQuery.replace('?', String(groupRow.id)));
-        
+
         // Aggregate paths for flattened members
         const aggregated: Record<string, any> = {};
         (flatRes.rows || []).forEach((item: any) => {
@@ -1871,7 +1871,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       } else {
         setFlattenedMembers([]);
       }
-      
+
     } catch (e) {
       console.error('Failed to resolve group members details', e);
       addToast('Failed to fetch group member details.', 'error');
@@ -1952,8 +1952,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
     // Resolve active tag mappings
     const tags: string[] = [];
-    const mappings = allTagMappings.filter(m => 
-      m.entity_id === obj.id && 
+    const mappings = allTagMappings.filter(m =>
+      m.entity_id === obj.id &&
       m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
     );
     mappings.forEach(m => {
@@ -2255,7 +2255,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   const handleClone = () => {
     if (selectedRows.length === 0) return;
-    
+
     // For local clone, we keep the original device_uuid for each item.
     // Since we support multiple selection, we group them by device_uuid,
     // but the move function already handles an array of items.
@@ -2440,47 +2440,47 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         }
         break;
       }
-        case 'Tags':
-          commands.push(`${scopePrefix} tag ${row.name} color ${row.color || 'color1'}`);
-          if (row.description) {
-            commands.push(`${scopePrefix} tag ${row.name} comments "${row.description}"`);
-          }
-          break;
-        case 'Log Forwarding Profiles':
-          commands.push(`${scopePrefix} log-settings profiles ${row.name}`);
-          break;
-        case 'Security Profiles': {
-          const typeMapping: Record<string, string> = {
-            'url-filtering': 'url-filtering',
-            'antivirus': 'virus',
-            'vulnerability': 'vulnerability',
-            'spyware': 'spyware',
-            'wildfire': 'wildfire-analysis',
-            'file-blocking': 'file-blocking',
-          };
-          const resolvedType = typeMapping[row.type] || 'virus';
-          commands.push(`${scopePrefix} profiles ${resolvedType} ${row.name}`);
-          break;
+      case 'Tags':
+        commands.push(`${scopePrefix} tag ${row.name} color ${row.color || 'color1'}`);
+        if (row.description) {
+          commands.push(`${scopePrefix} tag ${row.name} comments "${row.description}"`);
         }
-        case 'Security Profile Groups':
-          commands.push(`${scopePrefix} profiles profile-group ${row.name}`);
-          if (row.antivirus) commands.push(`${scopePrefix} profiles profile-group ${row.name} virus ${row.antivirus}`);
-          if (row.spyware) commands.push(`${scopePrefix} profiles profile-group ${row.name} spyware ${row.spyware}`);
-          if (row.vulnerability) commands.push(`${scopePrefix} profiles profile-group ${row.name} vulnerability ${row.vulnerability}`);
-          if (row.url_filtering) commands.push(`${scopePrefix} profiles profile-group ${row.name} url-filtering ${row.url_filtering}`);
-          if (row.file_blocking) commands.push(`${scopePrefix} profiles profile-group ${row.name} file-blocking ${row.file_blocking}`);
-          if (row.wildfire_analysis) commands.push(`${scopePrefix} profiles profile-group ${row.name} wildfire-analysis ${row.wildfire_analysis}`);
-          break;
-        case 'Custom Objects':
-          if (activeCustomObjectTab === 'categories') {
-            commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
-          } else {
-            commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
-          }
-          break;
+        break;
+      case 'Log Forwarding Profiles':
+        commands.push(`${scopePrefix} log-settings profiles ${row.name}`);
+        break;
+      case 'Security Profiles': {
+        const typeMapping: Record<string, string> = {
+          'url-filtering': 'url-filtering',
+          'antivirus': 'virus',
+          'vulnerability': 'vulnerability',
+          'spyware': 'spyware',
+          'wildfire': 'wildfire-analysis',
+          'file-blocking': 'file-blocking',
+        };
+        const resolvedType = typeMapping[row.type] || 'virus';
+        commands.push(`${scopePrefix} profiles ${resolvedType} ${row.name}`);
+        break;
       }
-      return commands;
-    };
+      case 'Security Profile Groups':
+        commands.push(`${scopePrefix} profiles profile-group ${row.name}`);
+        if (row.antivirus) commands.push(`${scopePrefix} profiles profile-group ${row.name} virus ${row.antivirus}`);
+        if (row.spyware) commands.push(`${scopePrefix} profiles profile-group ${row.name} spyware ${row.spyware}`);
+        if (row.vulnerability) commands.push(`${scopePrefix} profiles profile-group ${row.name} vulnerability ${row.vulnerability}`);
+        if (row.url_filtering) commands.push(`${scopePrefix} profiles profile-group ${row.name} url-filtering ${row.url_filtering}`);
+        if (row.file_blocking) commands.push(`${scopePrefix} profiles profile-group ${row.name} file-blocking ${row.file_blocking}`);
+        if (row.wildfire_analysis) commands.push(`${scopePrefix} profiles profile-group ${row.name} wildfire-analysis ${row.wildfire_analysis}`);
+        break;
+      case 'Custom Objects':
+        if (activeCustomObjectTab === 'categories') {
+          commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
+        } else {
+          commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
+        }
+        break;
+    }
+    return commands;
+  };
 
   // Recursive helper for generating CLI commands
   const generateRecursiveCliCommands = (row: any, visitedNames: Set<string>, typeContext: string): string[] => {
@@ -2546,7 +2546,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       }
       return true;
     });
-    
+
     return [...childCommands, ...currentCommands];
   };
 
@@ -2607,7 +2607,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           const isInherited = !isShowAll && row.device_uuid !== currentScope;
           const inheritedScopeName = isInherited ? (scopeNameMap[row.device_uuid] || row.device_uuid) : '';
           const isEditable = !isInherited && !isShowAll;
-          
+
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {isInherited && (
@@ -2615,7 +2615,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                   <Lock size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 </Tooltip>
               )}
-              <span 
+              <span
                 onClick={() => {
                   if (isEditable) openEditModal(row);
                 }}
@@ -2631,7 +2631,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     e.currentTarget.style.textDecoration = 'none';
                   }
                 }}
-                style={{ 
+                style={{
                   fontWeight: 500,
                   cursor: isEditable ? 'pointer' : 'default',
                   transition: 'color 0.15s ease'
@@ -2656,13 +2656,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 const isShared = scopeId === 'paloalto-panorama-global';
                 const displayName = isShared ? 'Shared' : (scopeNameMap[scopeId] || scopeId);
                 const indent = idx * 12; // 12px indent per level
-                
+
                 return (
                   <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
                     {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
-                    <span 
+                    <span
                       onClick={() => handleScopeChange(scopeId)}
-                      style={{ 
+                      style={{
                         cursor: 'pointer',
                         transition: 'opacity 0.15s ease'
                       }}
@@ -3261,7 +3261,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     if (formName !== selectedObject.name) return true;
     if (formScopeUuid !== selectedObject.device_uuid) return true;
     if (formDescription !== (selectedObject.description || '')) return true;
-    
+
     if (activeSubTab === 'Address Objects') {
       if (formType !== selectedObject.type) return true;
       if (formValue !== selectedObject.value) return true;
@@ -3306,8 +3306,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
     // Verify tag mappings
     const originalTags: string[] = [];
-    const mappings = allTagMappings.filter(m => 
-      m.entity_id === selectedObject.id && 
+    const mappings = allTagMappings.filter(m =>
+      m.entity_id === selectedObject.id &&
       m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
     );
     mappings.forEach(m => {
@@ -3315,7 +3315,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       if (tagObj) originalTags.push(tagObj.name);
     });
     if ([...formTags].sort().join(',') !== [...originalTags].sort().join(',')) return true;
-    
+
     return false;
   }, [
     crudMode, selectedObject, formName, formScopeUuid, formDescription, activeSubTab,
@@ -3331,86 +3331,87 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       {/* 2. Main content canvas */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Scope context summary top header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexShrink: 0
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-          {/* Top Row: Device Group Dropdown, Lineage, and Search */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
-                <SearchableScopeDropdown
-                  value={currentScope}
-                  options={hierarchyOptions}
-                  onChange={handleScopeChange}
-                  scopeNameMap={scopeNameMap}
-                />
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', maxWidth: '600px' }} />
-                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                  {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'normal', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                      Scope Context: 
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', flexWrap: 'wrap' }}>
-                        {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
-                          <React.Fragment key={scopeId}>
-                            <span 
-                              onClick={() => handleScopeChange(scopeId)}
-                              style={{ 
-                                color: 'var(--text-muted)', 
-                                cursor: 'pointer', 
-                                fontWeight: 400,
-                                transition: 'color 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
-                              title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
-                            >
-                              {scopeNameMap[scopeId] || scopeId}
-                            </span>
-                            {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
-                          </React.Fragment>
-                        ))}
-                        <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                        <span style={{ 
-                          backgroundColor: 'rgba(59, 130, 246, 0.15)', 
-                          color: 'var(--accent-blue)', 
-                          padding: '2px 8px', 
-                          borderRadius: '4px', 
-                          border: '1px solid rgba(59, 130, 246, 0.25)', 
-                          fontWeight: 600, 
-                          fontSize: '11px',
-                          display: 'inline-flex',
-                          alignItems: 'center'
-                        }}>
-                          {scopeNameMap[currentScope] || currentScope}
+            {/* Top Row: Device Group Dropdown, Lineage, and Search */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
+                  <SearchableScopeDropdown
+                    value={currentScope}
+                    options={hierarchyOptions}
+                    onChange={handleScopeChange}
+                    scopeNameMap={scopeNameMap}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, minHeight: '20px' }}>
+                    {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Scope Context:
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                          {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
+                            <React.Fragment key={scopeId}>
+                              <span
+                                onClick={() => handleScopeChange(scopeId)}
+                                style={{
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  fontWeight: 400,
+                                  transition: 'color 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
+                                title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
+                              >
+                                {scopeNameMap[scopeId] || scopeId}
+                              </span>
+                              {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
+                            </React.Fragment>
+                          ))}
+                          <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
+                          <span style={{
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            color: 'var(--accent-blue)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(59, 130, 246, 0.25)',
+                            fontWeight: 600,
+                            fontSize: '11px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {scopeNameMap[currentScope] || currentScope}
+                          </span>
                         </span>
                       </span>
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
-                    </span>
-                  )}
+                    ) : (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
+              <div style={{ width: '300px', flexShrink: 0 }}>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                  width="100%"
+                  variant="local"
+                />
+              </div>
             </div>
-            <div style={{ width: '300px', flexShrink: 0 }}>
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-                width="100%"
-                variant="local"
-              />
-            </div>
-          </div>
+            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
           </div>
         </div>
 
@@ -3570,221 +3571,221 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 </button>
               }
               columns={columns}
-                  data={displayedTableData}
-                  searchQuery={searchQuery}
-                  selectable={true}
-                  onSelectionChange={setSelectedRows}
-                  rowContextMenuActions={(row, closeMenu) => (
+              data={displayedTableData}
+              searchQuery={searchQuery}
+              selectable={true}
+              onSelectionChange={setSelectedRows}
+              rowContextMenuActions={(row, closeMenu) => (
+                <>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const isShowAll = currentScope === 'show-all';
+                      const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                      if (!isInherited && !isShowAll) {
+                        openEditModal(row);
+                      } else {
+                        addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
+                      }
+                    }}
+                  >
+                    <Edit2 size={13} /> Edit
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      setInspectRow(row);
+                    }}
+                  >
+                    <Eye size={13} /> Inspect
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                      handleClone();
+                    }}
+                  >
+                    <Copy size={13} /> Clone
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                      handleCloneToGroup();
+                    }}
+                  >
+                    <Copy size={13} /> Clone to Group...
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                      handleMoveToGroup();
+                    }}
+                  >
+                    <ArrowRight size={13} /> Move to Group...
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                      handleGenerateCli(targetRows);
+                    }}
+                  >
+                    <Code size={13} /> Generate CLI
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                  <button
+                    className="btn-danger btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                      handleBulkDelete();
+                    }}
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </>
+              )}
+              exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
+              additionalExportColumns={[{
+                header: 'CLI Output',
+                getValue: (row) => {
+                  if (exportIncludeChildren && ['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab)) {
+                    const visited = new Set<string>();
+                    return generateRecursiveCliCommands(row, visited, activeSubTab).join('\n');
+                  }
+                  return generateCliCommandsForRow(row).join('\n');
+                }
+              }]}
+              rowStyle={(row) => {
+                const isShowAll = currentScope === 'show-all';
+                const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                return isInherited ? { opacity: 0.55 } : {};
+              }}
+              exportActions={
+                <>
+                  {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', padding: '6px 16px' }} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={exportIncludeChildren}
+                          onChange={(e) => setExportIncludeChildren(e.target.checked)}
+                        />
+                        Include nested dependencies
+                      </label>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    </>
+                  )}
+                  {selectedRows.length > 0 && (
                     <>
                       <button
+                        onClick={() => { setShowActionsMenu(false); handleClone(); }}
                         className="btn-secondary btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const isShowAll = currentScope === 'show-all';
-                          const isInherited = !isShowAll && row.device_uuid !== currentScope;
-                          if (!isInherited && !isShowAll) {
-                            openEditModal(row);
-                          } else {
-                            addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
-                          }
-                        }}
-                      >
-                        <Edit2 size={13} /> Edit
-                      </button>
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          setInspectRow(row);
-                        }}
-                      >
-                        <Eye size={13} /> Inspect
-                      </button>
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                          handleClone();
-                        }}
+                        disabled={selectedRows.length > 50}
+                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
                       >
                         <Copy size={13} /> Clone
                       </button>
+
                       <button
+                        onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
                         className="btn-secondary btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                          handleCloneToGroup();
-                        }}
+                        disabled={selectedRows.length > 50}
+                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
                       >
                         <Copy size={13} /> Clone to Group...
                       </button>
+
                       <button
+                        onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
                         className="btn-secondary btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                          handleMoveToGroup();
-                        }}
+                        disabled={selectedRows.length > 50}
+                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
                       >
                         <ArrowRight size={13} /> Move to Group...
                       </button>
+
                       <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
                       <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                          handleGenerateCli(targetRows);
-                        }}
-                      >
-                        <Code size={13} /> Generate CLI
-                      </button>
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                      <button
+                        onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
                         className="btn-danger btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                          if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                          handleBulkDelete();
-                        }}
+                        title="Bulk delete selected objects"
                       >
-                        <Trash2 size={13} /> Delete
+                        <Trash2 size={13} /> Bulk Delete
                       </button>
+
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                     </>
                   )}
-                  exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
-                  additionalExportColumns={[{
-                    header: 'CLI Output',
-                    getValue: (row) => {
-                      if (exportIncludeChildren && ['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab)) {
-                        const visited = new Set<string>();
-                        return generateRecursiveCliCommands(row, visited, activeSubTab).join('\n');
-                      }
-                      return generateCliCommandsForRow(row).join('\n');
-                    }
-                  }]}
-                  rowStyle={(row) => {
-                    const isShowAll = currentScope === 'show-all';
-                    const isInherited = !isShowAll && row.device_uuid !== currentScope;
-                    return isInherited ? { opacity: 0.55 } : {};
-                  }}
-                  exportActions={
-                    <>
-                      {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
-                        <>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', padding: '6px 16px' }} onClick={(e) => e.stopPropagation()}>
-                            <input 
-                              type="checkbox" 
-                              checked={exportIncludeChildren}
-                              onChange={(e) => setExportIncludeChildren(e.target.checked)}
-                            />
-                            Include nested dependencies
-                          </label>
-                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                        </>
-                      )}
-                      {selectedRows.length > 0 && (
-                        <>
-                          <button
-                            onClick={() => { setShowActionsMenu(false); handleClone(); }}
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                            disabled={selectedRows.length > 50}
-                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
-                          >
-                            <Copy size={13} /> Clone
-                          </button>
-                          
-                          <button
-                            onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                            disabled={selectedRows.length > 50}
-                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
-                          >
-                            <Copy size={13} /> Clone to Group...
-                          </button>
 
-                          <button
-                            onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
-                            className="btn-secondary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                            disabled={selectedRows.length > 50}
-                            title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
-                          >
-                            <ArrowRight size={13} /> Move to Group...
-                          </button>
+                  <button
+                    onClick={() => { setShowActionsMenu(false); setImportWizardOpen(true); }}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+                    title="Import data from CSV or Excel"
+                  >
+                    <Download size={13} /> Import CSV / Excel
+                  </button>
+                  <button
+                    onClick={() => { setShowActionsMenu(false); handleGenerateCli(); }}
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+                    disabled={displayedTableData.length === 0}
+                    title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
+                  >
+                    <Code size={13} /> Generate CLI
+                  </button>
+                </>
+              }
+            />
+          </div>
 
-                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-
-                          <button
-                            onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
-                            className="btn-danger btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                            title="Bulk delete selected objects"
-                          >
-                            <Trash2 size={13} /> Bulk Delete
-                          </button>
-
-                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                        </>
-                      )}
-
-                      <button
-                        onClick={() => { setShowActionsMenu(false); setImportWizardOpen(true); }}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
-                        title="Import data from CSV or Excel"
-                      >
-                        <Download size={13} /> Import CSV / Excel
-                      </button>
-                      <button
-                        onClick={() => { setShowActionsMenu(false); handleGenerateCli(); }}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
-                        disabled={displayedTableData.length === 0}
-                        title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
-                      >
-                        <Code size={13} /> Generate CLI
-                      </button>
-                    </>
-                  }
-                />
-              </div>
-
-              {/* Centralized Data Import Manager Modal */}
-              <DataImportWizard 
-                isOpen={importWizardOpen} 
-                onClose={() => setImportWizardOpen(false)}
-                defaultDataType={
-                  activeSubTab === 'Address Objects' ? 'address_objects' :
-                  activeSubTab === 'Address Groups' ? 'address_groups' :
+          {/* Centralized Data Import Manager Modal */}
+          <DataImportWizard
+            isOpen={importWizardOpen}
+            onClose={() => setImportWizardOpen(false)}
+            defaultDataType={
+              activeSubTab === 'Address Objects' ? 'address_objects' :
+                activeSubTab === 'Address Groups' ? 'address_groups' :
                   activeSubTab === 'Service Objects' ? 'service_objects' :
-                  'address_objects'
-                }
-                apiClient={apiClient}
-                deviceUuid={currentScope}
-                scope={currentScope === 'shared' ? 'shared' : 'local'}
-                onSuccess={() => {
-                  fetchRecords();
-                  loadReferenceData();
-                  addToast('Data imported successfully!', 'success');
-                }}
-              />
+                    'address_objects'
+            }
+            apiClient={apiClient}
+            deviceUuid={currentScope}
+            scope={currentScope === 'shared' ? 'shared' : 'local'}
+            onSuccess={() => {
+              fetchRecords();
+              loadReferenceData();
+              addToast('Data imported successfully!', 'success');
+            }}
+          />
         </div>
       </div>
 
@@ -4092,14 +4093,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Match Filter</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <textarea 
+                    <textarea
                       className="input-text"
                       style={{ height: '80px', resize: 'none', fontFamily: 'monospace', fontSize: '12px' }}
-                      value={formFilter} 
-                      onChange={e => setFormFilter(e.target.value)} 
-                      placeholder="e.g. 'tag1' and ('tag2' or 'tag3')" 
+                      value={formFilter}
+                      onChange={e => setFormFilter(e.target.value)}
+                      placeholder="e.g. 'tag1' and ('tag2' or 'tag3')"
                     />
-                    
+
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
                       <div style={{ display: 'flex', backgroundColor: 'var(--bg-main)', borderRadius: '4px', border: '1px solid var(--border-main)', padding: '2px' }}>
                         <button
@@ -4131,9 +4132,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                           }}
                         >OR</button>
                       </div>
-                      
+
                       <div style={{ height: '16px', width: '1px', backgroundColor: 'var(--border-main)' }}></div>
-                      
+
                       {['NOT', '(', ')'].map(op => (
                         <button
                           key={op}
@@ -4153,7 +4154,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                           }}
                         >{op}</button>
                       ))}
-                      
+
                       {!showFilterTagSelector && (
                         <button
                           type="button"
@@ -4174,7 +4175,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                         >Select Tags</button>
                       )}
                     </div>
-                    
+
                     {showFilterTagSelector && (
                       <div style={{ border: '1px solid var(--border-main)', borderRadius: '4px', display: 'flex', flexDirection: 'column', height: '192px', backgroundColor: 'var(--bg-card)' }}>
                         <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-main)' }}>
@@ -4557,12 +4558,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
       {/* Secondary Selection Modal for adding group members */}
       {isSelectorModalOpen && renderSelectorModal(
-        selectorType === 'tags' 
-          ? tagAvailableItems 
-          : activeSubTab === 'Address Groups' 
-            ? addressGroupAvailableItems 
-            : activeSubTab === 'Service Groups' 
-              ? serviceGroupAvailableItems 
+        selectorType === 'tags'
+          ? tagAvailableItems
+          : activeSubTab === 'Address Groups'
+            ? addressGroupAvailableItems
+            : activeSubTab === 'Service Groups'
+              ? serviceGroupAvailableItems
               : applicationGroupAvailableItems
       )}
 
@@ -4584,11 +4585,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               Execute the following native PAN-OS CLI commands in your device or Panorama terminal shell for {selectedRows.length > 0 ? `${selectedRows.length} selected` : `all ${displayedTableData.length}`} {activeSubTab.toLowerCase()}:
             </div>
-            
+
             {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', color: 'var(--text-main)' }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={includeNestedCli}
                   onChange={(e) => setIncludeNestedCli(e.target.checked)}
                 />
@@ -4653,8 +4654,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         size={moveConfirmDialog.initialWidth && moveConfirmDialog.initialWidth > 600 ? 'lg' : 'md'}
         footer={
           <>
-            <button 
-              className="btn-secondary btn-sm" 
+            <button
+              className="btn-secondary btn-sm"
               onClick={() => {
                 if (moveConfirmDialog.onClose) moveConfirmDialog.onClose();
                 else setMoveConfirmDialog(prev => ({ ...prev, isOpen: false }));
@@ -4662,8 +4663,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
             >
               {moveConfirmDialog.cancelText || 'Cancel'}
             </button>
-            <button 
-              className={`btn-primary btn-sm ${moveConfirmDialog.isDestructive ? 'bg-red-500 hover:bg-red-600 border-red-600' : ''}`} 
+            <button
+              className={`btn-primary btn-sm ${moveConfirmDialog.isDestructive ? 'bg-red-500 hover:bg-red-600 border-red-600' : ''}`}
               onClick={() => moveConfirmDialog.onConfirm()}
             >
               {moveConfirmDialog.confirmText}
