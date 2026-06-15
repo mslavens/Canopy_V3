@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
-import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight, ExternalLink, Activity } from 'lucide-react';
+import { Bell, Moon, Sun, HelpCircle, Lock, AlertTriangle, MessageSquare, PanelLeft, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, Activity } from 'lucide-react';
 import { Tooltip } from '../components/Tooltip';
 import { HelpModal } from '../components/HelpModal';
 import { ToastContainer, ToastMessage } from '../components/ToastContainer';
@@ -93,6 +93,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ 'Security Profiles': true, 'Custom Objects': true });
   const searchRef = useRef<HTMLDivElement>(null);
   
   // Tab bar horizontal scroll navigation hooks & states
@@ -692,10 +693,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     <button key={subTab} onClick={() => handleNavigation(() => setActiveSubTab(subTab))} style={{ textAlign: 'left', background: activeSubTab === subTab ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === subTab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '8px 10px', borderRadius: '4px', color: activeSubTab === subTab ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === subTab ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{subTab}</button>
                   );
                 } else {
+                  const isExpanded = expandedGroups[subTab.group] !== false;
                   return (
-                    <div key={subTab.group} style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '6px 0' }}>
-                      <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginTop: '2px', marginBottom: '4px' }}>{subTab.group}</div>
-                      {subTab.items.map(item => (
+                    <div key={subTab.group} style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '4px 0' }}>
+                      <button 
+                        onClick={() => setExpandedGroups(prev => ({ ...prev, [subTab.group]: !prev[subTab.group] }))}
+                        style={{ 
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          background: 'transparent', border: 'none', padding: '6px 10px',
+                          cursor: 'pointer', color: 'var(--text-muted)', width: '100%'
+                        }}
+                      >
+                        <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{subTab.group}</span>
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      {isExpanded && subTab.items.map(item => (
                         <button key={item} onClick={() => handleNavigation(() => setActiveSubTab(item))} style={{ textAlign: 'left', background: activeSubTab === item ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === item ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === item ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === item ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{item}</button>
                       ))}
                     </div>
