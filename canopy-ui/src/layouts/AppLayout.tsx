@@ -83,10 +83,20 @@ const subTabsMap: Record<string, NavItem[]> = {
       { label: 'Device Rules', value: 'Decryption - Device Rules' },
       { label: 'Post Rules', value: 'Decryption - Post Rules' }
     ]},
+    { group: 'Application Override', items: [
+      { label: 'Pre Rules', value: 'Application Override - Pre Rules' },
+      { label: 'Device Rules', value: 'Application Override - Device Rules' },
+      { label: 'Post Rules', value: 'Application Override - Post Rules' }
+    ]},
     { group: 'Authentication', items: [
       { label: 'Pre Rules', value: 'Authentication - Pre Rules' },
       { label: 'Device Rules', value: 'Authentication - Device Rules' },
       { label: 'Post Rules', value: 'Authentication - Post Rules' }
+    ]},
+    { group: 'DoS Protection', items: [
+      { label: 'Pre Rules', value: 'DoS Protection - Pre Rules' },
+      { label: 'Device Rules', value: 'DoS Protection - Device Rules' },
+      { label: 'Post Rules', value: 'DoS Protection - Post Rules' }
     ]}
   ],
   'Objects': [

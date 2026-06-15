@@ -3,9 +3,10 @@ import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, Plus } from 'lucide-react';
 
 interface PoliciesPageProps {
   auth: { url: string; token: string } | null;
@@ -256,7 +257,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Scope context summary top header */}
         <div style={{
@@ -330,71 +331,55 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                 </div>
               </div>
 
-              {/* Scope Search Bar */}
-              <div style={{ position: 'relative', width: '300px', flexShrink: 0 }}>
-                <div style={{ position: 'relative', width: '100%', height: '34px' }}>
-                  <input
-                    type="text"
-                    placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      paddingLeft: '32px',
-                      fontSize: '13px',
-                      backgroundColor: 'var(--bg-app)',
-                      border: '1px solid var(--border-main)',
-                      borderRadius: '4px',
-                      color: 'var(--text-main)',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <svg 
-                    style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} 
-                    width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  >
-                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')} 
-                      style={{ 
-                        position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', 
-                        background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' 
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  )}
-                </div>
+              <div style={{ width: '300px', flexShrink: 0 }}>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                  width="100%"
+                  variant="local"
+                />
               </div>
             </div>
+            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
           </div>
         </div>
 
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', marginTop: '16px' }}>
+        <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
             <Loader2 size={24} className="animate-spin" />
             <span style={{ marginLeft: '12px' }}>Loading Rules...</span>
           </div>
         ) : (
-          <DataTable 
-            columns={columns}
-            data={rules}
-            searchQuery={searchQuery}
-            exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
-            pagination={true}
-            selectable={true}
-            rowStyle={(row: any) => {
-              if (row.disabled === 1) return { opacity: 0.6 };
-              if (row._isInherited) return { backgroundColor: 'var(--bg-app)', opacity: 0.9 };
-              return {};
-            }}
-          />
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <DataTable 
+              toolbarTitle={
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  {activeSubTab.split('-')[1]?.trim() || activeSubTab}
+                </h2>
+              }
+              topRightActions={
+                <button
+                  className="btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Plus size={14} /> Add Rule
+                </button>
+              }
+              columns={columns}
+              data={rules}
+              searchQuery={searchQuery}
+              exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
+              pagination={true}
+              selectable={true}
+              rowStyle={(row: any) => {
+                if (row.disabled === 1) return { opacity: 0.6 };
+                if (row._isInherited) return { backgroundColor: 'var(--bg-app)', opacity: 0.9 };
+                return {};
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
