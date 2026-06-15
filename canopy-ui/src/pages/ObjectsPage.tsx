@@ -3574,6 +3574,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               data={displayedTableData}
               searchQuery={searchQuery}
               selectable={true}
+              pagination={true}
               onSelectionChange={setSelectedRows}
               rowContextMenuActions={(row, closeMenu) => (
                 <>
