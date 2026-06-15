@@ -191,4 +191,8 @@ export class CanopyApiClient {
   public deleteLogsBatch = (client_id: string, ids: string[]) => this.request<any>(`/api/logs/delete-batch?client_id=${client_id}`, { method: 'POST', body: JSON.stringify({ ids }) });
   public generateCandidateRules = (client_id: string, passes: any[], limit: number = 1000, activeCellFilter: Record<string, string[]>[] = [], analysisColumns: string[] = []) => this.request<any>(`/api/logs/candidates`, { method: 'POST', body: JSON.stringify({ client_id, passes, limit, active_cell_filter: activeCellFilter, analysis_columns: analysisColumns }) });
   public getLogSchema = () => this.request<string[]>(`/api/logs/schema`);
+
+  // CLI Engine
+  public generateCliCommands = (payload: { entityType: string, entityIds: number[], scopeUuid: string, includeNested: boolean }) => 
+    this.request<{commands: string[]}>('/api/cli/generate', { method: 'POST', body: JSON.stringify(payload) });
 }

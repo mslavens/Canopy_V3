@@ -2324,275 +2324,40 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     }
   };
 
-  // Generate CLI commands for a single row
-  const generateCliCommandsForRow = (row: any, overrideType?: string): string[] => {
-    let commands: string[] = [];
-    const isShared = row.device_uuid === 'paloalto-panorama-global';
-    const scopePrefix = isShared
-      ? 'set shared'
-      : `set device-group ${scopeNameMap[row.device_uuid] || 'DG'}`;
-
-    const typeToUse = overrideType || activeSubTab;
-
-    const getTagsForObject = (entityId: number | string, entityType: string) => {
-      const mappings = allTagMappings.filter(m => m.entity_id === entityId && m.entity_type === entityType);
-      const tags: any[] = [];
-      if (mappings.length > 0) {
-        mappings.forEach(m => {
-          const tag = allTags.find(t => t.id === m.tag_id);
-          if (tag) tags.push(tag);
-        });
-      }
-      let tagString = '';
-      if (tags.length > 0) {
-        const tagNames = tags.map(t => `"${t.name}"`);
-        tagString = ` tag [ ${tagNames.join(' ')} ]`;
-      }
-      return { tags, tagString };
-    };
-
-    const appendTagCreationCommands = (tags: any[]) => {
-      tags.forEach(t => {
-        commands.push(`${scopePrefix} tag ${t.name} color ${t.color || 'color1'}`);
+  const fetchGeneratedCommands = async (rowsToGenerate: any[]) => {
+    if (rowsToGenerate.length === 0) return;
+    try {
+      setGeneratedCommands('Generating...');
+      if (!apiClient) return;
+      const response = await apiClient.generateCliCommands({
+        entityType: activeSubTab,
+        entityIds: rowsToGenerate.map(r => r.id),
+        scopeUuid: currentScope,
+        includeNested: includeNestedCli
       });
-    };
-
-    switch (typeToUse) {
-      case 'Address Objects': {
-        const { tags, tagString } = getTagsForObject(row.id, 'address_object');
-        appendTagCreationCommands(tags);
-        commands.push(`${scopePrefix} address ${row.name} ${row.type} ${row.value}${tagString}`);
-        if (row.description) {
-          commands.push(`${scopePrefix} address ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Address Groups': {
-        const { tags, tagString } = getTagsForObject(row.id, 'address_group');
-        appendTagCreationCommands(tags);
-        if (row.type === 'dynamic') {
-          commands.push(`${scopePrefix} address-group ${row.name} dynamic filter "${row.filter}"${tagString}`);
-        } else {
-          const members = row.member_list ? row.member_list.split(',') : [];
-          members.forEach((m: string) => {
-            commands.push(`${scopePrefix} address-group ${row.name} static ${m}`);
-          });
-          if (tagString) {
-            commands.push(`${scopePrefix} address-group ${row.name}${tagString}`);
-          }
-        }
-        if (row.description) {
-          commands.push(`${scopePrefix} address-group ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Services': {
-        const { tags, tagString } = getTagsForObject(row.id, 'service');
-        appendTagCreationCommands(tags);
-        commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} port ${row.destination_port}${tagString}`);
-        if (row.source_port) {
-          commands.push(`${scopePrefix} service ${row.name} protocol ${row.protocol} source-port ${row.source_port}`);
-        }
-        if (row.description) {
-          commands.push(`${scopePrefix} service ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Service Groups': {
-        const { tags, tagString } = getTagsForObject(row.id, 'service_group');
-        appendTagCreationCommands(tags);
-        const svcMembers = row.member_list ? row.member_list.split(',') : [];
-        svcMembers.forEach((m: string) => {
-          commands.push(`${scopePrefix} service-group ${row.name} members ${m}`);
-        });
-        if (tagString) {
-          commands.push(`${scopePrefix} service-group ${row.name}${tagString}`);
-        }
-        if (row.description) {
-          commands.push(`${scopePrefix} service-group ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Applications': {
-        const { tags, tagString } = getTagsForObject(row.id, 'application');
-        appendTagCreationCommands(tags);
-        commands.push(`${scopePrefix} application ${row.name} category ${row.category} subcategory ${row.subcategory || row.subcategory} technology ${row.technology} risk ${row.risk}${tagString}`);
-        if (row.ports) {
-          commands.push(`${scopePrefix} application ${row.name} ports ${row.ports}`);
-        }
-        if (row.description) {
-          commands.push(`${scopePrefix} application ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Application Groups': {
-        const { tags, tagString } = getTagsForObject(row.id, 'application_group');
-        appendTagCreationCommands(tags);
-        const appMembers = row.member_list ? row.member_list.split(',') : [];
-        appMembers.forEach((m: string) => {
-          commands.push(`${scopePrefix} application-group ${row.name} members ${m}`);
-        });
-        if (tagString) {
-          commands.push(`${scopePrefix} application-group ${row.name}${tagString}`);
-        }
-        if (row.description) {
-          commands.push(`${scopePrefix} application-group ${row.name} description "${row.description}"`);
-        }
-        break;
-      }
-      case 'Tags':
-        commands.push(`${scopePrefix} tag ${row.name} color ${row.color || 'color1'}`);
-        if (row.description) {
-          commands.push(`${scopePrefix} tag ${row.name} comments "${row.description}"`);
-        }
-        break;
-      case 'Log Forwarding Profiles':
-        commands.push(`${scopePrefix} log-settings profiles ${row.name}`);
-        break;
-      case 'Antivirus':
-      case 'Anti-Spyware':
-      case 'Vulnerability Protection':
-      case 'URL Filtering':
-      case 'File Blocking':
-      case 'WildFire Analysis': {
-        const typeMapping: Record<string, string> = {
-          'url-filtering': 'url-filtering',
-          'antivirus': 'virus',
-          'vulnerability': 'vulnerability',
-          'spyware': 'spyware',
-          'wildfire': 'wildfire-analysis',
-          'file-blocking': 'file-blocking',
-        };
-        const resolvedType = typeMapping[row.type] || 'virus';
-        commands.push(`${scopePrefix} profiles ${resolvedType} ${row.name}`);
-        break;
-      }
-      case 'Security Profile Groups':
-        commands.push(`${scopePrefix} profiles profile-group ${row.name}`);
-        if (row.antivirus) commands.push(`${scopePrefix} profiles profile-group ${row.name} virus ${row.antivirus}`);
-        if (row.spyware) commands.push(`${scopePrefix} profiles profile-group ${row.name} spyware ${row.spyware}`);
-        if (row.vulnerability) commands.push(`${scopePrefix} profiles profile-group ${row.name} vulnerability ${row.vulnerability}`);
-        if (row.url_filtering) commands.push(`${scopePrefix} profiles profile-group ${row.name} url-filtering ${row.url_filtering}`);
-        if (row.file_blocking) commands.push(`${scopePrefix} profiles profile-group ${row.name} file-blocking ${row.file_blocking}`);
-        if (row.wildfire_analysis) commands.push(`${scopePrefix} profiles profile-group ${row.name} wildfire-analysis ${row.wildfire_analysis}`);
-        break;
-      case 'URL Categories':
-        commands.push(`${scopePrefix} profiles custom-url-category ${row.name} list [ ${row.url_list || ''} ]`);
-        break;
-      case 'External Dynamic Lists':
-        commands.push(`${scopePrefix} external-list ${row.name} type ${row.list_type} source "${row.source_url || ''}"`);
-        break;
+      setGeneratedCommands(response.commands.join('\n'));
+    } catch (err: any) {
+      addToast(err.message || 'Failed to generate CLI commands', 'error');
+      setGeneratedCommands('Error generating commands.');
     }
-    return commands;
   };
 
-  // Recursive helper for generating CLI commands
-  const generateRecursiveCliCommands = (row: any, visitedNames: Set<string>, typeContext: string): string[] => {
-    if (!row || !row.name) return [];
-    if (visitedNames.has(row.name)) return []; // Prevent circular dependencies
-    visitedNames.add(row.name);
-
-    const childCommands: string[] = [];
-
-    // Recursively resolve children based on group type
-    if (typeContext === 'Address Groups') {
-      const members = row.member_list ? row.member_list.split(',') : [];
-      members.forEach((m: string) => {
-        let child = allAddressGroups.find(g => g.name === m);
-        if (child) {
-          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Address Groups'));
-        } else {
-          child = allAddresses.find(a => a.name === m);
-          if (child) {
-            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Address Objects'));
-          }
-        }
-      });
-    } else if (typeContext === 'Service Groups') {
-      const members = row.member_list ? row.member_list.split(',') : [];
-      members.forEach((m: string) => {
-        let child = allServiceGroups.find(g => g.name === m);
-        if (child) {
-          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Service Groups'));
-        } else {
-          child = allServices.find(s => s.name === m);
-          if (child) {
-            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Services'));
-          }
-        }
-      });
-    } else if (typeContext === 'Application Groups') {
-      const members = row.member_list ? row.member_list.split(',') : [];
-      members.forEach((m: string) => {
-        let child = allApplicationGroups.find(g => g.name === m);
-        if (child) {
-          childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Application Groups'));
-        } else {
-          child = allApplications.find(a => a.name === m);
-          if (child) {
-            childCommands.push(...generateRecursiveCliCommands(child, visitedNames, 'Applications'));
-          }
-        }
-      });
-    }
-
-    // Now append the current row's commands, filtering out commands for tags we've already generated
-    const currentCommands = generateCliCommandsForRow(row, typeContext).filter(cmd => {
-      if (cmd.includes(' tag ') && cmd.includes(' color ')) {
-        const parts = cmd.split(' ');
-        const tagIndex = parts.indexOf('tag');
-        if (tagIndex !== -1 && tagIndex + 1 < parts.length) {
-          const tagName = parts[tagIndex + 1];
-          const tagKey = `tag:${tagName}`;
-          if (visitedNames.has(tagKey)) return false;
-          visitedNames.add(tagKey);
-        }
-      }
-      return true;
-    });
-
-    return [...childCommands, ...currentCommands];
-  };
-
-  // Generate CLI commands for the modal
-  const handleGenerateCli = (overrideRows?: any[]) => {
+  const handleGenerateCli = async (overrideRows?: any[]) => {
     const rows = overrideRows || (selectedRows.length > 0 ? selectedRows : displayedTableData);
     if (rows.length === 0) {
       addToast('No records available to generate commands.', 'info');
       return;
     }
-
-    let allCommands: string[] = [];
-    const visitedNames = new Set<string>();
-
-    rows.forEach(row => {
-      if (includeNestedCli) {
-        allCommands.push(...generateRecursiveCliCommands(row, visitedNames, activeSubTab));
-      } else {
-        allCommands.push(...generateCliCommandsForRow(row));
-      }
-    });
-
-    setGeneratedCommands(allCommands.join('\n'));
     setIsCliModalOpen(true);
+    await fetchGeneratedCommands(rows);
   };
 
-  // Dynamically re-generate commands if toggle changes while modal is open
   useEffect(() => {
     if (isCliModalOpen) {
       const rows = selectedRows.length > 0 ? selectedRows : displayedTableData;
-      let allCommands: string[] = [];
-      const visitedNames = new Set<string>();
-      rows.forEach(row => {
-        if (includeNestedCli) {
-          allCommands.push(...generateRecursiveCliCommands(row, visitedNames, activeSubTab));
-        } else {
-          allCommands.push(...generateCliCommandsForRow(row));
-        }
-      });
-      setGeneratedCommands(allCommands.join('\n'));
+      fetchGeneratedCommands(rows);
     }
-  }, [includeNestedCli]);
+  }, [activeSubTab, isCliModalOpen, includeNestedCli]);
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(generatedCommands);
@@ -3585,16 +3350,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                 </>
               )}
               exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
-              additionalExportColumns={[{
-                header: 'CLI Output',
-                getValue: (row) => {
-                  if (exportIncludeChildren && ['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab)) {
-                    const visited = new Set<string>();
-                    return generateRecursiveCliCommands(row, visited, activeSubTab).join('\n');
-                  }
-                  return generateCliCommandsForRow(row).join('\n');
-                }
-              }]}
               rowStyle={(row) => {
                 const isShowAll = currentScope === 'show-all';
                 const isInherited = !isShowAll && row.device_uuid !== currentScope;

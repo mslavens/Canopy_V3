@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"canopy-core/adapters/paloalto"
+	"canopy-core/cli"
 	"canopy-core/engine"
 	"canopy-core/storage"
 
@@ -4609,6 +4610,9 @@ func main() {
 	mux.HandleFunc("/api/objects/external-dynamic-list/update", handleExternalDynamicListUpdate)
 	mux.HandleFunc("/api/objects/external-dynamic-list/delete", handleExternalDynamicListDelete)
 
+	// --- CLI GENERATION ENDPOINT ---
+	mux.HandleFunc("/api/cli/generate", handleCLIGenerate)
+
 	// --- LOGS MODULE ENDPOINTS ---
 	mux.HandleFunc("/api/logs/schema", func(w http.ResponseWriter, r *http.Request) {
 		HandleGetLogSchema(w, r, logDB)
@@ -4704,3 +4708,34 @@ func getActiveDBConn() (*sql.DB, error) {
 }
 
 // --- NEW OBJECTS MODULE CRUD HANDLERS ---
+
+func handleCLIGenerate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req cli.CLIRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn, err := getActiveDBConn()
+	if err != nil {
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	generator := cli.NewGenerator(dbConn)
+	commands, err := generator.Generate(req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate CLI commands: " + err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cli.CLIResponse{Commands: commands})
+}
