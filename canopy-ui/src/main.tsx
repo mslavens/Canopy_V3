@@ -272,7 +272,7 @@ const App = () => {
       return <ObjectsPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} />;
     }
     if (activeMainTab === 'Policies') {
-      return <PoliciesPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} />;
+      return <PoliciesPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
     if (activeMainTab === 'XML Import') {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;

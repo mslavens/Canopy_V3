@@ -12,9 +12,10 @@ interface PoliciesPageProps {
   auth: { url: string; token: string } | null;
   addToast: (msg: string, type?: 'info' | 'success' | 'error') => void;
   activeSubTab: string;
+  setActiveSubTab?: (tab: string) => void;
 }
 
-export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, activeSubTab }) => {
+export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, activeSubTab, setActiveSubTab }) => {
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('paloalto-panorama-global');
@@ -43,8 +44,22 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         setSelectedScopeUuid('');
       }
     } else {
-      // If currently on a firewall or empty, switch to shared
-      if (!selectedScopeUuid || devices.some(d => d.uuid === selectedScopeUuid)) {
+      // If currently on a firewall, intelligently switch to its parent device group
+      if (selectedScopeUuid) {
+        const fw = devices.find(d => d.uuid === selectedScopeUuid);
+        if (fw) {
+          const parentDg = deviceGroups.find(g => g.id === fw.device_group_id);
+          if (parentDg) {
+            setSelectedScopeUuid(parentDg.uuid);
+          } else {
+            setSelectedScopeUuid('paloalto-panorama-global');
+          }
+          return;
+        }
+      }
+      
+      // If empty (e.g., they were on 'show-all' or hadn't picked a device), default to shared
+      if (!selectedScopeUuid) {
         setSelectedScopeUuid('paloalto-panorama-global');
       }
     }
@@ -185,7 +200,21 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                   <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
                     {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
                     <span
-                      onClick={() => setSelectedScopeUuid(scopeId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("CLICKED SCOPE:", scopeId, "rulebase:", rulebase, "setActiveSubTab present:", !!setActiveSubTab);
+                        setSelectedScopeUuid(scopeId);
+                        
+                        if (rulebase === 'device' && setActiveSubTab) {
+                          const isFirewall = devices.some(d => d.uuid === scopeId);
+                          console.log("isFirewall:", isFirewall);
+                          if (!isFirewall) {
+                            const isPost = (row.scope || '').endsWith(':post');
+                            console.log("isPost:", isPost, "Setting tab to:", isPost ? 'Security - Post Rules' : 'Security - Pre Rules');
+                            setActiveSubTab(isPost ? 'Security - Post Rules' : 'Security - Pre Rules');
+                          }
+                        }
+                      }}
                       style={{
                         cursor: 'pointer',
                         transition: 'opacity 0.15s ease'
@@ -331,7 +360,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         }
       }
     ];
-  }, [scopeNameMap, getVisibleScopes]);
+  }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, devices]);
 
   if (!rulebase || !isSecurityPolicy) {
     // Extract the policy type (e.g. NAT, Decryption) from the activeSubTab
