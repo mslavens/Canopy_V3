@@ -3,7 +3,9 @@ import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
 import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings, ExternalLink } from 'lucide-react';
+import { HeatMapMatrix } from '../components/HeatMapMatrix';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
 import { SearchBar } from '../components/SearchBar';
 
 interface HeatmapPageProps {
@@ -83,93 +85,14 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [firewalls, setFirewalls] = useState<any[]>([]);
 
-  const scopeNameMap = React.useMemo(() => {
-    const map: Record<string, any> = {
-      'paloalto-panorama-global': { name: 'Shared / Global', type: 'global', lineage: [] }
-    };
-    deviceGroups.forEach(dg => {
-      map[dg.uuid] = { name: dg.name, type: 'device-group', lineage: [] };
-    });
-    firewalls.forEach(fw => {
-      map[`fw-${fw.serial}`] = { name: fw.name, type: 'firewall', lineage: [] };
-    });
-    return map;
-  }, [deviceGroups, firewalls]);
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, firewalls, {
+    includeShowAll: true,
+    firewallValueKey: 'serial'
+  });
 
-  const hierarchyOptions = React.useMemo(() => {
-    const opts: any[] = [
-      { label: 'Shared / Global', value: 'paloalto-panorama-global', depth: 0, type: 'global' }
-    ];
-
-    const buildNode = (parentId: number | null, depth: number) => {
-      const levelGroups = deviceGroups.filter(g => g.parent_id === parentId);
-      levelGroups.forEach(dg => {
-        if (dg.uuid === 'paloalto-dg-shared') {
-          buildNode(dg.id, depth);
-          return;
-        }
-        opts.push({
-          label: dg.name,
-          value: dg.uuid,
-          depth: depth,
-          type: 'device-group'
-        });
-
-        const groupFirewalls = firewalls.filter(fw => fw.device_group_id === dg.id);
-        groupFirewalls.forEach(fw => {
-          opts.push({
-            label: fw.name,
-            value: `fw-${fw.serial}`,
-            depth: depth + 1,
-            type: 'firewall'
-          });
-        });
-
-        buildNode(dg.id, depth + 1);
-      });
-    };
-
-    buildNode(null, 1);
-    return opts;
-  }, [deviceGroups, firewalls]);
-
-  const visibleScopes = React.useMemo(() => {
-    if (currentScope === 'show-all') {
-      return [];
-    }
-    let activeScope = currentScope;
-    if (currentScope.startsWith('fw-')) {
-      const serial = currentScope.replace('fw-', '');
-      const fw = firewalls.find(f => f.serial === serial);
-      if (fw && fw.device_group_id) {
-        const dg = deviceGroups.find(g => g.id === fw.device_group_id);
-        if (dg) {
-          activeScope = dg.uuid;
-        } else {
-          activeScope = 'paloalto-panorama-global';
-        }
-      } else {
-        activeScope = 'paloalto-panorama-global';
-      }
-    }
-
-    if (activeScope === 'paloalto-panorama-global') {
-      return ['paloalto-panorama-global'];
-    }
-    const scopes = [activeScope];
-    let curr = deviceGroups.find(dg => dg.uuid === activeScope);
-    while (curr && curr.parent_id) {
-      const parent = deviceGroups.find(dg => dg.id === curr.parent_id);
-      if (parent) {
-        scopes.push(parent.uuid);
-        curr = parent;
-      } else {
-        break;
-      }
-    }
-    scopes.push('paloalto-panorama-global');
-    return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
-  }, [currentScope, deviceGroups, firewalls]);
+  const visibleScopes = useMemo(() => {
+    return getVisibleScopes(currentScope);
+  }, [currentScope, getVisibleScopes]);
 
   // Synchronize candidate state to localStorage for popout window support
   useEffect(() => {
@@ -596,7 +519,8 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
   }, [activePassResult, candidateSearchQuery]);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
       
       {/* Scope context summary top header */}
       <div style={{
@@ -604,13 +528,13 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
         justifyContent: 'space-between',
         alignItems: 'center',
         flexShrink: 0,
-        padding: '24px 24px 0 24px'
+        padding: '30px 30px 0 30px'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group Context (Future Use):</span>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
                 <SearchableScopeDropdown
                   value={currentScope}
                   options={hierarchyOptions}
@@ -632,16 +556,16 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                               style={{ color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 400, transition: 'color 0.15s ease' }}
                               onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
                               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
-                              title={`Switch active scope to ${scopeNameMap[scopeId]?.name || scopeId}`}
+                              title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
                             >
-                              {scopeNameMap[scopeId]?.name || scopeId}
+                              {scopeNameMap[scopeId] || scopeId}
                             </span>
                             {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
                           </React.Fragment>
                         ))}
                         <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
                         <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-blue)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.25)', fontWeight: 600, fontSize: '11px', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                          {scopeNameMap[currentScope]?.name || currentScope}
+                          {scopeNameMap[currentScope] || currentScope}
                         </span>
                       </span>
                     </span>
@@ -1258,6 +1182,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
 
         </div>
       </div>
+    </div>
     </div>
   );
 };

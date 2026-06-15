@@ -14,6 +14,7 @@ import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { ChangelogPage } from './pages/ChangelogPage';
 import { DatabaseBrowserPage } from './pages/DatabaseBrowserPage';
 import { HeatmapPage } from './pages/HeatmapPage';
+import { PoliciesPage } from './pages/PoliciesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { DesignSystemPage } from './pages/DesignSystemPage';
@@ -269,6 +270,9 @@ const App = () => {
     }
     if (activeMainTab === 'Objects') {
       return <ObjectsPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} />;
+    }
+    if (activeMainTab === 'Policies') {
+      return <PoliciesPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} />;
     }
     if (activeMainTab === 'XML Import') {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;

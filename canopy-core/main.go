@@ -4598,6 +4598,10 @@ func main() {
 	mux.HandleFunc("/api/objects/security-profile/update", handleSecurityProfileUpdate)
 	mux.HandleFunc("/api/objects/security-profile/delete", handleSecurityProfileDelete)
 
+	// --- POLICIES MODULE ENDPOINTS ---
+	mux.HandleFunc("/api/policies/security", handleGetSecurityPolicies)
+
+	// --- DASHBOARD WIDGETS ---
 	mux.HandleFunc("/api/objects/security-profile-group/create", handleSecurityProfileGroupCreate)
 	mux.HandleFunc("/api/objects/security-profile-group/update", handleSecurityProfileGroupUpdate)
 	mux.HandleFunc("/api/objects/security-profile-group/delete", handleSecurityProfileGroupDelete)

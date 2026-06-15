@@ -59,7 +59,7 @@ const subTabsMap: Record<string, NavItem[]> = {
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Heatmap'],
-  'Policies': ['Security Rules', 'NAT Rules'],
+  'Policies': ['Pre Rules', 'Device Rules', 'Post Rules'],
   'Objects': [
     'Address Objects', 'Address Groups', 'Services', 'Service Groups', 
     'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 

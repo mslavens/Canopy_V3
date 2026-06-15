@@ -1,0 +1,305 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+)
+
+// PolicyRule represents a fully hydrated security rule ready for the UI
+type PolicyRule struct {
+	ID                 int      `json:"id"`
+	DeviceUUID         string   `json:"device_uuid"`
+	Scope              string   `json:"scope"`
+	RuleName           string   `json:"rule_name"`
+	Description        *string  `json:"description"`
+	Action             string   `json:"action"`
+	Disabled           int      `json:"disabled"`
+	ProfileType        *string  `json:"profile_type"`
+	ProfileGroup       *string  `json:"profile_group"`
+	ScheduleID         *int     `json:"schedule_id"`
+	SourceZone         []string `json:"source_zone"`
+	DestinationZone    []string `json:"destination_zone"`
+	SourceAddress      []string `json:"source_address"`
+	DestinationAddress []string `json:"destination_address"`
+	Service            []string `json:"service"`
+	Application        []string `json:"application"`
+	Tags               []string `json:"tags"`
+	IsInherited        bool     `json:"_isInherited"`
+	HierarchyLevel     int      `json:"_hierarchyLevel"`
+	Stack              string   `json:"_stack"`
+	StackOrder         int      `json:"_stackOrder"`
+}
+
+func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := getActiveDBConn()
+	if err != nil {
+		http.Error(w, "Storage vault is locked", http.StatusLocked)
+		return
+	}
+
+	scopeID := r.URL.Query().Get("scope")
+	rulebase := r.URL.Query().Get("rulebase") // pre, post, device
+
+	if scopeID == "" {
+		http.Error(w, "scope parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Determine Scope Type and get Ancestry
+	var scopeType string
+	err = db.QueryRow("SELECT type FROM scopes WHERE uuid = ?", scopeID).Scan(&scopeType)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "scope not found", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get full hierarchy from leaf up to root
+	hierarchyUUIDs := []string{}
+	hierarchyMap := make(map[string]int) // uuid -> level (0=target, 1=parent, etc.)
+
+	currUUID := scopeID
+	level := 0
+	for currUUID != "" {
+		hierarchyUUIDs = append(hierarchyUUIDs, currUUID)
+		hierarchyMap[currUUID] = level
+
+		var parentUUID sql.NullString
+		err = db.QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = ?", currUUID).Scan(&parentUUID)
+		if err != nil || !parentUUID.Valid {
+			break
+		}
+		currUUID = parentUUID.String
+		level++
+	}
+
+	// If the scope is a firewall, we still want to grab shared if it's not directly parented (though it usually is)
+	hasShared := false
+	for _, u := range hierarchyUUIDs {
+		if u == "paloalto-panorama-global" {
+			hasShared = true
+			break
+		}
+	}
+	if !hasShared {
+		hierarchyUUIDs = append(hierarchyUUIDs, "paloalto-panorama-global")
+		level++
+		hierarchyMap["paloalto-panorama-global"] = level
+	}
+
+	// 2. Fetch Rules Based on Rulebase & ScopeType
+	var rules []PolicyRule
+	
+	fetchRules := func(targetUUIDs []string, matchSuffix string, stack string, stackOrder int) error {
+		if len(targetUUIDs) == 0 {
+			return nil
+		}
+		
+		placeholders := make([]string, len(targetUUIDs))
+		args := make([]interface{}, len(targetUUIDs))
+		for i, u := range targetUUIDs {
+			placeholders[i] = "?"
+			args[i] = u
+		}
+		
+		query := fmt.Sprintf(`
+			SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
+			FROM security_rules
+			WHERE device_uuid IN (%s)
+		`, strings.Join(placeholders, ","))
+		
+		// Optional suffix matching for Pre/Post
+		if matchSuffix != "" {
+			query += " AND scope LIKE ?"
+			args = append(args, matchSuffix)
+		} else {
+			// For local device rules, exclude anything that has :pre or :post
+			query += " AND scope NOT LIKE '%:pre' AND scope NOT LIKE '%:post'"
+		}
+		
+		// Ensure stable ordering by ID (which maps to parser order)
+		query += " ORDER BY id ASC"
+
+		rows, err := db.Query(query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var r PolicyRule
+			if err := rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Action, &r.Disabled, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID); err != nil {
+				return err
+			}
+			r.IsInherited = (r.DeviceUUID != scopeID)
+			r.HierarchyLevel = hierarchyMap[r.DeviceUUID]
+			r.Stack = stack
+			r.StackOrder = stackOrder
+			rules = append(rules, r)
+		}
+		return nil
+	}
+
+	if scopeType == "firewall" && rulebase == "device" {
+		// Device Rules View: Pre (Inherited) -> Local -> Post (Inherited)
+		dgUUIDs := []string{}
+		for _, u := range hierarchyUUIDs {
+			if u != scopeID {
+				dgUUIDs = append(dgUUIDs, u)
+			}
+		}
+		// 1. Pre Rules
+		if err := fetchRules(dgUUIDs, "%:pre", "Pre Rules", 1); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// 2. Local Rules
+		if err := fetchRules([]string{scopeID}, "", "Device Rules", 2); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// 3. Post Rules
+		if err := fetchRules(dgUUIDs, "%:post", "Post Rules", 3); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Pre or Post Rules View (Device Group Context)
+		suffix := "%:pre"
+		if rulebase == "post" {
+			suffix = "%:post"
+		}
+		if err := fetchRules(hierarchyUUIDs, suffix, strings.Title(rulebase)+" Rules", 1); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// 3. Hydrate Rules with Addresses, Services, Apps, Zones, Tags
+	if len(rules) > 0 {
+		ruleIDs := make([]string, len(rules))
+		ruleMap := make(map[int]*PolicyRule)
+		for i := range rules {
+			ruleIDs[i] = fmt.Sprintf("%d", rules[i].ID)
+			ruleMap[rules[i].ID] = &rules[i]
+			// Initialize arrays
+			ruleMap[rules[i].ID].SourceAddress = []string{}
+			ruleMap[rules[i].ID].DestinationAddress = []string{}
+			ruleMap[rules[i].ID].SourceZone = []string{}
+			ruleMap[rules[i].ID].DestinationZone = []string{}
+			ruleMap[rules[i].ID].Service = []string{}
+			ruleMap[rules[i].ID].Application = []string{}
+			ruleMap[rules[i].ID].Tags = []string{}
+		}
+		inClause := strings.Join(ruleIDs, ",")
+
+		// Helper to execute hydration queries
+		hydrate := func(query string, scanFunc func(*sql.Rows) error) error {
+			rows, err := db.Query(query)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				if err := scanFunc(rows); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Zones
+		err = hydrate(fmt.Sprintf("SELECT rule_id, direction, zone_name FROM rule_zone_mappings WHERE rule_type = 'security' AND rule_id IN (%s)", inClause), func(rows *sql.Rows) error {
+			var rid int
+			var dir, zname string
+			if err := rows.Scan(&rid, &dir, &zname); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok {
+				if dir == "source" { r.SourceZone = append(r.SourceZone, zname) } else { r.DestinationZone = append(r.DestinationZone, zname) }
+			}
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating zones: %v", err) }
+
+		// Tags
+		err = hydrate(fmt.Sprintf(`
+			SELECT m.entity_id, t.name 
+			FROM entity_tag_mappings m 
+			JOIN tags t ON m.tag_id = t.id 
+			WHERE m.entity_type = 'security_rules' AND m.entity_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var tname string
+			if err := rows.Scan(&rid, &tname); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok { r.Tags = append(r.Tags, tname) }
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating tags: %v", err) }
+
+		// Addresses
+		err = hydrate(fmt.Sprintf(`
+			SELECT rule_id, direction, COALESCE(a.name, g.name, ad_hoc_value)
+			FROM rule_address_mappings m
+			LEFT JOIN address_objects a ON m.address_id = a.id
+			LEFT JOIN address_groups g ON m.group_id = g.id
+			WHERE rule_type = 'security' AND rule_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var dir string
+			var name sql.NullString
+			if err := rows.Scan(&rid, &dir, &name); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok && name.Valid {
+				if dir == "source" { r.SourceAddress = append(r.SourceAddress, name.String) } else { r.DestinationAddress = append(r.DestinationAddress, name.String) }
+			}
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating addresses: %v", err) }
+
+		// Services
+		err = hydrate(fmt.Sprintf(`
+			SELECT rule_id, COALESCE(s.name, g.name, ad_hoc_value)
+			FROM rule_service_mappings m
+			LEFT JOIN service_objects s ON m.service_id = s.id
+			LEFT JOIN service_groups g ON m.group_id = g.id
+			WHERE rule_type = 'security' AND rule_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var name sql.NullString
+			if err := rows.Scan(&rid, &name); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok && name.Valid { r.Service = append(r.Service, name.String) }
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating services: %v", err) }
+
+		// Applications
+		err = hydrate(fmt.Sprintf(`
+			SELECT rule_id, COALESCE(a.name, predefined_app_name)
+			FROM rule_application_mappings m
+			LEFT JOIN application_objects a ON m.custom_app_id = a.id
+			WHERE rule_type = 'security' AND rule_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var name sql.NullString
+			if err := rows.Scan(&rid, &name); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok && name.Valid { r.Application = append(r.Application, name.String) }
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating applications: %v", err) }
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(rules); err != nil {
+		log.Printf("Failed to encode policies: %v", err)
+	}
+}

@@ -39,6 +39,8 @@ import { useObjectMove } from '../hooks/useObjectMove';
 import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
+import { MultiSelectCombobox } from '../components/MultiSelectCombobox';
 
 interface ObjectsPageProps {
   auth: { url: string; token: string } | null;
@@ -1023,60 +1025,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   }, [apiClient]);
 
   // Scope Name Map to map UUIDs/Serials to human-readable names
-  const scopeNameMap = useMemo(() => {
-    const map: Record<string, string> = {
-      'show-all': 'Show all',
-      'paloalto-panorama-global': 'Shared'
-    };
-    deviceGroups.forEach(dg => {
-      map[dg.uuid] = dg.name;
-    });
-    firewalls.forEach(fw => {
-      map[`fw-${fw.serial}`] = fw.name;
-    });
-    return map;
-  }, [deviceGroups, firewalls]);
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, firewalls, {
+    includeShowAll: true,
+    firewallValueKey: 'serial'
+  });
 
-  // Hierarchical scope selector option definitions
-  const hierarchyOptions = useMemo(() => {
-    const opts: { label: string; value: string; depth: number; type: 'global' | 'shared' | 'device-group' | 'firewall' }[] = [
-      { label: 'Show all', value: 'show-all', depth: 0, type: 'global' },
-      { label: 'Shared', value: 'paloalto-panorama-global', depth: 0, type: 'shared' }
-    ];
-
-    const buildNode = (parentId: number | null, depth: number) => {
-      const levelGroups = deviceGroups.filter(g => g.parent_id === parentId);
-      levelGroups.forEach(dg => {
-        if (dg.uuid === 'paloalto-dg-shared') {
-          buildNode(dg.id, depth);
-          return;
-        }
-        opts.push({
-          label: dg.name,
-          value: dg.uuid,
-          depth: depth,
-          type: 'device-group'
-        });
-
-        // Find firewalls for this group
-        const groupFirewalls = firewalls.filter(fw => fw.device_group_id === dg.id);
-        groupFirewalls.forEach(fw => {
-          opts.push({
-            label: fw.name,
-            value: `fw-${fw.serial}`,
-            depth: depth + 1,
-            type: 'firewall'
-          });
-        });
-
-        // Recursively build children
-        buildNode(dg.id, depth + 1);
-      });
-    };
-
-    buildNode(null, 1);
-    return opts;
-  }, [deviceGroups, firewalls]);
+  const visibleScopes = useMemo(() => {
+    return getVisibleScopes(currentScope);
+  }, [currentScope, getVisibleScopes]);
 
   const handleScopeChange = (val: string) => {
     setCurrentScope(val);
@@ -1187,45 +1143,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     });
     return resolved;
   };
-
-  // Recursive ancestors search
-  const visibleScopes = useMemo(() => {
-    if (currentScope === 'show-all') {
-      return [];
-    }
-    let activeScope = currentScope;
-    if (currentScope.startsWith('fw-')) {
-      const serial = currentScope.replace('fw-', '');
-      const fw = firewalls.find(f => f.serial === serial);
-      if (fw && fw.device_group_id) {
-        const dg = deviceGroups.find(g => g.id === fw.device_group_id);
-        if (dg) {
-          activeScope = dg.uuid;
-        } else {
-          activeScope = 'paloalto-panorama-global';
-        }
-      } else {
-        activeScope = 'paloalto-panorama-global';
-      }
-    }
-
-    if (activeScope === 'paloalto-panorama-global') {
-      return ['paloalto-panorama-global'];
-    }
-    const scopes = [activeScope];
-    let curr = deviceGroups.find(dg => dg.uuid === activeScope);
-    while (curr && curr.parent_id) {
-      const parent = deviceGroups.find(dg => dg.id === curr.parent_id);
-      if (parent) {
-        scopes.push(parent.uuid);
-        curr = parent;
-      } else {
-        break;
-      }
-    }
-    scopes.push('paloalto-panorama-global');
-    return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
-  }, [currentScope, deviceGroups, firewalls]);
 
   const hasInitiallyLoaded = useRef(false);
 
