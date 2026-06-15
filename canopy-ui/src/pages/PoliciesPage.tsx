@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
@@ -88,9 +88,20 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }
   }, [allHierarchyOptions, rulebase]);
 
+  const activeFetchRef = useRef<number>(0);
+
   const loadRules = useCallback(async () => {
-    if (!auth || !selectedScopeUuid) return;
+    if (!auth) return;
+
+    if (!selectedScopeUuid) {
+      activeFetchRef.current = Date.now(); // Cancel any pending fetches
+      setRules([]);
+      return;
+    }
     
+    const fetchId = Date.now();
+    activeFetchRef.current = fetchId;
+
     let timer: NodeJS.Timeout | null = setTimeout(() => {
       setIsLoading(true);
       timer = null;
@@ -100,6 +111,10 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       const res = await fetch(`${auth.url}/api/policies/security?scope=${selectedScopeUuid}&rulebase=${rulebase}`, {
         headers: { 'Authorization': `Bearer ${auth.token}` }
       });
+      
+      // Ignore stale responses if a newer fetch was initiated
+      if (activeFetchRef.current !== fetchId) return;
+
       if (res.ok) {
         const data = await res.json();
         const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
