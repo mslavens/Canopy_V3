@@ -489,7 +489,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                           style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
                           title="Drag to reorder, click to sort"
                         >
-                          <span style={{ whiteSpace: 'normal', wordBreak: 'break-word', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
                           <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
                         </div>
                         <button 

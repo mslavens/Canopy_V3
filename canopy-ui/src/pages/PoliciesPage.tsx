@@ -99,7 +99,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       });
       if (res.ok) {
         const data = await res.json();
-        setRules(data || []);
+        const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
+        setRules(mapped);
       } else {
         const err = await res.json();
         addToast(err.error || 'Failed to fetch rules', 'error');
@@ -118,9 +119,32 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const columns = useMemo(() => {
     return [
       {
+        key: '_index',
+        label: 'Rule ID',
+        width: '140px',
+        renderCell: (val: any) => <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{val}</span>
+      },
+      {
+        key: 'info',
+        label: 'Information',
+        width: '160px',
+        renderCell: (val: any, row: any) => (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {row._isInherited && (
+              <span 
+                style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'inline-flex', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)' }}
+                title={`Inherited from ${scopeNameMap[row.device_uuid] || 'Unknown Scope'}`}
+              >
+                Inherited
+              </span>
+            )}
+          </div>
+        )
+      },
+      {
         key: 'device_uuid',
         label: 'Scope Context',
-        width: '240px',
+        width: '260px',
         renderCell: (val: any, row: any, query: string) => {
           const hierarchy = [...getVisibleScopes(val)].reverse();
           return (
@@ -164,25 +188,41 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       {
         key: 'name',
         label: 'Name',
-        width: '200px',
-        renderCell: (val: any, row: any) => (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 500 }}>{row.rule_name}</span>
-            {row._isInherited && (
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'inline-flex', padding: '1px 4px', background: 'var(--bg-app)', borderRadius: '4px', width: 'fit-content', marginTop: '4px' }}>
-                Inherited • {scopeNameMap[row.device_uuid] || 'Unknown Scope'}
-              </span>
-            )}
-            {row.description && (
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>{row.description}</span>
-            )}
-          </div>
-        )
+        width: '220px',
+        renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.rule_name}</span>
+      },
+      {
+        key: '_stack',
+        label: 'Type',
+        width: '120px',
+        renderCell: (val: any, row: any) => {
+          let t = row._stack || '';
+          if (t === 'Device Rules') t = 'Local';
+          else if (t.includes('Pre')) t = 'Pre';
+          else if (t.includes('Post')) t = 'Post';
+          else t = t.replace(' Rules', '');
+          
+          return (
+            <span style={{ 
+              display: 'inline-flex', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
+              backgroundColor: t === 'Local' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-app)',
+              color: t === 'Local' ? 'var(--accent-blue)' : 'var(--text-muted)'
+            }}>
+              {t}
+            </span>
+          );
+        }
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        width: '220px',
+        renderCell: (val: any, row: any) => row.description || ''
       },
       {
         key: 'tags',
         label: 'Tags',
-        width: '150px',
+        width: '180px',
         renderCell: (val: any, row: any) => (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             {(row.tags || []).map((t: string) => (
@@ -192,52 +232,77 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         )
       },
       {
-        key: 'source',
-        label: 'Source',
-        width: '250px',
-        renderCell: (val: any, row: any) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Zones: {(row.source_zone || []).join(', ') || 'any'}</div>
-            <div style={{ fontSize: '12px' }}>{(row.source_address || []).join(', ') || 'any'}</div>
-          </div>
-        )
+        key: 'sourceZone',
+        label: 'Source Zone',
+        width: '200px',
+        renderCell: (val: any, row: any) => (row.source_zone || []).join(', ') || 'any'
       },
       {
-        key: 'destination',
-        label: 'Destination',
-        width: '250px',
-        renderCell: (val: any, row: any) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Zones: {(row.destination_zone || []).join(', ') || 'any'}</div>
-            <div style={{ fontSize: '12px' }}>{(row.destination_address || []).join(', ') || 'any'}</div>
-          </div>
-        )
+        key: 'sourceAddress',
+        label: 'Source Address',
+        width: '260px',
+        renderCell: (val: any, row: any) => (row.source_address || []).join(', ') || 'any'
+      },
+      {
+        key: 'destinationZone',
+        label: 'Destination Zone',
+        width: '200px',
+        renderCell: (val: any, row: any) => (row.destination_zone || []).join(', ') || 'any'
+      },
+      {
+        key: 'destinationAddress',
+        label: 'Destination Address',
+        width: '260px',
+        renderCell: (val: any, row: any) => (row.destination_address || []).join(', ') || 'any'
       },
       {
         key: 'application',
         label: 'Application',
-        width: '150px',
+        width: '200px',
         renderCell: (val: any, row: any) => (row.application || []).join(', ') || 'any'
       },
       {
         key: 'service',
         label: 'Service',
-        width: '150px',
+        width: '200px',
         renderCell: (val: any, row: any) => (row.service || []).join(', ') || 'any'
+      },
+      {
+        key: 'category',
+        label: 'URL Category',
+        width: '200px',
+        renderCell: (val: any, row: any) => (row.category || []).join(', ') || 'any'
+      },
+      {
+        key: 'profiles',
+        label: 'Profiles',
+        width: '200px',
+        renderCell: (val: any, row: any) => (row.profiles || []).join(', ') || 'none'
+      },
+      {
+        key: 'logSetting',
+        label: 'Log Profile',
+        width: '200px',
+        renderCell: (val: any, row: any) => row.log_setting || 'none'
       },
       {
         key: 'action',
         label: 'Action',
-        width: '100px',
-        renderCell: (val: any, row: any) => (
-          <span style={{ 
-            color: row.action === 'allow' ? 'var(--status-green)' : 'var(--status-red)',
-            fontWeight: 500,
-            textTransform: 'capitalize'
-          }}>
-            {row.action}
-          </span>
-        )
+        width: '140px',
+        renderCell: (val: any, row: any) => {
+          const action = row.action || 'allow';
+          const isAllow = action.toLowerCase() === 'allow';
+          return (
+            <span style={{ 
+              display: 'inline-flex', alignItems: 'center', gap: '6px', 
+              color: isAllow ? 'var(--status-green)' : 'var(--status-red)',
+              fontSize: '12px', fontWeight: 500
+            }}>
+              {isAllow ? <Shield size={14} /> : <Shield size={14} style={{ opacity: 0.5 }} />}
+              {action.charAt(0).toUpperCase() + action.slice(1)}
+            </span>
+          );
+        }
       }
     ];
   }, [scopeNameMap, getVisibleScopes]);
