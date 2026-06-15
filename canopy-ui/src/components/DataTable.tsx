@@ -22,6 +22,8 @@ interface DataTableProps {
   onSelectionChange?: (selectedRows: any[]) => void;
   highlightRow?: (row: any) => boolean;
   rowStyle?: (row: any) => React.CSSProperties;
+  onRowDoubleClick?: (row: any) => void;
+  isFetching?: boolean;
   bulkActions?: React.ReactNode;
   exportActions?: React.ReactNode;
   topRightActions?: React.ReactNode;
@@ -40,7 +42,7 @@ interface DataTableProps {
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
-  columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, rowContextMenuActions,
+  columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, isFetching = false, rowContextMenuActions,
   totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender
 }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
@@ -735,7 +737,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                 </div>
               </td></tr>
             )}
-            {!loading && processedRows.length === 0 && (
+            {!loading && !isFetching && processedRows.length === 0 && (
               <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: 0, borderBottom: pageSize > 1 ? '1px solid var(--border-main)' : 'none' }}>
                 <EmptyState icon={<Search size={32} />} title="No results found" description={searchQuery ? `No entries match "${searchQuery}".` : "This table is currently empty."} minHeight="250px" />
               </td></tr>

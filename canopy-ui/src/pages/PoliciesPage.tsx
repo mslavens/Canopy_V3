@@ -21,6 +21,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rules, setRules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [loadedContext, setLoadedContext] = useState<string>('');
 
   // Derive rulebase from subtab
   const rulebase = useMemo(() => {
@@ -93,14 +95,15 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const loadRules = useCallback(async () => {
     if (!auth) return;
 
-    if (!selectedScopeUuid) {
-      activeFetchRef.current = Date.now(); // Cancel any pending fetches
-      setRules([]);
-      return;
-    }
-    
     const fetchId = Date.now();
     activeFetchRef.current = fetchId;
+    setRules([]); // Immediately clear old rules to prevent visual flashing
+    setIsFetching(true);
+
+    if (!selectedScopeUuid) {
+      setIsFetching(false);
+      return;
+    }
 
     let timer: NodeJS.Timeout | null = setTimeout(() => {
       setIsLoading(true);
@@ -119,6 +122,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         const data = await res.json();
         const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
         setRules(mapped);
+        setLoadedContext(`${selectedScopeUuid}::${rulebase}`);
       } else {
         const err = await res.json();
         addToast(err.error || 'Failed to fetch rules', 'error');
@@ -126,6 +130,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');
     } finally {
+      if (activeFetchRef.current === fetchId) {
+        setIsFetching(false);
+      }
       if (timer) clearTimeout(timer);
       setIsLoading(false);
     }
@@ -452,11 +459,12 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                 </button>
               }
               columns={columns}
-              data={rules}
+              data={loadedContext === `${selectedScopeUuid}::${rulebase}` ? rules : []}
               searchQuery={searchQuery}
               exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
               pagination={true}
               selectable={true}
+              isFetching={isFetching}
               groupByField={
                 rulebase === 'device'
                   ? (selectedScopeUuid === 'show-all' ? ((row: any) => `${row.device_uuid}::${row._stack || ''}`) : "_stack")
