@@ -23,11 +23,13 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
 
   // Derive rulebase from subtab
   const rulebase = useMemo(() => {
-    if (activeSubTab === 'Pre Rules') return 'pre';
-    if (activeSubTab === 'Device Rules') return 'device';
-    if (activeSubTab === 'Post Rules') return 'post';
-    return 'pre';
+    if (activeSubTab.endsWith('Pre Rules')) return 'pre';
+    if (activeSubTab.endsWith('Post Rules')) return 'post';
+    if (activeSubTab.endsWith('Device Rules')) return 'device';
+    return null;
   }, [activeSubTab]);
+
+  const isSecurityPolicy = activeSubTab.startsWith('Security');
 
   // When switching between Pre/Post and Device Rules, ensure the scope is valid.
   // Pre/Post requires Device Groups, Device requires Firewalls.
@@ -238,6 +240,20 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       }
     ];
   }, [scopeNameMap, getVisibleScopes]);
+
+  if (!rulebase || !isSecurityPolicy) {
+    // Extract the policy type (e.g. NAT, Decryption) from the activeSubTab
+    const policyType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+        <Shield size={48} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+        <h2 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{policyType} Policies</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>
+          This policy type is not yet fully implemented in the UI.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%', overflow: 'hidden' }}>

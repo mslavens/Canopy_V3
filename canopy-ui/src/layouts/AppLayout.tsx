@@ -43,13 +43,16 @@ interface AppLayoutProps {
 }
 
 // Navigation configurations
-export type NavGroup = { group: string; items: string[] };
+export type NavItemObj = { value: string; label: string };
+export type NavGroup = { group: string; items: (string | NavItemObj)[] };
 export type NavItem = string | NavGroup;
 
 const getFirstSubTab = (items: NavItem[]): string => {
   if (!items || items.length === 0) return 'Overview';
   const first = items[0];
-  return typeof first === 'string' ? first : first.items[0];
+  if (typeof first === 'string') return first;
+  const firstItem = first.items[0];
+  return typeof firstItem === 'string' ? firstItem : firstItem.value;
 };
 
 const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'Monitor', 'XML Import', 'Analytics', 'System'];
@@ -59,7 +62,33 @@ const subTabsMap: Record<string, NavItem[]> = {
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Heatmap'],
-  'Policies': ['Pre Rules', 'Device Rules', 'Post Rules'],
+  'Policies': [
+    { group: 'Security', items: [
+      { label: 'Pre Rules', value: 'Security - Pre Rules' },
+      { label: 'Device Rules', value: 'Security - Device Rules' },
+      { label: 'Post Rules', value: 'Security - Post Rules' }
+    ]},
+    { group: 'NAT', items: [
+      { label: 'Pre Rules', value: 'NAT - Pre Rules' },
+      { label: 'Device Rules', value: 'NAT - Device Rules' },
+      { label: 'Post Rules', value: 'NAT - Post Rules' }
+    ]},
+    { group: 'QoS', items: [
+      { label: 'Pre Rules', value: 'QoS - Pre Rules' },
+      { label: 'Device Rules', value: 'QoS - Device Rules' },
+      { label: 'Post Rules', value: 'QoS - Post Rules' }
+    ]},
+    { group: 'Decryption', items: [
+      { label: 'Pre Rules', value: 'Decryption - Pre Rules' },
+      { label: 'Device Rules', value: 'Decryption - Device Rules' },
+      { label: 'Post Rules', value: 'Decryption - Post Rules' }
+    ]},
+    { group: 'Authentication', items: [
+      { label: 'Pre Rules', value: 'Authentication - Pre Rules' },
+      { label: 'Device Rules', value: 'Authentication - Device Rules' },
+      { label: 'Post Rules', value: 'Authentication - Post Rules' }
+    ]}
+  ],
   'Objects': [
     'Address Objects', 'Address Groups', 'Services', 'Service Groups', 
     'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 
@@ -707,9 +736,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{subTab.group}</span>
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
-                      {isExpanded && subTab.items.map(item => (
-                        <button key={item} onClick={() => handleNavigation(() => setActiveSubTab(item))} style={{ textAlign: 'left', background: activeSubTab === item ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === item ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === item ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === item ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{item}</button>
-                      ))}
+                      {isExpanded && subTab.items.map(item => {
+                        const isObj = typeof item !== 'string';
+                        const value = isObj ? (item as NavItemObj).value : item as string;
+                        const label = isObj ? (item as NavItemObj).label : item as string;
+                        return (
+                          <button key={value} onClick={() => handleNavigation(() => setActiveSubTab(value))} style={{ textAlign: 'left', background: activeSubTab === value ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === value ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === value ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === value ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{label}</button>
+                        );
+                      })}
                     </div>
                   );
                 }
