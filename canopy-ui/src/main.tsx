@@ -366,9 +366,27 @@ const App = () => {
 
   const params = new URLSearchParams(window.location.search);
   const isPopout = params.get('popout') === 'candidates';
+  const isObjectEditor = params.get('editor') === 'object';
 
   if (isPopout) {
     return <CandidatesPopoutPage />;
+  }
+
+  if (isObjectEditor) {
+    const activeSubTab = decodeURIComponent(params.get('type') || 'Address Objects');
+    const standaloneId = decodeURIComponent(params.get('id') || '');
+    const standaloneMode = decodeURIComponent(params.get('mode') || 'edit');
+
+    return (
+      <ObjectsPage
+        auth={auth}
+        addToast={addToast}
+        activeSubTab={activeSubTab}
+        standaloneEditor={true}
+        standaloneId={standaloneId}
+        standaloneMode={standaloneMode}
+      />
+    );
   }
 
   return (

@@ -25,8 +25,8 @@ function getFreePort() {
     });
 }
 
-function createAppWindow(queryStr = '') {
-    const newWindow = new BrowserWindow({
+function createAppWindow(queryStr = '', options = {}) {
+    const defaultOptions = {
         width: 1200,
         height: 800,
         minWidth: 1024,
@@ -38,7 +38,9 @@ function createAppWindow(queryStr = '') {
             contextIsolation: true,
             nodeIntegration: false
         }
-    });
+    };
+
+    const newWindow = new BrowserWindow({ ...defaultOptions, ...options });
 
     newWindow.once('ready-to-show', () => {
         newWindow.show();
@@ -70,8 +72,8 @@ app.whenReady().then(async () => {
     mainWindow = createAppWindow();
 
     // Support spawning multiple windows securely
-    ipcMain.on('spawn-window', (event, queryStr) => {
-        createAppWindow(queryStr);
+    ipcMain.on('spawn-window', (event, queryStr, options) => {
+        createAppWindow(queryStr, options);
     });
 
     // Broadcast database mutations to all open windows

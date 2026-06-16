@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld('electron', {
     encryptString: (plainText) => ipcRenderer.invoke('encrypt-string', plainText),
     decryptString: (base64Str) => ipcRenderer.invoke('decrypt-string', base64Str),
     promptBiometric: (reason) => ipcRenderer.invoke('prompt-biometric', reason),
-    spawnWindow: (queryStr) => ipcRenderer.send('spawn-window', queryStr),
+    spawnWindow: (queryStr, options) => ipcRenderer.send('spawn-window', queryStr, options),
     broadcastMutation: (targetType) => ipcRenderer.send('broadcast-mutation', targetType),
     onMutationDetected: (callback) => {
         ipcRenderer.on('mutation-detected', (event, targetType) => callback(targetType));

@@ -23,7 +23,9 @@ import {
   ChevronDown,
   Network,
   Copy,
-  Lock
+  Settings,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { DataTable, ColumnDef } from '../components/DataTable';
@@ -45,9 +47,12 @@ interface ObjectsPageProps {
   auth: { url: string; token: string } | null;
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   activeSubTab: string;
+  standaloneEditor?: boolean;
+  standaloneId?: string;
+  standaloneMode?: string;
 }
 
-export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, activeSubTab }) => {
+export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, activeSubTab, standaloneEditor, standaloneId, standaloneMode }) => {
   const [dataViewTab, setDataViewTab] = useState(activeSubTab);
   const apiClient = useMemo(() => auth ? new CanopyApiClient(auth) : null, [auth]);
   const confirm = useConfirm();
@@ -1367,6 +1372,70 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncTrigger]);
 
+  const hasTriggeredStandalone = useRef(false);
+  useEffect(() => {
+    if (standaloneEditor && tableData.length > 0 && !hasTriggeredStandalone.current) {
+      hasTriggeredStandalone.current = true;
+      if (standaloneMode === 'create') {
+        setCrudMode('create');
+        setIsCrudModalOpen(true);
+      } else if (standaloneId) {
+        const row = tableData.find(r => String(r.id) === standaloneId);
+        if (row) {
+          // Open edit modal directly bypasses some of the context menu checks, we just need to populate the form
+          setCrudMode('edit');
+          setSelectedObject(row);
+          setFormName(row.name || '');
+          setFormScopeUuid(row.device_uuid || 'paloalto-panorama-global');
+          setFormDescription(row.description || '');
+
+          if (activeSubTab === 'Address Objects') {
+            setFormType(row.type || 'ip-netmask');
+            setFormValue(row.value || '');
+          } else if (activeSubTab === 'Address Groups') {
+            setFormType(row.type || 'static');
+            setFormFilter(row.filter || '');
+            setFormMembers(row.member_list ? row.member_list.split(',').filter((m: string) => m.trim() !== '') : []);
+          } else if (activeSubTab === 'Services') {
+            setFormProtocol(row.protocol || 'tcp');
+            setFormDestPort(row.destination_port || '');
+            setFormSourcePort(row.source_port || '');
+          } else if (activeSubTab === 'Service Groups') {
+            setFormMembers(row.member_list ? row.member_list.split(',').filter((m: string) => m.trim() !== '') : []);
+          } else if (activeSubTab === 'Applications') {
+            setFormCategory(row.category || '');
+            setFormSubcategory(row.subcategory || '');
+            setFormTechnology(row.technology || '');
+            setFormRisk(row.risk || 1);
+            setFormPorts(row.ports || '');
+          } else if (activeSubTab === 'Application Groups') {
+            setFormMembers(row.member_list ? row.member_list.split(',').filter((m: string) => m.trim() !== '') : []);
+          } else if (activeSubTab === 'Tags') {
+            setFormColor(row.color || 'color1');
+          } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
+            setFormProfileType(row.type || 'antivirus');
+          } else if (activeSubTab === 'Security Profile Groups') {
+            setFormGroupAntivirus(row.antivirus || '');
+            setFormGroupSpyware(row.spyware || '');
+            setFormGroupVulnerability(row.vulnerability || '');
+            setFormGroupURLFiltering(row.url_filtering || '');
+            setFormGroupFileBlocking(row.file_blocking || '');
+            setFormGroupWildfireAnalysis(row.wildfire_analysis || '');
+            setFormGroupDNSSecurity(row.dns_security || '');
+          } else if (activeSubTab === 'URL Categories') {
+            setFormURLList(row.url_list || '');
+          } else if (activeSubTab === 'External Dynamic Lists') {
+            setFormListType(row.type || 'ip');
+            setFormSourceURL(row.source_url || '');
+            setFormRecurring(row.recurring || 'five-minute');
+          }
+
+          setIsCrudModalOpen(true);
+        }
+      }
+    }
+  }, [standaloneEditor, standaloneMode, standaloneId, tableData, activeSubTab]);
+
   // Group members slide-over panel flattened members state handled asynchronously in handleOpenSlideOver
 
   // Inspector Search Filters
@@ -1778,6 +1847,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       );
       setIsCrudModalOpen(false);
       fetchRecords();
+      if (standaloneEditor) {
+        window.close();
+      }
     } catch (err: any) {
       console.error('CRUD Save Error:', err);
       addToast(err.message || 'Failed to save configuration object.', 'error');
@@ -2740,7 +2812,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   ]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
+    <>
+      <div style={{ display: standaloneEditor ? 'none' : 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       {/* 2. Main content canvas */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Scope context summary top header */}
@@ -3312,17 +3385,49 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           </div>
         </div>
       )}
+    </div>
 
       {/* 4. CRUD Modals */}
       <Modal
         isOpen={isCrudModalOpen}
-        onClose={() => setIsCrudModalOpen(false)}
+        onClose={() => {
+          setIsCrudModalOpen(false);
+          if (standaloneEditor) window.close();
+        }}
         title={crudMode === 'create' ? `Create New ${activeSubTab.slice(0, -1)}` : `Modify ${activeSubTab.slice(0, -1)}`}
         size="md"
+        headerActions={
+          <Tooltip content="Pop out to Native Window" align="center">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                if (window.electron && window.electron.spawnWindow) {
+                  const typeParam = encodeURIComponent(activeSubTab);
+                  const idParam = selectedObject ? encodeURIComponent(String(selectedObject.id)) : '';
+                  const modeParam = encodeURIComponent(crudMode);
+                  window.electron.spawnWindow(`editor=object&type=${typeParam}&id=${idParam}&mode=${modeParam}`, {
+                    width: 750,
+                    height: 850,
+                    minWidth: 700,
+                    minHeight: 600
+                  });
+                }
+                setIsCrudModalOpen(false);
+              }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+            >
+              <ExternalLink size={16} />
+            </button>
+          </Tooltip>
+        }
         footer={
           <>
-            <button className="btn-secondary btn-sm" onClick={() => setIsCrudModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveObject} disabled={!isFormDirty}>Save Changes</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => {
+              setIsCrudModalOpen(false);
+              if (standaloneEditor) window.close();
+            }}>Cancel</button>
+            <button type="submit" className="btn-primary btn-sm" disabled={!isFormDirty}>Save Changes</button>
           </>
         }
       >
@@ -4058,7 +4163,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
           {inspectRow ? JSON.stringify(inspectRow, null, 2) : ''}
         </pre>
       </Modal>
-
-    </div>
+    </>
   );
 };

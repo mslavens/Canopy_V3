@@ -9,8 +9,10 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
   footer?: React.ReactNode;
+  headerActions?: React.ReactNode;
   resizable?: boolean;
   draggable?: boolean;
+  fullScreen?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({ 
@@ -20,8 +22,10 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md', 
   children, 
   footer,
+  headerActions,
   resizable = true,
-  draggable = true
+  draggable = true,
+  fullScreen = false
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -116,9 +120,15 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div 
-      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}
+      style={{ 
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+        backgroundColor: fullScreen ? 'var(--bg-app)' : 'rgba(0, 0, 0, 0.6)', 
+        backdropFilter: fullScreen ? 'none' : 'blur(2px)', 
+        display: 'flex', alignItems: 'center', justifyContent: 'center', 
+        zIndex: 10000 
+      }}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (!fullScreen && e.target === e.currentTarget) onClose();
       }}
     >
       <div 
@@ -126,20 +136,21 @@ export const Modal: React.FC<ModalProps> = ({
         tabIndex={-1} 
         style={{ 
           backgroundColor: 'var(--bg-app)', 
-          border: '1px solid var(--border-main)', 
-          borderRadius: '8px', 
-          width: sizeMap[size], 
-          maxWidth: '95vw', 
-          maxHeight: '90vh', 
+          border: fullScreen ? 'none' : '1px solid var(--border-main)', 
+          borderRadius: fullScreen ? '0' : '8px', 
+          width: fullScreen ? '100vw' : sizeMap[size], 
+          height: fullScreen ? '100vh' : 'auto',
+          maxWidth: fullScreen ? '100vw' : '95vw', 
+          maxHeight: fullScreen ? '100vh' : '90vh', 
           display: 'flex', 
           flexDirection: 'column', 
-          boxShadow: '0 10px 30px rgba(0,0,0,0.5)', 
+          boxShadow: fullScreen ? 'none' : '0 10px 30px rgba(0,0,0,0.5)', 
           overflow: 'hidden', 
           outline: 'none',
-          resize: resizable ? 'both' : 'none',
+          resize: (resizable && !fullScreen) ? 'both' : 'none',
           minWidth: '320px',
           minHeight: '220px',
-          transform: `translate(${position.x}px, ${position.y}px)`,
+          transform: fullScreen ? 'none' : `translate(${position.x}px, ${position.y}px)`,
           transition: 'transform 0.05s linear' // brief smooth transition during drag moves
         }}
       >
@@ -158,11 +169,14 @@ export const Modal: React.FC<ModalProps> = ({
           }}
         >
           <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>{title}</h2>
-          <Tooltip content="Close Modal" align="right">
-            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
-              <X size={18} />
-            </button>
-          </Tooltip>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {!fullScreen && headerActions}
+            <Tooltip content="Close Modal" align="right">
+              <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+                <X size={18} />
+              </button>
+            </Tooltip>
+          </div>
         </div>
         <div style={{ padding: '20px', overflowY: 'auto', color: 'var(--text-main)', fontSize: '13px', lineHeight: 1.5, flex: 1 }}>
           {children}
