@@ -405,6 +405,34 @@ var actSchema = `
 		action_profile TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS authentication_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		action TEXT NOT NULL,
+		authentication_profile TEXT,
+		log_setting TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	);
+	CREATE TABLE IF NOT EXISTS dos_rules (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		rule_name TEXT NOT NULL,
+		description TEXT,
+		disabled INTEGER DEFAULT 0,
+		action TEXT NOT NULL,
+		aggregate_profile TEXT,
+		classified_profile TEXT,
+		schedule_id INTEGER,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	);
 	CREATE TABLE IF NOT EXISTS static_routes (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -908,6 +936,7 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 	// --- INITIALIZE LOG DB ---
 	log, logErr := storage.InitializeLogStore("canopy_logs.duckdb")
 	if logErr != nil {
+		slog.Error("Failed to initialize DuckDB", slog.String("error", logErr.Error()))
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to mount logs database."})
 		return
@@ -1243,7 +1272,7 @@ func main() {
 		dataPath := os.Getenv("CANOPY_DATA_PATH")
 		files, _ := os.ReadDir(dataPath)
 		for _, f := range files {
-			if !f.IsDir() && (strings.HasSuffix(f.Name(), ".db") || strings.HasSuffix(f.Name(), ".db-shm") || strings.HasSuffix(f.Name(), ".db-wal")) {
+			if !f.IsDir() && (strings.HasSuffix(f.Name(), ".db") || strings.HasSuffix(f.Name(), ".db-shm") || strings.HasSuffix(f.Name(), ".db-wal") || strings.HasSuffix(f.Name(), ".duckdb") || strings.HasSuffix(f.Name(), ".duckdb.wal")) {
 				os.Remove(filepath.Join(dataPath, f.Name()))
 			}
 		}

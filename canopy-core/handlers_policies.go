@@ -62,6 +62,14 @@ type PolicyRule struct {
 	Protocols     *string `json:"protocols"`
 	ActionProfile *string `json:"action_profile"`
 
+	// Authentication specific
+	AuthenticationProfile *string `json:"authentication_profile"`
+	LogSetting            *string `json:"log_setting"`
+
+	// DoS specific
+	AggregateProfile      *string `json:"aggregate_profile"`
+	ClassifiedProfile     *string `json:"classified_profile"`
+
 	// Internal references for single-value hydration
 	ServiceID        *int    `json:"-"`
 	ServiceGroupID   *int    `json:"-"`
@@ -100,6 +108,7 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		"security_rules": true, "nat_rules": true, "qos_rules": true,
 		"pbf_rules": true, "decryption_rules": true,
 		"application_override_rules": true, "tunnel_inspection_rules": true,
+		"authentication_rules": true, "dos_rules": true,
 	}
 	if !validTables[tableName] {
 		http.Error(w, "invalid policy type", http.StatusBadRequest)
@@ -186,6 +195,10 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			cols = "id, device_uuid, scope, rule_name, description, disabled, protocol, port, custom_app_id, predefined_app_name"
 		case "tunnel_inspection":
 			cols = "id, device_uuid, scope, rule_name, description, disabled, protocols, action_profile"
+		case "authentication":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, authentication_profile, log_setting, schedule_id"
+		case "dos":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, aggregate_profile, classified_profile, schedule_id"
 		}
 
 		if scopeType == "show-all" {
@@ -241,6 +254,10 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocol, &r.Port, &r.CustomAppID, &r.PredefinedApp)
 			case "tunnel_inspection":
 				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocols, &r.ActionProfile)
+			case "authentication":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AuthenticationProfile, &r.LogSetting, &r.ScheduleID)
+			case "dos":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AggregateProfile, &r.ClassifiedProfile, &r.ScheduleID)
 			}
 			if errScan != nil {
 				return errScan

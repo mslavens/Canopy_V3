@@ -316,6 +316,40 @@ type XMLTunnelInspectionRuleEntry struct {
 	Description string   `xml:"description"`
 }
 
+type XMLAuthenticationRuleEntry struct {
+	Name                  string   `xml:"name,attr"`
+	From                  []string `xml:"from>member"`
+	To                    []string `xml:"to>member"`
+	Source                []string `xml:"source>member"`
+	Destination           []string `xml:"destination>member"`
+	Service               []string `xml:"service>member"`
+	Application           []string `xml:"application>member"`
+	Action                string   `xml:"action"`
+	AuthenticationProfile string   `xml:"authentication-profile"`
+	LogSetting            string   `xml:"log-setting"`
+	Disabled              string   `xml:"disabled"`
+	Description           string   `xml:"description"`
+	Tag                   []string `xml:"tag>member"`
+	Schedule              string   `xml:"schedule"`
+}
+
+type XMLDoSRuleEntry struct {
+	Name              string   `xml:"name,attr"`
+	From              []string `xml:"from>member"`
+	To                []string `xml:"to>member"`
+	Source            []string `xml:"source>member"`
+	Destination       []string `xml:"destination>member"`
+	Service           []string `xml:"service>member"`
+	Application       []string `xml:"application>member"`
+	Action            string   `xml:"action"`
+	AggregateProfile  string   `xml:"protection>aggregate>profile"`
+	ClassifiedProfile string   `xml:"protection>classified>profile"`
+	Disabled          string   `xml:"disabled"`
+	Description       string   `xml:"description"`
+	Tag               []string `xml:"tag>member"`
+	Schedule          string   `xml:"schedule"`
+}
+
 // Structure groups
 type XMLRulebase struct {
 	SecurityRules         []XMLSecurityRuleEntry         `xml:"security>rules>entry"`
@@ -325,6 +359,8 @@ type XMLRulebase struct {
 	DecryptionRules       []XMLDecryptionRuleEntry       `xml:"decryption>rules>entry"`
 	AppOverrideRules      []XMLAppOverrideRuleEntry      `xml:"application-override>rules>entry"`
 	TunnelInspectionRules []XMLTunnelInspectionRuleEntry `xml:"tunnel-inspection>rules>entry"`
+	AuthenticationRules   []XMLAuthenticationRuleEntry   `xml:"authentication>rules>entry"`
+	DoSRules              []XMLDoSRuleEntry              `xml:"dos>rules>entry"`
 }
 
 type XMLDeviceGroup struct {
@@ -496,6 +532,8 @@ type PaloAltoConfig struct {
 			DecryptionRules       []XMLDecryptionRuleEntry       `xml:"rulebase>decryption>rules>entry"`
 			AppOverrideRules      []XMLAppOverrideRuleEntry      `xml:"rulebase>application-override>rules>entry"`
 			TunnelInspectionRules []XMLTunnelInspectionRuleEntry `xml:"rulebase>tunnel-inspection>rules>entry"`
+			AuthenticationRules   []XMLAuthenticationRuleEntry   `xml:"rulebase>authentication>rules>entry"`
+			DoSRules              []XMLDoSRuleEntry              `xml:"rulebase>dos>rules>entry"`
 			Tags                  []XMLTagEntry                  `xml:"tag>entry"`
 			Profiles              XMLProfiles                    `xml:"profiles"`
 			SecurityProfileGroups []XMLSecurityProfileGroupEntry `xml:"profile-group>entry"`
@@ -2339,6 +2377,122 @@ func insertTunnelInspectionRules(tx *sql.Tx, deviceUUID, scope string, entries [
 	return nil
 }
 
+func insertAuthenticationRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLAuthenticationRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO authentication_rules (device_uuid, scope, rule_name, description, disabled, action, authentication_profile, log_setting, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.Action,
+			entry.AuthenticationProfile,
+			entry.LogSetting,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "authentication", ruleID, "from", entry.From)
+		insertRuleZones(tx, "authentication", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "authentication", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "authentication", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "authentication", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, "authentication", ruleID, entry.Application, scopes, reg)
+	}
+	return nil
+}
+
+func insertDoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDoSRuleEntry, reg *registry, dgParentMap map[string]string) error {
+	stmt, err := tx.Prepare(`
+		INSERT INTO dos_rules (device_uuid, scope, rule_name, description, disabled, action, aggregate_profile, classified_profile, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	scopes := []string{scope}
+	if scope != "shared" && !strings.HasPrefix(scope, "vsys:") {
+		scopes = getScopesForDG(scope, dgParentMap)
+	} else if strings.HasPrefix(scope, "vsys:") {
+		scopes = append(scopes, "shared")
+	}
+
+	for _, entry := range entries {
+		disabled := 0
+		if strings.ToLower(entry.Disabled) == "yes" || entry.Disabled == "true" {
+			disabled = 1
+		}
+		var scheduleID interface{}
+		if entry.Schedule != "" {
+			if schedID, found := reg.resolveSchedule(scopes, entry.Schedule); found {
+				scheduleID = schedID
+			}
+		}
+
+		res, err := stmt.Exec(
+			deviceUUID,
+			scope,
+			entry.Name,
+			entry.Description,
+			disabled,
+			entry.Action,
+			entry.AggregateProfile,
+			entry.ClassifiedProfile,
+			scheduleID,
+		)
+		if err != nil {
+			return err
+		}
+		ruleID, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		insertRuleZones(tx, "dos", ruleID, "from", entry.From)
+		insertRuleZones(tx, "dos", ruleID, "to", entry.To)
+		insertRuleAddresses(tx, "dos", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, "dos", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, "dos", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, "dos", ruleID, entry.Application, scopes, reg)
+	}
+	return nil
+}
+
 func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStaticRouteEntry) error {
 	stmt, err := tx.Prepare(`
 		INSERT OR REPLACE INTO static_routes (device_uuid, vr_name, route_name, destination, nexthop, interface, metric)
@@ -2773,10 +2927,22 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			return 0, 0, fmt.Errorf("failed to insert shared post-override rules: %w", err)
 		}
 		if err := insertTunnelInspectionRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared pre-tunnel inspection rules: %w", err)
+			return 0, 0, err
+		}
+		if err := insertAuthenticationRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.AuthenticationRules, reg, dgParentMap); err != nil {
+			return 0, 0, err
+		}
+		if err := insertDoSRules(tx, sharedUUID, "shared:pre", config.Shared.PreRulebase.DoSRules, reg, dgParentMap); err != nil {
+			return 0, 0, err
 		}
 		if err := insertTunnelInspectionRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
-			return 0, 0, fmt.Errorf("failed to insert shared post-tunnel inspection rules: %w", err)
+			return 0, 0, err
+		}
+		if err := insertAuthenticationRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.AuthenticationRules, reg, dgParentMap); err != nil {
+			return 0, 0, err
+		}
+		if err := insertDoSRules(tx, sharedUUID, "shared:post", config.Shared.PostRulebase.DoSRules, reg, dgParentMap); err != nil {
+			return 0, 0, err
 		}
 
 		// 6. Write device group rules
@@ -2820,10 +2986,22 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				return 0, 0, fmt.Errorf("failed to insert dg post-override rules for %s: %w", dg.Name, err)
 			}
 			if err := insertTunnelInspectionRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg pre-tunnel inspection rules for %s: %w", dg.Name, err)
+				return 0, 0, err
+			}
+			if err := insertAuthenticationRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.AuthenticationRules, reg, dgParentMap); err != nil {
+				return 0, 0, err
+			}
+			if err := insertDoSRules(tx, dgUUID, dg.Name+":pre", dg.PreRulebase.DoSRules, reg, dgParentMap); err != nil {
+				return 0, 0, err
 			}
 			if err := insertTunnelInspectionRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.TunnelInspectionRules, reg, dgParentMap); err != nil {
-				return 0, 0, fmt.Errorf("failed to insert dg post-tunnel inspection rules for %s: %w", dg.Name, err)
+				return 0, 0, err
+			}
+			if err := insertAuthenticationRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.AuthenticationRules, reg, dgParentMap); err != nil {
+				return 0, 0, err
+			}
+			if err := insertDoSRules(tx, dgUUID, dg.Name+":post", dg.PostRulebase.DoSRules, reg, dgParentMap); err != nil {
+				return 0, 0, err
 			}
 		}
 
@@ -3347,7 +3525,13 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					return 0, 0, fmt.Errorf("failed to insert vsys app override rules: %w", err)
 				}
 				if err := insertTunnelInspectionRules(tx, deviceUUID, scope, vsys.TunnelInspectionRules, reg, dgParentMap); err != nil {
-					return 0, 0, fmt.Errorf("failed to insert vsys tunnel inspection rules: %w", err)
+					return 0, 0, err
+				}
+				if err := insertAuthenticationRules(tx, deviceUUID, scope, vsys.AuthenticationRules, reg, dgParentMap); err != nil {
+					return 0, 0, err
+				}
+				if err := insertDoSRules(tx, deviceUUID, scope, vsys.DoSRules, reg, dgParentMap); err != nil {
+					return 0, 0, err
 				}
 			}
 		}

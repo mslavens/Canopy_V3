@@ -40,7 +40,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     if (activeSubTab.startsWith('QoS')) return 'qos';
     if (activeSubTab.startsWith('PBF')) return 'pbf';
     if (activeSubTab.startsWith('Decryption')) return 'decryption';
-    if (activeSubTab.startsWith('App Override')) return 'application_override';
+    if (activeSubTab.startsWith('Application Override') || activeSubTab.startsWith('App Override')) return 'application_override';
     if (activeSubTab.startsWith('Tunnel')) return 'tunnel_inspection';
     if (activeSubTab.startsWith('Authentication')) return 'authentication';
     if (activeSubTab.startsWith('DoS Protection')) return 'dos';
@@ -141,7 +141,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       return;
     }
 
-    const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection'];
+    const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection', 'authentication', 'dos'];
     if (!implementedTypes.includes(policyType)) {
       setIsFetching(false);
       return;
@@ -417,6 +417,32 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       ];
     }
 
+    if (policyType === 'authentication') {
+      return [
+        ...commonStart,
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => (r.service || []).join(', ') || 'any' },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => (r.application || []).join(', ') || 'any' },
+        actionCol,
+        { key: 'authenticationProfile', label: 'Authentication Profile', width: '200px', renderCell: (v: any, r: any) => r.authentication_profile || 'none' },
+        { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none' },
+      ];
+    }
+
+    if (policyType === 'dos') {
+      return [
+        ...commonStart,
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => (r.service || []).join(', ') || 'any' },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => (r.application || []).join(', ') || 'any' },
+        actionCol,
+        { key: 'aggregateProfile', label: 'Aggregate Profile', width: '200px', renderCell: (v: any, r: any) => r.aggregate_profile || 'none' },
+        { key: 'classifiedProfile', label: 'Classified Profile', width: '200px', renderCell: (v: any, r: any) => r.classified_profile || 'none' },
+      ];
+    }
+
     // Default: security
     return [
       ...commonStart,
@@ -452,7 +478,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     return counts;
   }, [rules, getGroupVal]);
 
-  const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection'];
+  const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection', 'authentication', 'dos'];
 
   if (!rulebase || !implementedTypes.includes(policyType)) {
     const displayType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
