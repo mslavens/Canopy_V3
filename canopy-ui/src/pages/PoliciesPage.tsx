@@ -266,6 +266,11 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     );
   }, []);
 
+  const getObjFilterVals = useCallback((refs: any[]) => {
+    if (!refs || refs.length === 0) return ['any'];
+    return refs.map(r => r.name);
+  }, []);
+
   const columns = useMemo(() => {
     const commonStart = [
       {
@@ -354,7 +359,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         key: 'name',
         label: 'Name',
         width: '220px',
-        renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.rule_name}</span>
+        renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.rule_name}</span>,
+        getFilterValues: (r: any) => r.rule_name || ''
       },
       {
         key: '_stack',
@@ -376,13 +382,22 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
               {t}
             </span>
           );
+        },
+        getFilterValues: (r: any) => {
+          let t = r._stack || '';
+          if (t === 'Device Rules') t = 'Local';
+          else if (t.includes('Pre')) t = 'Pre';
+          else if (t.includes('Post')) t = 'Post';
+          else t = t.replace(' Rules', '');
+          return t;
         }
       },
       {
         key: 'description',
         label: 'Description',
         width: '220px',
-        renderCell: (val: any, row: any) => row.description || ''
+        renderCell: (val: any, row: any) => row.description || '',
+        getFilterValues: (r: any) => r.description || ''
       },
       {
         key: 'tags',
@@ -394,7 +409,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
               <span key={t} style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)' }}>{t}</span>
             ))}
           </div>
-        )
+        ),
+        getFilterValues: (r: any) => r.tags && r.tags.length > 0 ? r.tags : ['']
       }
     ];
 
@@ -415,68 +431,69 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
             {action.charAt(0).toUpperCase() + action.slice(1)}
           </span>
         );
-      }
+      },
+      getFilterValues: (r: any) => r.action || 'allow'
     };
 
     if (policyType === 'nat') {
       return [
         ...commonStart,
-        { key: 'toZone', label: 'To Zone', width: '200px', renderCell: (v: any, r: any) => r.to_zone || 'any' },
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service) },
-        { key: 'srcTranslation', label: 'Source Translation', width: '220px', renderCell: (v: any, r: any) => r.source_translation_type ? `${r.source_translation_type}: ${r.source_translation_address || ''}` : 'none' },
-        { key: 'dstTranslation', label: 'Destination Translation', width: '220px', renderCell: (v: any, r: any) => r.destination_translation_address ? `${r.destination_translation_address}:${r.destination_translation_port || ''}` : 'none' },
+        { key: 'toZone', label: 'To Zone', width: '200px', renderCell: (v: any, r: any) => r.to_zone || 'any', getFilterValues: (r: any) => r.to_zone || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
+        { key: 'srcTranslation', label: 'Source Translation', width: '220px', renderCell: (v: any, r: any) => r.source_translation_type ? `${r.source_translation_type}: ${r.source_translation_address || ''}` : 'none', getFilterValues: (r: any) => r.source_translation_type ? `${r.source_translation_type}: ${r.source_translation_address || ''}` : 'none' },
+        { key: 'dstTranslation', label: 'Destination Translation', width: '220px', renderCell: (v: any, r: any) => r.destination_translation_address ? `${r.destination_translation_address}:${r.destination_translation_port || ''}` : 'none', getFilterValues: (r: any) => r.destination_translation_address ? `${r.destination_translation_address}:${r.destination_translation_port || ''}` : 'none' },
       ];
     }
 
     if (policyType === 'qos') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-        { key: 'qosClass', label: 'QoS Class', width: '160px', renderCell: (v: any, r: any) => r.qos_class || 'none' },
-        { key: 'dscpTos', label: 'DSCP/ToS', width: '160px', renderCell: (v: any, r: any) => r.dscp_tos_marking || 'none' },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+        { key: 'qosClass', label: 'QoS Class', width: '160px', renderCell: (v: any, r: any) => r.qos_class || 'none', getFilterValues: (r: any) => r.qos_class || 'none' },
+        { key: 'dscpTos', label: 'DSCP/ToS', width: '160px', renderCell: (v: any, r: any) => r.dscp_tos_marking || 'none', getFilterValues: (r: any) => r.dscp_tos_marking || 'none' },
       ];
     }
 
     if (policyType === 'pbf') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         actionCol,
-        { key: 'forwardInterface', label: 'Forward Interface', width: '200px', renderCell: (v: any, r: any) => r.forward_interface || 'none' },
-        { key: 'forwardNextHop', label: 'Next Hop', width: '200px', renderCell: (v: any, r: any) => r.forward_next_hop || 'none' },
+        { key: 'forwardInterface', label: 'Forward Interface', width: '200px', renderCell: (v: any, r: any) => r.forward_interface || 'none', getFilterValues: (r: any) => r.forward_interface || 'none' },
+        { key: 'forwardNextHop', label: 'Next Hop', width: '200px', renderCell: (v: any, r: any) => r.forward_next_hop || 'none', getFilterValues: (r: any) => r.forward_next_hop || 'none' },
       ];
     }
 
     if (policyType === 'decryption') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         actionCol,
-        { key: 'decryptionType', label: 'Decryption Type', width: '180px', renderCell: (v: any, r: any) => r.decryption_type || 'none' },
-        { key: 'decryptionProfile', label: 'Profile', width: '200px', renderCell: (v: any, r: any) => r.decryption_profile || 'none' },
+        { key: 'decryptionType', label: 'Decryption Type', width: '180px', renderCell: (v: any, r: any) => r.decryption_type || 'none', getFilterValues: (r: any) => r.decryption_type || 'none' },
+        { key: 'decryptionProfile', label: 'Profile', width: '200px', renderCell: (v: any, r: any) => r.decryption_profile || 'none', getFilterValues: (r: any) => r.decryption_profile || 'none' },
       ];
     }
 
     if (policyType === 'application_override') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-        { key: 'protocol', label: 'Protocol', width: '160px', renderCell: (v: any, r: any) => r.protocol || 'any' },
-        { key: 'port', label: 'Port', width: '160px', renderCell: (v: any, r: any) => r.port || 'any' },
-        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application) },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+        { key: 'protocol', label: 'Protocol', width: '160px', renderCell: (v: any, r: any) => r.protocol || 'any', getFilterValues: (r: any) => r.protocol || 'any' },
+        { key: 'port', label: 'Port', width: '160px', renderCell: (v: any, r: any) => r.port || 'any', getFilterValues: (r: any) => r.port || 'any' },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
       ];
     }
 
@@ -484,52 +501,60 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       return [
         ...commonStart,
         actionCol,
-        { key: 'protocols', label: 'Protocols', width: '200px', renderCell: (v: any, r: any) => r.protocols || 'any' },
-        { key: 'actionProfile', label: 'Action Profile', width: '200px', renderCell: (v: any, r: any) => r.action_profile || 'none' },
+        { key: 'protocols', label: 'Protocols', width: '200px', renderCell: (v: any, r: any) => r.protocols || 'any', getFilterValues: (r: any) => r.protocols || 'any' },
+        { key: 'actionProfile', label: 'Action Profile', width: '200px', renderCell: (v: any, r: any) => r.action_profile || 'none', getFilterValues: (r: any) => r.action_profile || 'none' },
       ];
     }
 
     if (policyType === 'authentication') {
       return [
         ...commonStart,
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service) },
-        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application) },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
         actionCol,
-        { key: 'authenticationProfile', label: 'Authentication Profile', width: '200px', renderCell: (v: any, r: any) => r.authentication_profile || 'none' },
-        { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none' },
+        { key: 'authenticationProfile', label: 'Authentication Profile', width: '200px', renderCell: (v: any, r: any) => r.authentication_profile || 'none', getFilterValues: (r: any) => r.authentication_profile || 'none' },
+        { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none', getFilterValues: (r: any) => r.log_setting || 'none' },
       ];
     }
 
     if (policyType === 'dos') {
       return [
         ...commonStart,
-        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service) },
-        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application) },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
         actionCol,
-        { key: 'aggregateProfile', label: 'Aggregate Profile', width: '200px', renderCell: (v: any, r: any) => r.aggregate_profile || 'none' },
-        { key: 'classifiedProfile', label: 'Classified Profile', width: '200px', renderCell: (v: any, r: any) => r.classified_profile || 'none' },
+        { key: 'aggregateProfile', label: 'Aggregate Profile', width: '200px', renderCell: (v: any, r: any) => r.aggregate_profile || 'none', getFilterValues: (r: any) => r.aggregate_profile || 'none' },
+        { key: 'classifiedProfile', label: 'Classified Profile', width: '200px', renderCell: (v: any, r: any) => r.classified_profile || 'none', getFilterValues: (r: any) => r.classified_profile || 'none' },
       ];
     }
 
     // Default: security
     return [
       ...commonStart,
-      { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
-      { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address) },
-      { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
-      { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address) },
-      { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application) },
-      { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service) },
-      { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => (r.category || []).join(', ') || 'any' },
-      { key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => (r.profiles || []).join(', ') || 'none' },
-      { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none' },
+      { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+      { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
+      { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+      { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
+      { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
+      { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
+      { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => (r.category || []).join(', ') || 'any', getFilterValues: (r: any) => r.category && r.category.length > 0 ? r.category : ['any'] },
+      { key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => {
+        if (r.profile_type === 'group') return r.profile_group || 'none';
+        if (r.profile_type === 'profiles') return (r.profiles || []).join(', ') || 'none';
+        return 'none';
+      }, getFilterValues: (r: any) => {
+        if (r.profile_type === 'group') return r.profile_group || 'none';
+        if (r.profile_type === 'profiles') return r.profiles && r.profiles.length > 0 ? r.profiles : ['none'];
+        return 'none';
+      }},
+      { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none', getFilterValues: (r: any) => r.log_setting || 'none' },
       actionCol
     ];
-  }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, policyType]);
+  }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, policyType, getObjFilterVals]);
 
   const getGroupVal = useCallback((row: any) => {
     if (rulebase === 'device') {

@@ -315,6 +315,7 @@ var actSchema = `
 		disabled INTEGER DEFAULT 0,
 		profile_type TEXT,
 		profile_group TEXT,
+		log_setting TEXT,
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
@@ -526,6 +527,12 @@ var actSchema = `
 		rule_id INTEGER NOT NULL,
 		direction TEXT NOT NULL,
 		zone_name TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS rule_category_mappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		rule_id INTEGER NOT NULL,
+		category TEXT NOT NULL,
+		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS entity_tag_mappings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -853,6 +860,14 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN group_id INTEGER REFERENCES application_groups(id) ON DELETE CASCADE;")
+	db.Exec("ALTER TABLE security_rules ADD COLUMN log_setting TEXT;")
+	db.Exec(`
+	CREATE TABLE IF NOT EXISTS rule_category_mappings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		rule_id INTEGER NOT NULL,
+		category TEXT NOT NULL,
+		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE
+	);`)
 
 	// Ensure all firewalls in managed_devices_raw are registered as scopes in the scopes table
 	// to prevent FOREIGN KEY constraint violations when moving or cloning to those scopes.

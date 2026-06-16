@@ -9,8 +9,8 @@ export interface ColumnDef {
   key: string;
   label?: string;
   width?: string;
-  allowOverflow?: boolean;
   renderCell?: (value: any, row: any, searchQuery?: string) => React.ReactNode;
+  getFilterValues?: (row: any) => string | string[];
 }
 
 interface DataTableProps {
@@ -81,8 +81,14 @@ export const DataTable: React.FC<DataTableProps> = ({
     if (!filterMenuCol) return [];
     const vals = new Set<string>();
     data.forEach(row => {
-      const v = row[filterMenuCol];
-      vals.add(v !== null && v !== undefined ? String(v) : '');
+      const colDef = columns.find(c => c.key === filterMenuCol);
+      const v = colDef?.getFilterValues ? colDef.getFilterValues(row) : row[filterMenuCol];
+      if (Array.isArray(v)) {
+        if (v.length === 0) vals.add('');
+        else v.forEach(item => vals.add(item !== null && item !== undefined ? String(item) : ''));
+      } else {
+        vals.add(v !== null && v !== undefined ? String(v) : '');
+      }
     });
     return Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [data, filterMenuCol]);
@@ -202,8 +208,15 @@ export const DataTable: React.FC<DataTableProps> = ({
     if (filterKeys.length > 0) {
       rows = rows.filter(row => {
         return filterKeys.every(k => {
-          const rowVal = row[k] !== null && row[k] !== undefined ? String(row[k]) : '';
-          return columnFilters[k].has(rowVal);
+          const colDef = columns.find(c => c.key === k);
+          const v = colDef?.getFilterValues ? colDef.getFilterValues(row) : row[k];
+          if (Array.isArray(v)) {
+            if (v.length === 0) return columnFilters[k].has('');
+            return v.some(item => columnFilters[k].has(item !== null && item !== undefined ? String(item) : ''));
+          } else {
+            const rowVal = v !== null && v !== undefined ? String(v) : '';
+            return columnFilters[k].has(rowVal);
+          }
         });
       });
     }

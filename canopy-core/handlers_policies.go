@@ -40,6 +40,8 @@ type PolicyRule struct {
 	// Security specific
 	ProfileType        *string  `json:"profile_type"`
 	ProfileGroup       *string  `json:"profile_group"`
+	Category           []string `json:"category"`
+	Profiles           []string `json:"profiles"`
 
 	// NAT specific
 	ToZone                        *string `json:"to_zone"`
@@ -189,7 +191,7 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		var cols string
 		switch policyType {
 		case "security":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, profile_type, profile_group, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, profile_type, profile_group, log_setting, schedule_id"
 		case "nat":
 			cols = "id, device_uuid, scope, rule_name, description, disabled, to_zone, service_id, service_group_id, service_ad_hoc, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port"
 		case "qos":
@@ -248,7 +250,7 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			var errScan error
 			switch policyType {
 			case "security":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ProfileType, &r.ProfileGroup, &r.LogSetting, &r.ScheduleID)
 			case "nat":
 				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.ToZone, &r.ServiceID, &r.ServiceGroupID, &r.ServiceAdHoc, &r.SourceTranslationType, &r.SourceTranslationAddress, &r.DestinationTranslationAddress, &r.DestinationTranslationPort)
 			case "qos":
@@ -435,6 +437,34 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if err != nil { log.Printf("Error hydrating tags: %v", err) }
+
+		// Categories
+		err = hydrate(fmt.Sprintf(`
+			SELECT rule_id, category FROM rule_category_mappings
+			WHERE rule_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var cat string
+			if err := rows.Scan(&rid, &cat); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok { r.Category = append(r.Category, cat) }
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating categories: %v", err) }
+
+		// Profiles
+		err = hydrate(fmt.Sprintf(`
+			SELECT rp.rule_id, p.name 
+			FROM security_rule_profiles rp
+			JOIN security_profiles p ON rp.profile_id = p.id
+			WHERE rp.rule_id IN (%s)
+		`, inClause), func(rows *sql.Rows) error {
+			var rid int
+			var pname string
+			if err := rows.Scan(&rid, &pname); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok { r.Profiles = append(r.Profiles, pname) }
+			return nil
+		})
+		if err != nil { log.Printf("Error hydrating profiles: %v", err) }
 
 		// Addresses
 		err = hydrate(fmt.Sprintf(`

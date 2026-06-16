@@ -216,6 +216,20 @@ type XMLSecurityRuleEntry struct {
 	Description string   `xml:"description"`
 	Tag         []string `xml:"tag>member"`
 	Schedule    string   `xml:"schedule"`
+	LogSetting  string   `xml:"log-setting"`
+	Category    []string `xml:"category>member"`
+	ProfileSetting *struct {
+		Group    []string `xml:"group>member"`
+		Profiles *struct {
+			URLFiltering  []string `xml:"url-filtering>member"`
+			Virus         []string `xml:"virus>member"`
+			Spyware       []string `xml:"spyware>member"`
+			Vulnerability []string `xml:"vulnerability>member"`
+			Wildfire      []string `xml:"wildfire-analysis>member"`
+			FileBlocking  []string `xml:"file-blocking>member"`
+			DataFiltering []string `xml:"data-filtering>member"`
+		} `xml:"profiles"`
+	} `xml:"profile-setting"`
 }
 
 type XMLNATRuleEntry struct {
@@ -1957,8 +1971,8 @@ func insertRuleTags(tx *sql.Tx, entityType string, entityID int64, tags []string
 
 func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecurityRuleEntry, reg *registry, dgParentMap map[string]string) error {
 	stmt, err := tx.Prepare(`
-		INSERT INTO security_rules (device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO security_rules (device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, log_setting, schedule_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -1989,6 +2003,18 @@ func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecu
 			}
 		}
 
+		var profileType interface{}
+		var profileGroup interface{}
+
+		if entry.ProfileSetting != nil {
+			if len(entry.ProfileSetting.Group) > 0 {
+				profileType = "group"
+				profileGroup = entry.ProfileSetting.Group[0]
+			} else if entry.ProfileSetting.Profiles != nil {
+				profileType = "profiles"
+			}
+		}
+
 		res, err := stmt.Exec(
 			deviceUUID,
 			scope,
@@ -1996,8 +2022,9 @@ func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecu
 			entry.Description,
 			action,
 			disabled,
-			nil,
-			nil,
+			profileType,
+			profileGroup,
+			entry.LogSetting,
 			scheduleID,
 		)
 		if err != nil {
@@ -2015,6 +2042,31 @@ func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecu
 		insertRuleServices(tx, "security", ruleID, entry.Service, scopes, reg)
 		insertRuleApplications(tx, "security", ruleID, entry.Application, scopes, reg)
 		insertRuleTags(tx, "security_rule", ruleID, entry.Tag, scopes, reg)
+		
+		if len(entry.Category) > 0 {
+			for _, cat := range entry.Category {
+				tx.Exec("INSERT INTO rule_category_mappings (rule_id, category) VALUES (?, ?)", ruleID, cat)
+			}
+		}
+
+		if profileType == "profiles" && entry.ProfileSetting.Profiles != nil {
+			p := entry.ProfileSetting.Profiles
+			allProfiles := append([]string{}, p.URLFiltering...)
+			allProfiles = append(allProfiles, p.Virus...)
+			allProfiles = append(allProfiles, p.Spyware...)
+			allProfiles = append(allProfiles, p.Vulnerability...)
+			allProfiles = append(allProfiles, p.Wildfire...)
+			allProfiles = append(allProfiles, p.FileBlocking...)
+			allProfiles = append(allProfiles, p.DataFiltering...)
+			
+			for _, prof := range allProfiles {
+				if prof != "" {
+					if pid, found := reg.resolveProfile(scopes, prof); found {
+						tx.Exec("INSERT OR IGNORE INTO security_rule_profiles (rule_id, profile_id) VALUES (?, ?)", ruleID, pid)
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
