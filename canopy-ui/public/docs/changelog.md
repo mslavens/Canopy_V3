@@ -1,6 +1,19 @@
 # Canopy Framework Changelog
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
+## v0.21.0 - Scope Hierarchy & Sticky Navigation
+**Date:** 2026-06-15
+
+### Added
+- **Scope Hierarchy Badges**: Device Groups and Firewalls in the Scope Dropdown now dynamically display a pill badge with the total number of security rules they contain.
+- **Sticky Scope Headers**: Added dynamic sticky headers to the Scope Dropdown. When scrolling down, parent Device Groups now dock and stack gracefully at the top of the container to provide perfect contextual awareness of the current hierarchy.
+
+### Fixed
+- Fixed an issue where clicking a local rule's scope context improperly teleported the user to the Pre/Post rules tab.
+- Fixed a bug causing the active Device Group in the Scope Dropdown to vanish when interacting with the breadcrumbs.
+- Prevented trackpad-induced fractional subpixel rendering gaps from causing scrolling firewall text to bleed through sticky headers.
+- Fixed a silent failure and toast error loop triggered when encountering non-JSON `scope not found` backend responses.
+
 ## v0.20.0 - Go CLI Generation & Accordion Layout
 **Date:** 2026-06-14
 
