@@ -42,6 +42,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     if (activeSubTab.startsWith('Decryption')) return 'decryption';
     if (activeSubTab.startsWith('App Override')) return 'application_override';
     if (activeSubTab.startsWith('Tunnel')) return 'tunnel_inspection';
+    if (activeSubTab.startsWith('Authentication')) return 'authentication';
+    if (activeSubTab.startsWith('DoS Protection')) return 'dos';
     return 'security';
   }, [activeSubTab]);
 
@@ -126,7 +128,12 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
 
     const fetchId = Date.now();
     activeFetchRef.current = fetchId;
-    setRules([]); // Immediately clear old rules to prevent visual flashing
+
+    const currentLoadedType = loadedContext.split('::')[0];
+    if (currentLoadedType !== policyType) {
+      setRules([]); // Only clear rules when switching policy types to prevent column mismatch. For scope/rulebase switches, keep data so isFetching can dim smoothly.
+    }
+    
     setIsFetching(true);
 
     if (!selectedScopeUuid) {
@@ -134,8 +141,16 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       return;
     }
 
+    const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection'];
+    if (!implementedTypes.includes(policyType)) {
+      setIsFetching(false);
+      return;
+    }
+
     let timer: NodeJS.Timeout | null = setTimeout(() => {
-      setIsLoading(true);
+      if (activeFetchRef.current === fetchId) {
+        setIsLoading(true);
+      }
       timer = null;
     }, 150);
 
@@ -151,7 +166,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         const data = await res.json();
         const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
         setRules(mapped);
-        setLoadedContext(`${selectedScopeUuid}::${rulebase}`);
+        setLoadedContext(`${policyType}::${selectedScopeUuid}::${rulebase}`);
       } else {
         const text = await res.text();
         let errMsg = 'Failed to fetch rules';
@@ -164,13 +179,15 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         addToast(errMsg, 'error');
       }
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');
+      if (activeFetchRef.current === fetchId) {
+        addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');
+      }
     } finally {
       if (activeFetchRef.current === fetchId) {
         setIsFetching(false);
+        setIsLoading(false);
       }
       if (timer) clearTimeout(timer);
-      setIsLoading(false);
     }
   }, [auth, selectedScopeUuid, rulebase, policyType, addToast]);
 
@@ -435,7 +452,20 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     return counts;
   }, [rules, getGroupVal]);
 
-  if (!rulebase) return null;
+  const implementedTypes = ['security', 'nat', 'qos', 'pbf', 'decryption', 'application_override', 'tunnel_inspection'];
+
+  if (!rulebase || !implementedTypes.includes(policyType)) {
+    const displayType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+        <Shield size={48} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+        <h2 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{displayType} Policies</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>
+          This policy type is not yet fully implemented in the UI.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
@@ -550,7 +580,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                 </button>
               }
               columns={columns}
-              data={loadedContext === `${selectedScopeUuid}::${rulebase}` ? rules : []}
+              data={rules}
               searchQuery={searchQuery}
               exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
               pagination={true}
