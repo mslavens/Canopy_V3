@@ -70,7 +70,12 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         { tableName: "dos_rules", label: "DoS Protection Policies", description: "Rules for Denial of Service protection against flood attacks.", icon: <Shield size={14} /> },
         { tableName: "security_profiles", label: "Security Profiles", description: "Applied profiles mapping (Antivirus, URL filtering, Anti-spyware, etc.).", icon: <Shield size={14} /> },
         { tableName: "security_profile_groups", label: "Security Profile Groups", description: "Groups of security profiles applied to policies.", icon: <Shield size={14} /> },
-        { tableName: "log_forwarding_profiles", label: "Log Forwarding Profiles", description: "Profiles defining where system and traffic logs are sent.", icon: <Shield size={14} /> }
+        { tableName: "log_forwarding_profiles", label: "Log Forwarding Profiles", description: "Profiles defining where system and traffic logs are sent.", icon: <Shield size={14} /> },
+        { tableName: "rule_address_mappings", label: "Rule Address Mappings", description: "Associative table linking rules to source and destination address objects.", icon: <Layers size={14} /> },
+        { tableName: "rule_service_mappings", label: "Rule Service Mappings", description: "Associative table linking rules to service objects.", icon: <Layers size={14} /> },
+        { tableName: "rule_application_mappings", label: "Rule Application Mappings", description: "Associative table linking rules to application signatures.", icon: <Layers size={14} /> },
+        { tableName: "rule_zone_mappings", label: "Rule Zone Mappings", description: "Associative table linking rules to source and destination zones.", icon: <Layers size={14} /> },
+        { tableName: "security_rule_profiles", label: "Rule Profile Mappings", description: "Associative table linking rules to security profiles.", icon: <Layers size={14} /> }
       ]
     },
     {
