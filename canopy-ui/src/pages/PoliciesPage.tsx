@@ -390,6 +390,25 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     );
   }
 
+  const getGroupVal = useCallback((row: any) => {
+    if (rulebase === 'device') {
+      if (selectedScopeUuid === 'show-all') {
+        return `${row.device_uuid}::${row._stack || ''}`;
+      }
+      return row._stack || '';
+    }
+    return row.device_uuid || '';
+  }, [rulebase, selectedScopeUuid]);
+
+  const groupCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of rules) {
+      const val = getGroupVal(r);
+      counts[val] = (counts[val] || 0) + 1;
+    }
+    return counts;
+  }, [rules, getGroupVal]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
@@ -491,7 +510,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
             <DataTable 
               toolbarTitle={
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  {activeSubTab.split('-')[1]?.trim() || activeSubTab}
+                  {activeSubTab.split('-')[1]?.trim() || activeSubTab} ({rules.length})
                 </h2>
               }
               topRightActions={
@@ -509,12 +528,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
               pagination={true}
               selectable={true}
               isFetching={isFetching}
-              groupByField={
-                rulebase === 'device'
-                  ? (selectedScopeUuid === 'show-all' ? ((row: any) => `${row.device_uuid}::${row._stack || ''}`) : "_stack")
-                  : "device_uuid"
-              }
+              groupByField={getGroupVal}
               groupByRender={(val) => {
+                const count = groupCounts[val] || 0;
                 if (rulebase === 'device') {
                   if (selectedScopeUuid === 'show-all') {
                     const [deviceUuid, stack] = val.split('::');
@@ -525,18 +541,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                     
                     return (
                       <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
-                        {label} <span style={{ color: 'var(--text-muted)', margin: '0 8px' }}>•</span> {scopeName}
+                        {label} ({count}) <span style={{ color: 'var(--text-muted)', margin: '0 8px' }}>•</span> {scopeName}
                       </span>
                     );
                   } else {
                     let label = val || 'Rules';
                     if (label === 'Device Rules') label = 'Local Rules';
-                    return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{label}</span>;
+                    return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{label} ({count})</span>;
                   }
                 } else {
                   // pre or post rulebase
                   const scopeName = scopeNameMap[val] || val;
-                  return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{scopeName}</span>;
+                  return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{scopeName} ({count})</span>;
                 }
               }}
               rowStyle={(row: any) => {
