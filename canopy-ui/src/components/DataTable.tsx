@@ -556,7 +556,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
 
       {/* Main Table Area */}
-      <div ref={scrollContainerRef} style={{ flex: 1, overflow: 'auto' }}>
+      <div ref={scrollContainerRef} style={{ flex: 1, overflow: 'auto', containerType: 'inline-size' }}>
         <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
@@ -828,16 +828,22 @@ export const DataTable: React.FC<DataTableProps> = ({
               );
             })}
             {loading && processedRows.length === 0 && (
-              <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
-                  <div className="spin-animation" style={{ width: '24px', height: '24px', border: '2px solid var(--border-main)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%' }} />
-                  <span style={{ fontSize: '13px' }}>Loading database records...</span>
+              <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: 0 }}>
+                <div style={{ position: 'sticky', left: 0, width: '100cqw', display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+                    <div className="spin-animation" style={{ width: '24px', height: '24px', border: '2px solid var(--border-main)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%' }} />
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading database records...</span>
+                  </div>
                 </div>
               </td></tr>
             )}
             {!loading && !isFetching && processedRows.length === 0 && (
               <tr><td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ padding: 0, borderBottom: pageSize > 1 ? '1px solid var(--border-main)' : 'none' }}>
-                <EmptyState icon={<Search size={32} />} title="No results found" description={searchQuery ? `No entries match "${searchQuery}".` : "This table is currently empty."} minHeight="250px" />
+                <div style={{ position: 'sticky', left: 0, width: '100cqw', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: '100%', maxWidth: '600px' }}>
+                    <EmptyState icon={<Search size={32} />} title="No results found" description={searchQuery ? `No entries match "${searchQuery}".` : "This table is currently empty."} minHeight="250px" />
+                  </div>
+                </div>
               </td></tr>
             )}
             {/* Zero-CLS Padding: Fill the remaining space with a height-matched empty row so the pagination footer never jumps */}

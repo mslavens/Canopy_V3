@@ -107,16 +107,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
         if (!validTables.includes(tableName)) tableName = 'security_rules';
         
-        let suffixFilter = "";
-        if (rulebase === 'pre') {
-          suffixFilter = "WHERE scope LIKE '%:pre'";
-        } else if (rulebase === 'post') {
-          suffixFilter = "WHERE scope LIKE '%:post'";
-        } else {
-          suffixFilter = "WHERE scope NOT LIKE '%:pre' AND scope NOT LIKE '%:post'";
-        }
-        
-        const countsRes = await client.queryDb(`SELECT device_uuid, COUNT(id) as count FROM ${tableName} ${suffixFilter} GROUP BY device_uuid;`);
+        const countsRes = await client.queryDb(`SELECT device_uuid, COUNT(id) as count FROM ${tableName} GROUP BY device_uuid;`);
         
         if (isMounted) {
           const counts = countsRes?.rows || [];
@@ -132,7 +123,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     };
     loadCounts();
     return () => { isMounted = false; };
-  }, [auth, policyType, rulebase]);
+  }, [auth, policyType]);
 
   const { hierarchyOptions: allHierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, devices, {
     includeShowAll: true,
