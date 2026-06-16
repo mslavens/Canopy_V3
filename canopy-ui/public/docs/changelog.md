@@ -1,6 +1,14 @@
 # Canopy Framework Changelog
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
+## v0.22.0 - Database Health & Healing Engine
+**Date:** 2026-06-16
+
+### Added
+- **Database Health & Healing Tool**: Added a robust native health scanner under `System > Database Health`. This tool safely sweeps the workspace for orphaned ad-hoc definitions left over from imports.
+- **Recursive SQLite Healing**: Built a completely pure-SQL native Engine using Recursive Common Table Expressions (CTEs) to resolve orphaned objects cleanly upward through the Panorama Device Group inheritance scope on the fly.
+- **Auto-Migrations**: The Go core backend now dynamically executes zero-downtime database schema migrations on startup to attach missing schema constraints on older vault files.
+
 ## v0.21.0 - Scope Hierarchy & Sticky Navigation
 **Date:** 2026-06-15
 
