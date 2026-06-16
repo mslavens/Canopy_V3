@@ -643,6 +643,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
               pagination={true}
               selectable={true}
               isFetching={isFetching}
+              allowScrollPastEnd={true}
               groupByField={getGroupVal}
               groupByRender={(val) => {
                 const count = groupCounts[val] || 0;

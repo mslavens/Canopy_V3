@@ -10,7 +10,7 @@ interface Window {
     encryptString: (plainText: string) => Promise<string>;
     decryptString: (base64Str: string) => Promise<string>;
     promptBiometric: (reason: string) => Promise<boolean>;
-    spawnWindow: (queryStr: string) => void;
+    spawnWindow: (queryStr: string, options?: any) => void;
     broadcastMutation: (targetType?: string) => void;
     onMutationDetected: (callback: (targetType?: string) => void) => void;
   };

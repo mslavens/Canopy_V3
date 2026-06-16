@@ -36,18 +36,34 @@ interface DataTableProps {
   currentPage?: number;
   rowsPerPage?: number;
   onPageChange?: (page: number) => void;
+  onRowsPerPageChange?: (limit: number) => void;
   groupByField?: string | ((row: any) => string);
   groupByRender?: (groupVal: any) => React.ReactNode;
+  allowScrollPastEnd?: boolean;
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, isFetching = false, rowContextMenuActions,
-  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender
+  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender, allowScrollPastEnd = false
 }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const [orderedColumnKeys, setOrderedColumnKeys] = useState<string[]>([]);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const [actualLastGroupHeight, setActualLastGroupHeight] = useState(0);
+
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      setContainerHeight(entries[0].contentRect.height);
+    });
+    observer.observe(scrollContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [activeResizeCol, setActiveResizeCol] = useState<string | null>(null);
   const [showTableActionsMenu, setShowTableActionsMenu] = useState(false);
@@ -247,6 +263,24 @@ export const DataTable: React.FC<DataTableProps> = ({
     return pagination ? processedRows.slice(startIndex, endIndex) : processedRows;
   }, [processedRows, startIndex, endIndex, pagination]);
 
+  // Measure the exact pixel height of the last group to handle multi-line wrapped text
+  useEffect(() => {
+    if (!allowScrollPastEnd || paginatedRows.length === 0) return;
+    const measure = () => {
+      if (!scrollContainerRef.current) return;
+      const elements = scrollContainerRef.current.querySelectorAll('.last-group-row');
+      let h = 0;
+      elements.forEach(el => {
+        h += el.getBoundingClientRect().height;
+      });
+      if (h > 0) setActualLastGroupHeight(h);
+    };
+    
+    // Defer measurement slightly to let DOM render
+    const timer = setTimeout(measure, 10);
+    return () => clearTimeout(timer);
+  }, [paginatedRows, allowScrollPastEnd, columnWidths, containerHeight]);
+
   const handleSort = (colKey: string) => {
     setSortConfig(prev => {
       if (prev && prev.key === colKey) return prev.direction === 'asc' ? { key: colKey, direction: 'desc' } : null;
@@ -382,6 +416,26 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   const getColDef = (key: string) => columns.find(c => c.key === key) || { key, label: key };
 
+  // Calculate dynamic padding to allow the last group to scroll perfectly to the top without disappearing
+  let calculatedScrollPadding = 0;
+  if (allowScrollPastEnd && containerHeight > 0 && paginatedRows.length > 0) {
+    if (actualLastGroupHeight > 0) {
+      calculatedScrollPadding = Math.max(0, containerHeight - 42 - actualLastGroupHeight); // Subtract 42px to account for the sticky column headers!
+    } else {
+      // Fallback estimate if measurement hasn't completed yet
+      if (groupByField) {
+        const getGroupVal = (r: any) => typeof groupByField === 'function' ? groupByField(r) : r[groupByField];
+        const lastGroupVal = getGroupVal(paginatedRows[paginatedRows.length - 1]);
+        const lastGroupCount = paginatedRows.filter(r => getGroupVal(r) === lastGroupVal).length;
+        const lastGroupHeight = 32 + (lastGroupCount * 40);
+        calculatedScrollPadding = Math.max(0, containerHeight - 42 - lastGroupHeight);
+      } else {
+        const lastGroupHeight = paginatedRows.length * 40;
+        calculatedScrollPadding = Math.max(0, containerHeight - 42 - lastGroupHeight);
+      }
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'transparent', minWidth: 0 }}>
       {/* --- TOP TOOLBAR (Actions & View Management) --- */}
@@ -464,7 +518,8 @@ export const DataTable: React.FC<DataTableProps> = ({
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      {/* Main Table Area */}
+      <div ref={scrollContainerRef} style={{ flex: 1, overflow: 'auto' }}>
         <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
@@ -681,18 +736,20 @@ export const DataTable: React.FC<DataTableProps> = ({
               const groupVal = groupByField ? getGroupVal(row) : undefined;
               const prevGroupVal = groupByField && rIdx > 0 ? getGroupVal(paginatedRows[rIdx - 1]) : undefined;
               const showGroupHeader = groupByField && groupVal !== prevGroupVal;
+              
+              const isLastGroup = groupByField ? groupVal === getGroupVal(paginatedRows[paginatedRows.length - 1]) : true;
 
               return (
                 <React.Fragment key={rIdx}>
                   {showGroupHeader && (
-                    <tr>
+                    <tr className={isLastGroup ? 'last-group-row' : ''}>
                       <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ position: 'sticky', top: '41px', zIndex: 5, backgroundColor: 'var(--bg-element)', padding: '6px 15px', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border-main)', fontSize: '12px' }}>
                         {groupByRender ? groupByRender(groupVal) : groupVal}
                       </td>
                     </tr>
                   )}
               <tr 
-                className={selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} 
+                className={`${selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} ${isLastGroup ? 'last-group-row' : ''}`} 
                 style={customStyle}
                 onContextMenu={(e) => {
                   if (rowContextMenuActions && !visibleColumnKeys.length) {
@@ -742,9 +799,15 @@ export const DataTable: React.FC<DataTableProps> = ({
               </td></tr>
             )}
             {/* Zero-CLS Padding: Fill the remaining space with a height-matched empty row so the pagination footer never jumps */}
-            {effectivePageSize !== 999999 && paginatedRows.length < effectivePageSize && (
+            {!allowScrollPastEnd && effectivePageSize !== 999999 && paginatedRows.length < effectivePageSize && (
               <tr>
                 <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${(effectivePageSize - Math.max(1, paginatedRows.length)) * 37}px`, borderBottom: 'none', padding: 0 }}></td>
+              </tr>
+            )}
+            {/* Scroll Past End Padding (must be inside tbody to preserve sticky headers) */}
+            {allowScrollPastEnd && calculatedScrollPadding > 0 && (
+              <tr>
+                <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${calculatedScrollPadding}px`, border: 'none', padding: 0 }}></td>
               </tr>
             )}
           </tbody>
