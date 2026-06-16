@@ -376,20 +376,6 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     ];
   }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, devices]);
 
-  if (!rulebase || !isSecurityPolicy) {
-    // Extract the policy type (e.g. NAT, Decryption) from the activeSubTab
-    const policyType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-        <Shield size={48} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
-        <h2 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{policyType} Policies</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>
-          This policy type is not yet fully implemented in the UI.
-        </p>
-      </div>
-    );
-  }
-
   const getGroupVal = useCallback((row: any) => {
     if (rulebase === 'device') {
       if (selectedScopeUuid === 'show-all') {
@@ -408,6 +394,20 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }
     return counts;
   }, [rules, getGroupVal]);
+
+  if (!rulebase || !isSecurityPolicy) {
+    // Extract the policy type (e.g. NAT, Decryption) from the activeSubTab
+    const policyType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+        <Shield size={48} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+        <h2 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{policyType} Policies</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>
+          This policy type is not yet fully implemented in the UI.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
