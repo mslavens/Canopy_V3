@@ -171,6 +171,30 @@ export const DataTable: React.FC<DataTableProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Prevent wheel events from bleeding through the filter menu to the underlying table
+  useEffect(() => {
+    const el = filterMenuRef.current;
+    if (!el) return;
+    
+    const handleWheel = (e: WheelEvent) => {
+      const scrollableList = el.querySelector('.filter-scrollable-list');
+      if (scrollableList && scrollableList.contains(e.target as Node)) {
+        // If it's inside the scrollable area, check if it actually can scroll
+        const hasScrollbar = scrollableList.scrollHeight > scrollableList.clientHeight;
+        if (!hasScrollbar) {
+          e.preventDefault();
+        }
+        // Otherwise, overscroll-behavior: contain will handle the chaining
+        return;
+      }
+      // If scrolling over the header/footer of the popup, stop it from scrolling the table
+      e.preventDefault();
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [filterMenuCol]);
+
   const toggleColumn = (colKey: string) => {
     setHiddenColumns(prev => {
       const next = new Set(prev);
@@ -627,7 +651,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                             </div>
                           </div>
                           
-                          <div style={{ maxHeight: '200px', overflowY: 'auto', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div className="filter-scrollable-list" style={{ maxHeight: '200px', overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {filteredUniqueValues.length === 0 ? (
                               <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>No matching values.</div>
                             ) : (
@@ -665,7 +689,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                                     />
                                     <span style={{ fontWeight: 600, flex: 1 }}>{filterMenuSearch ? '(Select All Search Results)' : '(Select All)'}</span>
                                   </label>
-                                {filteredUniqueValues.map(val => {
+                                {filteredUniqueValues.slice(0, 300).map(val => {
                                   const isActive = columnFilters[colKey] === undefined || columnFilters[colKey].has(val);
                                   return (
                                     <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-main)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -696,6 +720,11 @@ export const DataTable: React.FC<DataTableProps> = ({
                                     </label>
                                   );
                                 })}
+                                {filteredUniqueValues.length > 300 && (
+                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px', paddingBottom: '4px', fontStyle: 'italic' }}>
+                                    Showing top 300 results. Use search to find more.
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
