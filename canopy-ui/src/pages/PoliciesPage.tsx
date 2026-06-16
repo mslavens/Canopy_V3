@@ -81,21 +81,13 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         
         const dgRes = await client.queryDb("SELECT id, uuid, name, parent_id FROM device_groups ORDER BY name ASC;");
         const fwRes = await client.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.device_group_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
-        const countsRes = await client.queryDb("SELECT device_uuid, COUNT(id) as count FROM security_rules GROUP BY device_uuid;");
         
         if (isMounted) {
           const dgRows = dgRes?.rows || [];
           const fwRows = fwRes?.rows || [];
-          const counts = countsRes?.rows || [];
-          
-          const countMap: Record<string, number> = {};
-          counts.forEach((c: any) => {
-            countMap[c.device_uuid] = c.count;
-          });
           
           setDeviceGroups(dgRows);
           setDevices(fwRows);
-          setRuleCounts(countMap);
         }
       } catch (err) {
         console.error("Failed to load scopes", err);
@@ -104,6 +96,34 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     loadScopes();
     return () => { isMounted = false; };
   }, [auth]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCounts = async () => {
+      if (!auth || !policyType) return;
+      try {
+        const client = new CanopyApiClient(auth);
+        let tableName = `${policyType}_rules`;
+        const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
+        if (!validTables.includes(tableName)) tableName = 'security_rules';
+        
+        const countsRes = await client.queryDb(`SELECT device_uuid, COUNT(id) as count FROM ${tableName} GROUP BY device_uuid;`);
+        
+        if (isMounted) {
+          const counts = countsRes?.rows || [];
+          const countMap: Record<string, number> = {};
+          counts.forEach((c: any) => {
+            countMap[c.device_uuid] = c.count;
+          });
+          setRuleCounts(countMap);
+        }
+      } catch (err) {
+        console.error("Failed to load rule counts", err);
+      }
+    };
+    loadCounts();
+    return () => { isMounted = false; };
+  }, [auth, policyType]);
 
   const { hierarchyOptions: allHierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, devices, {
     includeShowAll: true,
@@ -243,13 +263,14 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                         setSelectedScopeUuid(scopeId);
                         
                         if (rulebase === 'device' && setActiveSubTab) {
-                          const isPre = (row.scope || '').endsWith(':pre');
-                          const isPost = (row.scope || '').endsWith(':post');
+                          const isPre = (row?.scope || '').endsWith(':pre');
+                          const isPost = (row?.scope || '').endsWith(':post');
+                          const prefix = activeSubTab.split('-')[0]?.trim() || 'Security';
                           
                           if (isPre) {
-                            setActiveSubTab('Security - Pre Rules');
+                            setActiveSubTab(`${prefix} - Pre Rules`);
                           } else if (isPost) {
-                            setActiveSubTab('Security - Post Rules');
+                            setActiveSubTab(`${prefix} - Post Rules`);
                           }
                         }
                       }}
