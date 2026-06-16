@@ -510,11 +510,14 @@ var actSchema = `
 		rule_type TEXT NOT NULL,
 		rule_id INTEGER NOT NULL,
 		custom_app_id INTEGER,
+		group_id INTEGER,
 		predefined_app_name TEXT,
 		FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE CASCADE,
+		FOREIGN KEY (group_id) REFERENCES application_groups(id) ON DELETE CASCADE,
 		CHECK (
-			(custom_app_id IS NOT NULL AND predefined_app_name IS NULL) OR
-			(custom_app_id IS NULL AND predefined_app_name IS NOT NULL)
+			(custom_app_id IS NOT NULL AND group_id IS NULL AND predefined_app_name IS NULL) OR
+			(custom_app_id IS NULL AND group_id IS NOT NULL AND predefined_app_name IS NULL) OR
+			(custom_app_id IS NULL AND group_id IS NULL AND predefined_app_name IS NOT NULL)
 		)
 	);
 	CREATE TABLE IF NOT EXISTS rule_zone_mappings (
@@ -590,6 +593,7 @@ var actSchema = `
 	CREATE INDEX IF NOT EXISTS idx_rule_service_mappings_service_id ON rule_service_mappings (service_id);
 	CREATE INDEX IF NOT EXISTS idx_rule_service_mappings_group_id ON rule_service_mappings (group_id);
 	CREATE INDEX IF NOT EXISTS idx_rule_application_mappings_custom_app_id ON rule_application_mappings (custom_app_id);
+	CREATE INDEX IF NOT EXISTS idx_rule_application_mappings_group_id ON rule_application_mappings (group_id);
 	CREATE INDEX IF NOT EXISTS idx_security_rule_profiles_profile_id ON security_rule_profiles (profile_id);
 	CREATE INDEX IF NOT EXISTS idx_application_group_members_member_app_id ON application_group_members (member_application_id);
 	CREATE INDEX IF NOT EXISTS idx_application_group_members_member_group_id ON application_group_members (member_group_id);
@@ -848,6 +852,7 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE service_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN group_id INTEGER REFERENCES application_groups(id) ON DELETE CASCADE;")
 
 	// Ensure all firewalls in managed_devices_raw are registered as scopes in the scopes table
 	// to prevent FOREIGN KEY constraint violations when moving or cloning to those scopes.
@@ -1472,6 +1477,21 @@ func main() {
 		}
 
 		mountAndSeedVault(req.Password, w)
+	})
+
+	mux.HandleFunc("/api/workspaces/heal", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		vaultMutex.RLock()
+		if activeDB == nil {
+			vaultMutex.RUnlock()
+			http.Error(w, "No active workspace", http.StatusBadRequest)
+			return
+		}
+		vaultMutex.RUnlock()
+		healWorkspaceHandler(w, r)
 	})
 
 	// List Workspaces Endpoint

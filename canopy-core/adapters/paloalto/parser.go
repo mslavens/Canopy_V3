@@ -1900,8 +1900,8 @@ func insertRuleServices(tx *sql.Tx, ruleType string, ruleID int64, services []st
 
 func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applications []string, scopes []string, reg *registry) error {
 	stmt, err := tx.Prepare(`
-		INSERT INTO rule_application_mappings (rule_type, rule_id, custom_app_id, predefined_app_name)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO rule_application_mappings (rule_type, rule_id, custom_app_id, group_id, predefined_app_name)
+		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -1912,12 +1912,19 @@ func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applicati
 		if app == "" {
 			continue
 		}
-		if appID, found := reg.resolveApplication(scopes, app); found {
-			if _, err := stmt.Exec(ruleType, ruleID, appID, nil); err != nil {
-				return err
+		appID, grpID, found := reg.resolveApplicationOrGroup(scopes, app)
+		if found {
+			if appID > 0 {
+				if _, err := stmt.Exec(ruleType, ruleID, appID, nil, nil); err != nil {
+					return err
+				}
+			} else if grpID > 0 {
+				if _, err := stmt.Exec(ruleType, ruleID, nil, grpID, nil); err != nil {
+					return err
+				}
 			}
 		} else {
-			if _, err := stmt.Exec(ruleType, ruleID, nil, app); err != nil {
+			if _, err := stmt.Exec(ruleType, ruleID, nil, nil, app); err != nil {
 				return err
 			}
 		}

@@ -10,6 +10,13 @@ import (
 	"strings"
 )
 
+// PolicyObjectRef represents a reference to a firewall object in a policy
+type PolicyObjectRef struct {
+	ID         *int   `json:"id,omitempty"`
+	Name       string `json:"name"`
+	ObjectType string `json:"object_type"`
+}
+
 // PolicyRule represents a fully hydrated security rule ready for the UI
 type PolicyRule struct {
 	ID                 int      `json:"id"`
@@ -22,13 +29,13 @@ type PolicyRule struct {
 	ScheduleID         *int     `json:"schedule_id"`
 
 	// Shared Arrays
-	SourceZone         []string `json:"source_zone"`
-	DestinationZone    []string `json:"destination_zone"`
-	SourceAddress      []string `json:"source_address"`
-	DestinationAddress []string `json:"destination_address"`
-	Service            []string `json:"service"`
-	Application        []string `json:"application"`
-	Tags               []string `json:"tags"`
+	SourceZone         []string          `json:"source_zone"`
+	DestinationZone    []string          `json:"destination_zone"`
+	SourceAddress      []PolicyObjectRef `json:"source_address"`
+	DestinationAddress []PolicyObjectRef `json:"destination_address"`
+	Service            []PolicyObjectRef `json:"service"`
+	Application        []PolicyObjectRef `json:"application"`
+	Tags               []string          `json:"tags"`
 
 	// Security specific
 	ProfileType        *string  `json:"profile_type"`
@@ -377,12 +384,12 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			ruleIDs[i] = fmt.Sprintf("%d", rules[i].ID)
 			ruleMap[rules[i].ID] = &rules[i]
 			// Initialize arrays
-			ruleMap[rules[i].ID].SourceAddress = []string{}
-			ruleMap[rules[i].ID].DestinationAddress = []string{}
+			ruleMap[rules[i].ID].SourceAddress = []PolicyObjectRef{}
+			ruleMap[rules[i].ID].DestinationAddress = []PolicyObjectRef{}
 			ruleMap[rules[i].ID].SourceZone = []string{}
 			ruleMap[rules[i].ID].DestinationZone = []string{}
-			ruleMap[rules[i].ID].Service = []string{}
-			ruleMap[rules[i].ID].Application = []string{}
+			ruleMap[rules[i].ID].Service = []PolicyObjectRef{}
+			ruleMap[rules[i].ID].Application = []PolicyObjectRef{}
 			ruleMap[rules[i].ID].Tags = []string{}
 		}
 		inClause := strings.Join(ruleIDs, ",")
@@ -431,7 +438,10 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 
 		// Addresses
 		err = hydrate(fmt.Sprintf(`
-			SELECT rule_id, direction, COALESCE(a.name, g.name, ad_hoc_value)
+			SELECT rule_id, direction, 
+			       m.address_id, a.name AS address_name, 
+			       m.group_id, g.name AS group_name, 
+			       m.ad_hoc_value
 			FROM rule_address_mappings m
 			LEFT JOIN address_objects a ON m.address_id = a.id
 			LEFT JOIN address_groups g ON m.group_id = g.id
@@ -439,10 +449,37 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var dir string
-			var name sql.NullString
-			if err := rows.Scan(&rid, &dir, &name); err != nil { return err }
-			if r, ok := ruleMap[rid]; ok && name.Valid {
-				if dir == "source" { r.SourceAddress = append(r.SourceAddress, name.String) } else { r.DestinationAddress = append(r.DestinationAddress, name.String) }
+			var addrId sql.NullInt64
+			var addrName sql.NullString
+			var groupId sql.NullInt64
+			var groupName sql.NullString
+			var adHoc sql.NullString
+
+			if err := rows.Scan(&rid, &dir, &addrId, &addrName, &groupId, &groupName, &adHoc); err != nil { return err }
+
+			if r, ok := ruleMap[rid]; ok {
+				var ref PolicyObjectRef
+				if addrId.Valid && addrName.Valid {
+					id := int(addrId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: addrName.String, ObjectType: "address_object"}
+				} else if groupId.Valid && groupName.Valid {
+					id := int(groupId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: groupName.String, ObjectType: "address_group"}
+				} else if adHoc.Valid {
+					if strings.ToLower(adHoc.String) == "any" {
+						ref = PolicyObjectRef{Name: adHoc.String, ObjectType: "predefined"}
+					} else {
+						ref = PolicyObjectRef{Name: adHoc.String, ObjectType: "ad_hoc"}
+					}
+				} else {
+					return nil
+				}
+
+				if dir == "source" {
+					r.SourceAddress = append(r.SourceAddress, ref)
+				} else {
+					r.DestinationAddress = append(r.DestinationAddress, ref)
+				}
 			}
 			return nil
 		})
@@ -450,31 +487,86 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 
 		// Services
 		err = hydrate(fmt.Sprintf(`
-			SELECT rule_id, COALESCE(s.name, g.name, ad_hoc_value)
+			SELECT rule_id, 
+			       m.service_id, s.name AS service_name, 
+			       m.group_id, g.name AS group_name, 
+			       m.ad_hoc_value
 			FROM rule_service_mappings m
 			LEFT JOIN service_objects s ON m.service_id = s.id
 			LEFT JOIN service_groups g ON m.group_id = g.id
 			WHERE rule_type = '%s' AND rule_id IN (%s)
 		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
-			var name sql.NullString
-			if err := rows.Scan(&rid, &name); err != nil { return err }
-			if r, ok := ruleMap[rid]; ok && name.Valid { r.Service = append(r.Service, name.String) }
+			var svcId sql.NullInt64
+			var svcName sql.NullString
+			var groupId sql.NullInt64
+			var groupName sql.NullString
+			var adHoc sql.NullString
+
+			if err := rows.Scan(&rid, &svcId, &svcName, &groupId, &groupName, &adHoc); err != nil { return err }
+
+			if r, ok := ruleMap[rid]; ok {
+				var ref PolicyObjectRef
+				if svcId.Valid && svcName.Valid {
+					id := int(svcId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: svcName.String, ObjectType: "service_object"}
+				} else if groupId.Valid && groupName.Valid {
+					id := int(groupId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: groupName.String, ObjectType: "service_group"}
+				} else if adHoc.Valid {
+					if strings.ToLower(adHoc.String) == "any" || strings.ToLower(adHoc.String) == "application-default" {
+						ref = PolicyObjectRef{Name: adHoc.String, ObjectType: "predefined"}
+					} else {
+						ref = PolicyObjectRef{Name: adHoc.String, ObjectType: "ad_hoc"}
+					}
+				} else {
+					return nil
+				}
+				r.Service = append(r.Service, ref)
+			}
 			return nil
 		})
 		if err != nil { log.Printf("Error hydrating services: %v", err) }
 
 		// Applications
 		err = hydrate(fmt.Sprintf(`
-			SELECT rule_id, COALESCE(a.name, predefined_app_name)
+			SELECT rule_id, 
+			       m.custom_app_id, a.name AS custom_app_name, 
+			       m.group_id, g.name AS group_name,
+			       m.predefined_app_name
 			FROM rule_application_mappings m
 			LEFT JOIN application_objects a ON m.custom_app_id = a.id
+			LEFT JOIN application_groups g ON m.group_id = g.id
 			WHERE rule_type = '%s' AND rule_id IN (%s)
 		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
-			var name sql.NullString
-			if err := rows.Scan(&rid, &name); err != nil { return err }
-			if r, ok := ruleMap[rid]; ok && name.Valid { r.Application = append(r.Application, name.String) }
+			var appId sql.NullInt64
+			var appName sql.NullString
+			var groupId sql.NullInt64
+			var groupName sql.NullString
+			var predefined sql.NullString
+
+			if err := rows.Scan(&rid, &appId, &appName, &groupId, &groupName, &predefined); err != nil { return err }
+
+			if r, ok := ruleMap[rid]; ok {
+				var ref PolicyObjectRef
+				if appId.Valid && appName.Valid {
+					id := int(appId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: appName.String, ObjectType: "application_object"}
+				} else if groupId.Valid && groupName.Valid {
+					id := int(groupId.Int64)
+					ref = PolicyObjectRef{ID: &id, Name: groupName.String, ObjectType: "application_group"}
+				} else if predefined.Valid {
+					if strings.ToLower(predefined.String) == "any" {
+						ref = PolicyObjectRef{Name: predefined.String, ObjectType: "predefined"}
+					} else {
+						ref = PolicyObjectRef{Name: predefined.String, ObjectType: "predefined_app"}
+					}
+				} else {
+					return nil
+				}
+				r.Application = append(r.Application, ref)
+			}
 			return nil
 		})
 		if err != nil { log.Printf("Error hydrating applications: %v", err) }
@@ -484,14 +576,14 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			for _, r := range ruleMap {
 				if policyType == "nat" {
 					if r.ServiceAdHoc != nil && *r.ServiceAdHoc != "" {
-						r.Service = append(r.Service, *r.ServiceAdHoc)
+						r.Service = append(r.Service, PolicyObjectRef{Name: *r.ServiceAdHoc, ObjectType: "ad_hoc"})
 					} else if r.ServiceID != nil || r.ServiceGroupID != nil {
 						// These could be fetched here. For a baseline, we'll leave it as we just need strings, but typically you'd join them in the original SELECT or do a bulk fetch.
 					}
 				}
 				if policyType == "application_override" {
 					if r.PredefinedApp != nil && *r.PredefinedApp != "" {
-						r.Application = append(r.Application, *r.PredefinedApp)
+						r.Application = append(r.Application, PolicyObjectRef{Name: *r.PredefinedApp, ObjectType: "predefined"})
 					}
 				}
 			}

@@ -26,6 +26,7 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
 import { SecretsVaultPage } from './pages/SecretsVaultPage';
 import { SnapshotsPage } from './pages/SnapshotsPage';
+import { DatabaseHealthPage } from './pages/DatabaseHealthPage';
 import { Loader2 } from 'lucide-react';
 import { ConfirmProvider } from './components/ConfirmProvider';
 import { UnsavedChangesProvider } from './components/UnsavedChangesProvider';
@@ -294,6 +295,9 @@ const App = () => {
     }
     if (activeMainTab === 'System' && activeSubTab === 'Snapshots') {
       return <SnapshotsPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'System' && activeSubTab === 'Database Health') {
+      return <DatabaseHealthPage auth={auth} addToast={addToast} />;
     }
     if (activeMainTab === 'System' && activeSubTab === 'Database Browser') {
       return <DatabaseBrowserPage auth={auth} addToast={addToast} />;

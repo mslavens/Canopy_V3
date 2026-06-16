@@ -676,6 +676,7 @@ func TestParser(t *testing.T) {
 			rule_type TEXT NOT NULL,
 			rule_id INTEGER NOT NULL,
 			custom_app_id INTEGER,
+			group_id INTEGER,
 			predefined_app_name TEXT,
 			FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE CASCADE
 		);`,

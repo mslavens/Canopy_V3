@@ -106,7 +106,7 @@ const subTabsMap: Record<string, NavItem[]> = {
     'Security Profile Groups', 
     { group: 'Custom Objects', items: ['URL Categories', 'External Dynamic Lists'] }
   ],
-  'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
+  'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Audit Logs', 'Database Health', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
 };
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
