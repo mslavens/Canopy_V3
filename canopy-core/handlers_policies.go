@@ -245,6 +245,18 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	} else if rulebase == "device" {
+		// Device Rules View (Device Group Context)
+		// Fetch Pre Rules
+		if err := fetchRules(hierarchyUUIDs, "%:pre", "Pre Rules", 1); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Fetch Post Rules
+		if err := fetchRules(hierarchyUUIDs, "%:post", "Post Rules", 3); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	} else {
 		// Pre or Post Rules View (Device Group Context)
 		suffix := "%:pre"

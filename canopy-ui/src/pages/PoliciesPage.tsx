@@ -38,12 +38,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   // When switching between Pre/Post and Device Rules, ensure the scope is valid.
   // Pre/Post requires Device Groups, Device requires Firewalls.
   useEffect(() => {
-    if (rulebase === 'device') {
-      // If currently on a device group or shared, switch to no device (forces them to pick one)
-      if (selectedScopeUuid === 'paloalto-panorama-global' || deviceGroups.some(g => g.uuid === selectedScopeUuid)) {
-        setSelectedScopeUuid('');
-      }
-    } else {
+    if (rulebase !== 'device') {
       // If currently on a firewall, intelligently switch to its parent device group
       if (selectedScopeUuid) {
         const fw = devices.find(d => d.uuid === selectedScopeUuid);
@@ -99,7 +94,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const hierarchyOptions = useMemo(() => {
     // Filter options based on rulebase
     if (rulebase === 'device') {
-      return allHierarchyOptions.filter(o => o.type === 'firewall' || o.value === 'show-all');
+      return allHierarchyOptions; // Allow both firewalls and device groups
     } else {
       return allHierarchyOptions.filter(o => o.type === 'global' || o.type === 'shared' || o.type === 'device-group' || o.value === 'show-all');
     }
@@ -139,8 +134,15 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         setRules(mapped);
         setLoadedContext(`${selectedScopeUuid}::${rulebase}`);
       } else {
-        const err = await res.json();
-        addToast(err.error || 'Failed to fetch rules', 'error');
+        const text = await res.text();
+        let errMsg = 'Failed to fetch rules';
+        try {
+          const parsed = JSON.parse(text);
+          errMsg = parsed.error || errMsg;
+        } catch (e) {
+          errMsg = text || errMsg;
+        }
+        addToast(errMsg, 'error');
       }
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');
@@ -202,16 +204,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                     <span
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log("CLICKED SCOPE:", scopeId, "rulebase:", rulebase, "setActiveSubTab present:", !!setActiveSubTab);
                         setSelectedScopeUuid(scopeId);
                         
+                        // If they click on a Pre or Post rule, teleport them to that tab.
+                        // If they click on a Local rule, keep them on the Device Rules tab.
                         if (rulebase === 'device' && setActiveSubTab) {
-                          const isFirewall = devices.some(d => d.uuid === scopeId);
-                          console.log("isFirewall:", isFirewall);
-                          if (!isFirewall) {
-                            const isPost = (row.scope || '').endsWith(':post');
-                            console.log("isPost:", isPost, "Setting tab to:", isPost ? 'Security - Post Rules' : 'Security - Pre Rules');
-                            setActiveSubTab(isPost ? 'Security - Post Rules' : 'Security - Pre Rules');
+                          const isPre = (row.scope || '').endsWith(':pre');
+                          const isPost = (row.scope || '').endsWith(':post');
+                          
+                          if (isPre) {
+                            setActiveSubTab('Security - Pre Rules');
+                          } else if (isPost) {
+                            setActiveSubTab('Security - Post Rules');
                           }
                         }
                       }}
