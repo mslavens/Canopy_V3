@@ -18,6 +18,7 @@ interface PoliciesPageProps {
 export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, activeSubTab, setActiveSubTab }) => {
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
+  const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
   const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('paloalto-panorama-global');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rules, setRules] = useState<any[]>([]);
@@ -69,12 +70,21 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         
         const dgRes = await client.queryDb("SELECT id, uuid, name, parent_id FROM device_groups ORDER BY name ASC;");
         const fwRes = await client.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.device_group_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
+        const countsRes = await client.queryDb("SELECT device_uuid, COUNT(id) as count FROM security_rules GROUP BY device_uuid;");
         
         if (isMounted) {
           const dgRows = dgRes?.rows || [];
           const fwRows = fwRes?.rows || [];
+          const counts = countsRes?.rows || [];
+          
+          const countMap: Record<string, number> = {};
+          counts.forEach((c: any) => {
+            countMap[c.device_uuid] = c.count;
+          });
+          
           setDeviceGroups(dgRows);
           setDevices(fwRows);
+          setRuleCounts(countMap);
         }
       } catch (err) {
         console.error("Failed to load scopes", err);
@@ -401,6 +411,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                     options={hierarchyOptions}
                     onChange={setSelectedScopeUuid}
                     scopeNameMap={scopeNameMap}
+                    ruleCounts={ruleCounts}
                   />
                 </div>
 

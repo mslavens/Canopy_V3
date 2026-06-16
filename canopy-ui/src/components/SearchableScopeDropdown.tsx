@@ -8,9 +8,10 @@ export interface SearchableScopeDropdownProps {
   options: { label: string; value: string; depth: number; type: 'global' | 'shared' | 'device-group' | 'firewall' }[];
   onChange: (value: string) => void;
   scopeNameMap: Record<string, string>;
+  ruleCounts?: Record<string, number>;
 }
 
-export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap }) => {
+export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap, ruleCounts }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,17 +43,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (isOpen && coords.ready) {
-      setTimeout(() => {
-        const menu = document.querySelector('.portal-scope-dropdown-menu');
-        const activeOption = menu?.querySelector('.dropdown-option-row.active') as HTMLElement;
-        if (activeOption) {
-          activeOption.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-        }
-      }, 50);
-    }
-  }, [isOpen, coords.ready]);
+
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -86,6 +77,12 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
     return result;
   }, [options, searchQuery]);
 
+  const lastOption = filteredOptions[filteredOptions.length - 1];
+  const lastDepth = lastOption ? lastOption.depth : 0;
+  // Calculate padding to allow the last item to be scrolled up exactly beneath its sticky headers.
+  // Container inner height is ~310px (320px maxHeight - 2px borders - 8px padding).
+  const calculatedPaddingBottom = Math.max(0, 310 - ((lastDepth + 1) * 32));
+
   const dropdownMenu = (isOpen && coords.ready) ? (
     <div
       className="portal-scope-dropdown-menu"
@@ -99,14 +96,28 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
         borderRadius: '4px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         maxHeight: '320px',
-        overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 100005
+        zIndex: 100005,
+        padding: '4px 0',
+        overflow: 'hidden'
       }}
     >
       {/* Options list */}
-      <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
+      <div 
+        className="portal-scope-dropdown-scroll" 
+        style={{ overflowY: 'auto', flex: 1, paddingBottom: `${calculatedPaddingBottom}px` }}
+        ref={(node) => {
+          if (node && !node.dataset.scrolled) {
+            const selectedIndex = filteredOptions.findIndex(o => o.value === value);
+            if (selectedIndex !== -1) {
+              const depth = filteredOptions[selectedIndex].depth;
+              node.scrollTop = (selectedIndex - depth) * 32;
+            }
+            node.dataset.scrolled = 'true';
+          }
+        }}
+      >
         {filteredOptions.length === 0 ? (
           <div style={{ padding: '12px' }}>
             <EmptyState icon={<Search size={24} />} title="No scopes match search" description="Try adjusting your query." minHeight="100px" />
@@ -114,7 +125,8 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
         ) : (
           filteredOptions.map((opt) => {
             const isSelected = opt.value === value;
-            return (
+                const isSticky = !searchQuery && opt.type !== 'firewall';
+                return (
               <div
                 key={opt.value}
                 tabIndex={-1}
@@ -141,7 +153,9 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
                   }
                 }}
                 style={{
-                  padding: '8px 12px',
+                  height: '32px',
+                  boxSizing: 'border-box',
+                  padding: '0 12px',
                   paddingLeft: `${opt.depth * 16 + 12}px`,
                   display: 'flex',
                   alignItems: 'center',
@@ -149,22 +163,45 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
                   cursor: 'pointer',
                   fontSize: '12px',
                   color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                  backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+                  backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
                   transition: 'background-color 0.15s ease',
                   fontWeight: isSelected ? 600 : 400,
-                  outline: 'none'
+                  outline: 'none',
+                  ...(isSticky ? {
+                    position: 'sticky',
+                    top: `${opt.depth * 32}px`,
+                    zIndex: 20 - opt.depth,
+                    borderBottom: 'none',
+                    // Extending the background color 1px down seals any subpixel rendering gaps 
+                    // without creating a visible line.
+                    boxShadow: `0 1px 0 ${isSelected ? 'var(--bg-element)' : 'var(--bg-surface)'}`
+                  } : {})
                 }}
                 className={`dropdown-option-row ${isSelected ? 'active' : ''}`}
+                data-depth={opt.depth}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
               >
                 {opt.type === 'global' && <Database size={12} className="text-accent" />}
                 {opt.type === 'shared' && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
                 {opt.type === 'device-group' && <Layers size={12} />}
                 {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                   {opt.label}
                 </span>
+                {ruleCounts && ruleCounts[opt.value] !== undefined && ruleCounts[opt.value] > 0 && (
+                  <span style={{
+                    fontSize: '10px',
+                    padding: '2px 6px',
+                    backgroundColor: 'var(--bg-app)',
+                    color: 'var(--text-muted)',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-main)',
+                    marginLeft: 'auto'
+                  }}>
+                    {ruleCounts[opt.value]}
+                  </span>
+                )}
               </div>
             );
           })
