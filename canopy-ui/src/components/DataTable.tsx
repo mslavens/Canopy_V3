@@ -36,7 +36,6 @@ interface DataTableProps {
   currentPage?: number;
   rowsPerPage?: number;
   onPageChange?: (page: number) => void;
-  onRowsPerPageChange?: (limit: number) => void;
   groupByField?: string | ((row: any) => string);
   groupByRender?: (groupVal: any) => React.ReactNode;
 }

@@ -212,7 +212,42 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
             <EmptyState icon={<Search size={24} />} title="No scopes match search" description="Try adjusting your query." minHeight="100px" />
           </div>
         ) : (
-          scrollableOptions.map(opt => renderOptionNode(opt))
+          searchQuery ? (
+            scrollableOptions.map(opt => renderOptionNode(opt))
+          ) : (
+            (() => {
+              const rootNodes: { opt: ScopeHierarchyNode; children: any[] }[] = [];
+              const stack: { opt: ScopeHierarchyNode; children: any[] }[] = [];
+
+              for (const opt of scrollableOptions) {
+                const node = { opt, children: [] };
+                while (stack.length > 0 && stack[stack.length - 1].opt.depth >= opt.depth) {
+                  stack.pop();
+                }
+                if (stack.length === 0) {
+                  rootNodes.push(node);
+                } else {
+                  stack[stack.length - 1].children.push(node);
+                }
+                stack.push(node);
+              }
+
+              const renderTree = (nodes: any[]): React.ReactNode => {
+                return nodes.map(node => (
+                  <div key={node.opt.value} style={{ display: 'flex', flexDirection: 'column' }}>
+                    {renderOptionNode(node.opt)}
+                    {node.children.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {renderTree(node.children)}
+                      </div>
+                    )}
+                  </div>
+                ));
+              };
+
+              return renderTree(rootNodes);
+            })()
+          )
         )}
       </div>
     </div>

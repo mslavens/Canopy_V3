@@ -622,6 +622,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
         ) : (
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <DataTable 
+              key={selectedScopeUuid}
               toolbarTitle={
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
                   {activeSubTab.split('-')[1]?.trim() || activeSubTab} ({rules.length})
