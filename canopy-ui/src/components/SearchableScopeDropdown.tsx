@@ -82,9 +82,8 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
 
   const lastOption = scrollableOptions[scrollableOptions.length - 1];
   const lastDepth = lastOption ? lastOption.depth : 0;
-  // Calculate padding to allow the last item to be scrolled up exactly beneath its sticky headers.
-  // Container inner height is ~310px (320px maxHeight - 2px borders - 8px padding).
-  const calculatedPaddingBottom = Math.max(0, 310 - ((lastDepth + 1) * 32));
+  // Container inner height is ~269px. We use 268px to perfectly align exactly beneath the 1px sticky box-shadow.
+  const calculatedPaddingBottom = Math.max(0, 268 - ((lastDepth + 1) * 32));
 
   const renderOptionNode = (opt: ScopeHierarchyNode, overrideSticky?: boolean) => {
     const isSelected = opt.value === value;
