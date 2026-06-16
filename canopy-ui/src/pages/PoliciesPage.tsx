@@ -34,7 +34,16 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     return null;
   }, [activeSubTab]);
 
-  const isSecurityPolicy = activeSubTab.startsWith('Security');
+  const policyType = useMemo(() => {
+    if (activeSubTab.startsWith('Security')) return 'security';
+    if (activeSubTab.startsWith('NAT')) return 'nat';
+    if (activeSubTab.startsWith('QoS')) return 'qos';
+    if (activeSubTab.startsWith('PBF')) return 'pbf';
+    if (activeSubTab.startsWith('Decryption')) return 'decryption';
+    if (activeSubTab.startsWith('App Override')) return 'application_override';
+    if (activeSubTab.startsWith('Tunnel')) return 'tunnel_inspection';
+    return 'security';
+  }, [activeSubTab]);
 
   // When switching between Pre/Post and Device Rules, ensure the scope is valid.
   // Pre/Post requires Device Groups, Device requires Firewalls.
@@ -131,7 +140,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }, 150);
 
     try {
-      const res = await fetch(`${auth.url}/api/policies/security?scope=${selectedScopeUuid}&rulebase=${rulebase}`, {
+      const res = await fetch(`${auth.url}/api/policies?type=${policyType}&scope=${selectedScopeUuid}&rulebase=${rulebase}`, {
         headers: { 'Authorization': `Bearer ${auth.token}` }
       });
       
@@ -163,14 +172,14 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       if (timer) clearTimeout(timer);
       setIsLoading(false);
     }
-  }, [auth, selectedScopeUuid, rulebase, addToast]);
+  }, [auth, selectedScopeUuid, rulebase, policyType, addToast]);
 
   useEffect(() => {
     loadRules();
   }, [loadRules]);
 
   const columns = useMemo(() => {
-    return [
+    const commonStart = [
       {
         key: '_index',
         label: 'Rule ID',
@@ -216,8 +225,6 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                         e.stopPropagation();
                         setSelectedScopeUuid(scopeId);
                         
-                        // If they click on a Pre or Post rule, teleport them to that tab.
-                        // If they click on a Local rule, keep them on the Device Rules tab.
                         if (rulebase === 'device' && setActiveSubTab) {
                           const isPre = (row.scope || '').endsWith(':pre');
                           const isPost = (row.scope || '').endsWith(':post');
@@ -299,82 +306,115 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
             ))}
           </div>
         )
-      },
-      {
-        key: 'sourceZone',
-        label: 'Source Zone',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.source_zone || []).join(', ') || 'any'
-      },
-      {
-        key: 'sourceAddress',
-        label: 'Source Address',
-        width: '260px',
-        renderCell: (val: any, row: any) => (row.source_address || []).join(', ') || 'any'
-      },
-      {
-        key: 'destinationZone',
-        label: 'Destination Zone',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.destination_zone || []).join(', ') || 'any'
-      },
-      {
-        key: 'destinationAddress',
-        label: 'Destination Address',
-        width: '260px',
-        renderCell: (val: any, row: any) => (row.destination_address || []).join(', ') || 'any'
-      },
-      {
-        key: 'application',
-        label: 'Application',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.application || []).join(', ') || 'any'
-      },
-      {
-        key: 'service',
-        label: 'Service',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.service || []).join(', ') || 'any'
-      },
-      {
-        key: 'category',
-        label: 'URL Category',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.category || []).join(', ') || 'any'
-      },
-      {
-        key: 'profiles',
-        label: 'Profiles',
-        width: '200px',
-        renderCell: (val: any, row: any) => (row.profiles || []).join(', ') || 'none'
-      },
-      {
-        key: 'logSetting',
-        label: 'Log Profile',
-        width: '200px',
-        renderCell: (val: any, row: any) => row.log_setting || 'none'
-      },
-      {
-        key: 'action',
-        label: 'Action',
-        width: '140px',
-        renderCell: (val: any, row: any) => {
-          const action = row.action || 'allow';
-          const isAllow = action.toLowerCase() === 'allow';
-          return (
-            <span style={{ 
-              display: 'inline-flex', alignItems: 'center', gap: '6px', 
-              color: isAllow ? 'var(--status-green)' : 'var(--status-red)',
-              fontSize: '12px', fontWeight: 500
-            }}>
-              {isAllow ? <Shield size={14} /> : <Shield size={14} style={{ opacity: 0.5 }} />}
-              {action.charAt(0).toUpperCase() + action.slice(1)}
-            </span>
-          );
-        }
       }
     ];
-  }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, devices]);
+
+    const actionCol = {
+      key: 'action',
+      label: 'Action',
+      width: '140px',
+      renderCell: (val: any, row: any) => {
+        const action = row.action || 'allow';
+        const isAllow = action.toLowerCase() === 'allow';
+        return (
+          <span style={{ 
+            display: 'inline-flex', alignItems: 'center', gap: '6px', 
+            color: isAllow ? 'var(--status-green)' : 'var(--status-red)',
+            fontSize: '12px', fontWeight: 500
+          }}>
+            {isAllow ? <Shield size={14} /> : <Shield size={14} style={{ opacity: 0.5 }} />}
+            {action.charAt(0).toUpperCase() + action.slice(1)}
+          </span>
+        );
+      }
+    };
+
+    if (policyType === 'nat') {
+      return [
+        ...commonStart,
+        { key: 'toZone', label: 'To Zone', width: '200px', renderCell: (v: any, r: any) => r.to_zone || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => (r.service || []).join(', ') || 'any' },
+        { key: 'srcTranslation', label: 'Source Translation', width: '220px', renderCell: (v: any, r: any) => r.source_translation_type ? `${r.source_translation_type}: ${r.source_translation_address || ''}` : 'none' },
+        { key: 'dstTranslation', label: 'Destination Translation', width: '220px', renderCell: (v: any, r: any) => r.destination_translation_address ? `${r.destination_translation_address}:${r.destination_translation_port || ''}` : 'none' },
+      ];
+    }
+
+    if (policyType === 'qos') {
+      return [
+        ...commonStart,
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        { key: 'qosClass', label: 'QoS Class', width: '160px', renderCell: (v: any, r: any) => r.qos_class || 'none' },
+        { key: 'dscpTos', label: 'DSCP/ToS', width: '160px', renderCell: (v: any, r: any) => r.dscp_tos_marking || 'none' },
+      ];
+    }
+
+    if (policyType === 'pbf') {
+      return [
+        ...commonStart,
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        actionCol,
+        { key: 'forwardInterface', label: 'Forward Interface', width: '200px', renderCell: (v: any, r: any) => r.forward_interface || 'none' },
+        { key: 'forwardNextHop', label: 'Next Hop', width: '200px', renderCell: (v: any, r: any) => r.forward_next_hop || 'none' },
+      ];
+    }
+
+    if (policyType === 'decryption') {
+      return [
+        ...commonStart,
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        actionCol,
+        { key: 'decryptionType', label: 'Decryption Type', width: '180px', renderCell: (v: any, r: any) => r.decryption_type || 'none' },
+        { key: 'decryptionProfile', label: 'Profile', width: '200px', renderCell: (v: any, r: any) => r.decryption_profile || 'none' },
+      ];
+    }
+
+    if (policyType === 'application_override') {
+      return [
+        ...commonStart,
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
+        { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
+        { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+        { key: 'protocol', label: 'Protocol', width: '160px', renderCell: (v: any, r: any) => r.protocol || 'any' },
+        { key: 'port', label: 'Port', width: '160px', renderCell: (v: any, r: any) => r.port || 'any' },
+        { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => (r.application || []).join(', ') || 'none' },
+      ];
+    }
+
+    if (policyType === 'tunnel_inspection') {
+      return [
+        ...commonStart,
+        actionCol,
+        { key: 'protocols', label: 'Protocols', width: '200px', renderCell: (v: any, r: any) => r.protocols || 'any' },
+        { key: 'actionProfile', label: 'Action Profile', width: '200px', renderCell: (v: any, r: any) => r.action_profile || 'none' },
+      ];
+    }
+
+    // Default: security
+    return [
+      ...commonStart,
+      { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any' },
+      { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => (r.source_address || []).join(', ') || 'any' },
+      { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any' },
+      { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => (r.destination_address || []).join(', ') || 'any' },
+      { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => (r.application || []).join(', ') || 'any' },
+      { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => (r.service || []).join(', ') || 'any' },
+      { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => (r.category || []).join(', ') || 'any' },
+      { key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => (r.profiles || []).join(', ') || 'none' },
+      { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none' },
+      actionCol
+    ];
+  }, [scopeNameMap, getVisibleScopes, rulebase, setActiveSubTab, policyType]);
 
   const getGroupVal = useCallback((row: any) => {
     if (rulebase === 'device') {
@@ -395,19 +435,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     return counts;
   }, [rules, getGroupVal]);
 
-  if (!rulebase || !isSecurityPolicy) {
-    // Extract the policy type (e.g. NAT, Decryption) from the activeSubTab
-    const policyType = activeSubTab.split('-')[0]?.trim() || activeSubTab;
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-        <Shield size={48} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
-        <h2 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{policyType} Policies</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>
-          This policy type is not yet fully implemented in the UI.
-        </p>
-      </div>
-    );
-  }
+  if (!rulebase) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>

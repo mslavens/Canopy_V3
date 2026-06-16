@@ -4599,7 +4599,7 @@ func main() {
 	mux.HandleFunc("/api/objects/security-profile/delete", handleSecurityProfileDelete)
 
 	// --- POLICIES MODULE ENDPOINTS ---
-	mux.HandleFunc("/api/policies/security", handleGetSecurityPolicies)
+	mux.HandleFunc("/api/policies", handleGetPolicies)
 
 	// --- DASHBOARD WIDGETS ---
 	mux.HandleFunc("/api/objects/security-profile-group/create", handleSecurityProfileGroupCreate)

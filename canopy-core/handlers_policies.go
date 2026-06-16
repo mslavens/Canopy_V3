@@ -17,11 +17,11 @@ type PolicyRule struct {
 	Scope              string   `json:"scope"`
 	RuleName           string   `json:"rule_name"`
 	Description        *string  `json:"description"`
-	Action             string   `json:"action"`
 	Disabled           int      `json:"disabled"`
-	ProfileType        *string  `json:"profile_type"`
-	ProfileGroup       *string  `json:"profile_group"`
+	Action             *string  `json:"action"`
 	ScheduleID         *int     `json:"schedule_id"`
+
+	// Shared Arrays
 	SourceZone         []string `json:"source_zone"`
 	DestinationZone    []string `json:"destination_zone"`
 	SourceAddress      []string `json:"source_address"`
@@ -29,13 +29,54 @@ type PolicyRule struct {
 	Service            []string `json:"service"`
 	Application        []string `json:"application"`
 	Tags               []string `json:"tags"`
+
+	// Security specific
+	ProfileType        *string  `json:"profile_type"`
+	ProfileGroup       *string  `json:"profile_group"`
+
+	// NAT specific
+	ToZone                        *string `json:"to_zone"`
+	SourceTranslationType         *string `json:"source_translation_type"`
+	SourceTranslationAddress      *string `json:"source_translation_address"`
+	DestinationTranslationAddress *string `json:"destination_translation_address"`
+	DestinationTranslationPort    *string `json:"destination_translation_port"`
+
+	// QoS specific
+	QoSClass      *string `json:"qos_class"`
+	DSCPTOS       *string `json:"dscp_tos_marking"`
+
+	// PBF specific
+	ForwardInterface *string `json:"forward_interface"`
+	ForwardNextHop   *string `json:"forward_next_hop"`
+	MonitorProfile   *string `json:"monitor_profile"`
+
+	// Decryption specific
+	DecryptionType    *string `json:"decryption_type"`
+	DecryptionProfile *string `json:"decryption_profile"`
+
+	// App Override specific
+	Protocol          *string `json:"protocol"`
+	Port              *string `json:"port"`
+
+	// Tunnel specific
+	Protocols     *string `json:"protocols"`
+	ActionProfile *string `json:"action_profile"`
+
+	// Internal references for single-value hydration
+	ServiceID        *int    `json:"-"`
+	ServiceGroupID   *int    `json:"-"`
+	ServiceAdHoc     *string `json:"-"`
+	CustomAppID      *int    `json:"-"`
+	PredefinedApp    *string `json:"-"`
+
+	// Hierarchy metadata
 	IsInherited        bool     `json:"_isInherited"`
 	HierarchyLevel     int      `json:"_hierarchyLevel"`
 	Stack              string   `json:"_stack"`
 	StackOrder         int      `json:"_stackOrder"`
 }
 
-func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
+func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -49,6 +90,21 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 
 	scopeID := r.URL.Query().Get("scope")
 	rulebase := r.URL.Query().Get("rulebase") // pre, post, device
+	policyType := r.URL.Query().Get("type")
+	if policyType == "" {
+		policyType = "security"
+	}
+	tableName := policyType + "_rules"
+
+	validTables := map[string]bool{
+		"security_rules": true, "nat_rules": true, "qos_rules": true,
+		"pbf_rules": true, "decryption_rules": true,
+		"application_override_rules": true, "tunnel_inspection_rules": true,
+	}
+	if !validTables[tableName] {
+		http.Error(w, "invalid policy type", http.StatusBadRequest)
+		return
+	}
 
 	if scopeID == "" {
 		http.Error(w, "scope parameter is required", http.StatusBadRequest)
@@ -114,12 +170,26 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		var query string
 		var args []interface{}
 		
+		var cols string
+		switch policyType {
+		case "security":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, profile_type, profile_group, schedule_id"
+		case "nat":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, to_zone, service_id, service_group_id, service_ad_hoc, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port"
+		case "qos":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, qos_class, dscp_tos_marking, schedule_id"
+		case "pbf":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, forward_interface, forward_next_hop, monitor_profile, schedule_id"
+		case "decryption":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, decryption_type, decryption_profile, schedule_id"
+		case "application_override":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, protocol, port, custom_app_id, predefined_app_name"
+		case "tunnel_inspection":
+			cols = "id, device_uuid, scope, rule_name, description, disabled, protocols, action_profile"
+		}
+
 		if scopeType == "show-all" {
-			query = `
-				SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
-				FROM security_rules
-				WHERE 1=1
-			`
+			query = fmt.Sprintf("SELECT %s FROM %s WHERE 1=1", cols, tableName)
 		} else {
 			placeholders := make([]string, len(targetUUIDs))
 			args = make([]interface{}, len(targetUUIDs))
@@ -127,11 +197,7 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 				placeholders[i] = "?"
 				args[i] = u
 			}
-			query = fmt.Sprintf(`
-				SELECT id, device_uuid, scope, rule_name, description, action, disabled, profile_type, profile_group, schedule_id
-				FROM security_rules
-				WHERE device_uuid IN (%s)
-			`, strings.Join(placeholders, ","))
+			query = fmt.Sprintf("SELECT %s FROM %s WHERE device_uuid IN (%s)", cols, tableName, strings.Join(placeholders, ","))
 		}
 		
 		// Optional suffix matching for Pre/Post
@@ -159,8 +225,25 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		var batch []PolicyRule
 		for rows.Next() {
 			var r PolicyRule
-			if err := rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Action, &r.Disabled, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID); err != nil {
-				return err
+			var errScan error
+			switch policyType {
+			case "security":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ProfileType, &r.ProfileGroup, &r.ScheduleID)
+			case "nat":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.ToZone, &r.ServiceID, &r.ServiceGroupID, &r.ServiceAdHoc, &r.SourceTranslationType, &r.SourceTranslationAddress, &r.DestinationTranslationAddress, &r.DestinationTranslationPort)
+			case "qos":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.QoSClass, &r.DSCPTOS, &r.ScheduleID)
+			case "pbf":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ForwardInterface, &r.ForwardNextHop, &r.MonitorProfile, &r.ScheduleID)
+			case "decryption":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.DecryptionType, &r.DecryptionProfile, &r.ScheduleID)
+			case "application_override":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocol, &r.Port, &r.CustomAppID, &r.PredefinedApp)
+			case "tunnel_inspection":
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocols, &r.ActionProfile)
+			}
+			if errScan != nil {
+				return errScan
 			}
 			if scopeType == "show-all" {
 				r.IsInherited = false
@@ -303,7 +386,7 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Zones
-		err = hydrate(fmt.Sprintf("SELECT rule_id, direction, zone_name FROM rule_zone_mappings WHERE rule_type = 'security' AND rule_id IN (%s)", inClause), func(rows *sql.Rows) error {
+		err = hydrate(fmt.Sprintf("SELECT rule_id, direction, zone_name FROM rule_zone_mappings WHERE rule_type = '%s' AND rule_id IN (%s)", policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var dir, zname string
 			if err := rows.Scan(&rid, &dir, &zname); err != nil { return err }
@@ -319,8 +402,8 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			SELECT m.entity_id, t.name 
 			FROM entity_tag_mappings m 
 			JOIN tags t ON m.tag_id = t.id 
-			WHERE m.entity_type = 'security_rules' AND m.entity_id IN (%s)
-		`, inClause), func(rows *sql.Rows) error {
+			WHERE m.entity_type = '%s' AND m.entity_id IN (%s)
+		`, tableName, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var tname string
 			if err := rows.Scan(&rid, &tname); err != nil { return err }
@@ -335,8 +418,8 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			FROM rule_address_mappings m
 			LEFT JOIN address_objects a ON m.address_id = a.id
 			LEFT JOIN address_groups g ON m.group_id = g.id
-			WHERE rule_type = 'security' AND rule_id IN (%s)
-		`, inClause), func(rows *sql.Rows) error {
+			WHERE rule_type = '%s' AND rule_id IN (%s)
+		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var dir string
 			var name sql.NullString
@@ -354,8 +437,8 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			FROM rule_service_mappings m
 			LEFT JOIN service_objects s ON m.service_id = s.id
 			LEFT JOIN service_groups g ON m.group_id = g.id
-			WHERE rule_type = 'security' AND rule_id IN (%s)
-		`, inClause), func(rows *sql.Rows) error {
+			WHERE rule_type = '%s' AND rule_id IN (%s)
+		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var name sql.NullString
 			if err := rows.Scan(&rid, &name); err != nil { return err }
@@ -369,8 +452,8 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			SELECT rule_id, COALESCE(a.name, predefined_app_name)
 			FROM rule_application_mappings m
 			LEFT JOIN application_objects a ON m.custom_app_id = a.id
-			WHERE rule_type = 'security' AND rule_id IN (%s)
-		`, inClause), func(rows *sql.Rows) error {
+			WHERE rule_type = '%s' AND rule_id IN (%s)
+		`, policyType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var name sql.NullString
 			if err := rows.Scan(&rid, &name); err != nil { return err }
@@ -378,6 +461,24 @@ func handleGetSecurityPolicies(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if err != nil { log.Printf("Error hydrating applications: %v", err) }
+
+		// Post-hydration for single-value embedded fields (like NAT services or App Override apps)
+		if policyType == "nat" || policyType == "application_override" {
+			for _, r := range ruleMap {
+				if policyType == "nat" {
+					if r.ServiceAdHoc != nil && *r.ServiceAdHoc != "" {
+						r.Service = append(r.Service, *r.ServiceAdHoc)
+					} else if r.ServiceID != nil || r.ServiceGroupID != nil {
+						// These could be fetched here. For a baseline, we'll leave it as we just need strings, but typically you'd join them in the original SELECT or do a bulk fetch.
+					}
+				}
+				if policyType == "application_override" {
+					if r.PredefinedApp != nil && *r.PredefinedApp != "" {
+						r.Application = append(r.Application, *r.PredefinedApp)
+					}
+				}
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

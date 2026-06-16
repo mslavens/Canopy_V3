@@ -57,10 +57,15 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
       ]
     },
     {
-      categoryName: "Security Rules",
+      categoryName: "Policies & Profiles",
       tables: [
         { tableName: "security_rules", label: "Security Policies", description: "Rules governing allowed or denied traffic based on zones, applications, and services.", icon: <Shield size={14} /> },
         { tableName: "nat_rules", label: "NAT Policies", description: "Network Address Translation (NAT) rules and translation details.", icon: <Shield size={14} /> },
+        { tableName: "qos_rules", label: "QoS Policies", description: "Quality of Service rules mapping traffic to QoS classes.", icon: <Shield size={14} /> },
+        { tableName: "pbf_rules", label: "PBF Policies", description: "Policy-Based Forwarding rules for traffic steering.", icon: <Shield size={14} /> },
+        { tableName: "decryption_rules", label: "Decryption Policies", description: "Rules for SSL/SSH decryption and mirroring.", icon: <Shield size={14} /> },
+        { tableName: "application_override_rules", label: "App Override Policies", description: "Rules that force traffic to bypass App-ID and use a custom application.", icon: <Shield size={14} /> },
+        { tableName: "tunnel_inspection_rules", label: "Tunnel Inspection", description: "Rules defining inspection for tunneled traffic.", icon: <Shield size={14} /> },
         { tableName: "security_profiles", label: "Security Profiles", description: "Applied profiles mapping (Antivirus, URL filtering, Anti-spyware, etc.).", icon: <Shield size={14} /> },
         { tableName: "security_profile_groups", label: "Security Profile Groups", description: "Groups of security profiles applied to policies.", icon: <Shield size={14} /> },
         { tableName: "log_forwarding_profiles", label: "Log Forwarding Profiles", description: "Profiles defining where system and traffic logs are sent.", icon: <Shield size={14} /> }
