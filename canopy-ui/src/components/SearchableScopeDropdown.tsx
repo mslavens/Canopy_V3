@@ -77,11 +77,95 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
     return result;
   }, [options, searchQuery]);
 
-  const lastOption = filteredOptions[filteredOptions.length - 1];
+  const showAllOption = filteredOptions.find(o => o.value === 'show-all');
+  const scrollableOptions = filteredOptions.filter(o => o.value !== 'show-all');
+
+  const lastOption = scrollableOptions[scrollableOptions.length - 1];
   const lastDepth = lastOption ? lastOption.depth : 0;
   // Calculate padding to allow the last item to be scrolled up exactly beneath its sticky headers.
   // Container inner height is ~310px (320px maxHeight - 2px borders - 8px padding).
   const calculatedPaddingBottom = Math.max(0, 310 - ((lastDepth + 1) * 32));
+
+  const renderOptionNode = (opt: ScopeHierarchyNode, overrideSticky?: boolean) => {
+    const isSelected = opt.value === value;
+    const isSticky = overrideSticky !== undefined ? overrideSticky : (!searchQuery && opt.type !== 'firewall');
+    return (
+      <div
+        key={opt.value}
+        tabIndex={-1}
+        onClick={() => {
+          onChange(opt.value);
+          setIsOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onChange(opt.value);
+            setIsOpen(false);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = e.currentTarget.nextElementSibling as HTMLElement;
+            if (next) next.focus();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = e.currentTarget.previousElementSibling as HTMLElement;
+            if (prev) prev.focus();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+          }
+        }}
+        style={{
+          height: '32px',
+          boxSizing: 'border-box',
+          padding: '0 12px',
+          paddingLeft: `${opt.depth * 16 + 12}px`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+          backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
+          transition: 'background-color 0.15s ease',
+          fontWeight: isSelected ? 600 : 400,
+          outline: 'none',
+          ...(isSticky ? {
+            position: 'sticky',
+            top: `${opt.depth * 32}px`,
+            zIndex: 20 - opt.depth,
+            borderBottom: 'none',
+            boxShadow: `0 1px 0 ${isSelected ? 'var(--bg-element)' : 'var(--bg-surface)'}`
+          } : {})
+        }}
+        className={`dropdown-option-row ${isSelected ? 'active' : ''}`}
+        data-depth={opt.depth}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
+      >
+        {opt.type === 'global' && <Database size={12} className="text-accent" />}
+        {opt.type === 'shared' && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
+        {opt.type === 'device-group' && <Layers size={12} />}
+        {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {opt.label}
+        </span>
+        {ruleCounts && ruleCounts[opt.value] !== undefined && ruleCounts[opt.value] > 0 && (
+          <span style={{
+            fontSize: '10px',
+            padding: '2px 6px',
+            backgroundColor: 'var(--bg-app)',
+            color: 'var(--text-muted)',
+            borderRadius: '10px',
+            border: '1px solid var(--border-main)',
+            marginLeft: 'auto'
+          }}>
+            {ruleCounts[opt.value]}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const dropdownMenu = (isOpen && coords.ready) ? (
     <div
@@ -103,108 +187,32 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
         overflow: 'hidden'
       }}
     >
+      {showAllOption && (
+        <div style={{ borderBottom: '1px solid var(--border-main)', paddingBottom: '4px', marginBottom: '4px', zIndex: 100, flexShrink: 0 }}>
+          {renderOptionNode(showAllOption, false)}
+        </div>
+      )}
       {/* Options list */}
       <div 
         className="portal-scope-dropdown-scroll" 
         style={{ overflowY: 'auto', flex: 1, paddingBottom: `${calculatedPaddingBottom}px` }}
         ref={(node) => {
           if (node && !node.dataset.scrolled) {
-            const selectedIndex = filteredOptions.findIndex(o => o.value === value);
+            const selectedIndex = scrollableOptions.findIndex(o => o.value === value);
             if (selectedIndex !== -1) {
-              const depth = filteredOptions[selectedIndex].depth;
+              const depth = scrollableOptions[selectedIndex].depth;
               node.scrollTop = (selectedIndex - depth) * 32;
             }
             node.dataset.scrolled = 'true';
           }
         }}
       >
-        {filteredOptions.length === 0 ? (
+        {scrollableOptions.length === 0 ? (
           <div style={{ padding: '12px' }}>
             <EmptyState icon={<Search size={24} />} title="No scopes match search" description="Try adjusting your query." minHeight="100px" />
           </div>
         ) : (
-          filteredOptions.map((opt) => {
-            const isSelected = opt.value === value;
-                const isSticky = !searchQuery && opt.type !== 'firewall';
-                return (
-              <div
-                key={opt.value}
-                tabIndex={-1}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    const next = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (next) next.focus();
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    const prev = e.currentTarget.previousElementSibling as HTMLElement;
-                    if (prev) prev.focus();
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setIsOpen(false);
-                  }
-                }}
-                style={{
-                  height: '32px',
-                  boxSizing: 'border-box',
-                  padding: '0 12px',
-                  paddingLeft: `${opt.depth * 16 + 12}px`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                  backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
-                  transition: 'background-color 0.15s ease',
-                  fontWeight: isSelected ? 600 : 400,
-                  outline: 'none',
-                  ...(isSticky ? {
-                    position: 'sticky',
-                    top: `${opt.depth * 32}px`,
-                    zIndex: 20 - opt.depth,
-                    borderBottom: 'none',
-                    // Extending the background color 1px down seals any subpixel rendering gaps 
-                    // without creating a visible line.
-                    boxShadow: `0 1px 0 ${isSelected ? 'var(--bg-element)' : 'var(--bg-surface)'}`
-                  } : {})
-                }}
-                className={`dropdown-option-row ${isSelected ? 'active' : ''}`}
-                data-depth={opt.depth}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
-              >
-                {opt.type === 'global' && <Database size={12} className="text-accent" />}
-                {opt.type === 'shared' && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
-                {opt.type === 'device-group' && <Layers size={12} />}
-                {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {opt.label}
-                </span>
-                {ruleCounts && ruleCounts[opt.value] !== undefined && ruleCounts[opt.value] > 0 && (
-                  <span style={{
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    backgroundColor: 'var(--bg-app)',
-                    color: 'var(--text-muted)',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-main)',
-                    marginLeft: 'auto'
-                  }}>
-                    {ruleCounts[opt.value]}
-                  </span>
-                )}
-              </div>
-            );
-          })
+          scrollableOptions.map(opt => renderOptionNode(opt))
         )}
       </div>
     </div>
