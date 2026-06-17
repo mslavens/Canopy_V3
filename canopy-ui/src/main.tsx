@@ -5,7 +5,6 @@ import './global.css';
 import { AppLayout } from './layouts/AppLayout';
 import { CandidatesPopoutPage } from './pages/CandidatesPopoutPage';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
-import { PathResolutionPage } from './pages/PathResolutionPage';
 import { InterfacesPage } from './pages/InterfacesPage';
 import { XMLImportPage } from './pages/XMLImportPage';
 import { ObjectsPage } from './pages/ObjectsPage';
@@ -260,7 +259,7 @@ const App = () => {
 
   // Router Switch Logic
   const renderActivePage = () => {
-    if (activeMainTab === 'Network' && activeSubTab === 'Interfaces') {
+    if (activeMainTab === 'Networks' && activeSubTab === 'Interfaces') {
       return <InterfacesPage auth={auth} addToast={addToast} />;
     }
     if (activeMainTab === 'Analytics' && activeSubTab === 'Traffic Heatmap') {
@@ -281,8 +280,16 @@ const App = () => {
     if (activeMainTab === 'Monitor') {
       return <MonitorPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
-    if (activeMainTab === 'Network' && activeSubTab === 'Path Resolution') {
-      return <PathResolutionPage auth={auth} addToast={addToast} />;
+    if (
+      activeMainTab === 'Tools' || 
+      activeMainTab === 'Policy Lifecycle' || 
+      (activeMainTab === 'Networks' && (activeSubTab === 'Zones' || activeSubTab === 'Route Table'))
+    ) {
+      return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
+          <div>{activeMainTab} - Coming Soon</div>
+        </div>
+      );
     }
     if (activeMainTab === 'System' && activeSubTab === 'Changelog') {
       return <ChangelogPage />;

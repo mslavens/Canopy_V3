@@ -55,13 +55,15 @@ const getFirstSubTab = (items: NavItem[]): string => {
   return typeof firstItem === 'string' ? firstItem : firstItem.value;
 };
 
-const mainTabs = ['Dashboard', 'Device Management', 'Policies', 'Objects', 'Network', 'Monitor', 'XML Import', 'Analytics', 'System'];
+const mainTabs = ['Dashboard', 'Tools', 'XML Import', 'Monitor', 'Analytics', 'Policy Lifecycle', 'Policies', 'Objects', 'Networks', 'Device Management', 'System'];
 const subTabsMap: Record<string, NavItem[]> = {
   'Device Management': ['Inventory', 'Device Groups', 'Templates'],
-  'Network': ['Interfaces', 'Zones', 'Virtual Routers', 'Path Resolution'],
+  'Networks': ['Zones', 'Interfaces', 'Route Table'],
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Heatmap'],
+  'Tools': ['Placeholder'],
+  'Policy Lifecycle': ['Placeholder'],
   'Policies': [
     { group: 'Security', items: [
       { label: 'Pre Rules', value: 'Security - Pre Rules' },
