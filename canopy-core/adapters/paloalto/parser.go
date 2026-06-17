@@ -32,10 +32,20 @@ type VendorMetadata struct {
 
 // XML entry structs
 type XMLVariableEntry struct {
-	Name         string `xml:"name,attr"`
-	Type         string `xml:"type"`
-	Value        string `xml:"value"`
-	DefaultValue string `xml:"default-value"`
+	Name         string      `xml:"name,attr"`
+	Type         *XMLVarType `xml:"type"`
+	Value        string      `xml:"value"`
+	DefaultValue string      `xml:"default-value"`
+}
+
+type XMLVarType struct {
+	Child *XMLVarTypeChild `xml:",any"`
+	Value string           `xml:",chardata"`
+}
+
+type XMLVarTypeChild struct {
+	XMLName xml.Name
+	Value   string `xml:",chardata"`
 }
 
 type XMLAddressEntry struct {
@@ -2627,13 +2637,23 @@ func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStat
 	return nil
 }
 
-func insertVariables(tx *sql.Tx, stmt *sql.Stmt, deviceUUID, scope string, vars []XMLVariableEntry) error {
+func insertVariables(stmt *sql.Stmt, deviceUUID, scope string, vars []XMLVariableEntry) error {
 	for _, v := range vars {
-		vType := v.Type
+		vType := "unknown"
+		vValue := v.Value
+		if v.Type != nil {
+			if v.Type.Child != nil {
+				vType = v.Type.Child.XMLName.Local
+				if vValue == "" {
+					vValue = strings.TrimSpace(v.Type.Child.Value)
+				}
+			} else {
+				vType = strings.TrimSpace(v.Type.Value)
+			}
+		}
 		if vType == "" {
 			vType = "unknown"
 		}
-		vValue := v.Value
 		if vValue == "" {
 			vValue = v.DefaultValue
 		}
@@ -2644,7 +2664,7 @@ func insertVariables(tx *sql.Tx, stmt *sql.Stmt, deviceUUID, scope string, vars 
 	return nil
 }
 
-func processInterfaceList(tx *sql.Tx, interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, scope, ifaceType string, list []InterfaceNode, interfaceToZone, interfaceToVR map[string]string, metadataTags []string, stats *IngestionStats, topologyImported *int) error {
+func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, scope, ifaceType string, list []InterfaceNode, interfaceToZone, interfaceToVR map[string]string, metadataTags []string, stats *IngestionStats, topologyImported *int) error {
 	for _, eth := range list {
 		zoneName, ok := interfaceToZone[eth.Name]
 		if !ok {
@@ -2840,7 +2860,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 			devicesImported++
 
-			if err := insertVariables(tx, variableStmt, deviceUUID, "Template: "+tmpl.Name, tmpl.Variable); err != nil {
+			if err := insertVariables(variableStmt, deviceUUID, "Template: "+tmpl.Name, tmpl.Variable); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert template variables: %w", err)
 			}
 
@@ -2888,11 +2908,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 
 				metadataTags := []string{"panorama-import", "template:" + tmpl.Name}
 				scopeName := "Template: " + tmpl.Name
-				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
 			}
 		}
 
@@ -3615,7 +3635,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				tx.Exec("DELETE FROM scopes WHERE uuid = 'paloalto-temp-placeholder'")
 			}
 
-			if err := insertVariables(tx, variableStmt, deviceUUID, "local", dev.Variable); err != nil {
+			if err := insertVariables(variableStmt, deviceUUID, "local", dev.Variable); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert device variables: %w", err)
 			}
 
@@ -3666,11 +3686,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 
 			metadataTags := []string{"firewall-import"}
 			scopeName := "local"
-			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
-			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
 
 			// Parse VSYS (Objects and Policies)
 			for _, vsys := range dev.Vsys {
@@ -3995,7 +4015,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 						return 0, 0, fmt.Errorf("failed to register placeholder firewall scope %s: %w", serial, err)
 					}
 				}
-				if err := insertVariables(tx, variableStmt, fwUUID, "local", dev.Variable); err != nil {
+				if err := insertVariables(variableStmt, fwUUID, "local", dev.Variable); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert template stack device variables for %s: %w", serial, err)
 				}
 			}

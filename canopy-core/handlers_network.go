@@ -378,11 +378,32 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 	activeDB.WriteLock()
 	defer activeDB.WriteUnlock()
 
-	rows, err := activeDB.DB().Query(`
+	deviceUUID := r.URL.Query().Get("device_uuid")
+
+	query := `
 		SELECT id, device_uuid, scope, name, type, value
 		FROM variables
-		ORDER BY scope ASC, name ASC
-	`)
+	`
+	var args []interface{}
+	
+	if deviceUUID != "" {
+		ancestry := getTemplateAncestry(deviceUUID)
+		if len(ancestry) > 0 {
+			placeholders := make([]string, len(ancestry))
+			for i, id := range ancestry {
+				placeholders[i] = "?"
+				args = append(args, id)
+			}
+			query += " WHERE device_uuid IN (" + strings.Join(placeholders, ",") + ")"
+		} else {
+			query += " WHERE device_uuid = ?"
+			args = append(args, deviceUUID)
+		}
+	}
+
+	query += " ORDER BY scope ASC, name ASC"
+
+	rows, err := activeDB.DB().Query(query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

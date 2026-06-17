@@ -87,7 +87,13 @@ export class CanopyApiClient {
   public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
   public getNetworksInterfaces = (deviceUuid?: string) => this.request<any[]>(`/api/networks/interfaces${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
   public getNetworksRoutes = (deviceUuid?: string) => this.request<any[]>(`/api/networks/routes${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
-  public getVariables = () => this.request<any[]>('/api/variables');
+  public getVariables = (deviceUuid?: string) => {
+    let url = '/api/variables';
+    if (deviceUuid && deviceUuid !== 'show-all') {
+      url += `?device_uuid=${encodeURIComponent(deviceUuid)}`;
+    }
+    return this.request<any[]>(url);
+  };
 
   // Secrets Vault
   public getSecrets = () => this.request<any[]>('/api/secrets');
