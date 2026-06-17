@@ -172,6 +172,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return savedWidth ? parseInt(savedWidth, 10) : 240;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => localStorage.getItem('canopy-sidebar-open') !== 'false');
+  const [tabCounts, setTabCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const handleTabCounts = (e: any) => {
+      setTabCounts(e.detail);
+    };
+    window.addEventListener('update-tab-counts', handleTabCounts);
+    return () => window.removeEventListener('update-tab-counts', handleTabCounts);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('canopy-sidebar-open', isSidebarOpen.toString());
@@ -749,7 +758,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                       {isExpanded && subTab.items.map(item => {
                         const isObj = typeof item !== 'string';
                         const value = isObj ? (item as NavItemObj).value : item as string;
-                        const label = isObj ? (item as NavItemObj).label : item as string;
+                        let label = isObj ? (item as NavItemObj).label : item as string;
+                        
+                        if (activeMainTab === 'Policies' && tabCounts[value] !== undefined) {
+                          label = `${label} (${tabCounts[value]})`;
+                        }
+                        
                         return (
                           <button key={value} onClick={() => handleNavigation(() => setActiveSubTab(value))} style={{ textAlign: 'left', background: activeSubTab === value ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === value ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === value ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === value ? 500 : 400, cursor: 'pointer', fontSize: '13px' }}>{label}</button>
                         );

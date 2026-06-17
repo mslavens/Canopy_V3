@@ -141,6 +141,51 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }
   }, [allHierarchyOptions, rulebase]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadTabCounts = async () => {
+      if (!auth || !policyType || !activeSubTab) return;
+      try {
+        const client = new CanopyApiClient(auth);
+        let tableName = `${policyType}_rules`;
+        const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
+        if (!validTables.includes(tableName)) tableName = 'security_rules';
+        
+        let scopeFilter = "";
+        if (selectedScopeUuid !== 'show-all') {
+          const scopesStr = visibleScopes.map(s => `'${s}'`).join(',');
+          if (scopesStr) {
+            scopeFilter = `WHERE device_uuid IN (${scopesStr})`;
+          }
+        }
+        
+        const countsRes = await client.queryDb(`SELECT scope, COUNT(id) as count FROM ${tableName} ${scopeFilter} GROUP BY scope;`);
+        
+        if (isMounted) {
+          const counts = countsRes?.rows || [];
+          let pre = 0; let post = 0; let dev = 0;
+          counts.forEach((c: any) => {
+            if (c.scope.endsWith(':pre')) pre += c.count;
+            else if (c.scope.endsWith(':post')) post += c.count;
+            else dev += c.count;
+          });
+          
+          const prefix = activeSubTab.split(' - ')[0];
+          const payload = {
+            [`${prefix} - Pre Rules`]: pre,
+            [`${prefix} - Device Rules`]: dev,
+            [`${prefix} - Post Rules`]: post
+          };
+          window.dispatchEvent(new CustomEvent('update-tab-counts', { detail: payload }));
+        }
+      } catch (err) {
+        console.error("Failed to load tab counts", err);
+      }
+    };
+    loadTabCounts();
+    return () => { isMounted = false; };
+  }, [auth, policyType, selectedScopeUuid, visibleScopes, activeSubTab]);
+
   const activeFetchRef = useRef<number>(0);
 
   const loadRules = useCallback(async () => {
