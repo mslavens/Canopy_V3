@@ -610,7 +610,8 @@ type XMLStaticRouteEntry struct {
 
 type IngestionStats struct {
 	ConfigType          string   `json:"config_type"`
-	Devices             []string `json:"devices"`
+	DeviceGroups        []string `json:"device_groups"`
+	Firewalls           []string `json:"firewalls"`
 	TemplatesCount      int      `json:"templates_count"`
 	DevicesCount        int      `json:"devices_count"`
 	InterfacesCount     int      `json:"interfaces_count"`
@@ -666,8 +667,9 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 	}
 
 	stats := &IngestionStats{
-		Devices:  []string{},
-		Warnings: []string{},
+		DeviceGroups: []string{},
+		Firewalls:    []string{},
+		Warnings:     []string{},
 	}
 
 	hasMgtDevices := len(config.Shared.ManagedDevices) > 0 || (config.MgtConfig != nil && len(config.MgtConfig.Devices) > 0) || (config.ReadOnly != nil && len(config.ReadOnly.Devices) > 0)
@@ -681,7 +683,7 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 		stats.TemplatesCount = len(allTemplates)
 
 		for _, tmpl := range allTemplates {
-			stats.Devices = append(stats.Devices, tmpl.Name)
+			stats.DeviceGroups = append(stats.DeviceGroups, tmpl.Name+" (Template)")
 			stats.DevicesCount += len(tmpl.Config.Devices)
 			for _, dev := range tmpl.Config.Devices {
 				for _, vsys := range dev.Vsys {
@@ -695,8 +697,8 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 		}
 
 		for _, dg := range allDeviceGroups {
-			dgName := dg.Name + " (Device Group)"
-			stats.Devices = append(stats.Devices, dgName)
+			dgName := dg.Name
+			stats.DeviceGroups = append(stats.DeviceGroups, dgName)
 		}
 
 		// Calculate object deltas for Shared
@@ -1007,7 +1009,7 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			if fwName != "" {
 				name = fwName
 			}
-			stats.Devices = append(stats.Devices, name)
+			stats.Firewalls = append(stats.Firewalls, name)
 
 			for _, vsys := range dev.Vsys {
 				stats.ZonesCount += len(vsys.Zone)

@@ -4479,7 +4479,8 @@ func main() {
 		preview := r.URL.Query().Get("preview") == "true"
 		if preview {
 			var combinedStats paloalto.IngestionStats
-			combinedStats.Devices = []string{}
+			combinedStats.DeviceGroups = []string{}
+			combinedStats.Firewalls = []string{}
 			combinedStats.Warnings = []string{}
 			validConfigsCount := 0
 
@@ -4490,14 +4491,15 @@ func main() {
 					combinedStats.Warnings = append(combinedStats.Warnings, fmt.Sprintf("Failed to parse %s: %v", f.Name, err))
 					continue
 				}
-				if stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0 {
+				if stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.DeviceGroups) == 0 && len(stats.Firewalls) == 0 {
 					continue
 				}
 
 				if combinedStats.ConfigType == "" || stats.ConfigType == "Panorama" {
 					combinedStats.ConfigType = stats.ConfigType
 				}
-				combinedStats.Devices = append(combinedStats.Devices, stats.Devices...)
+				combinedStats.DeviceGroups = append(combinedStats.DeviceGroups, stats.DeviceGroups...)
+				combinedStats.Firewalls = append(combinedStats.Firewalls, stats.Firewalls...)
 				combinedStats.TemplatesCount += stats.TemplatesCount
 				combinedStats.DevicesCount += stats.DevicesCount
 				combinedStats.InterfacesCount += stats.InterfacesCount
@@ -4520,9 +4522,10 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"preview":     true,
-				"config_type": combinedStats.ConfigType,
-				"devices":     combinedStats.Devices,
-				"warnings":    combinedStats.Warnings,
+				"config_type":    combinedStats.ConfigType,
+				"device_groups":  combinedStats.DeviceGroups,
+				"firewalls":      combinedStats.Firewalls,
+				"warnings":       combinedStats.Warnings,
 				"stats": map[string]interface{}{
 					"templates_count":       combinedStats.TemplatesCount,
 					"devices_count":         combinedStats.DevicesCount,
@@ -4550,7 +4553,7 @@ func main() {
 
 		for _, f := range xmlFiles {
 			stats, err := adapter.Analyze(f.Data, f.Name)
-			if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
+			if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.DeviceGroups) == 0 && len(stats.Firewalls) == 0) {
 				continue
 			}
 

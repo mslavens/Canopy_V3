@@ -8,7 +8,8 @@ import {
 
 interface PreviewStats {
   config_type: 'Panorama' | 'Firewall';
-  devices: string[];
+  device_groups: string[];
+  firewalls: string[];
   preview: boolean;
   warnings: string[];
   stats: {
@@ -365,7 +366,7 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
                   Detected Layout Type: <strong style={{ color: 'var(--accent-blue)' }}>
-                    {previewData.config_type === 'Panorama' && previewData.devices.length > 0 
+                    {previewData.config_type === 'Panorama' && (previewData.firewalls?.length > 0 || false) 
                       ? 'Panorama & Standalone Firewalls' 
                       : previewData.config_type}
                   </strong>
@@ -388,13 +389,13 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
             {previewData.config_type === 'Panorama' && (
               <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
-                <strong>{Math.max(0, previewData.stats.devices_count - previewData.devices.length)}</strong> Device Groups
+                <strong>{previewData.device_groups?.length || 0}</strong> Device Groups
               </div>
             )}
-            {(previewData.config_type === 'Firewall' || previewData.devices.length > 0) && (
+            {(previewData.config_type === 'Firewall' || (previewData.firewalls?.length > 0)) && (
               <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
-                <strong>{previewData.config_type === 'Panorama' ? previewData.devices.length : previewData.stats.devices_count}</strong> Standalone Firewalls
+                <strong>{previewData.firewalls?.length || 0}</strong> Standalone Firewalls
               </div>
             )}
             <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -534,17 +535,46 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
           )}
 
           {/* Device List summary */}
-          <div style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '15px' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Extracted Contexts ({previewData.devices.length})
-            </h4>
-            <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-main)' }}>
-              {previewData.devices.map((devName, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: 'var(--accent-blue)' }}>&rarr;</span> {devName}
+          <div style={{ display: 'flex', gap: '16px', flexDirection: 'column' }}>
+            {previewData.device_groups && previewData.device_groups.length > 0 && (
+              <div style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '15px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Panorama Contexts ({previewData.device_groups.length})
+                  </h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Templates provide network details, while Device Groups supply policies and objects.
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-main)' }}>
+                  {previewData.device_groups.map((devName, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: 'var(--accent-purple)' }}>&rarr;</span> {devName}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {previewData.firewalls && previewData.firewalls.length > 0 && (
+              <div style={{ backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '15px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Standalone Firewalls ({previewData.firewalls.length})
+                  </h4>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Individual firewalls containing a combination of both network details and policies/objects.
+                  </span>
+                </div>
+                <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-main)' }}>
+                  {previewData.firewalls.map((devName, index) => (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: 'var(--accent-blue)' }}>&rarr;</span> {devName}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Zero Changes Duplicate Warning Badge */}
