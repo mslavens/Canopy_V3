@@ -364,7 +364,11 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                   Configuration Pre-Flight Analysis Complete
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Detected Layout Type: <strong style={{ color: 'var(--accent-blue)' }}>{previewData.config_type}</strong>
+                  Detected Layout Type: <strong style={{ color: 'var(--accent-blue)' }}>
+                    {previewData.config_type === 'Panorama' && previewData.devices.length > 0 
+                      ? 'Panorama & Standalone Firewalls' 
+                      : previewData.config_type}
+                  </strong>
                 </p>
               </div>
             </div>
@@ -381,10 +385,18 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
                 <strong>{previewData.stats.templates_count}</strong> Templates
               </div>
             )}
-            <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
-              <strong>{previewData.stats.devices_count}</strong> Devices / Contexts
-            </div>
+            {previewData.config_type === 'Panorama' && (
+              <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
+                <strong>{Math.max(0, previewData.stats.devices_count - previewData.devices.length)}</strong> Device Groups
+              </div>
+            )}
+            {(previewData.config_type === 'Firewall' || previewData.devices.length > 0) && (
+              <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Cpu size={14} style={{ color: 'var(--accent-blue)' }} />
+                <strong>{previewData.config_type === 'Panorama' ? previewData.devices.length : previewData.stats.devices_count}</strong> Standalone Firewalls
+              </div>
+            )}
             <div style={{ backgroundColor: 'var(--bg-element)', border: '1px solid var(--border-main)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Network size={14} style={{ color: 'var(--accent-green)' }} />
               <strong>{previewData.stats.interfaces_count}</strong> Interfaces
