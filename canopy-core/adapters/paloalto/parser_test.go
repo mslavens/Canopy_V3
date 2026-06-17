@@ -360,6 +360,35 @@ func TestParser(t *testing.T) {
 			PRIMARY KEY (device_uuid, interface_name),
 			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS interfaces (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			ip_address TEXT,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS zones (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS variables (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			device_uuid TEXT NOT NULL,
+			scope TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			value TEXT NOT NULL,
+			description TEXT,
+			FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS address_objects (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			device_uuid TEXT NOT NULL,

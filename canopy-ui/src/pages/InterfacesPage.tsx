@@ -26,13 +26,8 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     if (!apiClient) return;
     try {
       setLoading(true);
-      const res = await apiClient.queryDb(`
-        SELECT t.interface_name, t.network_cidr, t.zone_name, t.vendor_metadata, d.name AS device_name, 'PaloAlto' AS vendor 
-        FROM network_topology t 
-        JOIN scopes d ON t.device_uuid = d.uuid 
-        ORDER BY d.name ASC, t.interface_name ASC
-      `);
-      setInterfaces(res.rows || []);
+      const res = await apiClient.getNetworksInterfaces();
+      setInterfaces(res || []);
     } catch (err) {
       console.error('Failed to load interfaces:', err);
       addToast(err instanceof Error ? err.message : 'Failed to query network interfaces.', 'error');
@@ -89,34 +84,11 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
 
   const columns: ColumnDef[] = useMemo(
     () => [
-      { key: 'device_name', label: 'Device / Template Context' },
-      { key: 'interface_name', label: 'Interface' },
-      { key: 'network_cidr', label: 'Network CIDR' },
-      { key: 'zone_name', label: 'Security Zone' },
-      {
-        key: 'vr',
-        label: 'Virtual Router',
-        renderCell: (_val: any, row: any) => {
-          try {
-            const meta = JSON.parse(row.vendor_metadata || '{}');
-            return meta.vr || 'default';
-          } catch {
-            return 'default';
-          }
-        },
-      },
-      {
-        key: 'tags',
-        label: 'Metadata Tags',
-        renderCell: (_val: any, row: any) => {
-          try {
-            const meta = JSON.parse(row.vendor_metadata || '{}');
-            return (meta.tags || []).join(', ');
-          } catch {
-            return '-';
-          }
-        },
-      },
+      { key: 'scope', label: 'Context / Scope' },
+      { key: 'name', label: 'Interface' },
+      { key: 'type', label: 'Type' },
+      { key: 'ip_address', label: 'IP Address' },
+      { key: 'zone', label: 'Security Zone' },
     ],
     []
   );

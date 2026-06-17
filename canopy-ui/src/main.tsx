@@ -6,6 +6,9 @@ import { AppLayout } from './layouts/AppLayout';
 import { CandidatesPopoutPage } from './pages/CandidatesPopoutPage';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { InterfacesPage } from './pages/InterfacesPage';
+import { ZonesPage } from './pages/ZonesPage';
+import { RouteTablePage } from './pages/RouteTablePage';
+import { VariablesPage } from './pages/VariablesPage';
 import { XMLImportPage } from './pages/XMLImportPage';
 import { ObjectsPage } from './pages/ObjectsPage';
 import { MonitorPage } from './pages/MonitorPage';
@@ -262,6 +265,15 @@ const App = () => {
     if (activeMainTab === 'Networks' && activeSubTab === 'Interfaces') {
       return <InterfacesPage auth={auth} addToast={addToast} />;
     }
+    if (activeMainTab === 'Networks' && activeSubTab === 'Zones') {
+      return <ZonesPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'Networks' && activeSubTab === 'Route Table') {
+      return <RouteTablePage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'Networks' && activeSubTab === 'Template Variables') {
+      return <VariablesPage auth={auth} addToast={addToast} />;
+    }
     if (activeMainTab === 'Analytics' && activeSubTab === 'Traffic Heatmap') {
       return <HeatmapPage auth={auth} addToast={addToast} />;
     }
@@ -283,7 +295,7 @@ const App = () => {
     if (
       activeMainTab === 'Tools' || 
       activeMainTab === 'Policy Lifecycle' || 
-      (activeMainTab === 'Networks' && (activeSubTab === 'Zones' || activeSubTab === 'Route Table'))
+      (activeMainTab === 'Networks' && (activeSubTab === 'Zones' || activeSubTab === 'Route Table' || activeSubTab === 'Template Variables'))
     ) {
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>

@@ -58,7 +58,7 @@ const getFirstSubTab = (items: NavItem[]): string => {
 const mainTabs = ['Dashboard', 'Tools', 'XML Import', 'Monitor', 'Analytics', 'Policy Lifecycle', 'Policies', 'Objects', 'Networks', 'Device Management', 'System'];
 const subTabsMap: Record<string, NavItem[]> = {
   'Device Management': ['Inventory', 'Device Groups', 'Templates'],
-  'Networks': ['Zones', 'Interfaces', 'Route Table'],
+  'Networks': ['Zones', 'Interfaces', 'Route Table', 'Template Variables'],
   'Monitor': ['Log Import', 'Traffic Logs'],
   'XML Import': ['Upload Config'],
   'Analytics': ['Traffic Heatmap'],

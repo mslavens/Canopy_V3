@@ -83,6 +83,12 @@ export class CanopyApiClient {
   public deleteWorkspace = (id: number) => this.request<any>('/api/workspaces/delete', { method: 'POST', body: JSON.stringify({ id }) });
   public importWorkspace = (formData: FormData) => this.request<any>('/api/workspaces/import', { method: 'POST', body: formData });
 
+  // Networks & Variables
+  public getNetworksZones = () => this.request<any[]>('/api/networks/zones');
+  public getNetworksInterfaces = () => this.request<any[]>('/api/networks/interfaces');
+  public getNetworksRoutes = () => this.request<any[]>('/api/networks/routes');
+  public getVariables = () => this.request<any[]>('/api/variables');
+
   // Secrets Vault
   public getSecrets = () => this.request<any[]>('/api/secrets');
   public createSecret = (name: string, description: string, secret_value: string) => this.request<any>('/api/secrets/create', { method: 'POST', body: JSON.stringify({ name, description, secret_value }) });

@@ -31,6 +31,13 @@ type VendorMetadata struct {
 }
 
 // XML entry structs
+type XMLVariableEntry struct {
+	Name         string `xml:"name,attr"`
+	Type         string `xml:"type"`
+	Value        string `xml:"value"`
+	DefaultValue string `xml:"default-value"`
+}
+
 type XMLAddressEntry struct {
 	Name        string   `xml:"name,attr"`
 	IPNetmask   string   `xml:"ip-netmask"`
@@ -74,7 +81,7 @@ type XMLApplicationEntry struct {
 	Category    string   `xml:"category"`
 	Subcategory string   `xml:"subcategory"`
 	Technology  string   `xml:"technology"`
-	Risk        int      `xml:"risk"`
+	Risk        string   `xml:"risk"`
 	Ports       []string `xml:"ports>member"`
 	Description string   `xml:"description"`
 }
@@ -87,8 +94,8 @@ type XMLApplicationGroupEntry struct {
 
 type XMLRegionEntry struct {
 	Name      string   `xml:"name,attr"`
-	Latitude  float64  `xml:"latitude"`
-	Longitude float64  `xml:"longitude"`
+	Latitude  string   `xml:"latitude"`
+	Longitude string   `xml:"longitude"`
 	Address   []string `xml:"address>member"`
 }
 
@@ -406,14 +413,29 @@ type InterfaceNode struct {
 	IPs  []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"layer3>ip>entry"`
+	Layer2IPs []struct {
+		Name string `xml:"name,attr"`
+	} `xml:"layer2>ip>entry"`
 }
 
 type ZoneNode struct {
 	Name    string `xml:"name,attr"`
 	Network struct {
-		Layer3 struct {
+		Layer3 *struct {
 			Members []string `xml:"member"`
 		} `xml:"layer3"`
+		Layer2 *struct {
+			Members []string `xml:"member"`
+		} `xml:"layer2"`
+		VWire *struct {
+			Members []string `xml:"member"`
+		} `xml:"vwire"`
+		Tap *struct {
+			Members []string `xml:"member"`
+		} `xml:"tap"`
+		External *struct {
+			Members []string `xml:"member"`
+		} `xml:"external"`
 	} `xml:"network"`
 }
 
@@ -426,13 +448,18 @@ type VirtualRouterNode struct {
 }
 
 type XMLTemplate struct {
-	Name   string `xml:"name,attr"`
-	Config struct {
+	Name     string             `xml:"name,attr"`
+	Variable []XMLVariableEntry `xml:"variable>entry"`
+	Config   struct {
 		Devices []struct {
 			Name    string `xml:"name,attr"`
 			Network struct {
 				Interface struct {
-					Ethernet []InterfaceNode `xml:"ethernet>entry"`
+					Ethernet          []InterfaceNode `xml:"ethernet>entry"`
+					Vlan              []InterfaceNode `xml:"vlan>entry"`
+					Loopback          []InterfaceNode `xml:"loopback>entry"`
+					Tunnel            []InterfaceNode `xml:"tunnel>entry"`
+					AggregateEthernet []InterfaceNode `xml:"aggregate-ethernet>entry"`
 				} `xml:"interface"`
 				VirtualRouter []VirtualRouterNode `xml:"virtual-router>entry"`
 			} `xml:"network"`
@@ -495,6 +522,13 @@ type PaloAltoConfig struct {
 	ReadOnly       *XMLReadOnly       `xml:"readonly"`
 	DeviceConfig   *XMLDeviceConfig   `xml:"deviceconfig"`
 
+	Panorama struct {
+		Templates      []XMLTemplate      `xml:"tpl>entry"`
+		PanoramaTpl    []XMLTemplate      `xml:"template>entry"`
+		TemplateStacks []XMLTemplateStack `xml:"template-stack>entry"`
+		DeviceGroups   []XMLDeviceGroup   `xml:"device-group>entry"`
+	} `xml:"panorama"`
+
 	Shared struct {
 		Address               []XMLAddressEntry              `xml:"address>entry"`
 		AddressGroup          []XMLAddressGroupEntry         `xml:"address-group>entry"`
@@ -518,13 +552,18 @@ type PaloAltoConfig struct {
 
 	Devices []struct {
 		Name           string             `xml:"name,attr"`
+		Variable       []XMLVariableEntry `xml:"variable>entry"`
 		Templates      []XMLTemplate      `xml:"template>entry"`
 		TemplateStacks []XMLTemplateStack `xml:"template-stack>entry"`
 		DeviceGroups   []XMLDeviceGroup   `xml:"device-group>entry"`
 		DeviceConfig   *XMLDeviceConfig   `xml:"deviceconfig"`
 		Network        struct {
 			Interface struct {
-				Ethernet []InterfaceNode `xml:"ethernet>entry"`
+				Ethernet          []InterfaceNode `xml:"ethernet>entry"`
+				Vlan              []InterfaceNode `xml:"vlan>entry"`
+				Loopback          []InterfaceNode `xml:"loopback>entry"`
+				Tunnel            []InterfaceNode `xml:"tunnel>entry"`
+				AggregateEthernet []InterfaceNode `xml:"aggregate-ethernet>entry"`
 			} `xml:"interface"`
 			VirtualRouter []VirtualRouterNode `xml:"virtual-router>entry"`
 		} `xml:"network"`
@@ -563,8 +602,10 @@ type XMLStaticRouteEntry struct {
 	Interface   string `xml:"interface"`
 	Nexthop     struct {
 		IPAddress string `xml:"ip-address"`
+		Discard   string `xml:"discard"`
+		NextVR    string `xml:"next-vr"`
 	} `xml:"nexthop"`
-	Metric int `xml:"metric"`
+	Metric string `xml:"metric"`
 }
 
 type IngestionStats struct {
@@ -611,8 +652,12 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 	}
 
 	allTemplates := append([]XMLTemplate{}, config.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.PanoramaTpl...)
 	allTemplateStacks := append([]XMLTemplateStack{}, config.TemplateStacks...)
+	allTemplateStacks = append(allTemplateStacks, config.Panorama.TemplateStacks...)
 	allDeviceGroups := append([]XMLDeviceGroup{}, config.DeviceGroups...)
+	allDeviceGroups = append(allDeviceGroups, config.Panorama.DeviceGroups...)
 
 	for _, dev := range config.Devices {
 		allTemplates = append(allTemplates, dev.Templates...)
@@ -2563,8 +2608,79 @@ func insertStaticRoutes(tx *sql.Tx, deviceUUID, vrName string, entries []XMLStat
 	defer stmt.Close()
 
 	for _, route := range entries {
-		if _, err := stmt.Exec(deviceUUID, vrName, route.Name, route.Destination, route.Nexthop.IPAddress, route.Interface, route.Metric); err != nil {
+		var nextHop string
+		if route.Nexthop.IPAddress != "" {
+			nextHop = route.Nexthop.IPAddress
+		} else if route.Nexthop.Discard != "" {
+			nextHop = "discard"
+		} else if route.Nexthop.NextVR != "" {
+			nextHop = "VR: " + route.Nexthop.NextVR
+		}
+
+		if _, err := stmt.Exec(deviceUUID, vrName, route.Name, route.Destination, nextHop, route.Interface, route.Metric); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func insertVariables(tx *sql.Tx, stmt *sql.Stmt, deviceUUID, scope string, vars []XMLVariableEntry) error {
+	for _, v := range vars {
+		vType := v.Type
+		if vType == "" {
+			vType = "unknown"
+		}
+		vValue := v.Value
+		if vValue == "" {
+			vValue = v.DefaultValue
+		}
+		if _, err := stmt.Exec(deviceUUID, scope, v.Name, vType, vValue, ""); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func processInterfaceList(tx *sql.Tx, interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, scope, ifaceType string, list []InterfaceNode, interfaceToZone, interfaceToVR map[string]string, metadataTags []string, stats *IngestionStats, topologyImported *int) error {
+	for _, eth := range list {
+		zoneName, ok := interfaceToZone[eth.Name]
+		if !ok {
+			zoneName = "untrusted"
+		}
+		vrName, ok := interfaceToVR[eth.Name]
+		if !ok {
+			vrName = "default"
+		}
+
+		metadata := VendorMetadata{
+			VirtualRouter: vrName,
+			Tags:          metadataTags,
+		}
+		metaBytes, _ := json.Marshal(metadata)
+
+		var ipList []string
+		for _, ip := range eth.IPs {
+			ipList = append(ipList, ip.Name)
+			if topologyStmt != nil {
+				if _, err := topologyStmt.Exec(deviceUUID, eth.Name, ip.Name, zoneName, string(metaBytes)); err != nil {
+					return fmt.Errorf("failed to insert network topology: %w", err)
+				}
+				*topologyImported++
+			}
+		}
+		for _, ip := range eth.Layer2IPs {
+			ipList = append(ipList, ip.Name)
+		}
+		
+		ipAddress := strings.Join(ipList, ", ")
+		if interfaceStmt != nil {
+			if _, err := interfaceStmt.Exec(deviceUUID, scope, eth.Name, ifaceType, ipAddress, ""); err != nil {
+				return err
+			}
+		}
+
+		if stats != nil {
+			stats.InterfacesCount += len(ipList)
 		}
 	}
 	return nil
@@ -2584,8 +2700,12 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	}
 
 	allTemplates := append([]XMLTemplate{}, config.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.PanoramaTpl...)
 	allTemplateStacks := append([]XMLTemplateStack{}, config.TemplateStacks...)
+	allTemplateStacks = append(allTemplateStacks, config.Panorama.TemplateStacks...)
 	allDeviceGroups := append([]XMLDeviceGroup{}, config.DeviceGroups...)
+	allDeviceGroups = append(allDeviceGroups, config.Panorama.DeviceGroups...)
 
 	for _, dev := range config.Devices {
 		allTemplates = append(allTemplates, dev.Templates...)
@@ -2651,6 +2771,33 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	}
 	defer topologyStmt.Close()
 
+	interfaceStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO interfaces (device_uuid, scope, name, type, ip_address, description)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare interface statement: %w", err)
+	}
+	defer interfaceStmt.Close()
+
+	zoneStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO zones (device_uuid, scope, name, type, description)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare zone statement: %w", err)
+	}
+	defer zoneStmt.Close()
+
+	variableStmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO variables (device_uuid, scope, name, type, value, description)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to prepare variable statement: %w", err)
+	}
+	defer variableStmt.Close()
+
 	devicesImported := 0
 	topologyImported := 0
 
@@ -2690,12 +2837,38 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 			devicesImported++
 
+			if err := insertVariables(tx, variableStmt, deviceUUID, "Template: "+tmpl.Name, tmpl.Variable); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert template variables: %w", err)
+			}
+
 			for _, dev := range tmpl.Config.Devices {
 				interfaceToZone := make(map[string]string)
 				for _, vsys := range dev.Vsys {
 					for _, zone := range vsys.Zone {
-						for _, member := range zone.Network.Layer3.Members {
+						zType := "layer3"
+						var members []string
+						if zone.Network.Layer3 != nil {
+							members = zone.Network.Layer3.Members
+						} else if zone.Network.Layer2 != nil {
+							zType = "layer2"
+							members = zone.Network.Layer2.Members
+						} else if zone.Network.VWire != nil {
+							zType = "virtual-wire"
+							members = zone.Network.VWire.Members
+						} else if zone.Network.Tap != nil {
+							zType = "tap"
+							members = zone.Network.Tap.Members
+						} else if zone.Network.External != nil {
+							zType = "external"
+							members = zone.Network.External.Members
+						}
+
+						for _, member := range members {
 							interfaceToZone[member] = zone.Name
+						}
+						
+						if _, err := zoneStmt.Exec(deviceUUID, "Template: "+tmpl.Name, zone.Name, zType, ""); err != nil {
+							return 0, 0, fmt.Errorf("failed to insert zone: %w", err)
 						}
 					}
 				}
@@ -2710,33 +2883,13 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					}
 				}
 
-				for _, eth := range dev.Network.Interface.Ethernet {
-					zoneName, ok := interfaceToZone[eth.Name]
-					if !ok {
-						zoneName = "untrusted"
-					}
-
-					vrName, ok := interfaceToVR[eth.Name]
-					if !ok {
-						vrName = "default"
-					}
-
-					metadata := VendorMetadata{
-						VirtualRouter: vrName,
-						Tags:          []string{"panorama-import", "template:" + tmpl.Name},
-					}
-					metaBytes, err := json.Marshal(metadata)
-					if err != nil {
-						return 0, 0, fmt.Errorf("failed to marshal metadata: %w", err)
-					}
-
-					for _, ip := range eth.IPs {
-						if _, err := topologyStmt.Exec(deviceUUID, eth.Name, ip.Name, zoneName, string(metaBytes)); err != nil {
-							return 0, 0, fmt.Errorf("failed to insert network topology: %w", err)
-						}
-						topologyImported++
-					}
-				}
+				metadataTags := []string{"panorama-import", "template:" + tmpl.Name}
+				scopeName := "Template: " + tmpl.Name
+				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+				if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
 			}
 		}
 
@@ -3457,11 +3610,41 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				tx.Exec("DELETE FROM scopes WHERE uuid = 'paloalto-temp-placeholder'")
 			}
 
+			if err := insertVariables(tx, variableStmt, deviceUUID, "local", dev.Variable); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert device variables: %w", err)
+			}
+
 			interfaceToZone := make(map[string]string)
 			for _, vsys := range dev.Vsys {
 				for _, zone := range vsys.Zone {
-					for _, member := range zone.Network.Layer3.Members {
+					zType := "layer3"
+					var members []string
+					if zone.Network.Layer3 != nil {
+						members = zone.Network.Layer3.Members
+					} else if zone.Network.Layer2 != nil {
+						zType = "layer2"
+						members = zone.Network.Layer2.Members
+					} else if zone.Network.VWire != nil {
+						zType = "virtual-wire"
+						members = zone.Network.VWire.Members
+					} else if zone.Network.Tap != nil {
+						zType = "tap"
+						members = zone.Network.Tap.Members
+					} else if zone.Network.External != nil {
+						zType = "external"
+						members = zone.Network.External.Members
+					}
+
+					for _, member := range members {
 						interfaceToZone[member] = zone.Name
+					}
+					
+					vsysName := vsys.Name
+					if vsysName == "" {
+						vsysName = "vsys1"
+					}
+					if _, err := zoneStmt.Exec(deviceUUID, vsysName, zone.Name, zType, ""); err != nil {
+						return 0, 0, fmt.Errorf("failed to insert zone: %w", err)
 					}
 				}
 			}
@@ -3476,33 +3659,13 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 			}
 
-			for _, eth := range dev.Network.Interface.Ethernet {
-				zoneName, ok := interfaceToZone[eth.Name]
-				if !ok {
-					zoneName = "untrusted"
-				}
-
-				vrName, ok := interfaceToVR[eth.Name]
-				if !ok {
-					vrName = "default"
-				}
-
-				metadata := VendorMetadata{
-					VirtualRouter: vrName,
-					Tags:          []string{"firewall-import"},
-				}
-				metaBytes, err := json.Marshal(metadata)
-				if err != nil {
-					return 0, 0, fmt.Errorf("failed to marshal metadata: %w", err)
-				}
-
-				for _, ip := range eth.IPs {
-					if _, err := topologyStmt.Exec(deviceUUID, eth.Name, ip.Name, zoneName, string(metaBytes)); err != nil {
-						return 0, 0, fmt.Errorf("failed to insert topology entry: %w", err)
-					}
-					topologyImported++
-				}
-			}
+			metadataTags := []string{"firewall-import"}
+			scopeName := "local"
+			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "ethernet", dev.Network.Interface.Ethernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "vlan", dev.Network.Interface.Vlan, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "loopback", dev.Network.Interface.Loopback, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "tunnel", dev.Network.Interface.Tunnel, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
+			if err := processInterfaceList(tx, interfaceStmt, topologyStmt, deviceUUID, scopeName, "aggregate-ethernet", dev.Network.Interface.AggregateEthernet, interfaceToZone, interfaceToVR, metadataTags, nil, &topologyImported); err != nil { return 0, 0, err }
 
 			// Parse VSYS (Objects and Policies)
 			for _, vsys := range dev.Vsys {
@@ -4158,7 +4321,7 @@ func (a *Adapter) compareApplicationObjects(deviceUUID, scope string, entries []
 			if dbVal.Category == entry.Category &&
 				dbVal.Subcategory == entry.Subcategory &&
 				dbVal.Technology == entry.Technology &&
-				dbVal.Risk == entry.Risk &&
+				fmt.Sprintf("%d", dbVal.Risk) == entry.Risk &&
 				dbVal.Ports == portsStr &&
 				dbVal.Description == entry.Description {
 				unchanged++
@@ -4176,8 +4339,12 @@ func (a *Adapter) IsPanoramaConfig(xmlData []byte) bool {
 		return false
 	}
 	allTemplates := append([]XMLTemplate{}, config.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.Templates...)
+	allTemplates = append(allTemplates, config.Panorama.PanoramaTpl...)
 	allTemplateStacks := append([]XMLTemplateStack{}, config.TemplateStacks...)
+	allTemplateStacks = append(allTemplateStacks, config.Panorama.TemplateStacks...)
 	allDeviceGroups := append([]XMLDeviceGroup{}, config.DeviceGroups...)
+	allDeviceGroups = append(allDeviceGroups, config.Panorama.DeviceGroups...)
 
 	for _, dev := range config.Devices {
 		allTemplates = append(allTemplates, dev.Templates...)
@@ -4186,6 +4353,8 @@ func (a *Adapter) IsPanoramaConfig(xmlData []byte) bool {
 	}
 
 	hasMgtDevices := len(config.Shared.ManagedDevices) > 0 || (config.MgtConfig != nil && len(config.MgtConfig.Devices) > 0) || (config.ReadOnly != nil && len(config.ReadOnly.Devices) > 0)
-	hasShared := len(config.Shared.Address) > 0 || len(config.Shared.AddressGroup) > 0 || len(config.Shared.Service) > 0 || len(config.Shared.PreRulebase.SecurityRules) > 0 || len(config.Shared.PostRulebase.SecurityRules) > 0 || hasMgtDevices
-	return len(allTemplates) > 0 || len(allDeviceGroups) > 0 || len(allTemplateStacks) > 0 || hasShared
+
+	// A true Panorama config must have templates, device groups, or managed devices.
+	// We DO NOT check generic 'shared' objects because a local firewall can have shared objects and we don't want to falsely flag it.
+	return len(allTemplates) > 0 || len(allDeviceGroups) > 0 || len(allTemplateStacks) > 0 || hasMgtDevices
 }

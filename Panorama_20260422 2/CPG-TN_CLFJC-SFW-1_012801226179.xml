@@ -1,0 +1,1177 @@
+<?xml version="1.0"?>
+<config version="10.2.0" urldb="paloaltonetworks" detail-version="10.2.7">
+  <mgt-config>
+    <users/>
+    <password-complexity>
+      <enabled>yes</enabled>
+      <minimum-length>8</minimum-length>
+    </password-complexity>
+  </mgt-config>
+  <shared>
+    <application/>
+    <application-group/>
+    <service/>
+    <service-group/>
+    <botnet>
+      <configuration>
+        <http>
+          <dynamic-dns>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </dynamic-dns>
+          <malware-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </malware-sites>
+          <recent-domains>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </recent-domains>
+          <ip-domains>
+            <enabled>yes</enabled>
+            <threshold>10</threshold>
+          </ip-domains>
+          <executables-from-unknown-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </executables-from-unknown-sites>
+        </http>
+        <other-applications>
+          <irc>yes</irc>
+        </other-applications>
+        <unknown-applications>
+          <unknown-tcp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-tcp>
+          <unknown-udp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-udp>
+        </unknown-applications>
+      </configuration>
+      <report>
+        <topn>100</topn>
+        <scheduled>yes</scheduled>
+      </report>
+    </botnet>
+    <application-status>
+      <entry name="anysupport" status="disabled"/>
+      <entry name="biomerieux-virtuo" status="disabled"/>
+      <entry name="blooket" status="disabled"/>
+      <entry name="cerner-ibus-cas" status="disabled"/>
+      <entry name="firestorage" status="disabled"/>
+      <entry name="gigafile" status="disabled"/>
+      <entry name="hlls" status="disabled"/>
+      <entry name="home-assistant" status="disabled"/>
+      <entry name="hp-quickdrop" status="disabled"/>
+      <entry name="jiomeet-base" status="disabled"/>
+      <entry name="jiomeet-chat" status="disabled"/>
+      <entry name="jiomeet-downloading" status="disabled"/>
+      <entry name="jiomeet-screen-sharing" status="disabled"/>
+      <entry name="jiomeet-uploading" status="disabled"/>
+      <entry name="mud" status="disabled"/>
+      <entry name="ncpurple" status="disabled"/>
+      <entry name="openai-base" status="disabled"/>
+      <entry name="openai-api" status="disabled"/>
+      <entry name="openai-chatgpt" status="disabled"/>
+      <entry name="rclone" status="disabled"/>
+      <entry name="rmi-ossp-gemnet" status="disabled"/>
+      <entry name="spinoco" status="disabled"/>
+      <entry name="abbott-rals-http" status="disabled"/>
+      <entry name="amazon-luna" status="disabled"/>
+      <entry name="amazon-titan-base" status="disabled"/>
+      <entry name="amazon-titan-embed" status="disabled"/>
+      <entry name="amazon-titan-image" status="disabled"/>
+      <entry name="amazon-titan-text" status="disabled"/>
+      <entry name="appetize.io" status="disabled"/>
+      <entry name="azure-openai-api" status="disabled"/>
+      <entry name="azure-openai-encrypted" status="disabled"/>
+      <entry name="azure-openai-studio" status="disabled"/>
+      <entry name="bing-ai-base" status="disabled"/>
+      <entry name="bing-ai-uploading" status="disabled"/>
+      <entry name="biofire-filmarray" status="disabled"/>
+      <entry name="biomerieux-hostcom" status="disabled"/>
+      <entry name="bluexp" status="disabled"/>
+      <entry name="cadwell-cadlink" status="disabled"/>
+      <entry name="canva-base" status="disabled"/>
+      <entry name="canva-downloading" status="disabled"/>
+      <entry name="canva-text-to-image" status="disabled"/>
+      <entry name="canva-uploading" status="disabled"/>
+      <entry name="certegra-hub" status="disabled"/>
+      <entry name="character-ai-base" status="disabled"/>
+      <entry name="character-ai-posting" status="disabled"/>
+      <entry name="character-ai-uploading" status="disabled"/>
+      <entry name="chatsonic" status="disabled"/>
+      <entry name="deepl-base" status="disabled"/>
+      <entry name="deepl-translator" status="disabled"/>
+      <entry name="deepl-write" status="disabled"/>
+      <entry name="delta-dcisoft-discovery" status="disabled"/>
+      <entry name="dust" status="disabled"/>
+      <entry name="dws-remote-control" status="disabled"/>
+      <entry name="ewon-firmware-update" status="disabled"/>
+      <entry name="ewon-talk2m-access" status="disabled"/>
+      <entry name="ewon-web-server" status="disabled"/>
+      <entry name="fizz" status="disabled"/>
+      <entry name="franklin-electric-tsa" status="disabled"/>
+      <entry name="ge-dcp" status="disabled"/>
+      <entry name="ghostwriter" status="disabled"/>
+      <entry name="gist-posting" status="disabled"/>
+      <entry name="github-copilot-business" status="disabled"/>
+      <entry name="github-copilot-chat" status="disabled"/>
+      <entry name="github-copilot-chat-business" status="disabled"/>
+      <entry name="gitpod" status="disabled"/>
+      <entry name="globoplay" status="disabled"/>
+      <entry name="google-bard-base" status="disabled"/>
+      <entry name="google-bard-uploading" status="disabled"/>
+      <entry name="google-gemini-models" status="disabled"/>
+      <entry name="google-palm2" status="disabled"/>
+      <entry name="google-vertex-ai-base" status="disabled"/>
+      <entry name="google-vertex-ai-create" status="disabled"/>
+      <entry name="google-vertex-ai-delete" status="disabled"/>
+      <entry name="google-workspace-duet-ai" status="disabled"/>
+      <entry name="ha-tunnel-plus" status="disabled"/>
+      <entry name="hms-anybus-web" status="disabled"/>
+      <entry name="huggingchat" status="disabled"/>
+      <entry name="huggingchat-create" status="disabled"/>
+      <entry name="huggingchat-delete" status="disabled"/>
+      <entry name="huggingface-base" status="disabled"/>
+      <entry name="huggingface-download" status="disabled"/>
+      <entry name="huggingface-transformers-agents" status="disabled"/>
+      <entry name="huggingface-upload" status="disabled"/>
+      <entry name="jasper-ai-base" status="disabled"/>
+      <entry name="jasper-ai-uploading" status="disabled"/>
+      <entry name="lemon8" status="disabled"/>
+      <entry name="mirth-connect" status="disabled"/>
+      <entry name="ms-office365-copilot" status="disabled"/>
+      <entry name="ms-onedrive-business" status="disabled"/>
+      <entry name="ms-onedrive-business-download" status="disabled"/>
+      <entry name="ms-onedrive-business-upload" status="disabled"/>
+      <entry name="ms-powerapps" status="disabled"/>
+      <entry name="ms-visual-studio-remote-tunnel" status="disabled"/>
+      <entry name="neximatic" status="disabled"/>
+      <entry name="ninjaone" status="disabled"/>
+      <entry name="openai-chatgpt-uploading" status="disabled"/>
+      <entry name="openai-dalle" status="disabled"/>
+      <entry name="openai-dalle-downloading" status="disabled"/>
+      <entry name="openai-dalle-uploading" status="disabled"/>
+      <entry name="paloalto-prisma-sdwan-base" status="disabled"/>
+      <entry name="paloalto-prisma-sdwan-control" status="disabled"/>
+      <entry name="pcloud-base" status="disabled"/>
+      <entry name="pcloud-delete" status="disabled"/>
+      <entry name="pcloud-download" status="disabled"/>
+      <entry name="pcloud-readonly" status="disabled"/>
+      <entry name="pcloud-upload" status="disabled"/>
+      <entry name="philips-pic" status="disabled"/>
+      <entry name="proton-base" status="disabled"/>
+      <entry name="retune-base" status="disabled"/>
+      <entry name="retune-uploading" status="disabled"/>
+      <entry name="rockwell-eweb" status="disabled"/>
+      <entry name="rudesktop-remote-desktop" status="disabled"/>
+      <entry name="schneider-ecostruxure-dpws" status="disabled"/>
+      <entry name="siemens-epoc-acknowledge" status="disabled"/>
+      <entry name="siemens-epoc-get-auto-sw-updt" status="disabled"/>
+      <entry name="siemens-epoc-get-configuration" status="disabled"/>
+      <entry name="siemens-epoc-get-epocal-config" status="disabled"/>
+      <entry name="siemens-epoc-get-evad" status="disabled"/>
+      <entry name="siemens-epoc-get-operator-list" status="disabled"/>
+      <entry name="siemens-epoc-get-physician-list" status="disabled"/>
+      <entry name="siemens-epoc-get-sw-update-info" status="disabled"/>
+      <entry name="siemens-epoc-get-testcard-lot" status="disabled"/>
+      <entry name="siemens-epoc-get-time" status="disabled"/>
+      <entry name="siemens-epoc-handshake" status="disabled"/>
+      <entry name="siemens-epoc-reader-info" status="disabled"/>
+      <entry name="siemens-epoc-save-eqc" status="disabled"/>
+      <entry name="siemens-epoc-save-packet" status="disabled"/>
+      <entry name="siemens-epoc-save-test" status="disabled"/>
+      <entry name="siemens-logo-soft-comfort" status="disabled"/>
+      <entry name="siemens-logo-web-server" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-invoke" status="disabled"/>
+      <entry name="smash" status="disabled"/>
+      <entry name="socratic-base" status="disabled"/>
+      <entry name="socratic-uploading" status="disabled"/>
+      <entry name="softether" status="disabled"/>
+      <entry name="suit-conference" status="disabled"/>
+      <entry name="tabnine" status="disabled"/>
+      <entry name="tenable.io" status="disabled"/>
+      <entry name="tidb" status="disabled"/>
+      <entry name="tiktok-posting" status="disabled"/>
+      <entry name="tiktok-uploading" status="disabled"/>
+      <entry name="twingate" status="disabled"/>
+      <entry name="umas-read-card-info" status="disabled"/>
+      <entry name="vsco" status="disabled"/>
+      <entry name="zoho-assist-base" status="disabled"/>
+      <entry name="zoho-assist-delete" status="disabled"/>
+      <entry name="a2a-agent-discovery" status="disabled"/>
+      <entry name="abb-cls" status="disabled"/>
+      <entry name="abb-iac" status="disabled"/>
+      <entry name="abb-rnrp" status="disabled"/>
+      <entry name="abilityai" status="disabled"/>
+      <entry name="abiomed-remote-link" status="disabled"/>
+      <entry name="adobe-express-base" status="disabled"/>
+      <entry name="adobe-express-download" status="disabled"/>
+      <entry name="adobe-express-post" status="disabled"/>
+      <entry name="adobe-express-upload" status="disabled"/>
+      <entry name="adobe-firefly-base" status="disabled"/>
+      <entry name="adobe-firefly-download" status="disabled"/>
+      <entry name="adobe-firefly-post" status="disabled"/>
+      <entry name="adobe-firefly-upload" status="disabled"/>
+      <entry name="advantech-adam-webserver" status="disabled"/>
+      <entry name="agencii" status="disabled"/>
+      <entry name="agentops" status="disabled"/>
+      <entry name="ai-wordsmith-base" status="disabled"/>
+      <entry name="ai-wordsmith-delete" status="disabled"/>
+      <entry name="ai-wordsmith-move" status="disabled"/>
+      <entry name="ai-wordsmith-save" status="disabled"/>
+      <entry name="ai-wordsmith-upload" status="disabled"/>
+      <entry name="aible-base" status="disabled"/>
+      <entry name="aible-upload" status="disabled"/>
+      <entry name="aiosfoundation-openagi-base" status="disabled"/>
+      <entry name="aiosfoundation-openagi-download" status="disabled"/>
+      <entry name="aiosfoundation-openagi-upload" status="disabled"/>
+      <entry name="air-vpn" status="disabled"/>
+      <entry name="aitv" status="disabled"/>
+      <entry name="alibaba-tongyi-lingma" status="disabled"/>
+      <entry name="alibaba-tongyi-qianwen-base" status="disabled"/>
+      <entry name="alibaba-tongyi-qianwen-download" status="disabled"/>
+      <entry name="alibaba-tongyi-qianwen-post" status="disabled"/>
+      <entry name="alibaba-tongyi-qianwen-upload" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-base" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-create" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-delete" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-download" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-edit" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-move" status="disabled"/>
+      <entry name="alibaba-tongyi-tingwu-upload" status="disabled"/>
+      <entry name="alteryx-aidin" status="disabled"/>
+      <entry name="alteryx-aidin-create" status="disabled"/>
+      <entry name="alteryx-aidin-delete" status="disabled"/>
+      <entry name="amazon-bedrock-base" status="disabled"/>
+      <entry name="amazon-bedrock-delete" status="disabled"/>
+      <entry name="amazon-bedrock-upload" status="disabled"/>
+      <entry name="amazon-codewhisperer" status="disabled"/>
+      <entry name="amazon-cognito-base" status="disabled"/>
+      <entry name="amazon-cognito-delete" status="disabled"/>
+      <entry name="amazon-cognito-download" status="disabled"/>
+      <entry name="amazon-nova-reel" status="disabled"/>
+      <entry name="amazon-polly-base" status="disabled"/>
+      <entry name="amazon-polly-delete" status="disabled"/>
+      <entry name="amazon-polly-upload" status="disabled"/>
+      <entry name="amazon-q" status="disabled"/>
+      <entry name="amazon-s3-base" status="disabled"/>
+      <entry name="amazon-s3-download" status="disabled"/>
+      <entry name="amazon-s3-upload" status="disabled"/>
+      <entry name="amazon-sagemaker-base" status="disabled"/>
+      <entry name="amazon-sagemaker-create" status="disabled"/>
+      <entry name="amazon-sagemaker-delete" status="disabled"/>
+      <entry name="amazon-sagemaker-gndtru-create" status="disabled"/>
+      <entry name="amazon-sagemaker-gndtru-delete" status="disabled"/>
+      <entry name="amazon-sagemaker-groundtruth" status="disabled"/>
+      <entry name="amazon-transcribe-base" status="disabled"/>
+      <entry name="amazon-transcribe-create" status="disabled"/>
+      <entry name="amazon-transcribe-delete" status="disabled"/>
+      <entry name="amazon-transcribe-edit" status="disabled"/>
+      <entry name="amazon-transcribe-live" status="disabled"/>
+      <entry name="anthropic-api-base" status="disabled"/>
+      <entry name="anthropic-api-post" status="disabled"/>
+      <entry name="anyword-base" status="disabled"/>
+      <entry name="anyword-delete" status="disabled"/>
+      <entry name="anyword-upload" status="disabled"/>
+      <entry name="ap2" status="disabled"/>
+      <entry name="aperio-eslide-manager" status="disabled"/>
+      <entry name="ariba-by-sap" status="disabled"/>
+      <entry name="atera-base" status="disabled"/>
+      <entry name="atera-delete" status="disabled"/>
+      <entry name="atera-download" status="disabled"/>
+      <entry name="atera-logout" status="disabled"/>
+      <entry name="attest-autoreader" status="disabled"/>
+      <entry name="audiosonic-base" status="disabled"/>
+      <entry name="audiosonic-create" status="disabled"/>
+      <entry name="audiosonic-delete" status="disabled"/>
+      <entry name="audiosonic-download" status="disabled"/>
+      <entry name="axis-camera-station-web-client" status="disabled"/>
+      <entry name="azure-custom-speech-base" status="disabled"/>
+      <entry name="azure-custom-speech-download" status="disabled"/>
+      <entry name="azure-custom-speech-upload" status="disabled"/>
+      <entry name="azure-iot" status="disabled"/>
+      <entry name="azure-storage-accounts-create" status="disabled"/>
+      <entry name="azure-storage-accounts-delete" status="disabled"/>
+      <entry name="azure-storage-accounts-post" status="disabled"/>
+      <entry name="azure-storage-accounts-upload" status="disabled"/>
+      <entry name="baidu-yiyan" status="disabled"/>
+      <entry name="balluff-io-link-discovery" status="disabled"/>
+      <entry name="balluff-optical-sensorapp" status="disabled"/>
+      <entry name="beautiful-base" status="disabled"/>
+      <entry name="beautiful-copy" status="disabled"/>
+      <entry name="beautiful-delete" status="disabled"/>
+      <entry name="beautiful-download" status="disabled"/>
+      <entry name="beautiful-move" status="disabled"/>
+      <entry name="beautiful-share" status="disabled"/>
+      <entry name="beautiful-upload" status="disabled"/>
+      <entry name="beckman-coulter-proservice" status="disabled"/>
+      <entry name="beijer-nexto-xpress-webserver" status="disabled"/>
+      <entry name="bitbucket-atlassian-intel" status="disabled"/>
+      <entry name="bito-base" status="disabled"/>
+      <entry name="bito-invite" status="disabled"/>
+      <entry name="bito-share" status="disabled"/>
+      <entry name="blancai-recruiter-base" status="disabled"/>
+      <entry name="blancai-recruiter-delete" status="disabled"/>
+      <entry name="blancai-recruiter-download" status="disabled"/>
+      <entry name="blancai-recruiter-upload" status="disabled"/>
+      <entry name="br-ina" status="disabled"/>
+      <entry name="browserbase" status="disabled"/>
+      <entry name="canva-magic-studio" status="disabled"/>
+      <entry name="canva-magic-studio-download" status="disabled"/>
+      <entry name="canva-magic-studio-post" status="disabled"/>
+      <entry name="cardinalhealth-wavemark" status="disabled"/>
+      <entry name="chatbot-base" status="disabled"/>
+      <entry name="chatbot-copy" status="disabled"/>
+      <entry name="chatbot-create" status="disabled"/>
+      <entry name="chatbot-delete" status="disabled"/>
+      <entry name="chatbot-download" status="disabled"/>
+      <entry name="chatbot-edit" status="disabled"/>
+      <entry name="chatbot-post" status="disabled"/>
+      <entry name="chatbot-upload" status="disabled"/>
+      <entry name="chathelp" status="disabled"/>
+      <entry name="cisco-xe-web-ui" status="disabled"/>
+      <entry name="claid-base" status="disabled"/>
+      <entry name="claid-download" status="disabled"/>
+      <entry name="claid-upload" status="disabled"/>
+      <entry name="clockwise-base" status="disabled"/>
+      <entry name="clockwise-create" status="disabled"/>
+      <entry name="clockwise-delete" status="disabled"/>
+      <entry name="clockwise-edit" status="disabled"/>
+      <entry name="clockwise-invite" status="disabled"/>
+      <entry name="clockwise-post" status="disabled"/>
+      <entry name="codegen" status="disabled"/>
+      <entry name="codeium" status="disabled"/>
+      <entry name="codium-ai" status="disabled"/>
+      <entry name="confluence-atlassian-intel" status="disabled"/>
+      <entry name="continue" status="disabled"/>
+      <entry name="copy.ai-base" status="disabled"/>
+      <entry name="copy.ai-copy" status="disabled"/>
+      <entry name="copy.ai-create" status="disabled"/>
+      <entry name="copy.ai-delete" status="disabled"/>
+      <entry name="copy.ai-edit" status="disabled"/>
+      <entry name="copy.ai-move" status="disabled"/>
+      <entry name="copy.ai-post" status="disabled"/>
+      <entry name="copy.ai-share" status="disabled"/>
+      <entry name="copysmith" status="disabled"/>
+      <entry name="coveo-base" status="disabled"/>
+      <entry name="coveo-delete" status="disabled"/>
+      <entry name="coveo-download" status="disabled"/>
+      <entry name="coveo-logout" status="disabled"/>
+      <entry name="coveo-share" status="disabled"/>
+      <entry name="coveo-upload" status="disabled"/>
+      <entry name="coze" status="disabled"/>
+      <entry name="cpolar" status="disabled"/>
+      <entry name="crewai" status="disabled"/>
+      <entry name="ctc-binary-protocol" status="disabled"/>
+      <entry name="cursor" status="disabled"/>
+      <entry name="deepl-translator-delete" status="disabled"/>
+      <entry name="deepl-translator-download" status="disabled"/>
+      <entry name="deepl-translator-edit" status="disabled"/>
+      <entry name="deepl-translator-upload" status="disabled"/>
+      <entry name="deepseek-api" status="disabled"/>
+      <entry name="deepseek-chat" status="disabled"/>
+      <entry name="deepseek-platform" status="disabled"/>
+      <entry name="dify-ai" status="disabled"/>
+      <entry name="dlptest" status="disabled"/>
+      <entry name="dot-ai-base" status="disabled"/>
+      <entry name="dot-ai-post" status="disabled"/>
+      <entry name="dot-ai-upload" status="disabled"/>
+      <entry name="doubao" status="disabled"/>
+      <entry name="duckie-base" status="disabled"/>
+      <entry name="duckie-create" status="disabled"/>
+      <entry name="duckie-delete" status="disabled"/>
+      <entry name="duckie-edit" status="disabled"/>
+      <entry name="duckie-invite" status="disabled"/>
+      <entry name="egnyte-copy" status="disabled"/>
+      <entry name="egnyte-create" status="disabled"/>
+      <entry name="egnyte-delete" status="disabled"/>
+      <entry name="egnyte-invite" status="disabled"/>
+      <entry name="egnyte-move" status="disabled"/>
+      <entry name="elaiapp-base" status="disabled"/>
+      <entry name="elaiapp-delete" status="disabled"/>
+      <entry name="elaiapp-download" status="disabled"/>
+      <entry name="elaiapp-upload" status="disabled"/>
+      <entry name="elevenlabs-base" status="disabled"/>
+      <entry name="elevenlabs-delete" status="disabled"/>
+      <entry name="elevenlabs-download" status="disabled"/>
+      <entry name="elevenlabs-post" status="disabled"/>
+      <entry name="elevenlabs-upload" status="disabled"/>
+      <entry name="ewon-talk2m-access-client" status="disabled"/>
+      <entry name="ewon-talk2m-access-device" status="disabled"/>
+      <entry name="exor-hmi-webserver" status="disabled"/>
+      <entry name="factorytalk-assetcentre-agent" status="disabled"/>
+      <entry name="fast-speed-test" status="disabled"/>
+      <entry name="festo-servo-drive-webserver" status="disabled"/>
+      <entry name="fetchai-agentverse" status="disabled"/>
+      <entry name="fetchai-asione" status="disabled"/>
+      <entry name="figma-figjam-ai" status="disabled"/>
+      <entry name="file.io" status="disabled"/>
+      <entry name="filmora-base" status="disabled"/>
+      <entry name="filmora-copy" status="disabled"/>
+      <entry name="filmora-create" status="disabled"/>
+      <entry name="filmora-delete" status="disabled"/>
+      <entry name="filmora-download" status="disabled"/>
+      <entry name="filmora-edit" status="disabled"/>
+      <entry name="filmora-move" status="disabled"/>
+      <entry name="filmora-upload" status="disabled"/>
+      <entry name="finchat" status="disabled"/>
+      <entry name="fireflies.ai-base" status="disabled"/>
+      <entry name="fireflies.ai-delete" status="disabled"/>
+      <entry name="fireflies.ai-download" status="disabled"/>
+      <entry name="fireflies.ai-upload" status="disabled"/>
+      <entry name="fleetdeck" status="disabled"/>
+      <entry name="flowiseai" status="disabled"/>
+      <entry name="folderfort" status="disabled"/>
+      <entry name="fresenius-kabi-agilia-connect" status="disabled"/>
+      <entry name="garmin-nmea-sentence" status="disabled"/>
+      <entry name="github-pages" status="disabled"/>
+      <entry name="gitlab-duo" status="disabled"/>
+      <entry name="gmail-send" status="disabled"/>
+      <entry name="gofile.io" status="disabled"/>
+      <entry name="google-admin-base" status="disabled"/>
+      <entry name="google-admin-create" status="disabled"/>
+      <entry name="google-admin-delete" status="disabled"/>
+      <entry name="google-admin-download" status="disabled"/>
+      <entry name="google-admin-upload" status="disabled"/>
+      <entry name="google-antigravity" status="disabled"/>
+      <entry name="google-app-script-base" status="disabled"/>
+      <entry name="google-app-script-add" status="disabled"/>
+      <entry name="google-app-script-delete" status="disabled"/>
+      <entry name="google-app-script-deploy" status="disabled"/>
+      <entry name="google-app-script-share" status="disabled"/>
+      <entry name="google-c-engine-base" status="disabled"/>
+      <entry name="google-c-engine-create" status="disabled"/>
+      <entry name="google-c-engine-delete" status="disabled"/>
+      <entry name="google-c-engine-edit" status="disabled"/>
+      <entry name="google-chat-create" status="disabled"/>
+      <entry name="google-chat-delete" status="disabled"/>
+      <entry name="google-chat-download" status="disabled"/>
+      <entry name="google-chat-edit" status="disabled"/>
+      <entry name="google-chat-invite" status="disabled"/>
+      <entry name="google-chat-post" status="disabled"/>
+      <entry name="google-chat-upload" status="disabled"/>
+      <entry name="google-cloud-search" status="disabled"/>
+      <entry name="google-cloud-speech-to-text" status="disabled"/>
+      <entry name="google-contacts-base" status="disabled"/>
+      <entry name="google-contacts-create" status="disabled"/>
+      <entry name="google-contacts-delete" status="disabled"/>
+      <entry name="google-contacts-download" status="disabled"/>
+      <entry name="google-contacts-edit" status="disabled"/>
+      <entry name="google-contacts-upload" status="disabled"/>
+      <entry name="google-doodle-games" status="disabled"/>
+      <entry name="google-forms-base" status="disabled"/>
+      <entry name="google-forms-create" status="disabled"/>
+      <entry name="google-forms-delete" status="disabled"/>
+      <entry name="google-forms-download" status="disabled"/>
+      <entry name="google-forms-edit" status="disabled"/>
+      <entry name="google-forms-share" status="disabled"/>
+      <entry name="google-forms-upload" status="disabled"/>
+      <entry name="google-gemini" status="disabled"/>
+      <entry name="google-gemini-delete" status="disabled"/>
+      <entry name="google-gemini-downloading" status="disabled"/>
+      <entry name="google-gemini-editing" status="disabled"/>
+      <entry name="google-gemini-posting" status="disabled"/>
+      <entry name="google-gemini-uploading" status="disabled"/>
+      <entry name="google-groups" status="disabled"/>
+      <entry name="google-meet-create" status="disabled"/>
+      <entry name="google-meet-invite" status="disabled"/>
+      <entry name="google-meet-join" status="disabled"/>
+      <entry name="google-meet-post" status="disabled"/>
+      <entry name="google-meet-record" status="disabled"/>
+      <entry name="google-search-ai-mode" status="disabled"/>
+      <entry name="google-sheets-base" status="disabled"/>
+      <entry name="google-sheets-copy" status="disabled"/>
+      <entry name="google-sheets-create" status="disabled"/>
+      <entry name="google-sheets-delete" status="disabled"/>
+      <entry name="google-sheets-download" status="disabled"/>
+      <entry name="google-sheets-edit" status="disabled"/>
+      <entry name="google-sheets-rename" status="disabled"/>
+      <entry name="google-sheets-share" status="disabled"/>
+      <entry name="google-sheets-upload" status="disabled"/>
+      <entry name="google-sites-base" status="disabled"/>
+      <entry name="google-sites-create" status="disabled"/>
+      <entry name="google-sites-delete" status="disabled"/>
+      <entry name="google-sites-edit" status="disabled"/>
+      <entry name="google-sites-publish" status="disabled"/>
+      <entry name="google-sites-share" status="disabled"/>
+      <entry name="google-slides-base" status="disabled"/>
+      <entry name="google-slides-copy" status="disabled"/>
+      <entry name="google-slides-create" status="disabled"/>
+      <entry name="google-slides-delete" status="disabled"/>
+      <entry name="google-slides-download" status="disabled"/>
+      <entry name="google-slides-edit" status="disabled"/>
+      <entry name="google-slides-post" status="disabled"/>
+      <entry name="google-slides-rename" status="disabled"/>
+      <entry name="google-slides-share" status="disabled"/>
+      <entry name="google-slides-upload" status="disabled"/>
+      <entry name="google-vault" status="disabled"/>
+      <entry name="google-vertex-ai-post" status="disabled"/>
+      <entry name="google-vertex-ai-upload" status="disabled"/>
+      <entry name="gotohttp" status="disabled"/>
+      <entry name="gquic" status="disabled"/>
+      <entry name="hakko-vsft-screen-data-transfer" status="disabled"/>
+      <entry name="honeywell-experion-pks-srp" status="disabled"/>
+      <entry name="hubspot-ai" status="disabled"/>
+      <entry name="hubspot-chatspot" status="disabled"/>
+      <entry name="humanloop-base" status="disabled"/>
+      <entry name="humanloop-delete" status="disabled"/>
+      <entry name="humanloop-download" status="disabled"/>
+      <entry name="humanloop-upload" status="disabled"/>
+      <entry name="hypotenuse-ai-base" status="disabled"/>
+      <entry name="hypotenuse-ai-delete" status="disabled"/>
+      <entry name="hypotenuse-ai-download" status="disabled"/>
+      <entry name="hypotenuse-ai-upload" status="disabled"/>
+      <entry name="idal-ftp-server" status="disabled"/>
+      <entry name="idal-webserver" status="disabled"/>
+      <entry name="ifm-efector-iot-core-visualizer" status="disabled"/>
+      <entry name="ifm-efector-moneo-configure" status="disabled"/>
+      <entry name="ifm-efector-plc-web-server" status="disabled"/>
+      <entry name="ifm-pcic" status="disabled"/>
+      <entry name="ifm-vision-assistant" status="disabled"/>
+      <entry name="ignition-gateway-discovery" status="disabled"/>
+      <entry name="instagram-create" status="disabled"/>
+      <entry name="instagram-delete" status="disabled"/>
+      <entry name="instagram-edit" status="disabled"/>
+      <entry name="instagram-post" status="disabled"/>
+      <entry name="intuitive-davinci-onsite" status="disabled"/>
+      <entry name="itarian" status="disabled"/>
+      <entry name="jasper-ai-create" status="disabled"/>
+      <entry name="jasper-ai-delete" status="disabled"/>
+      <entry name="jasper-ai-download" status="disabled"/>
+      <entry name="jira-atlassian-intel" status="disabled"/>
+      <entry name="kimi" status="disabled"/>
+      <entry name="krisp-base" status="disabled"/>
+      <entry name="krisp-delete" status="disabled"/>
+      <entry name="krisp-share" status="disabled"/>
+      <entry name="level" status="disabled"/>
+      <entry name="lightning.ai-base" status="disabled"/>
+      <entry name="lightning.ai-delete" status="disabled"/>
+      <entry name="lightning.ai-download" status="disabled"/>
+      <entry name="lightning.ai-upload" status="disabled"/>
+      <entry name="linkedin-reactions" status="disabled"/>
+      <entry name="lovable" status="disabled"/>
+      <entry name="manageengine-remote-base" status="disabled"/>
+      <entry name="manageengine-remote-download" status="disabled"/>
+      <entry name="manageengine-remote-logout" status="disabled"/>
+      <entry name="manageengine-remote-upload" status="disabled"/>
+      <entry name="mcp" status="disabled"/>
+      <entry name="meetgeek-base" status="disabled"/>
+      <entry name="meetgeek-create" status="disabled"/>
+      <entry name="meetgeek-delete" status="disabled"/>
+      <entry name="meetgeek-download" status="disabled"/>
+      <entry name="meetgeek-edit" status="disabled"/>
+      <entry name="meetgeek-share" status="disabled"/>
+      <entry name="meetgeek-upload" status="disabled"/>
+      <entry name="microsoft-excel" status="disabled"/>
+      <entry name="microsoft-github-ghe-base" status="disabled"/>
+      <entry name="microsoft-github-ghe-create" status="disabled"/>
+      <entry name="microsoft-github-ghe-delete" status="disabled"/>
+      <entry name="microsoft-github-ghe-download" status="disabled"/>
+      <entry name="microsoft-github-ghe-edit" status="disabled"/>
+      <entry name="microsoft-github-ghe-post" status="disabled"/>
+      <entry name="microsoft-github-ghe-upload" status="disabled"/>
+      <entry name="mitsubishi-melsec-webserver" status="disabled"/>
+      <entry name="moxa-discovery" status="disabled"/>
+      <entry name="ms-copilot-studio" status="disabled"/>
+      <entry name="ms-copilot-studio-create" status="disabled"/>
+      <entry name="ms-copilot-studio-delete" status="disabled"/>
+      <entry name="ms-copilot-studio-download" status="disabled"/>
+      <entry name="ms-copilot-studio-post" status="disabled"/>
+      <entry name="ms-copilot-studio-upload" status="disabled"/>
+      <entry name="ms-dev-tunnels" status="disabled"/>
+      <entry name="ms-office365-copilot-delete" status="disabled"/>
+      <entry name="ms-office365-copilot-edit" status="disabled"/>
+      <entry name="ms-office365-copilot-upload" status="disabled"/>
+      <entry name="ms-onedrive-business-create" status="disabled"/>
+      <entry name="ms-onedrive-business-delete" status="disabled"/>
+      <entry name="ms-onedrive-business-share" status="disabled"/>
+      <entry name="ms-outlook-delete" status="disabled"/>
+      <entry name="ms-outlook-edit" status="disabled"/>
+      <entry name="ms-outlook-move" status="disabled"/>
+      <entry name="ms-outlook-send" status="disabled"/>
+      <entry name="ms-powerapps-copy" status="disabled"/>
+      <entry name="ms-powerapps-create" status="disabled"/>
+      <entry name="ms-powerapps-delete" status="disabled"/>
+      <entry name="ms-powerapps-download" status="disabled"/>
+      <entry name="ms-powerapps-edit" status="disabled"/>
+      <entry name="ms-powerapps-post" status="disabled"/>
+      <entry name="ms-powerapps-share" status="disabled"/>
+      <entry name="ms-teams-create" status="disabled"/>
+      <entry name="ms-teams-delete" status="disabled"/>
+      <entry name="ms-teams-invite" status="disabled"/>
+      <entry name="ms-teams-join" status="disabled"/>
+      <entry name="ms-visual-studio-dev-tunnel" status="disabled"/>
+      <entry name="msa-fieldserver-mgr" status="disabled"/>
+      <entry name="murf-base" status="disabled"/>
+      <entry name="murf-copy" status="disabled"/>
+      <entry name="murf-create" status="disabled"/>
+      <entry name="murf-delete" status="disabled"/>
+      <entry name="murf-download" status="disabled"/>
+      <entry name="murf-edit" status="disabled"/>
+      <entry name="murf-move" status="disabled"/>
+      <entry name="murf-share" status="disabled"/>
+      <entry name="murf-upload" status="disabled"/>
+      <entry name="murrelektronik-io-webserver" status="disabled"/>
+      <entry name="nidec-ct-discovery-protocol" status="disabled"/>
+      <entry name="nidec-drive-webserver" status="disabled"/>
+      <entry name="nmea-sentence" status="disabled"/>
+      <entry name="notion-ai" status="disabled"/>
+      <entry name="notta-ai-base" status="disabled"/>
+      <entry name="notta-ai-create" status="disabled"/>
+      <entry name="notta-ai-delete" status="disabled"/>
+      <entry name="notta-ai-download" status="disabled"/>
+      <entry name="notta-ai-edit" status="disabled"/>
+      <entry name="notta-ai-move" status="disabled"/>
+      <entry name="notta-ai-share" status="disabled"/>
+      <entry name="ntcip-ftp" status="disabled"/>
+      <entry name="ntcip-sfmp" status="disabled"/>
+      <entry name="ntcip-snmp" status="disabled"/>
+      <entry name="ntcip-snmp-trap" status="disabled"/>
+      <entry name="ntcip-stmp" status="disabled"/>
+      <entry name="ntcip-tftp" status="disabled"/>
+      <entry name="nurgo-brainsoup" status="disabled"/>
+      <entry name="omron-sysmac-studio" status="disabled"/>
+      <entry name="omron-vision-discovery" status="disabled"/>
+      <entry name="openai-academy" status="disabled"/>
+      <entry name="openai-api-delete" status="disabled"/>
+      <entry name="openai-api-download" status="disabled"/>
+      <entry name="openai-api-upload" status="disabled"/>
+      <entry name="openai-chatgpt-download" status="disabled"/>
+      <entry name="openai-chatkit" status="disabled"/>
+      <entry name="openai-codex" status="disabled"/>
+      <entry name="openai-codex-create" status="disabled"/>
+      <entry name="openai-codex-share" status="disabled"/>
+      <entry name="openai-sora" status="disabled"/>
+      <entry name="openai-sora-download" status="disabled"/>
+      <entry name="openai-sora-post" status="disabled"/>
+      <entry name="openai-sora-upload" status="disabled"/>
+      <entry name="openclaw" status="disabled"/>
+      <entry name="pagerduty-runbook-ai" status="disabled"/>
+      <entry name="paloalto-host-compliance-svc" status="disabled"/>
+      <entry name="paloalto-host-discover-svc" status="disabled"/>
+      <entry name="perplexity-ai-base" status="disabled"/>
+      <entry name="perplexity-ai-create" status="disabled"/>
+      <entry name="perplexity-ai-delete" status="disabled"/>
+      <entry name="perplexity-ai-download" status="disabled"/>
+      <entry name="perplexity-ai-edit" status="disabled"/>
+      <entry name="perplexity-ai-post" status="disabled"/>
+      <entry name="perplexity-ai-share" status="disabled"/>
+      <entry name="perplexity-ai-upload" status="disabled"/>
+      <entry name="phoenix-contact-webserver" status="disabled"/>
+      <entry name="photosonic-base" status="disabled"/>
+      <entry name="photosonic-create" status="disabled"/>
+      <entry name="pinecone-base" status="disabled"/>
+      <entry name="pinecone-create" status="disabled"/>
+      <entry name="pinecone-delete" status="disabled"/>
+      <entry name="pinecone-upload" status="disabled"/>
+      <entry name="pitney-bowes-connect-plus" status="disabled"/>
+      <entry name="play.ht-base" status="disabled"/>
+      <entry name="play.ht-delete" status="disabled"/>
+      <entry name="play.ht-download" status="disabled"/>
+      <entry name="play.ht-post" status="disabled"/>
+      <entry name="play.ht-upload" status="disabled"/>
+      <entry name="pulseway" status="disabled"/>
+      <entry name="pythagora-gpt-pilot" status="disabled"/>
+      <entry name="rammerhead-proxy" status="disabled"/>
+      <entry name="raylink" status="disabled"/>
+      <entry name="raymond-iwarehouse" status="disabled"/>
+      <entry name="reclaim.ai-base" status="disabled"/>
+      <entry name="reclaim.ai-create" status="disabled"/>
+      <entry name="reclaim.ai-delete" status="disabled"/>
+      <entry name="reddit-create" status="disabled"/>
+      <entry name="reddit-delete" status="disabled"/>
+      <entry name="reddit-edit" status="disabled"/>
+      <entry name="reddit-send" status="disabled"/>
+      <entry name="reddit-upload" status="disabled"/>
+      <entry name="regie.ai-base" status="disabled"/>
+      <entry name="regie.ai-copy" status="disabled"/>
+      <entry name="regie.ai-create" status="disabled"/>
+      <entry name="regie.ai-delete" status="disabled"/>
+      <entry name="regie.ai-download" status="disabled"/>
+      <entry name="regie.ai-move" status="disabled"/>
+      <entry name="regie.ai-share" status="disabled"/>
+      <entry name="regie.ai-upload" status="disabled"/>
+      <entry name="remsupp" status="disabled"/>
+      <entry name="replicate-base" status="disabled"/>
+      <entry name="replicate-download" status="disabled"/>
+      <entry name="replicate-upload" status="disabled"/>
+      <entry name="response-cx-base" status="disabled"/>
+      <entry name="response-cx-create" status="disabled"/>
+      <entry name="response-cx-post" status="disabled"/>
+      <entry name="response-cx-upload" status="disabled"/>
+      <entry name="ringsense" status="disabled"/>
+      <entry name="ringsense-create" status="disabled"/>
+      <entry name="ringsense-delete" status="disabled"/>
+      <entry name="ringsense-download" status="disabled"/>
+      <entry name="ringsense-edit" status="disabled"/>
+      <entry name="ringsense-move" status="disabled"/>
+      <entry name="ringsense-send" status="disabled"/>
+      <entry name="ringsense-share" status="disabled"/>
+      <entry name="rs-automation-webserver" status="disabled"/>
+      <entry name="runway-app-base" status="disabled"/>
+      <entry name="runway-app-create" status="disabled"/>
+      <entry name="runway-app-delete" status="disabled"/>
+      <entry name="runway-app-download" status="disabled"/>
+      <entry name="runway-app-edit" status="disabled"/>
+      <entry name="runway-app-move" status="disabled"/>
+      <entry name="runway-app-share" status="disabled"/>
+      <entry name="runway-app-upload" status="disabled"/>
+      <entry name="salesforce-agentforce" status="disabled"/>
+      <entry name="sapling.ai-base" status="disabled"/>
+      <entry name="sapling.ai-download" status="disabled"/>
+      <entry name="sapling.ai-upload" status="disabled"/>
+      <entry name="schweitzer-eng-lab-telnet" status="disabled"/>
+      <entry name="schweitzer-eng-lab-webserver" status="disabled"/>
+      <entry name="scitools-icarus" status="disabled"/>
+      <entry name="sembly-base" status="disabled"/>
+      <entry name="sembly-delete" status="disabled"/>
+      <entry name="sembly-download" status="disabled"/>
+      <entry name="sembly-share" status="disabled"/>
+      <entry name="sembly-upload" status="disabled"/>
+      <entry name="sensetime-sensemirage-base" status="disabled"/>
+      <entry name="sensetime-sensemirage-download" status="disabled"/>
+      <entry name="sensetime-sensemirage-post" status="disabled"/>
+      <entry name="sensetime-sensemirage-upload" status="disabled"/>
+      <entry name="siemens-plc-webserver" status="disabled"/>
+      <entry name="siemens-s7-block-status-v2" status="disabled"/>
+      <entry name="siemens-s7-breakpoint" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-abort" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-add-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-begin-seq" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-error" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-error-2" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-var" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-var-ad" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-init-ssl" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-rem-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-set-var-st" status="disabled"/>
+      <entry name="siemens-s7-memory-reset" status="disabled"/>
+      <entry name="siemens-s7-mode-transition" status="disabled"/>
+      <entry name="simplified-base" status="disabled"/>
+      <entry name="simplified-delete" status="disabled"/>
+      <entry name="simplified-download" status="disabled"/>
+      <entry name="simplified-post" status="disabled"/>
+      <entry name="simplified-upload" status="disabled"/>
+      <entry name="slack-ai" status="disabled"/>
+      <entry name="slack-create" status="disabled"/>
+      <entry name="slack-delete" status="disabled"/>
+      <entry name="slack-invite" status="disabled"/>
+      <entry name="slack-join" status="disabled"/>
+      <entry name="slack-login" status="disabled"/>
+      <entry name="slack-post" status="disabled"/>
+      <entry name="slack-unshare" status="disabled"/>
+      <entry name="slidesai" status="disabled"/>
+      <entry name="solarwinds-loggly-base" status="disabled"/>
+      <entry name="solarwinds-loggly-logout" status="disabled"/>
+      <entry name="sonyliv" status="disabled"/>
+      <entry name="sourcegraph-base" status="disabled"/>
+      <entry name="sourcegraph-cody" status="disabled"/>
+      <entry name="sourcegraph-cody-create" status="disabled"/>
+      <entry name="sourcegraph-cody-delete" status="disabled"/>
+      <entry name="sourcegraph-cody-edit" status="disabled"/>
+      <entry name="sourcegraph-cody-post" status="disabled"/>
+      <entry name="spell" status="disabled"/>
+      <entry name="superhuman" status="disabled"/>
+      <entry name="support-board" status="disabled"/>
+      <entry name="swimm" status="disabled"/>
+      <entry name="synthesia-base" status="disabled"/>
+      <entry name="synthesia-create" status="disabled"/>
+      <entry name="synthesia-delete" status="disabled"/>
+      <entry name="synthesia-download" status="disabled"/>
+      <entry name="synthesia-edit" status="disabled"/>
+      <entry name="synthesia-invite" status="disabled"/>
+      <entry name="synthesia-move" status="disabled"/>
+      <entry name="synthesia-upload" status="disabled"/>
+      <entry name="talkscriber-base" status="disabled"/>
+      <entry name="talkscriber-invite" status="disabled"/>
+      <entry name="tavily" status="disabled"/>
+      <entry name="tencent-yuanbao-base" status="disabled"/>
+      <entry name="tencent-yuanbao-create" status="disabled"/>
+      <entry name="tencent-yuanbao-delete" status="disabled"/>
+      <entry name="tencent-yuanbao-edit" status="disabled"/>
+      <entry name="tencent-yuanbao-move" status="disabled"/>
+      <entry name="tencent-yuanbao-upload" status="disabled"/>
+      <entry name="testdriver-base" status="disabled"/>
+      <entry name="testdriver-create" status="disabled"/>
+      <entry name="testdriver-delete" status="disabled"/>
+      <entry name="testdriver-edit" status="disabled"/>
+      <entry name="testdriver-invite" status="disabled"/>
+      <entry name="tettra-base" status="disabled"/>
+      <entry name="tettra-download" status="disabled"/>
+      <entry name="tettra-upload" status="disabled"/>
+      <entry name="thoughtspot-base" status="disabled"/>
+      <entry name="thoughtspot-delete" status="disabled"/>
+      <entry name="thoughtspot-download" status="disabled"/>
+      <entry name="thoughtspot-upload" status="disabled"/>
+      <entry name="transferxl-base" status="disabled"/>
+      <entry name="transferxl-delete" status="disabled"/>
+      <entry name="transferxl-download" status="disabled"/>
+      <entry name="transferxl-upload" status="disabled"/>
+      <entry name="trello-atlassian-intel" status="disabled"/>
+      <entry name="turck-hmi-plc-webserver" status="disabled"/>
+      <entry name="tusk" status="disabled"/>
+      <entry name="twitter-reactions" status="disabled"/>
+      <entry name="ufile" status="disabled"/>
+      <entry name="uneeq-digital-humans" status="disabled"/>
+      <entry name="unitronics-pcom-base" status="disabled"/>
+      <entry name="unitronics-pcom-check-password" status="disabled"/>
+      <entry name="unitronics-pcom-error" status="disabled"/>
+      <entry name="unitronics-pcom-find-resources" status="disabled"/>
+      <entry name="unitronics-pcom-flush-memory" status="disabled"/>
+      <entry name="unitronics-pcom-get-plc-id" status="disabled"/>
+      <entry name="unitronics-pcom-get-plc-name" status="disabled"/>
+      <entry name="unitronics-pcom-get-plc-unit-id" status="disabled"/>
+      <entry name="unitronics-pcom-get-plc-version" status="disabled"/>
+      <entry name="unitronics-pcom-read-bits" status="disabled"/>
+      <entry name="unitronics-pcom-read-data" status="disabled"/>
+      <entry name="unitronics-pcom-read-int" status="disabled"/>
+      <entry name="unitronics-pcom-read-memory" status="disabled"/>
+      <entry name="unitronics-pcom-read-operand" status="disabled"/>
+      <entry name="unitronics-pcom-read-rtc" status="disabled"/>
+      <entry name="unitronics-pcom-reset-password" status="disabled"/>
+      <entry name="unitronics-pcom-set-bits" status="disabled"/>
+      <entry name="unitronics-pcom-set-rtc" status="disabled"/>
+      <entry name="unitronics-pcom-write-data" status="disabled"/>
+      <entry name="unitronics-pcom-write-int" status="disabled"/>
+      <entry name="unitronics-pcom-write-memory" status="disabled"/>
+      <entry name="verisk" status="disabled"/>
+      <entry name="voiceflow-base" status="disabled"/>
+      <entry name="voiceflow-download" status="disabled"/>
+      <entry name="voiceflow-upload" status="disabled"/>
+      <entry name="wago-web-server" status="disabled"/>
+      <entry name="web3gpt-base" status="disabled"/>
+      <entry name="web3gpt-post" status="disabled"/>
+      <entry name="webcatalog" status="disabled"/>
+      <entry name="weights-and-biases-base" status="disabled"/>
+      <entry name="weights-and-biases-download" status="disabled"/>
+      <entry name="weights-and-biases-upload" status="disabled"/>
+      <entry name="weintek-easyweb" status="disabled"/>
+      <entry name="wonderchat-base" status="disabled"/>
+      <entry name="wonderchat-create" status="disabled"/>
+      <entry name="wonderchat-delete" status="disabled"/>
+      <entry name="wonderchat-download" status="disabled"/>
+      <entry name="wonderchat-upload" status="disabled"/>
+      <entry name="writesonic-base" status="disabled"/>
+      <entry name="writesonic-ai-article-writer" status="disabled"/>
+      <entry name="writesonic-create" status="disabled"/>
+      <entry name="writesonic-delete" status="disabled"/>
+      <entry name="writesonic-edit" status="disabled"/>
+      <entry name="writesonic-seo-base" status="disabled"/>
+      <entry name="writesonic-seo-create" status="disabled"/>
+      <entry name="writesonic-seo-upload" status="disabled"/>
+      <entry name="xai-grok-upload" status="disabled"/>
+      <entry name="yammer-delete" status="disabled"/>
+      <entry name="yandex-speechkit" status="disabled"/>
+      <entry name="yarn-chat-text-stories" status="disabled"/>
+      <entry name="zoho-accounts-base" status="disabled"/>
+      <entry name="zoho-accounts-create" status="disabled"/>
+      <entry name="zoho-accounts-delete" status="disabled"/>
+      <entry name="zoho-accounts-edit" status="disabled"/>
+      <entry name="zoll-server" status="disabled"/>
+    </application-status>
+  </shared>
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <interface>
+          <ethernet/>
+          <loopback>
+            <units/>
+          </loopback>
+          <vlan>
+            <units/>
+          </vlan>
+          <tunnel>
+            <units/>
+          </tunnel>
+        </interface>
+        <vlan/>
+        <virtual-wire/>
+        <profiles>
+          <monitor-profile>
+            <entry name="default">
+              <interval>3</interval>
+              <threshold>5</threshold>
+              <action>wait-recover</action>
+            </entry>
+          </monitor-profile>
+        </profiles>
+        <ike>
+          <crypto-profiles>
+            <ike-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                  <member>3des</member>
+                </encryption>
+                <hash>
+                  <member>sha1</member>
+                </hash>
+                <dh-group>
+                  <member>group2</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha256</member>
+                </hash>
+                <dh-group>
+                  <member>group19</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <encryption>
+                  <member>aes-256-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha384</member>
+                </hash>
+                <dh-group>
+                  <member>group20</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+            </ike-crypto-profiles>
+            <ipsec-crypto-profiles>
+              <entry name="default">
+                <esp>
+                  <encryption>
+                    <member>aes-128-cbc</member>
+                    <member>3des</member>
+                  </encryption>
+                  <authentication>
+                    <member>sha1</member>
+                  </authentication>
+                </esp>
+                <dh-group>group2</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <esp>
+                  <encryption>
+                    <member>aes-128-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group19</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <esp>
+                  <encryption>
+                    <member>aes-256-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group20</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+            </ipsec-crypto-profiles>
+            <global-protect-app-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <authentication>
+                  <member>sha1</member>
+                </authentication>
+              </entry>
+            </global-protect-app-crypto-profiles>
+          </crypto-profiles>
+          <gateway/>
+        </ike>
+        <qos>
+          <profile>
+            <entry name="default">
+              <class-bandwidth-type>
+                <mbps>
+                  <class>
+                    <entry name="class1">
+                      <priority>real-time</priority>
+                    </entry>
+                    <entry name="class2">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class3">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class4">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class5">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class6">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class7">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class8">
+                      <priority>low</priority>
+                    </entry>
+                  </class>
+                </mbps>
+              </class-bandwidth-type>
+            </entry>
+          </profile>
+        </qos>
+        <virtual-router>
+          <entry name="default">
+            <protocol>
+              <bgp>
+                <enable>no</enable>
+                <dampening-profile>
+                  <entry name="default">
+                    <cutoff>1.25</cutoff>
+                    <reuse>0.5</reuse>
+                    <max-hold-time>900</max-hold-time>
+                    <decay-half-life-reachable>300</decay-half-life-reachable>
+                    <decay-half-life-unreachable>900</decay-half-life-unreachable>
+                    <enable>yes</enable>
+                  </entry>
+                </dampening-profile>
+              </bgp>
+            </protocol>
+          </entry>
+        </virtual-router>
+        <tunnel>
+          <ipsec/>
+          <global-protect-gateway/>
+          <global-protect-site-to-site/>
+        </tunnel>
+      </network>
+      <deviceconfig>
+        <system>
+          <ip-address>10.231.172.4</ip-address>
+          <netmask>255.255.255.224</netmask>
+          <update-server>updates.paloaltonetworks.com</update-server>
+          <update-schedule/>
+          <service>
+            <disable-telnet>yes</disable-telnet>
+            <disable-http>yes</disable-http>
+          </service>
+          <hostname>CPG-TN_CLFJC-SFW-1</hostname>
+          <default-gateway>10.231.172.1</default-gateway>
+        </system>
+        <setting>
+          <management>
+            <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
+          </management>
+        </setting>
+        <high-availability>
+          <interface>
+            <ha1>
+              <port>ethernet1/6</port>
+              <ip-address>169.254.255.209</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1>
+            <ha1-backup>
+              <port>management</port>
+            </ha1-backup>
+            <ha2>
+              <port>ethernet1/7</port>
+              <ip-address>169.254.255.213</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2>
+            <ha2-backup>
+              <port>ethernet1/8</port>
+              <ip-address>169.254.255.217</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2-backup>
+            <ha3/>
+          </interface>
+          <group>
+            <group-id>10</group-id>
+            <description>CPG-TN_CLFJC</description>
+            <configuration-synchronization>
+              <enabled>yes</enabled>
+            </configuration-synchronization>
+            <peer-ip>169.254.255.210</peer-ip>
+            <peer-ip-backup>10.231.172.5</peer-ip-backup>
+            <mode>
+              <active-passive>
+                <passive-link-state>auto</passive-link-state>
+              </active-passive>
+            </mode>
+            <election-option>
+              <device-priority>50</device-priority>
+              <heartbeat-backup>no</heartbeat-backup>
+              <preemptive>no</preemptive>
+              <timers>
+                <recommended/>
+              </timers>
+            </election-option>
+            <monitoring>
+              <link-monitoring>
+                <link-group>
+                  <entry name="All_Interfaces">
+                    <interface>
+                      <member>ethernet1/1</member>
+                      <member>ethernet1/2</member>
+                    </interface>
+                  </entry>
+                </link-group>
+              </link-monitoring>
+            </monitoring>
+          </group>
+          <enabled>yes</enabled>
+        </high-availability>
+      </deviceconfig>
+      <vsys>
+        <entry name="vsys1">
+          <application/>
+          <application-group/>
+          <zone/>
+          <service/>
+          <service-group/>
+          <schedule/>
+          <rulebase>
+            <security>
+              <rules/>
+            </security>
+          </rulebase>
+          <import>
+            <network>
+              <interface/>
+            </network>
+          </import>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

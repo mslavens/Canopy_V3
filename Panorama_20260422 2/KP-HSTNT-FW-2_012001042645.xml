@@ -1,0 +1,291 @@
+<?xml version="1.0"?>
+<config version="10.2.0" urldb="paloaltonetworks" detail-version="10.2.7">
+  <mgt-config>
+    <users>
+      <entry name="admin">
+        <phash>$1$gtrcadvi$WuQEVlCIXy3gyXCvUmh6L.</phash>
+        <permissions>
+          <role-based>
+            <superuser>yes</superuser>
+          </role-based>
+        </permissions>
+      </entry>
+    </users>
+    <password-complexity>
+      <enabled>yes</enabled>
+      <minimum-length>8</minimum-length>
+    </password-complexity>
+  </mgt-config>
+  <shared>
+    <application/>
+    <application-group/>
+    <service/>
+    <service-group/>
+    <botnet>
+      <configuration>
+        <http>
+          <dynamic-dns>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </dynamic-dns>
+          <malware-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </malware-sites>
+          <recent-domains>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </recent-domains>
+          <ip-domains>
+            <enabled>yes</enabled>
+            <threshold>10</threshold>
+          </ip-domains>
+          <executables-from-unknown-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </executables-from-unknown-sites>
+        </http>
+        <other-applications>
+          <irc>yes</irc>
+        </other-applications>
+        <unknown-applications>
+          <unknown-tcp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-tcp>
+          <unknown-udp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-udp>
+        </unknown-applications>
+      </configuration>
+      <report>
+        <topn>100</topn>
+        <scheduled>yes</scheduled>
+      </report>
+    </botnet>
+    <application-status>
+      <entry name="abbott-rals-http" status="disabled"/>
+      <entry name="amazon-luna" status="disabled"/>
+      <entry name="appetize.io" status="disabled"/>
+      <entry name="azure-openai-api" status="disabled"/>
+      <entry name="azure-openai-encrypted" status="disabled"/>
+      <entry name="azure-openai-studio" status="disabled"/>
+      <entry name="bing-ai-uploading" status="disabled"/>
+      <entry name="canva-base" status="disabled"/>
+      <entry name="canva-downloading" status="disabled"/>
+      <entry name="canva-text-to-image" status="disabled"/>
+      <entry name="canva-uploading" status="disabled"/>
+      <entry name="certegra-hub" status="disabled"/>
+      <entry name="chatsonic" status="disabled"/>
+      <entry name="delta-dcisoft-discovery" status="disabled"/>
+      <entry name="ewon-firmware-update" status="disabled"/>
+      <entry name="ewon-talk2m-access" status="disabled"/>
+      <entry name="ewon-web-server" status="disabled"/>
+      <entry name="fizz" status="disabled"/>
+      <entry name="ghostwriter" status="disabled"/>
+      <entry name="github-copilot-chat" status="disabled"/>
+      <entry name="github-copilot-chat-business" status="disabled"/>
+      <entry name="gitpod" status="disabled"/>
+      <entry name="globoplay" status="disabled"/>
+      <entry name="google-bard-uploading" status="disabled"/>
+      <entry name="google-vertex-ai-base" status="disabled"/>
+      <entry name="google-vertex-ai-create" status="disabled"/>
+      <entry name="google-vertex-ai-delete" status="disabled"/>
+      <entry name="google-workspace-duet-ai" status="disabled"/>
+      <entry name="ha-tunnel-plus" status="disabled"/>
+      <entry name="jasper-ai-uploading" status="disabled"/>
+      <entry name="mirth-connect" status="disabled"/>
+      <entry name="ms-powerapps" status="disabled"/>
+      <entry name="ninjaone" status="disabled"/>
+      <entry name="openai-chatgpt-uploading" status="disabled"/>
+      <entry name="openai-dalle" status="disabled"/>
+      <entry name="openai-dalle-downloading" status="disabled"/>
+      <entry name="openai-dalle-uploading" status="disabled"/>
+      <entry name="pcloud-base" status="disabled"/>
+      <entry name="pcloud-delete" status="disabled"/>
+      <entry name="pcloud-download" status="disabled"/>
+      <entry name="pcloud-readonly" status="disabled"/>
+      <entry name="pcloud-upload" status="disabled"/>
+      <entry name="retune-uploading" status="disabled"/>
+      <entry name="siemens-epoc-acknowledge" status="disabled"/>
+      <entry name="siemens-epoc-get-auto-sw-updt" status="disabled"/>
+      <entry name="siemens-epoc-get-configuration" status="disabled"/>
+      <entry name="siemens-epoc-get-epocal-config" status="disabled"/>
+      <entry name="siemens-epoc-get-evad" status="disabled"/>
+      <entry name="siemens-epoc-get-operator-list" status="disabled"/>
+      <entry name="siemens-epoc-get-physician-list" status="disabled"/>
+      <entry name="siemens-epoc-get-sw-update-info" status="disabled"/>
+      <entry name="siemens-epoc-get-testcard-lot" status="disabled"/>
+      <entry name="siemens-epoc-get-time" status="disabled"/>
+      <entry name="siemens-epoc-handshake" status="disabled"/>
+      <entry name="siemens-epoc-reader-info" status="disabled"/>
+      <entry name="siemens-epoc-save-eqc" status="disabled"/>
+      <entry name="siemens-epoc-save-packet" status="disabled"/>
+      <entry name="siemens-epoc-save-test" status="disabled"/>
+      <entry name="siemens-logo-soft-comfort" status="disabled"/>
+      <entry name="siemens-logo-web-server" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-invoke" status="disabled"/>
+      <entry name="smash" status="disabled"/>
+      <entry name="tidb" status="disabled"/>
+      <entry name="tiktok-posting" status="disabled"/>
+      <entry name="tiktok-uploading" status="disabled"/>
+      <entry name="umas-read-card-info" status="disabled"/>
+      <entry name="amazon-titan" status="disabled"/>
+      <entry name="biomerieux-hostcom" status="disabled"/>
+      <entry name="google-gemini-models" status="disabled"/>
+      <entry name="google-palm2" status="disabled"/>
+      <entry name="huggingface" status="disabled"/>
+      <entry name="ms-office365-copilot" status="disabled"/>
+      <entry name="socratic-uploading" status="disabled"/>
+      <entry name="softether" status="disabled"/>
+      <entry name="twingate" status="disabled"/>
+      <entry name="zoho-assist-base" status="disabled"/>
+      <entry name="zoho-assist-delete" status="disabled"/>
+    </application-status>
+  </shared>
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <interface>
+          <ethernet/>
+          <loopback>
+            <units/>
+          </loopback>
+          <vlan>
+            <units/>
+          </vlan>
+        </interface>
+        <profiles>
+          <monitor-profile/>
+        </profiles>
+        <ike>
+          <crypto-profiles>
+            <ike-crypto-profiles/>
+            <ipsec-crypto-profiles/>
+            <global-protect-app-crypto-profiles/>
+          </crypto-profiles>
+          <gateway/>
+        </ike>
+        <qos>
+          <profile/>
+        </qos>
+        <virtual-router/>
+        <tunnel>
+          <ipsec/>
+          <global-protect-gateway/>
+          <global-protect-site-to-site/>
+        </tunnel>
+      </network>
+      <deviceconfig>
+        <system>
+          <ip-address>10.45.160.7</ip-address>
+          <netmask>255.255.255.128</netmask>
+          <hostname>KP-HSTNT-FW-2</hostname>
+          <default-gateway>10.45.160.1</default-gateway>
+          <snmp-setting>
+            <access-setting>
+              <version>
+                <v2c>
+                  <snmp-community-string>R7oUZ9bT2Zg4iJ</snmp-community-string>
+                </v2c>
+              </version>
+            </access-setting>
+          </snmp-setting>
+          <device-telemetry>
+            <device-health-performance>yes</device-health-performance>
+            <product-usage>yes</product-usage>
+            <threat-prevention>yes</threat-prevention>
+            <region>Americas</region>
+          </device-telemetry>
+        </system>
+        <setting/>
+        <high-availability>
+          <group>
+            <group-id>10</group-id>
+            <description>KP-HSTNT-FW-2</description>
+            <peer-ip>10.45.160.145</peer-ip>
+            <peer-ip-backup>10.45.160.149</peer-ip-backup>
+            <mode>
+              <active-passive>
+                <passive-link-state>auto</passive-link-state>
+              </active-passive>
+            </mode>
+            <election-option>
+              <heartbeat-backup>yes</heartbeat-backup>
+              <preemptive>no</preemptive>
+              <timers>
+                <recommended/>
+              </timers>
+            </election-option>
+            <monitoring>
+              <link-monitoring>
+                <link-group>
+                  <entry name="KP-TCT34Lab-MON">
+                    <interface>
+                      <member>ethernet1/1</member>
+                      <member>ethernet1/2</member>
+                    </interface>
+                  </entry>
+                </link-group>
+              </link-monitoring>
+            </monitoring>
+          </group>
+          <interface>
+            <ha1>
+              <ip-address>10.45.160.146</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1>
+            <ha1-backup>
+              <port>ethernet1/12</port>
+              <ip-address>10.45.160.150</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1-backup>
+            <ha2>
+              <ip-address>10.45.160.154</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2>
+            <ha2-backup/>
+            <ha3/>
+          </interface>
+          <enabled>yes</enabled>
+        </high-availability>
+      </deviceconfig>
+      <vsys>
+        <entry name="vsys1">
+          <application/>
+          <application-group/>
+          <zone>
+            <entry name="trust">
+              <network>
+                <virtual-wire/>
+              </network>
+            </entry>
+          </zone>
+          <service/>
+          <service-group/>
+          <schedule/>
+          <rulebase>
+            <security>
+              <rules/>
+            </security>
+          </rulebase>
+          <import>
+            <network>
+              <interface/>
+            </network>
+          </import>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

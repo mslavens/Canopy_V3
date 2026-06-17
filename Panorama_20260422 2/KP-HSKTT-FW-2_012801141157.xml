@@ -1,0 +1,683 @@
+<?xml version="1.0"?>
+<config urldb="paloaltonetworks" version="10.2.0" detail-version="10.2.7">
+  <mgt-config>
+    <users>
+      <entry name="TCPL">
+        <permissions>
+          <role-based>
+            <superuser>yes</superuser>
+          </role-based>
+        </permissions>
+        <phash>$1$glfegatm$bSnxP.jU0jzloumaLbsPO/</phash>
+      </entry>
+    </users>
+  </mgt-config>
+  <shared>
+    <application/>
+    <application-group/>
+    <service/>
+    <service-group/>
+    <botnet>
+      <configuration>
+        <http>
+          <dynamic-dns>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </dynamic-dns>
+          <malware-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </malware-sites>
+          <recent-domains>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </recent-domains>
+          <ip-domains>
+            <enabled>yes</enabled>
+            <threshold>10</threshold>
+          </ip-domains>
+          <executables-from-unknown-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </executables-from-unknown-sites>
+        </http>
+        <other-applications>
+          <irc>yes</irc>
+        </other-applications>
+        <unknown-applications>
+          <unknown-tcp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-tcp>
+          <unknown-udp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-udp>
+        </unknown-applications>
+      </configuration>
+      <report>
+        <topn>100</topn>
+        <scheduled>yes</scheduled>
+      </report>
+    </botnet>
+    <application-status>
+      <entry name="abbott-rals-http" status="disabled"/>
+      <entry name="amazon-luna" status="disabled"/>
+      <entry name="appetize.io" status="disabled"/>
+      <entry name="azure-openai-api" status="disabled"/>
+      <entry name="azure-openai-encrypted" status="disabled"/>
+      <entry name="azure-openai-studio" status="disabled"/>
+      <entry name="bing-ai-uploading" status="disabled"/>
+      <entry name="canva-base" status="disabled"/>
+      <entry name="canva-downloading" status="disabled"/>
+      <entry name="canva-text-to-image" status="disabled"/>
+      <entry name="canva-uploading" status="disabled"/>
+      <entry name="certegra-hub" status="disabled"/>
+      <entry name="chatsonic" status="disabled"/>
+      <entry name="delta-dcisoft-discovery" status="disabled"/>
+      <entry name="ewon-firmware-update" status="disabled"/>
+      <entry name="ewon-talk2m-access" status="disabled"/>
+      <entry name="ewon-web-server" status="disabled"/>
+      <entry name="fizz" status="disabled"/>
+      <entry name="ghostwriter" status="disabled"/>
+      <entry name="github-copilot-chat" status="disabled"/>
+      <entry name="github-copilot-chat-business" status="disabled"/>
+      <entry name="gitpod" status="disabled"/>
+      <entry name="globoplay" status="disabled"/>
+      <entry name="google-bard-uploading" status="disabled"/>
+      <entry name="google-vertex-ai-base" status="disabled"/>
+      <entry name="google-vertex-ai-create" status="disabled"/>
+      <entry name="google-vertex-ai-delete" status="disabled"/>
+      <entry name="google-workspace-duet-ai" status="disabled"/>
+      <entry name="ha-tunnel-plus" status="disabled"/>
+      <entry name="jasper-ai-uploading" status="disabled"/>
+      <entry name="mirth-connect" status="disabled"/>
+      <entry name="ms-powerapps" status="disabled"/>
+      <entry name="ninjaone" status="disabled"/>
+      <entry name="openai-chatgpt-uploading" status="disabled"/>
+      <entry name="openai-dalle" status="disabled"/>
+      <entry name="openai-dalle-downloading" status="disabled"/>
+      <entry name="openai-dalle-uploading" status="disabled"/>
+      <entry name="pcloud-base" status="disabled"/>
+      <entry name="pcloud-delete" status="disabled"/>
+      <entry name="pcloud-download" status="disabled"/>
+      <entry name="pcloud-readonly" status="disabled"/>
+      <entry name="pcloud-upload" status="disabled"/>
+      <entry name="retune-uploading" status="disabled"/>
+      <entry name="siemens-epoc-acknowledge" status="disabled"/>
+      <entry name="siemens-epoc-get-auto-sw-updt" status="disabled"/>
+      <entry name="siemens-epoc-get-configuration" status="disabled"/>
+      <entry name="siemens-epoc-get-epocal-config" status="disabled"/>
+      <entry name="siemens-epoc-get-evad" status="disabled"/>
+      <entry name="siemens-epoc-get-operator-list" status="disabled"/>
+      <entry name="siemens-epoc-get-physician-list" status="disabled"/>
+      <entry name="siemens-epoc-get-sw-update-info" status="disabled"/>
+      <entry name="siemens-epoc-get-testcard-lot" status="disabled"/>
+      <entry name="siemens-epoc-get-time" status="disabled"/>
+      <entry name="siemens-epoc-handshake" status="disabled"/>
+      <entry name="siemens-epoc-reader-info" status="disabled"/>
+      <entry name="siemens-epoc-save-eqc" status="disabled"/>
+      <entry name="siemens-epoc-save-packet" status="disabled"/>
+      <entry name="siemens-epoc-save-test" status="disabled"/>
+      <entry name="siemens-logo-soft-comfort" status="disabled"/>
+      <entry name="siemens-logo-web-server" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-invoke" status="disabled"/>
+      <entry name="smash" status="disabled"/>
+      <entry name="tidb" status="disabled"/>
+      <entry name="tiktok-posting" status="disabled"/>
+      <entry name="tiktok-uploading" status="disabled"/>
+      <entry name="umas-read-card-info" status="disabled"/>
+      <entry name="amazon-titan" status="disabled"/>
+      <entry name="biomerieux-hostcom" status="disabled"/>
+      <entry name="google-gemini-models" status="disabled"/>
+      <entry name="google-palm2" status="disabled"/>
+      <entry name="huggingface" status="disabled"/>
+      <entry name="ms-office365-copilot" status="disabled"/>
+      <entry name="socratic-uploading" status="disabled"/>
+      <entry name="softether" status="disabled"/>
+      <entry name="twingate" status="disabled"/>
+      <entry name="zoho-assist-base" status="disabled"/>
+      <entry name="zoho-assist-delete" status="disabled"/>
+    </application-status>
+  </shared>
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <interface>
+          <ethernet>
+            <entry name="ethernet1/6">
+              <ha/>
+              <comment>HA1 Link</comment>
+            </entry>
+            <entry name="ethernet1/7">
+              <ha/>
+              <comment>HA1 Backup Link</comment>
+            </entry>
+            <entry name="ethernet1/8">
+              <ha/>
+              <comment>HA2 Link</comment>
+            </entry>
+            <entry name="ethernet1/1">
+              <layer3>
+                <ipv6>
+                  <neighbor-discovery>
+                    <router-advertisement>
+                      <enable>no</enable>
+                    </router-advertisement>
+                  </neighbor-discovery>
+                </ipv6>
+                <ndp-proxy>
+                  <enabled>no</enabled>
+                </ndp-proxy>
+                <lldp>
+                  <enable>no</enable>
+                </lldp>
+                <units>
+                  <entry name="ethernet1/1.9">
+                    <ipv6>
+                      <neighbor-discovery>
+                        <router-advertisement>
+                          <enable>no</enable>
+                        </router-advertisement>
+                      </neighbor-discovery>
+                    </ipv6>
+                    <ndp-proxy>
+                      <enabled>no</enabled>
+                    </ndp-proxy>
+                    <adjust-tcp-mss>
+                      <enable>no</enable>
+                    </adjust-tcp-mss>
+                    <ip>
+                      <entry name="10.44.22.148/29"/>
+                    </ip>
+                    <tag>9</tag>
+                    <interface-management-profile>TCPL-WAN</interface-management-profile>
+                  </entry>
+                </units>
+              </layer3>
+              <comment>KP-HSKTT-SAS-1/2 G1/0/22</comment>
+            </entry>
+            <entry name="ethernet1/2">
+              <layer3>
+                <ipv6>
+                  <neighbor-discovery>
+                    <router-advertisement>
+                      <enable>no</enable>
+                    </router-advertisement>
+                  </neighbor-discovery>
+                </ipv6>
+                <ndp-proxy>
+                  <enabled>no</enabled>
+                </ndp-proxy>
+                <lldp>
+                  <enable>no</enable>
+                </lldp>
+                <units>
+                  <entry name="ethernet1/2.20">
+                    <ipv6>
+                      <neighbor-discovery>
+                        <router-advertisement>
+                          <enable>no</enable>
+                        </router-advertisement>
+                      </neighbor-discovery>
+                    </ipv6>
+                    <ndp-proxy>
+                      <enabled>no</enabled>
+                    </ndp-proxy>
+                    <adjust-tcp-mss>
+                      <enable>no</enable>
+                    </adjust-tcp-mss>
+                    <ip>
+                      <entry name="10.44.22.1/26"/>
+                    </ip>
+                    <tag>20</tag>
+                    <comment>Field Control</comment>
+                    <interface-management-profile>TCPL-LAN</interface-management-profile>
+                  </entry>
+                  <entry name="ethernet1/2.21">
+                    <ipv6>
+                      <neighbor-discovery>
+                        <router-advertisement>
+                          <enable>no</enable>
+                        </router-advertisement>
+                      </neighbor-discovery>
+                    </ipv6>
+                    <ndp-proxy>
+                      <enabled>no</enabled>
+                    </ndp-proxy>
+                    <adjust-tcp-mss>
+                      <enable>no</enable>
+                    </adjust-tcp-mss>
+                    <ip>
+                      <entry name="10.44.22.161/27"/>
+                    </ip>
+                    <tag>21</tag>
+                    <comment>Field Supervisory</comment>
+                    <interface-management-profile>TCPL-LAN</interface-management-profile>
+                  </entry>
+                  <entry name="ethernet1/2.22">
+                    <ipv6>
+                      <neighbor-discovery>
+                        <router-advertisement>
+                          <enable>no</enable>
+                        </router-advertisement>
+                      </neighbor-discovery>
+                    </ipv6>
+                    <ndp-proxy>
+                      <enabled>no</enabled>
+                    </ndp-proxy>
+                    <adjust-tcp-mss>
+                      <enable>no</enable>
+                    </adjust-tcp-mss>
+                    <ip>
+                      <entry name="10.44.22.193/29"/>
+                    </ip>
+                    <tag>22</tag>
+                    <comment>Field Auxillary</comment>
+                    <interface-management-profile>TCPL-LAN</interface-management-profile>
+                  </entry>
+                </units>
+              </layer3>
+              <comment>KP-HSKTT-SAS-1/2 G1/0/21</comment>
+            </entry>
+          </ethernet>
+        </interface>
+        <profiles>
+          <monitor-profile>
+            <entry name="default">
+              <interval>3</interval>
+              <threshold>5</threshold>
+              <action>wait-recover</action>
+            </entry>
+          </monitor-profile>
+          <interface-management-profile>
+            <entry name="TCPL-WAN">
+              <ping>yes</ping>
+            </entry>
+            <entry name="TCPL-LAN">
+              <https>yes</https>
+              <ping>yes</ping>
+              <ssh>yes</ssh>
+            </entry>
+            <entry name="Management">
+              <https>yes</https>
+              <ssh>yes</ssh>
+              <ping>yes</ping>
+            </entry>
+          </interface-management-profile>
+        </profiles>
+        <ike>
+          <crypto-profiles>
+            <ike-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                  <member>3des</member>
+                </encryption>
+                <hash>
+                  <member>sha1</member>
+                </hash>
+                <dh-group>
+                  <member>group2</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha256</member>
+                </hash>
+                <dh-group>
+                  <member>group19</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <encryption>
+                  <member>aes-256-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha384</member>
+                </hash>
+                <dh-group>
+                  <member>group20</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+            </ike-crypto-profiles>
+            <ipsec-crypto-profiles>
+              <entry name="default">
+                <esp>
+                  <encryption>
+                    <member>aes-128-cbc</member>
+                    <member>3des</member>
+                  </encryption>
+                  <authentication>
+                    <member>sha1</member>
+                  </authentication>
+                </esp>
+                <dh-group>group2</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <esp>
+                  <encryption>
+                    <member>aes-128-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group19</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <esp>
+                  <encryption>
+                    <member>aes-256-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group20</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+            </ipsec-crypto-profiles>
+            <global-protect-app-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <authentication>
+                  <member>sha1</member>
+                </authentication>
+              </entry>
+            </global-protect-app-crypto-profiles>
+          </crypto-profiles>
+          <gateway/>
+        </ike>
+        <qos>
+          <profile>
+            <entry name="default">
+              <class-bandwidth-type>
+                <mbps>
+                  <class>
+                    <entry name="class1">
+                      <priority>real-time</priority>
+                    </entry>
+                    <entry name="class2">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class3">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class4">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class5">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class6">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class7">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class8">
+                      <priority>low</priority>
+                    </entry>
+                  </class>
+                </mbps>
+              </class-bandwidth-type>
+            </entry>
+          </profile>
+        </qos>
+        <virtual-router>
+          <entry name="TCPL">
+            <ecmp>
+              <algorithm>
+                <ip-modulo/>
+              </algorithm>
+            </ecmp>
+            <protocol>
+              <bgp>
+                <routing-options>
+                  <graceful-restart>
+                    <enable>yes</enable>
+                  </graceful-restart>
+                </routing-options>
+                <enable>no</enable>
+              </bgp>
+            </protocol>
+            <routing-table>
+              <ip>
+                <static-route>
+                  <entry name="Default Route">
+                    <path-monitor>
+                      <enable>no</enable>
+                      <failure-condition>any</failure-condition>
+                      <hold-time>2</hold-time>
+                    </path-monitor>
+                    <nexthop>
+                      <ip-address>10.44.22.145</ip-address>
+                    </nexthop>
+                    <metric>10</metric>
+                    <destination>0.0.0.0/0</destination>
+                    <route-table>
+                      <unicast/>
+                    </route-table>
+                  </entry>
+                </static-route>
+              </ip>
+            </routing-table>
+            <interface>
+              <member>ethernet1/1.9</member>
+              <member>ethernet1/2.20</member>
+              <member>ethernet1/2.21</member>
+              <member>ethernet1/2.22</member>
+            </interface>
+          </entry>
+        </virtual-router>
+        <tunnel>
+          <ipsec/>
+          <global-protect-gateway/>
+          <global-protect-site-to-site/>
+        </tunnel>
+      </network>
+      <deviceconfig>
+        <system>
+          <motd-and-banner>
+            <motd-enable>yes</motd-enable>
+            <message>Unauthorized use or access is strictly prohibited and may result in civil action or criminal prosecution.</message>
+          </motd-and-banner>
+          <panorama>
+            <local-panorama>
+              <panorama-server>199.166.44.195</panorama-server>
+              <panorama-server-2>199.166.46.195</panorama-server-2>
+            </local-panorama>
+          </panorama>
+          <device-telemetry>
+            <device-health-performance>yes</device-health-performance>
+            <product-usage>yes</product-usage>
+            <threat-prevention>yes</threat-prevention>
+            <region>Americas</region>
+          </device-telemetry>
+          <type>
+            <static/>
+          </type>
+          <update-server>updates.paloaltonetworks.com</update-server>
+          <timezone>America/Edmonton</timezone>
+          <service>
+            <disable-telnet>yes</disable-telnet>
+            <disable-http>yes</disable-http>
+          </service>
+          <hostname>KP-HSKTT-FW-2</hostname>
+          <ip-address>10.44.22.135</ip-address>
+          <netmask>255.255.255.240</netmask>
+          <domain>net.tcpl.ca</domain>
+          <locale>en</locale>
+          <default-gateway>10.44.22.129</default-gateway>
+          <snmp-setting>
+            <access-setting>
+              <version>
+                <v2c>
+                  <snmp-community-string>R7oUZ9bT2Zg4iJ</snmp-community-string>
+                </v2c>
+              </version>
+            </access-setting>
+          </snmp-setting>
+        </system>
+        <setting>
+          <config>
+            <rematch>yes</rematch>
+          </config>
+          <management>
+            <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
+          </management>
+        </setting>
+        <high-availability>
+          <group>
+            <group-id>10</group-id>
+            <description>KP-HSKTT-FW-2</description>
+            <peer-ip>10.44.22.209</peer-ip>
+            <peer-ip-backup>10.44.22.213</peer-ip-backup>
+            <mode>
+              <active-passive>
+                <passive-link-state>auto</passive-link-state>
+              </active-passive>
+            </mode>
+            <election-option>
+              <heartbeat-backup>yes</heartbeat-backup>
+              <preemptive>no</preemptive>
+              <timers>
+                <recommended/>
+              </timers>
+            </election-option>
+            <state-synchronization>
+              <transport>ethernet</transport>
+            </state-synchronization>
+            <monitoring>
+              <link-monitoring>
+                <link-group>
+                  <entry name="KP-HSKTT-MON">
+                    <interface>
+                      <member>ethernet1/1</member>
+                      <member>ethernet1/2</member>
+                    </interface>
+                  </entry>
+                </link-group>
+              </link-monitoring>
+            </monitoring>
+          </group>
+          <interface>
+            <ha1>
+              <port>ethernet1/6</port>
+              <ip-address>10.44.22.210</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1>
+            <ha1-backup>
+              <port>ethernet1/7</port>
+              <ip-address>10.44.22.214</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1-backup>
+            <ha2>
+              <port>ethernet1/8</port>
+              <ip-address>10.44.22.218</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2>
+            <ha2-backup/>
+            <ha3/>
+          </interface>
+          <enabled>yes</enabled>
+        </high-availability>
+      </deviceconfig>
+      <vsys>
+        <entry name="vsys1">
+          <application/>
+          <application-group/>
+          <zone>
+            <entry name="untrust">
+              <network>
+                <layer3/>
+              </network>
+            </entry>
+            <entry name="Field Control">
+              <network>
+                <layer3>
+                  <member>ethernet1/2.20</member>
+                </layer3>
+              </network>
+            </entry>
+            <entry name="Field Supervisory">
+              <network>
+                <layer3>
+                  <member>ethernet1/2.21</member>
+                </layer3>
+              </network>
+              <enable-user-identification>yes</enable-user-identification>
+            </entry>
+            <entry name="Firewall Transit">
+              <network>
+                <layer3>
+                  <member>ethernet1/1.9</member>
+                </layer3>
+              </network>
+            </entry>
+            <entry name="Field Auxillary">
+              <network>
+                <layer3>
+                  <member>ethernet1/2.22</member>
+                </layer3>
+              </network>
+            </entry>
+            <entry name="trust">
+              <network>
+                <virtual-wire/>
+              </network>
+            </entry>
+          </zone>
+          <service/>
+          <service-group/>
+          <schedule/>
+          <rulebase/>
+          <import>
+            <network>
+              <interface>
+                <member>ethernet1/1</member>
+                <member>ethernet1/1.9</member>
+                <member>ethernet1/2</member>
+                <member>ethernet1/2.20</member>
+                <member>ethernet1/2.21</member>
+                <member>ethernet1/2.22</member>
+              </interface>
+            </network>
+          </import>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>

@@ -121,6 +121,35 @@ var actSchema = `
 		PRIMARY KEY (device_uuid, interface_name),
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS interfaces (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		ip_address TEXT,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS zones (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS variables (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		device_uuid TEXT NOT NULL,
+		scope TEXT NOT NULL,
+		name TEXT NOT NULL,
+		type TEXT NOT NULL,
+		value TEXT NOT NULL,
+		description TEXT,
+		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	);
 	CREATE TABLE IF NOT EXISTS framework_metadata (
 		app_id TEXT PRIMARY KEY,
 		schema_version INTEGER
@@ -608,7 +637,11 @@ var actSchema = `
 	CREATE INDEX IF NOT EXISTS idx_address_group_members_member_address_id ON address_group_members (member_address_id);
 	CREATE INDEX IF NOT EXISTS idx_address_group_members_member_group_id ON address_group_members (member_group_id);
 	CREATE INDEX IF NOT EXISTS idx_service_group_members_member_service_id ON service_group_members (member_service_id);
-	CREATE INDEX IF NOT EXISTS idx_service_group_members_member_group_id ON service_group_members (member_group_id);`
+	CREATE INDEX IF NOT EXISTS idx_service_group_members_member_group_id ON service_group_members (member_group_id);
+	
+	CREATE INDEX IF NOT EXISTS idx_variables_device_uuid ON variables (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_zones_device_uuid ON zones (device_uuid);
+	CREATE INDEX IF NOT EXISTS idx_interfaces_device_uuid ON interfaces (device_uuid);`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
 
@@ -855,6 +888,9 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE address_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE address_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE address_groups ADD COLUMN type TEXT DEFAULT 'static';")
+
+	// Ensure all base tables exist (idempotent, creates zones, interfaces, variables if missing)
+	db.Exec(actSchema)
 	db.Exec("ALTER TABLE address_groups ADD COLUMN filter TEXT;")
 	db.Exec("ALTER TABLE service_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
@@ -4424,9 +4460,20 @@ func main() {
 
 		adapter := paloalto.NewAdapter(concreteDB)
 
-		// Sort xmlFiles so that Panorama configurations are processed first
+		// Sort xmlFiles so that Panorama configurations are processed first,
+		// and prefer running-config.xml over candidate configs.
 		sort.SliceStable(xmlFiles, func(i, j int) bool {
-			return adapter.IsPanoramaConfig(xmlFiles[i].Data) && !adapter.IsPanoramaConfig(xmlFiles[j].Data)
+			pi := adapter.IsPanoramaConfig(xmlFiles[i].Data)
+			pj := adapter.IsPanoramaConfig(xmlFiles[j].Data)
+			if pi != pj {
+				return pi
+			}
+			ri := strings.HasSuffix(xmlFiles[i].Name, "running-config.xml")
+			rj := strings.HasSuffix(xmlFiles[j].Name, "running-config.xml")
+			if ri != rj {
+				return ri
+			}
+			return false
 		})
 
 		preview := r.URL.Query().Get("preview") == "true"
@@ -4440,6 +4487,7 @@ func main() {
 				stats, err := adapter.Analyze(f.Data, f.Name)
 				if err != nil {
 					slog.Error("Analyze failed for file", slog.String("name", f.Name), slog.Any("error", err))
+					combinedStats.Warnings = append(combinedStats.Warnings, fmt.Sprintf("Failed to parse %s: %v", f.Name, err))
 					continue
 				}
 				if stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0 {
@@ -4497,11 +4545,33 @@ func main() {
 
 		// Pre-filter to only include files that are valid configurations to import
 		var validFiles []xmlFile
+		hasPanorama := false
+		localFwSerials := make(map[string]bool)
+
 		for _, f := range xmlFiles {
 			stats, err := adapter.Analyze(f.Data, f.Name)
 			if err != nil || (stats.DevicesCount == 0 && stats.TemplatesCount == 0 && len(stats.Devices) == 0) {
 				continue
 			}
+
+			if stats.ConfigType == "Panorama" {
+				if hasPanorama {
+					continue // We already have the preferred Panorama config
+				}
+				hasPanorama = true
+			} else {
+				// Naive serial extraction for local firewalls (e.g., from filename)
+				// In a real scenario, this would use the parsed serial from Analyze
+				serial := f.Name
+				if idx := strings.LastIndex(f.Name, "_"); idx != -1 {
+					serial = f.Name[idx+1:]
+				}
+				if localFwSerials[serial] {
+					continue // We already have the preferred config for this firewall
+				}
+				localFwSerials[serial] = true
+			}
+
 			validFiles = append(validFiles, f)
 		}
 
@@ -4703,6 +4773,11 @@ func main() {
 	mux.HandleFunc("/api/logs/candidates", func(w http.ResponseWriter, r *http.Request) {
 		HandleGenerateCandidateRules(w, r, logDB)
 	})
+
+	mux.HandleFunc("/api/networks/zones", handleGetZones)
+	mux.HandleFunc("/api/networks/interfaces", handleGetInterfaces)
+	mux.HandleFunc("/api/networks/routes", handleGetRoutes)
+	mux.HandleFunc("/api/variables", handleGetVariables)
 
 	// --- MULTI-LAYER MIDDLEWARE STACK ---
 	protectedMux := authMiddleware(token, mux)

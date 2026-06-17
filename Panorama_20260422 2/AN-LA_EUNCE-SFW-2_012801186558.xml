@@ -1,0 +1,702 @@
+<?xml version="1.0"?>
+<config version="10.2.0" urldb="paloaltonetworks" detail-version="10.2.7">
+  <mgt-config>
+    <users/>
+    <password-complexity>
+      <enabled>yes</enabled>
+      <minimum-length>8</minimum-length>
+    </password-complexity>
+  </mgt-config>
+  <shared>
+    <application/>
+    <application-group/>
+    <service/>
+    <service-group/>
+    <botnet>
+      <configuration>
+        <http>
+          <dynamic-dns>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </dynamic-dns>
+          <malware-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </malware-sites>
+          <recent-domains>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </recent-domains>
+          <ip-domains>
+            <enabled>yes</enabled>
+            <threshold>10</threshold>
+          </ip-domains>
+          <executables-from-unknown-sites>
+            <enabled>yes</enabled>
+            <threshold>5</threshold>
+          </executables-from-unknown-sites>
+        </http>
+        <other-applications>
+          <irc>yes</irc>
+        </other-applications>
+        <unknown-applications>
+          <unknown-tcp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-tcp>
+          <unknown-udp>
+            <destinations-per-hour>10</destinations-per-hour>
+            <sessions-per-hour>10</sessions-per-hour>
+            <session-length>
+              <maximum-bytes>100</maximum-bytes>
+              <minimum-bytes>50</minimum-bytes>
+            </session-length>
+          </unknown-udp>
+        </unknown-applications>
+      </configuration>
+      <report>
+        <topn>100</topn>
+        <scheduled>yes</scheduled>
+      </report>
+    </botnet>
+    <application-status>
+      <entry name="acellus" status="disabled"/>
+      <entry name="anysupport" status="disabled"/>
+      <entry name="atlas-copco-toolstalk-fms" status="disabled"/>
+      <entry name="between-messenger" status="disabled"/>
+      <entry name="bing-ai-base" status="disabled"/>
+      <entry name="bing-ai-uploading" status="disabled"/>
+      <entry name="biofire-filmarray" status="disabled"/>
+      <entry name="biomerieux-virtuo" status="disabled"/>
+      <entry name="blooket" status="disabled"/>
+      <entry name="cadwell-cadlink" status="disabled"/>
+      <entry name="cerner-ibus-cas" status="disabled"/>
+      <entry name="chisel" status="disabled"/>
+      <entry name="citrix-director" status="disabled"/>
+      <entry name="df1-base" status="disabled"/>
+      <entry name="df1-bit-write" status="disabled"/>
+      <entry name="df1-close-file" status="disabled"/>
+      <entry name="df1-diagnostic-status" status="disabled"/>
+      <entry name="df1-disable-forces" status="disabled"/>
+      <entry name="df1-disable-outputs" status="disabled"/>
+      <entry name="df1-download-all-request" status="disabled"/>
+      <entry name="df1-download-completed" status="disabled"/>
+      <entry name="df1-download-request" status="disabled"/>
+      <entry name="df1-echo" status="disabled"/>
+      <entry name="df1-enable-outputs" status="disabled"/>
+      <entry name="df1-enable-plc-scanning" status="disabled"/>
+      <entry name="df1-enter-download-mode" status="disabled"/>
+      <entry name="df1-enter-upload-mode" status="disabled"/>
+      <entry name="df1-exit-download-upload-mode" status="disabled"/>
+      <entry name="df1-file-read" status="disabled"/>
+      <entry name="df1-file-write" status="disabled"/>
+      <entry name="df1-initialize-memory" status="disabled"/>
+      <entry name="df1-modify-plc2-compati-file" status="disabled"/>
+      <entry name="df1-open-file" status="disabled"/>
+      <entry name="df1-physical-read-plc-3" status="disabled"/>
+      <entry name="df1-physical-write-plc-3" status="disabled"/>
+      <entry name="df1-pro-typed-read-3addr" status="disabled"/>
+      <entry name="df1-pro-typed-write-3addr" status="disabled"/>
+      <entry name="df1-protected-typed-file-read" status="disabled"/>
+      <entry name="df1-protected-typed-file-write" status="disabled"/>
+      <entry name="df1-read-bytes-physical" status="disabled"/>
+      <entry name="df1-read-diagnostic-counters" status="disabled"/>
+      <entry name="df1-read-link-parameters" status="disabled"/>
+      <entry name="df1-read-modify-write" status="disabled"/>
+      <entry name="df1-read-modify-write-n" status="disabled"/>
+      <entry name="df1-read-section-size" status="disabled"/>
+      <entry name="df1-reset-diagnostic-counters" status="disabled"/>
+      <entry name="df1-restart-request" status="disabled"/>
+      <entry name="df1-set-cpu-mode" status="disabled"/>
+      <entry name="df1-set-data-table-size" status="disabled"/>
+      <entry name="df1-set-enqs" status="disabled"/>
+      <entry name="df1-set-link-parameters" status="disabled"/>
+      <entry name="df1-set-naks" status="disabled"/>
+      <entry name="df1-set-timeout" status="disabled"/>
+      <entry name="df1-set-variables" status="disabled"/>
+      <entry name="df1-shutdown" status="disabled"/>
+      <entry name="df1-typed-read" status="disabled"/>
+      <entry name="df1-typed-write" status="disabled"/>
+      <entry name="df1-upload" status="disabled"/>
+      <entry name="df1-upload-all-request" status="disabled"/>
+      <entry name="df1-upload-completed" status="disabled"/>
+      <entry name="df1-word-range-read" status="disabled"/>
+      <entry name="df1-word-range-write" status="disabled"/>
+      <entry name="df1-write-bytes-physical" status="disabled"/>
+      <entry name="dws-remote-control" status="disabled"/>
+      <entry name="excel-messenger" status="disabled"/>
+      <entry name="factorytalk-assetcentre" status="disabled"/>
+      <entry name="firestorage" status="disabled"/>
+      <entry name="gigafile" status="disabled"/>
+      <entry name="gist-posting" status="disabled"/>
+      <entry name="google-bard-base" status="disabled"/>
+      <entry name="google-bard-uploading" status="disabled"/>
+      <entry name="google-chat" status="disabled"/>
+      <entry name="hlls" status="disabled"/>
+      <entry name="home-assistant" status="disabled"/>
+      <entry name="hp-quickdrop" status="disabled"/>
+      <entry name="ime-actia-vci" status="disabled"/>
+      <entry name="jiomeet-base" status="disabled"/>
+      <entry name="jiomeet-chat" status="disabled"/>
+      <entry name="jiomeet-downloading" status="disabled"/>
+      <entry name="jiomeet-screen-sharing" status="disabled"/>
+      <entry name="jiomeet-uploading" status="disabled"/>
+      <entry name="kuka-roboter-dev-info-service" status="disabled"/>
+      <entry name="lontalk-base" status="disabled"/>
+      <entry name="lontalk-apdu" status="disabled"/>
+      <entry name="lontalk-auth-pdu" status="disabled"/>
+      <entry name="lontalk-spdu" status="disabled"/>
+      <entry name="lontalk-tpdu" status="disabled"/>
+      <entry name="mud" status="disabled"/>
+      <entry name="ncpurple" status="disabled"/>
+      <entry name="net.tcp-device-info-service" status="disabled"/>
+      <entry name="nexon-launcher" status="disabled"/>
+      <entry name="opc-ae-base" status="disabled"/>
+      <entry name="opc-ae-area-browser" status="disabled"/>
+      <entry name="opc-ae-server" status="disabled"/>
+      <entry name="opc-ae-server2" status="disabled"/>
+      <entry name="opc-ae-sink" status="disabled"/>
+      <entry name="opc-ae-sub-mgt" status="disabled"/>
+      <entry name="opc-ae-sub-mgt2" status="disabled"/>
+      <entry name="opc-hda-base" status="disabled"/>
+      <entry name="opc-hda-async-annotations" status="disabled"/>
+      <entry name="opc-hda-async-read" status="disabled"/>
+      <entry name="opc-hda-async-update" status="disabled"/>
+      <entry name="opc-hda-auto-browser" status="disabled"/>
+      <entry name="opc-hda-auto-entry" status="disabled"/>
+      <entry name="opc-hda-auto-history" status="disabled"/>
+      <entry name="opc-hda-auto-iopc-item-events" status="disabled"/>
+      <entry name="opc-hda-auto-iopc-items" status="disabled"/>
+      <entry name="opc-hda-auto-iopc-server" status="disabled"/>
+      <entry name="opc-hda-auto-iopc-server-events" status="disabled"/>
+      <entry name="opc-hda-auto-item" status="disabled"/>
+      <entry name="opc-hda-auto-items" status="disabled"/>
+      <entry name="opc-hda-auto-server" status="disabled"/>
+      <entry name="opc-hda-auto-value" status="disabled"/>
+      <entry name="opc-hda-browser" status="disabled"/>
+      <entry name="opc-hda-data-callback" status="disabled"/>
+      <entry name="opc-hda-playback" status="disabled"/>
+      <entry name="opc-hda-server" status="disabled"/>
+      <entry name="opc-hda-sync-annotations" status="disabled"/>
+      <entry name="opc-hda-sync-read" status="disabled"/>
+      <entry name="opc-hda-sync-update" status="disabled"/>
+      <entry name="openadr-base" status="disabled"/>
+      <entry name="openadr-cancel-opt" status="disabled"/>
+      <entry name="openadr-cancel-party-reg" status="disabled"/>
+      <entry name="openadr-cancel-report" status="disabled"/>
+      <entry name="openadr-canceled-opt" status="disabled"/>
+      <entry name="openadr-canceled-party-reg" status="disabled"/>
+      <entry name="openadr-canceled-report" status="disabled"/>
+      <entry name="openadr-create-opt" status="disabled"/>
+      <entry name="openadr-create-party-reg" status="disabled"/>
+      <entry name="openadr-create-report" status="disabled"/>
+      <entry name="openadr-created-event" status="disabled"/>
+      <entry name="openadr-created-opt" status="disabled"/>
+      <entry name="openadr-created-party-reg" status="disabled"/>
+      <entry name="openadr-created-report" status="disabled"/>
+      <entry name="openadr-distribute-event" status="disabled"/>
+      <entry name="openadr-poll" status="disabled"/>
+      <entry name="openadr-query-registration" status="disabled"/>
+      <entry name="openadr-register-report" status="disabled"/>
+      <entry name="openadr-registered-report" status="disabled"/>
+      <entry name="openadr-request-event" status="disabled"/>
+      <entry name="openadr-request-reregistration" status="disabled"/>
+      <entry name="openadr-response" status="disabled"/>
+      <entry name="openadr-update-report" status="disabled"/>
+      <entry name="openadr-updated-report" status="disabled"/>
+      <entry name="openai-base" status="disabled"/>
+      <entry name="openai-api" status="disabled"/>
+      <entry name="openai-chatgpt" status="disabled"/>
+      <entry name="paloalto-suppt-case-base" status="disabled"/>
+      <entry name="paloalto-suppt-case-downloading" status="disabled"/>
+      <entry name="paloalto-suppt-case-uploading" status="disabled"/>
+      <entry name="paloalto-user-context" status="disabled"/>
+      <entry name="paloalto-ztna-agent" status="disabled"/>
+      <entry name="philo" status="disabled"/>
+      <entry name="pixeldrain" status="disabled"/>
+      <entry name="psexec" status="disabled"/>
+      <entry name="rclone" status="disabled"/>
+      <entry name="refinitiv-messenger" status="disabled"/>
+      <entry name="rmi-ossp-gemnet" status="disabled"/>
+      <entry name="rockwell-eweb" status="disabled"/>
+      <entry name="shahid" status="disabled"/>
+      <entry name="sick-sopas-webserver" status="disabled"/>
+      <entry name="spinoco" status="disabled"/>
+      <entry name="abbott-rals-http" status="disabled"/>
+      <entry name="amazon-luna" status="disabled"/>
+      <entry name="amazon-titan" status="disabled"/>
+      <entry name="appetize.io" status="disabled"/>
+      <entry name="azure-openai-api" status="disabled"/>
+      <entry name="azure-openai-encrypted" status="disabled"/>
+      <entry name="azure-openai-studio" status="disabled"/>
+      <entry name="biomerieux-hostcom" status="disabled"/>
+      <entry name="bluexp" status="disabled"/>
+      <entry name="canva-base" status="disabled"/>
+      <entry name="canva-downloading" status="disabled"/>
+      <entry name="canva-text-to-image" status="disabled"/>
+      <entry name="canva-uploading" status="disabled"/>
+      <entry name="certegra-hub" status="disabled"/>
+      <entry name="character-ai-base" status="disabled"/>
+      <entry name="character-ai-posting" status="disabled"/>
+      <entry name="character-ai-uploading" status="disabled"/>
+      <entry name="chatsonic" status="disabled"/>
+      <entry name="deepl-base" status="disabled"/>
+      <entry name="deepl-translator" status="disabled"/>
+      <entry name="deepl-write" status="disabled"/>
+      <entry name="delta-dcisoft-discovery" status="disabled"/>
+      <entry name="dust" status="disabled"/>
+      <entry name="ewon-firmware-update" status="disabled"/>
+      <entry name="ewon-talk2m-access" status="disabled"/>
+      <entry name="ewon-web-server" status="disabled"/>
+      <entry name="fizz" status="disabled"/>
+      <entry name="franklin-electric-tsa" status="disabled"/>
+      <entry name="ge-dcp" status="disabled"/>
+      <entry name="ghostwriter" status="disabled"/>
+      <entry name="github-copilot-business" status="disabled"/>
+      <entry name="github-copilot-chat" status="disabled"/>
+      <entry name="github-copilot-chat-business" status="disabled"/>
+      <entry name="gitpod" status="disabled"/>
+      <entry name="globoplay" status="disabled"/>
+      <entry name="google-gemini-models" status="disabled"/>
+      <entry name="google-palm2" status="disabled"/>
+      <entry name="google-vertex-ai-base" status="disabled"/>
+      <entry name="google-vertex-ai-create" status="disabled"/>
+      <entry name="google-vertex-ai-delete" status="disabled"/>
+      <entry name="google-workspace-duet-ai" status="disabled"/>
+      <entry name="ha-tunnel-plus" status="disabled"/>
+      <entry name="hms-anybus-web" status="disabled"/>
+      <entry name="huggingface" status="disabled"/>
+      <entry name="jasper-ai-base" status="disabled"/>
+      <entry name="jasper-ai-uploading" status="disabled"/>
+      <entry name="lemon8" status="disabled"/>
+      <entry name="mirth-connect" status="disabled"/>
+      <entry name="ms-office365-copilot" status="disabled"/>
+      <entry name="ms-onedrive-business" status="disabled"/>
+      <entry name="ms-onedrive-business-download" status="disabled"/>
+      <entry name="ms-onedrive-business-upload" status="disabled"/>
+      <entry name="ms-powerapps" status="disabled"/>
+      <entry name="ms-visual-studio-remote-tunnel" status="disabled"/>
+      <entry name="neximatic" status="disabled"/>
+      <entry name="ninjaone" status="disabled"/>
+      <entry name="openai-chatgpt-uploading" status="disabled"/>
+      <entry name="openai-dalle" status="disabled"/>
+      <entry name="openai-dalle-downloading" status="disabled"/>
+      <entry name="openai-dalle-uploading" status="disabled"/>
+      <entry name="paloalto-prisma-sdwan-base" status="disabled"/>
+      <entry name="paloalto-prisma-sdwan-control" status="disabled"/>
+      <entry name="pcloud-base" status="disabled"/>
+      <entry name="pcloud-delete" status="disabled"/>
+      <entry name="pcloud-download" status="disabled"/>
+      <entry name="pcloud-readonly" status="disabled"/>
+      <entry name="pcloud-upload" status="disabled"/>
+      <entry name="philips-pic" status="disabled"/>
+      <entry name="proton-base" status="disabled"/>
+      <entry name="retune-base" status="disabled"/>
+      <entry name="retune-uploading" status="disabled"/>
+      <entry name="rudesktop-remote-desktop" status="disabled"/>
+      <entry name="schneider-ecostruxure-dpws" status="disabled"/>
+      <entry name="siemens-epoc-acknowledge" status="disabled"/>
+      <entry name="siemens-epoc-get-auto-sw-updt" status="disabled"/>
+      <entry name="siemens-epoc-get-configuration" status="disabled"/>
+      <entry name="siemens-epoc-get-epocal-config" status="disabled"/>
+      <entry name="siemens-epoc-get-evad" status="disabled"/>
+      <entry name="siemens-epoc-get-operator-list" status="disabled"/>
+      <entry name="siemens-epoc-get-physician-list" status="disabled"/>
+      <entry name="siemens-epoc-get-sw-update-info" status="disabled"/>
+      <entry name="siemens-epoc-get-testcard-lot" status="disabled"/>
+      <entry name="siemens-epoc-get-time" status="disabled"/>
+      <entry name="siemens-epoc-handshake" status="disabled"/>
+      <entry name="siemens-epoc-reader-info" status="disabled"/>
+      <entry name="siemens-epoc-save-eqc" status="disabled"/>
+      <entry name="siemens-epoc-save-packet" status="disabled"/>
+      <entry name="siemens-epoc-save-test" status="disabled"/>
+      <entry name="siemens-logo-soft-comfort" status="disabled"/>
+      <entry name="siemens-logo-web-server" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-get-link" status="disabled"/>
+      <entry name="siemens-s7-comm-plus-invoke" status="disabled"/>
+      <entry name="smash" status="disabled"/>
+      <entry name="socratic-base" status="disabled"/>
+      <entry name="socratic-uploading" status="disabled"/>
+      <entry name="softether" status="disabled"/>
+      <entry name="suit-conference" status="disabled"/>
+      <entry name="tabnine" status="disabled"/>
+      <entry name="tenable.io" status="disabled"/>
+      <entry name="tidb" status="disabled"/>
+      <entry name="tiktok-posting" status="disabled"/>
+      <entry name="tiktok-uploading" status="disabled"/>
+      <entry name="twingate" status="disabled"/>
+      <entry name="umas-read-card-info" status="disabled"/>
+      <entry name="vsco" status="disabled"/>
+      <entry name="zoho-assist-base" status="disabled"/>
+      <entry name="zoho-assist-delete" status="disabled"/>
+    </application-status>
+    <server-profile>
+      <tacplus>
+        <entry name="ISE_TACACS">
+          <server>
+            <entry name="tc-cha-ics-acs-22">
+              <secret>-AQ==1JQmvUy4lsnt4KpyvQOd3Idwz+o=J769o/0MaK8FcwrjKHKOC0m+OdkM5ETUozWkNX/jFnk=</secret>
+              <port>49</port>
+              <address>199.166.46.243</address>
+            </entry>
+            <entry name="tc-cadc-ics-acs-2">
+              <secret>-AQ==1JQmvUy4lsnt4KpyvQOd3Idwz+o=J769o/0MaK8FcwrjKHKOC0m+OdkM5ETUozWkNX/jFnk=</secret>
+              <port>49</port>
+              <address>199.166.44.243</address>
+            </entry>
+          </server>
+          <protocol>PAP</protocol>
+        </entry>
+      </tacplus>
+    </server-profile>
+    <authentication-profile>
+      <entry name="ISE_TACACS">
+        <multi-factor-auth>
+          <mfa-enable>no</mfa-enable>
+        </multi-factor-auth>
+        <method>
+          <tacplus>
+            <server-profile>ISE_TACACS</server-profile>
+          </tacplus>
+        </method>
+        <allow-list>
+          <member>all</member>
+        </allow-list>
+      </entry>
+    </authentication-profile>
+  </shared>
+  <devices>
+    <entry name="localhost.localdomain">
+      <network>
+        <interface>
+          <ethernet/>
+          <loopback>
+            <units/>
+          </loopback>
+          <vlan>
+            <units/>
+          </vlan>
+          <tunnel>
+            <units/>
+          </tunnel>
+        </interface>
+        <vlan/>
+        <virtual-wire/>
+        <profiles>
+          <monitor-profile>
+            <entry name="default">
+              <interval>3</interval>
+              <threshold>5</threshold>
+              <action>wait-recover</action>
+            </entry>
+          </monitor-profile>
+        </profiles>
+        <ike>
+          <crypto-profiles>
+            <ike-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                  <member>3des</member>
+                </encryption>
+                <hash>
+                  <member>sha1</member>
+                </hash>
+                <dh-group>
+                  <member>group2</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha256</member>
+                </hash>
+                <dh-group>
+                  <member>group19</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <encryption>
+                  <member>aes-256-cbc</member>
+                </encryption>
+                <hash>
+                  <member>sha384</member>
+                </hash>
+                <dh-group>
+                  <member>group20</member>
+                </dh-group>
+                <lifetime>
+                  <hours>8</hours>
+                </lifetime>
+              </entry>
+            </ike-crypto-profiles>
+            <ipsec-crypto-profiles>
+              <entry name="default">
+                <esp>
+                  <encryption>
+                    <member>aes-128-cbc</member>
+                    <member>3des</member>
+                  </encryption>
+                  <authentication>
+                    <member>sha1</member>
+                  </authentication>
+                </esp>
+                <dh-group>group2</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-128">
+                <esp>
+                  <encryption>
+                    <member>aes-128-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group19</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+              <entry name="Suite-B-GCM-256">
+                <esp>
+                  <encryption>
+                    <member>aes-256-gcm</member>
+                  </encryption>
+                  <authentication>
+                    <member>none</member>
+                  </authentication>
+                </esp>
+                <dh-group>group20</dh-group>
+                <lifetime>
+                  <hours>1</hours>
+                </lifetime>
+              </entry>
+            </ipsec-crypto-profiles>
+            <global-protect-app-crypto-profiles>
+              <entry name="default">
+                <encryption>
+                  <member>aes-128-cbc</member>
+                </encryption>
+                <authentication>
+                  <member>sha1</member>
+                </authentication>
+              </entry>
+            </global-protect-app-crypto-profiles>
+          </crypto-profiles>
+          <gateway/>
+        </ike>
+        <qos>
+          <profile>
+            <entry name="default">
+              <class-bandwidth-type>
+                <mbps>
+                  <class>
+                    <entry name="class1">
+                      <priority>real-time</priority>
+                    </entry>
+                    <entry name="class2">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class3">
+                      <priority>high</priority>
+                    </entry>
+                    <entry name="class4">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class5">
+                      <priority>medium</priority>
+                    </entry>
+                    <entry name="class6">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class7">
+                      <priority>low</priority>
+                    </entry>
+                    <entry name="class8">
+                      <priority>low</priority>
+                    </entry>
+                  </class>
+                </mbps>
+              </class-bandwidth-type>
+            </entry>
+          </profile>
+        </qos>
+        <virtual-router>
+          <entry name="default">
+            <protocol>
+              <bgp>
+                <enable>no</enable>
+                <dampening-profile>
+                  <entry name="default">
+                    <cutoff>1.25</cutoff>
+                    <reuse>0.5</reuse>
+                    <max-hold-time>900</max-hold-time>
+                    <decay-half-life-reachable>300</decay-half-life-reachable>
+                    <decay-half-life-unreachable>900</decay-half-life-unreachable>
+                    <enable>yes</enable>
+                  </entry>
+                </dampening-profile>
+              </bgp>
+            </protocol>
+          </entry>
+        </virtual-router>
+        <tunnel>
+          <ipsec/>
+          <global-protect-gateway/>
+          <global-protect-site-to-site/>
+        </tunnel>
+      </network>
+      <deviceconfig>
+        <system>
+          <authentication-profile>ISE_TACACS</authentication-profile>
+          <ip-address>10.56.12.5</ip-address>
+          <netmask>255.255.255.224</netmask>
+          <update-server>updates.paloaltonetworks.com</update-server>
+          <update-schedule>
+            <threats>
+              <recurring>
+                <weekly>
+                  <day-of-week>wednesday</day-of-week>
+                  <at>01:02</at>
+                  <action>download-only</action>
+                </weekly>
+              </recurring>
+            </threats>
+          </update-schedule>
+          <service>
+            <disable-telnet>yes</disable-telnet>
+            <disable-http>yes</disable-http>
+          </service>
+          <hostname>AN-LA_EUNCE-SFW-2</hostname>
+          <default-gateway>10.56.12.1</default-gateway>
+          <login-banner>!!!!! use ICS SecurID to log in !!!!!</login-banner>
+        </system>
+        <setting>
+          <management>
+            <hostname-type-in-syslog>FQDN</hostname-type-in-syslog>
+          </management>
+        </setting>
+        <high-availability>
+          <interface>
+            <ha1>
+              <port>ethernet1/6</port>
+              <ip-address>169.254.240.210</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha1>
+            <ha1-backup>
+              <port>management</port>
+            </ha1-backup>
+            <ha2>
+              <port>ethernet1/7</port>
+              <ip-address>169.254.240.214</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2>
+            <ha2-backup>
+              <port>ethernet1/8</port>
+              <ip-address>169.254.240.218</ip-address>
+              <netmask>255.255.255.252</netmask>
+            </ha2-backup>
+          </interface>
+          <group>
+            <election-option>
+              <preemptive>no</preemptive>
+              <timers>
+                <recommended/>
+              </timers>
+            </election-option>
+            <group-id>10</group-id>
+            <peer-ip>169.254.240.209</peer-ip>
+            <peer-ip-backup>10.56.12.4</peer-ip-backup>
+            <mode>
+              <active-passive>
+                <passive-link-state>auto</passive-link-state>
+              </active-passive>
+            </mode>
+            <monitoring>
+              <link-monitoring>
+                <link-group>
+                  <entry name="All_Interfaces">
+                    <interface>
+                      <member>ethernet1/1</member>
+                      <member>ethernet1/2</member>
+                    </interface>
+                  </entry>
+                </link-group>
+              </link-monitoring>
+            </monitoring>
+          </group>
+          <enabled>yes</enabled>
+        </high-availability>
+      </deviceconfig>
+      <vsys>
+        <entry name="vsys1">
+          <application/>
+          <application-group/>
+          <zone>
+            <entry name="trust">
+              <network>
+                <virtual-wire/>
+              </network>
+            </entry>
+            <entry name="untrust">
+              <network>
+                <virtual-wire/>
+              </network>
+            </entry>
+          </zone>
+          <service/>
+          <service-group/>
+          <schedule/>
+          <rulebase>
+            <security>
+              <rules>
+                <entry name="rule1" uuid="2b9726ce-cea6-4769-a153-8610437f590f">
+                  <from>
+                    <member>trust</member>
+                  </from>
+                  <to>
+                    <member>untrust</member>
+                  </to>
+                  <service>
+                    <member>any</member>
+                  </service>
+                  <application>
+                    <member>any</member>
+                  </application>
+                  <action>allow</action>
+                  <log-end>yes</log-end>
+                  <source>
+                    <member>any</member>
+                  </source>
+                  <destination>
+                    <member>any</member>
+                  </destination>
+                </entry>
+              </rules>
+            </security>
+          </rulebase>
+          <import>
+            <network>
+              <interface/>
+            </network>
+          </import>
+        </entry>
+      </vsys>
+    </entry>
+  </devices>
+</config>
