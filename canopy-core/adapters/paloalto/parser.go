@@ -476,7 +476,8 @@ type XMLTemplateStack struct {
 	Templates      []string `xml:"templates>member"`
 	Devices        []string `xml:"devices>member"`
 	DevicesEntries []struct {
-		Name string `xml:"name,attr"`
+		Name     string             `xml:"name,attr"`
+		Variable []XMLVariableEntry `xml:"variable>entry"`
 	} `xml:"devices>entry"`
 }
 
@@ -2676,7 +2677,7 @@ func processInterfaceList(tx *sql.Tx, interfaceStmt, topologyStmt *sql.Stmt, dev
 		
 		ipAddress := strings.Join(ipList, ", ")
 		if interfaceStmt != nil {
-			if _, err := interfaceStmt.Exec(deviceUUID, scope, eth.Name, ifaceType, ipAddress, ""); err != nil {
+			if _, err := interfaceStmt.Exec(deviceUUID, scope, eth.Name, ifaceType, ipAddress, "", zoneName, vrName); err != nil {
 				return err
 			}
 		}
@@ -2774,8 +2775,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	defer topologyStmt.Close()
 
 	interfaceStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO interfaces (device_uuid, scope, name, type, ip_address, description)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO interfaces (device_uuid, scope, name, type, ip_address, description, zone, vr_name)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to prepare interface statement: %w", err)
@@ -2932,6 +2933,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					return 0, 0, fmt.Errorf("failed to insert template stack member: %w", err)
 				}
 			}
+
+
 		}
 
 		// 3. Process Shared / Global Objects
@@ -3975,6 +3978,30 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 		}
 	}
+
+	// Process Template Stack Device Variables (Done after scopes are inserted to avoid FK constraints)
+	for _, stack := range allTemplateStacks {
+		for _, dev := range stack.DevicesEntries {
+			serial := dev.Name
+			if serial == "" || serial == "Unknown" || serial == "localhost.localdomain" {
+				continue
+			}
+			fwUUID := "paloalto-fw-" + serial
+			if len(dev.Variable) > 0 {
+				var count int
+				if err := tx.QueryRow("SELECT COUNT(*) FROM scopes WHERE uuid = ?", fwUUID).Scan(&count); err == nil && count == 0 {
+					// Register placeholder scope for firewall if missing from mgt-config
+					if _, err := scopeStmt.Exec(fwUUID, "firewall", nil, "Firewall "+serial, nil); err != nil {
+						return 0, 0, fmt.Errorf("failed to register placeholder firewall scope %s: %w", serial, err)
+					}
+				}
+				if err := insertVariables(tx, variableStmt, fwUUID, "local", dev.Variable); err != nil {
+					return 0, 0, fmt.Errorf("failed to insert template stack device variables for %s: %w", serial, err)
+				}
+			}
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return 0, 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}

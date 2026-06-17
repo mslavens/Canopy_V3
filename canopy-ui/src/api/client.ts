@@ -84,9 +84,9 @@ export class CanopyApiClient {
   public importWorkspace = (formData: FormData) => this.request<any>('/api/workspaces/import', { method: 'POST', body: formData });
 
   // Networks & Variables
-  public getNetworksZones = () => this.request<any[]>('/api/networks/zones');
-  public getNetworksInterfaces = () => this.request<any[]>('/api/networks/interfaces');
-  public getNetworksRoutes = () => this.request<any[]>('/api/networks/routes');
+  public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public getNetworksInterfaces = (deviceUuid?: string) => this.request<any[]>(`/api/networks/interfaces${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public getNetworksRoutes = (deviceUuid?: string) => this.request<any[]>(`/api/networks/routes${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
   public getVariables = () => this.request<any[]>('/api/variables');
 
   // Secrets Vault

@@ -4,7 +4,9 @@ import { DataTable, ColumnDef } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
-import { Waypoints, Loader2 } from 'lucide-react';
+import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
+import { Map, Loader2 } from 'lucide-react';
 
 interface RouteTablePageProps {
   auth: { url: string; token: string } | null;
@@ -16,13 +18,46 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast }
   const [searchQuery, setSearchQuery] = useState('');
   const [routes, setRoutes] = useState<any[]>([]);
 
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateStacks, setTemplateStacks] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('show-all');
+
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadScopes = async () => {
+      if (!apiClient) return;
+      try {
+        const tmplRes = await apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;");
+        const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
+        const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
+        
+        if (isMounted) {
+          setTemplates(tmplRes?.rows || []);
+          setTemplateStacks(stackRes?.rows || []);
+          setDevices(fwRes?.rows || []);
+        }
+      } catch (err) {
+        console.error("Failed to load scopes", err);
+      }
+    };
+    loadScopes();
+    return () => { isMounted = false; };
+  }, [apiClient]);
+
+  const { hierarchyOptions, scopeNameMap } = useTemplateHierarchy(templates, templateStacks, devices, {
+    includeShowAll: true,
+    firewallValueKey: 'uuid'
+  });
 
   const fetchRoutes = async () => {
     if (!apiClient) return;
     try {
       setLoading(true);
-      const res = await apiClient.getNetworksRoutes();
+      const uuidToQuery = selectedScopeUuid === 'show-all' ? undefined : selectedScopeUuid;
+      const res = await apiClient.getNetworksRoutes(uuidToQuery);
       setRoutes(res || []);
     } catch (err) {
       console.error('Failed to load routes:', err);
@@ -34,26 +69,47 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast }
 
   useEffect(() => {
     fetchRoutes();
-  }, [apiClient]);
+  }, [apiClient, selectedScopeUuid]);
 
   const columns: ColumnDef[] = useMemo(
     () => [
-      { key: 'vr_name', label: 'Virtual Router' },
-      { key: 'route_name', label: 'Route Name' },
-      { key: 'destination', label: 'Destination' },
-      { key: 'nexthop', label: 'Next Hop' },
-      { key: 'interface', label: 'Interface' },
-      { key: 'metric', label: 'Metric' },
+      { 
+        key: 'device_uuid', 
+        label: 'Context / Scope', 
+        width: '250px',
+        renderCell: (val: any) => scopeNameMap[val] || val
+      },
+      { key: 'vr_name', label: 'Virtual Router', width: '200px' },
+      { key: 'route_name', label: 'Name', width: '200px' },
+      { key: 'destination', label: 'Destination', width: '200px' },
+      { key: 'nexthop', label: 'Next Hop', width: '180px' },
+      { key: 'interface', label: 'Interface', width: '150px' },
+      { key: 'metric', label: 'Metric', width: '100px' },
     ],
-    []
+    [scopeNameMap]
   );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       <PageHeader
-        title="Route Tables"
-        description="Inspect static routing tables configured across local firewalls and templates."
-        actions={<SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search routes..." variant="local" />}
+        title="Routing Tables"
+        description="Inspect virtual routers and static routes mapped to local devices and templates."
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' }}>Context:</span>
+              <div style={{ width: '250px' }}>
+                <SearchableScopeDropdown
+                  value={selectedScopeUuid}
+                  options={hierarchyOptions}
+                  onChange={setSelectedScopeUuid}
+                  scopeNameMap={scopeNameMap}
+                />
+              </div>
+            </div>
+            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search routes..." variant="local" />
+          </div>
+        }
       />
 
       {/* Main Grid */}
@@ -85,9 +141,9 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast }
           />
         ) : (
           <EmptyState
-            icon={<Waypoints size={32} />}
-            title="No Routes Configured"
-            description="No static routes found in the database. Ensure XML imports have completed successfully."
+            icon={<Map size={32} />}
+            title="No Routes Found"
+            description="No static routes found for the selected scope context."
             minHeight="300px"
           />
         )}

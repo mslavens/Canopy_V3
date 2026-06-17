@@ -1,0 +1,118 @@
+import { useMemo, useCallback } from 'react';
+import { ScopeHierarchyNode } from './useScopeHierarchy';
+
+export function useTemplateHierarchy(
+  templates: any[],
+  templateStacks: any[],
+  firewalls: any[],
+  options?: {
+    includeShowAll?: boolean;
+    firewallValueKey?: 'uuid' | 'serial';
+  }
+) {
+  const includeShowAll = options?.includeShowAll ?? true;
+  const firewallValueKey = options?.firewallValueKey ?? 'serial';
+
+  const scopeNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (includeShowAll) {
+      map['show-all'] = 'Show all';
+    }
+    
+    templates.forEach(t => {
+      map[t.uuid] = t.name;
+    });
+    templateStacks.forEach(ts => {
+      map[ts.uuid] = ts.name;
+    });
+    firewalls.forEach(fw => {
+      const key = firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`;
+      map[key] = fw.name;
+    });
+    return map;
+  }, [templates, templateStacks, firewalls, includeShowAll, firewallValueKey]);
+
+  const hierarchyOptions = useMemo(() => {
+    const opts: ScopeHierarchyNode[] = [];
+    
+    if (includeShowAll) {
+      opts.push({ label: 'Show all', value: 'show-all', depth: 0, type: 'global' });
+    }
+
+    // Add Template Stacks
+    templateStacks.forEach(ts => {
+      opts.push({
+        label: ts.name,
+        value: ts.uuid,
+        depth: 1,
+        type: 'template-stack'
+      });
+
+      // Find firewalls for this template stack
+      const stackFirewalls = firewalls.filter(fw => fw.template_stack_id === ts.id);
+      stackFirewalls.forEach(fw => {
+        opts.push({
+          label: fw.name,
+          value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
+          depth: 2,
+          type: 'firewall'
+        });
+      });
+    });
+
+    // Add standalone Templates
+    templates.forEach(t => {
+      opts.push({
+        label: t.name,
+        value: t.uuid,
+        depth: 1,
+        type: 'template'
+      });
+
+      // Find firewalls specifically assigned to this template directly
+      const tmplFirewalls = firewalls.filter(fw => fw.template_id === t.id && !fw.template_stack_id);
+      tmplFirewalls.forEach(fw => {
+        opts.push({
+          label: fw.name,
+          value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
+          depth: 2,
+          type: 'firewall'
+        });
+      });
+    });
+
+    // Add unassigned firewalls
+    const unassignedFirewalls = firewalls.filter(fw => !fw.template_id && !fw.template_stack_id);
+    unassignedFirewalls.forEach(fw => {
+      opts.push({
+        label: fw.name,
+        value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
+        depth: 1,
+        type: 'firewall'
+      });
+    });
+    
+    return opts;
+  }, [templates, templateStacks, firewalls, includeShowAll, firewallValueKey]);
+
+  // For networks, the "visible scopes" array isn't as strictly nested hierarchically 
+  // in the dropdown UI because template stacks contain templates, but we don't 
+  // visually render the templates under the stack in the dropdown (it's a flat list).
+  // However, we still want to provide the correct "Context Context" string sequence.
+  // The backend already resolves ancestry. Here, we just return a simple list 
+  // for the "Scope Context:" label display.
+  const getVisibleScopes = useCallback((currentScope: string) => {
+    if (!currentScope || currentScope === 'show-all') return [];
+    
+    const scopes: string[] = [];
+    scopes.push(currentScope);
+
+    return scopes;
+  }, [firewalls, templates, templateStacks, firewallValueKey]);
+
+  return {
+    hierarchyOptions,
+    scopeNameMap,
+    getVisibleScopes
+  };
+}

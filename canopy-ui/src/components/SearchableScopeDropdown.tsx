@@ -5,7 +5,7 @@ import { EmptyState } from './EmptyState';
 
 export interface SearchableScopeDropdownProps {
   value: string;
-  options: { label: string; value: string; depth: number; type: 'global' | 'shared' | 'device-group' | 'firewall' }[];
+  options: { label: string; value: string; depth: number; type: 'global' | 'shared' | 'device-group' | 'firewall' | 'template' | 'template-stack' }[];
   onChange: (value: string) => void;
   scopeNameMap: Record<string, string>;
   ruleCounts?: Record<string, number>;
@@ -144,7 +144,8 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
       >
         {opt.type === 'global' && <Database size={12} className="text-accent" />}
         {opt.type === 'shared' && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
-        {opt.type === 'device-group' && <Layers size={12} />}
+        {(opt.type === 'device-group' || opt.type === 'template-stack') && <Layers size={12} />}
+        {opt.type === 'template' && <Layers size={12} style={{ color: 'var(--text-muted)' }} />}
         {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
           {opt.label}
@@ -324,7 +325,8 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
             <>
               {selectedOption?.type === 'global' && <Database size={13} className="text-accent" />}
               {selectedOption?.type === 'shared' && <Globe size={13} style={{ color: 'var(--accent-blue)' }} />}
-              {selectedOption?.type === 'device-group' && <Layers size={13} />}
+              {(selectedOption?.type === 'device-group' || selectedOption?.type === 'template-stack') && <Layers size={13} />}
+              {selectedOption?.type === 'template' && <Layers size={13} style={{ color: 'var(--text-muted)' }} />}
               {selectedOption?.type === 'firewall' && <Server size={13} style={{ color: 'var(--text-muted)' }} />}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
                 {selectedOption ? selectedOption.label : 'Select scope...'}

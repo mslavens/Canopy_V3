@@ -5,6 +5,8 @@ import { DataTable, ColumnDef } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
+import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { Upload, Network, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface InterfacesPageProps {
@@ -20,13 +22,46 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
   const [interfaces, setInterfaces] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [templateStacks, setTemplateStacks] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('show-all');
+
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadScopes = async () => {
+      if (!apiClient) return;
+      try {
+        const tmplRes = await apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;");
+        const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
+        const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
+        
+        if (isMounted) {
+          setTemplates(tmplRes?.rows || []);
+          setTemplateStacks(stackRes?.rows || []);
+          setDevices(fwRes?.rows || []);
+        }
+      } catch (err) {
+        console.error("Failed to load scopes", err);
+      }
+    };
+    loadScopes();
+    return () => { isMounted = false; };
+  }, [apiClient]);
+
+  const { hierarchyOptions, scopeNameMap } = useTemplateHierarchy(templates, templateStacks, devices, {
+    includeShowAll: true,
+    firewallValueKey: 'uuid'
+  });
 
   const fetchInterfaces = async () => {
     if (!apiClient) return;
     try {
       setLoading(true);
-      const res = await apiClient.getNetworksInterfaces();
+      const uuidToQuery = selectedScopeUuid === 'show-all' ? undefined : selectedScopeUuid;
+      const res = await apiClient.getNetworksInterfaces(uuidToQuery);
       setInterfaces(res || []);
     } catch (err) {
       console.error('Failed to load interfaces:', err);
@@ -38,7 +73,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
 
   useEffect(() => {
     fetchInterfaces();
-  }, [apiClient]);
+  }, [apiClient, selectedScopeUuid]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -84,21 +119,42 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
 
   const columns: ColumnDef[] = useMemo(
     () => [
-      { key: 'scope', label: 'Context / Scope' },
-      { key: 'name', label: 'Interface' },
-      { key: 'type', label: 'Type' },
-      { key: 'ip_address', label: 'IP Address' },
-      { key: 'zone', label: 'Security Zone' },
+      { 
+        key: 'device_uuid', 
+        label: 'Context / Scope', 
+        width: '250px',
+        renderCell: (val: any) => scopeNameMap[val] || val
+      },
+      { key: 'name', label: 'Interface', width: '200px' },
+      { key: 'type', label: 'Type', width: '150px' },
+      { key: 'ip_address', label: 'IP Address', width: '200px' },
+      { key: 'zone', label: 'Security Zone', width: '200px' },
+      { key: 'vr_name', label: 'Virtual Router', width: '200px' },
     ],
-    []
+    [scopeNameMap]
   );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
       <PageHeader
         title="Network Interfaces"
-        description="Inspect zones, subnets, and virtual routers. Upload configuration XMLs to import new devices and topologies."
-        actions={<SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search interfaces..." variant="local" />}
+        description="Inspect zones, subnets, and virtual routers mapped to local devices and templates."
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' }}>Context:</span>
+              <div style={{ width: '250px' }}>
+                <SearchableScopeDropdown
+                  value={selectedScopeUuid}
+                  options={hierarchyOptions}
+                  onChange={setSelectedScopeUuid}
+                  scopeNameMap={scopeNameMap}
+                />
+              </div>
+            </div>
+            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search interfaces..." variant="local" />
+          </div>
+        }
       />
 
       {/* Upload Panel */}
@@ -160,8 +216,8 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
         ) : (
           <EmptyState
             icon={<Network size={32} />}
-            title="No Interfaces Configured"
-            description="Import a standalone Palo Alto Firewall running configuration or a Panorama export to begin network path analysis."
+            title="No Interfaces Found"
+            description="No interfaces found for the selected scope context. Try selecting a different device or template stack."
             minHeight="300px"
           />
         )}

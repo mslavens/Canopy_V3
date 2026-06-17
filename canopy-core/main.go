@@ -129,6 +129,8 @@ var actSchema = `
 		type TEXT NOT NULL,
 		ip_address TEXT,
 		description TEXT,
+		zone TEXT,
+		vr_name TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS zones (
@@ -894,6 +896,8 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE address_groups ADD COLUMN filter TEXT;")
 	db.Exec("ALTER TABLE service_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE interfaces ADD COLUMN zone TEXT;")
+	db.Exec("ALTER TABLE interfaces ADD COLUMN vr_name TEXT;")
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN group_id INTEGER REFERENCES application_groups(id) ON DELETE CASCADE;")
 	db.Exec("ALTER TABLE security_rules ADD COLUMN log_setting TEXT;")
@@ -1225,6 +1229,8 @@ func main() {
 		},
 	}
 	slog.Info("Proxy detection from environment enabled for outbound requests")
+
+	// Get port from environment or default to 8080
 
 	// Resolve or generate bearer token
 	token := os.Getenv("CANOPY_TOKEN")
