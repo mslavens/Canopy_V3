@@ -9,9 +9,10 @@ export interface SearchableScopeDropdownProps {
   onChange: (value: string) => void;
   scopeNameMap: Record<string, string>;
   ruleCounts?: Record<string, number>;
+  hasValuesMap?: Record<string, boolean>;
 }
 
-export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap, ruleCounts }) => {
+export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap, ruleCounts, hasValuesMap }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);

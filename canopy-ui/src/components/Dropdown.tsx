@@ -10,6 +10,7 @@ interface DropdownProps {
   direction?: 'up' | 'down';
   renderOption?: (opt: string) => React.ReactNode;
   searchable?: boolean;
+  variant?: 'default' | 'inline';
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({ 
@@ -19,7 +20,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   width = '200px', 
   direction = 'down', 
   renderOption,
-  searchable = false
+  searchable = false,
+  variant = 'default'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -220,12 +222,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
           }
         }}
         style={{
-          padding: '8px 12px',
-          backgroundColor: 'var(--bg-app)',
-          border: `1px solid ${isOpen ? 'var(--accent-blue)' : 'var(--border-main)'}`,
+          padding: variant === 'inline' ? '2px 8px' : '8px 12px',
+          backgroundColor: variant === 'inline' ? 'transparent' : 'var(--bg-app)',
+          border: variant === 'inline' ? 'none' : `1px solid ${isOpen ? 'var(--accent-blue)' : 'var(--border-main)'}`,
           borderRadius: '4px',
           color: 'var(--text-main)',
-          fontSize: '13px',
+          fontSize: variant === 'inline' ? '12px' : '13px',
+          fontWeight: variant === 'inline' ? 600 : 400,
           cursor: searchable && isOpen ? 'text' : 'pointer',
           display: 'flex',
           justifyContent: 'space-between',

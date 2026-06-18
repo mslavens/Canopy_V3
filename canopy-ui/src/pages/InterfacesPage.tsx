@@ -4,6 +4,7 @@ import { DataTable, ColumnDef } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
+import { Dropdown } from '../components/Dropdown';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { Network, Loader2 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
   const [templateStackMembers, setTemplateStackMembers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('show-all');
+  const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
@@ -34,12 +36,17 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
         const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
         const stackMembersRes = await apiClient.queryDb("SELECT tsm.stack_id, tsm.template_id, t.uuid as template_uuid, tsm.sequence FROM template_stack_members_raw tsm JOIN templates t ON tsm.template_id = t.id ORDER BY tsm.sequence ASC;");
         const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
+        const countsRes = await apiClient.queryDb("SELECT device_uuid FROM interfaces GROUP BY device_uuid;");
         
         if (isMounted) {
           setTemplates(tmplRes?.rows || []);
           setTemplateStacks(stackRes?.rows || []);
           setTemplateStackMembers(stackMembersRes?.rows || []);
           setDevices(fwRes?.rows || []);
+          
+          const hm: Record<string, boolean> = {};
+          countsRes?.rows?.forEach((r: any) => hm[r.device_uuid] = true);
+          setHasValuesMap(hm);
         }
       } catch (err) {
         console.error("Failed to load scopes", err);
@@ -151,12 +158,13 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                     onChange={setSelectedScopeUuid}
                     scopeNameMap={scopeNameMap}
                     ruleCounts={deviceCounts}
+                    hasValuesMap={hasValuesMap}
                   />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, minHeight: '20px' }}>
-                    {selectedScopeUuid !== 'show-all' && visibleScopes.length > 1 ? (
+                    {selectedScopeUuid !== 'show-all' ? (
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         Scope Context:
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
@@ -187,35 +195,30 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                                return (
                                  <React.Fragment>
                                    <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                                   <select
+                                   <Dropdown
                                      value={isDeviceSelected ? selectedScopeUuid : ""}
-                                     onChange={(e) => {
-                                        if (e.target.value) {
-                                          setSelectedScopeUuid(e.target.value);
+                                     options={["", ...availableDevices.map(fw => fw.uuid)]}
+                                     onChange={(val) => {
+                                        if (val) {
+                                          setSelectedScopeUuid(val);
                                         } else {
                                           setSelectedScopeUuid(activeConfig);
                                         }
                                      }}
-                                     style={{
-                                       appearance: 'none',
-                                       background: 'transparent',
-                                       border: 'none',
-                                       color: isDeviceSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                                       fontWeight: isDeviceSelected ? 600 : 400,
-                                       fontSize: '12px',
-                                       cursor: 'pointer',
-                                       outline: 'none',
-                                       padding: '0 12px 0 0',
-                                       backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-                                       backgroundRepeat: 'no-repeat',
-                                       backgroundPosition: 'right center'
+                                     searchable={true}
+                                     width="220px"
+                                     variant="inline"
+                                     renderOption={(opt) => {
+                                       if (!opt) return <span style={{ color: 'var(--text-muted)' }}>Device Overrides...</span>;
+                                       const fw = availableDevices.find(f => f.uuid === opt);
+                                       return (
+                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fw ? (fw.name || fw.serial) : opt}</span>
+                                           {hasValuesMap[opt] && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0, marginLeft: '6px' }} title="Has overrides configured" />}
+                                         </div>
+                                       );
                                      }}
-                                   >
-                                     <option value="">[ Select Device ]</option>
-                                     {availableDevices.map((fw: any) => (
-                                       <option key={fw.uuid} value={fw.uuid}>{fw.name}</option>
-                                     ))}
-                                   </select>
+                                   />
                                  </React.Fragment>
                                );
                              }
