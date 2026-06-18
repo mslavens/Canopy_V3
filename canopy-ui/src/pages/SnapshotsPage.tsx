@@ -237,7 +237,7 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
         {isLoadingSnapshots ? (
           <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}><Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />Loading snapshots...</div>
         ) : snapshots.length > 0 ? (
-          <DataTable columns={snapshotColumns} data={snapshots} />
+          <DataTable columns={snapshotColumns} data={snapshots} pagination={true} />
         ) : (
           <EmptyState icon={<Database size={32} />} title="No Snapshots Found" description="Take a snapshot to instantly save your current workspace configuration." minHeight="250px" />
         )}

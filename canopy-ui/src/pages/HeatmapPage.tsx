@@ -1167,11 +1167,12 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {activePassResult && (
                     <DataTable 
-                      columns={dataTableColumns}
-                      data={filteredCandidateRules}
-                      exportFilename="candidate_rules"
-                      pagination={true}
+                      columns={dataTableColumns} 
+                      data={filteredCandidateRules} 
+                      searchQuery={candidateSearchQuery}
+                      exportFilename={`heatmap_candidates_${activePassResult?.id}.csv`}
                       selectable={true}
+                      pagination={true}
                     />
                   )}
                 </div>

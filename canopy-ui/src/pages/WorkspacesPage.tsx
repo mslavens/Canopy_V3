@@ -336,6 +336,7 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
             data={workspaces} 
             searchQuery={searchQuery} 
             highlightRow={(row) => row.name === activeWorkspaceName} 
+            pagination={true}
           />
         )}
       </div>

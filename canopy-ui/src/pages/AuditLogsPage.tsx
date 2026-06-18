@@ -77,7 +77,7 @@ export const AuditLogsPage: React.FC<AuditLogsPageProps> = ({ auth, addToast }) 
             Decrypting audit trail...
           </div>
         ) : logs.length > 0 ? (
-          <DataTable columns={columns} data={logs} searchQuery={searchQuery} exportFilename={`canopy_audit_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} selectable={true} />
+          <DataTable columns={columns} data={logs} searchQuery={searchQuery} exportFilename={`canopy_audit_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} selectable={true} pagination={true} />
         ) : (
           <EmptyState icon={<Inbox size={32} />} title="No audit events recorded" description="There is currently no administrative activity in the system logs." minHeight="250px" />
         )}

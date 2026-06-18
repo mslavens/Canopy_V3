@@ -32,7 +32,7 @@ export function useScopeHierarchy(
     });
     firewalls.forEach(fw => {
       const key = firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`;
-      map[key] = fw.name;
+      map[key] = fw.name || fw.serial;
     });
     return map;
   }, [deviceGroups, firewalls, includeShowAll, firewallValueKey]);
@@ -63,7 +63,7 @@ export function useScopeHierarchy(
         const groupFirewalls = firewalls.filter(fw => fw.device_group_id === dg.id);
         groupFirewalls.forEach(fw => {
           opts.push({
-            label: fw.name,
+            label: fw.name || fw.serial,
             value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
             depth: depth + 1,
             type: 'firewall'
@@ -81,7 +81,7 @@ export function useScopeHierarchy(
     const unassignedFirewalls = firewalls.filter(fw => !fw.device_group_id);
     unassignedFirewalls.forEach(fw => {
       opts.push({
-        label: fw.name,
+        label: fw.name || fw.serial,
         value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
         depth: 1,
         type: 'firewall'

@@ -790,6 +790,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 data={inventory}
                 searchQuery={searchQuery}
                 exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
+                pagination={true}
               />
             </div>
           )}

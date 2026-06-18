@@ -66,7 +66,15 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
     let result = options;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = options.filter(o => o.label.toLowerCase().includes(q) || o.value === 'show-all');
+      const matches = options.filter(o => o.label.toLowerCase().includes(q) || o.value === 'show-all');
+      
+      const seen = new Set<string>();
+      result = matches.filter(opt => {
+        if (opt.value === 'show-all') return true;
+        if (seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      });
     }
     
     const showAllIndex = result.findIndex(o => o.value === 'show-all');
@@ -122,7 +130,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
           height: '32px',
           boxSizing: 'border-box',
           padding: '0 12px',
-          paddingLeft: `${opt.depth * 16 + 12}px`,
+          paddingLeft: searchQuery ? '12px' : `${opt.depth * 16 + 12}px`,
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
@@ -154,8 +162,11 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
         {opt.type === 'template-stack' && <Layers size={12} style={{ color: 'var(--accent-blue)' }} />}
         {opt.type === 'template' && <FileText size={12} style={{ color: 'var(--text-muted)' }} />}
         {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
-        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
           {opt.label}
+          {hasValuesMap && hasValuesMap[opt.value] && (
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0 }} title="Has configured values" />
+          )}
         </span>
         {ruleCounts && ruleCounts[opt.value] !== undefined && ruleCounts[opt.value] > 0 && (
           <span style={{

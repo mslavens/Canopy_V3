@@ -28,7 +28,7 @@ export function useTemplateHierarchy(
     });
     firewalls.forEach(fw => {
       const key = firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`;
-      map[key] = fw.name;
+      map[key] = fw.name || fw.serial;
     });
     return map;
   }, [templates, templateStacks, firewalls, includeShowAll, firewallValueKey]);
@@ -45,6 +45,15 @@ export function useTemplateHierarchy(
     templateStackMembers.forEach(m => templatesInStacks.add(m.template_id));
 
     // Add Template Stacks and their nested templates
+    if (templateStacks.length > 0) {
+      opts.push({
+        label: 'Template Stacks',
+        value: 'header-template-stacks',
+        depth: 0,
+        type: 'global'
+      });
+    }
+
     templateStacks.forEach(ts => {
       opts.push({
         label: ts.name,
@@ -88,6 +97,28 @@ export function useTemplateHierarchy(
           value: t.uuid,
           depth: 1,
           type: 'template'
+        });
+      });
+    }
+
+    // Add Firewalls under a generic header
+    if (firewalls.length > 0) {
+      opts.push({
+        label: 'Firewalls',
+        value: 'header-firewalls',
+        depth: 0,
+        type: 'global'
+      });
+
+      // Sort firewalls alphabetically by name
+      const sortedFws = [...firewalls].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      sortedFws.forEach(fw => {
+        const key = firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`;
+        opts.push({
+          label: fw.name || fw.serial,
+          value: key,
+          depth: 1,
+          type: 'firewall'
         });
       });
     }

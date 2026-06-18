@@ -236,7 +236,7 @@ export const SecretsVaultPage: React.FC<SecretsVaultPageProps> = ({ auth, addToa
         {isLoading ? (
           <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}><Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />Decrypting vault entries...</div>
         ) : secrets.length > 0 ? (
-          <DataTable columns={columns} data={secrets} searchQuery={searchQuery} />
+          <DataTable columns={columns} data={secrets} searchQuery={searchQuery} pagination={true} />
         ) : (
           <EmptyState icon={<Key size={32} />} title="No secrets stored" description="Add a secret to securely authenticate with external infrastructure." minHeight="250px" />
         )}

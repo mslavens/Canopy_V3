@@ -4006,7 +4006,15 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			if serial == "" || serial == "Unknown" || serial == "localhost.localdomain" {
 				continue
 			}
-			fwUUID := "paloalto-fw-" + serial
+			
+			var existingUUID string
+			_ = tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", serial).Scan(&existingUUID)
+			
+			fwUUID := existingUUID
+			if fwUUID == "" {
+				fwUUID = "paloalto-fw-" + serial
+			}
+			
 			if len(dev.Variable) > 0 {
 				var count int
 				if err := tx.QueryRow("SELECT COUNT(*) FROM scopes WHERE uuid = ?", fwUUID).Scan(&count); err == nil && count == 0 {
