@@ -29,13 +29,13 @@ func getTemplateAncestry(deviceUUID string) []string {
 	
 	if err == nil {
 		if stackID.Valid {
-			// Find the stack device_uuid
+			// Find the stack uuid
 			var stackUUID string
-			activeDB.DB().QueryRow("SELECT device_uuid FROM template_stacks WHERE id = ?", stackID.Int64).Scan(&stackUUID)
+			activeDB.DB().QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", stackID.Int64).Scan(&stackUUID)
 			
-			// Find all template device_uuids in sequence
+			// Find all template uuids in sequence
 			rows, err := activeDB.DB().Query(`
-				SELECT t.device_uuid 
+				SELECT t.uuid 
 				FROM template_stack_members_raw m
 				JOIN templates t ON m.template_id = t.id
 				WHERE m.stack_id = ?
@@ -52,7 +52,7 @@ func getTemplateAncestry(deviceUUID string) []string {
 			ancestry = append(ancestry, stackUUID)
 		} else if tmplID.Valid {
 			var tUUID string
-			activeDB.DB().QueryRow("SELECT device_uuid FROM templates WHERE id = ?", tmplID.Int64).Scan(&tUUID)
+			activeDB.DB().QueryRow("SELECT uuid FROM templates WHERE id = ?", tmplID.Int64).Scan(&tUUID)
 			ancestry = append(ancestry, tUUID)
 		}
 		
@@ -61,10 +61,10 @@ func getTemplateAncestry(deviceUUID string) []string {
 	} else {
 		// If it's not a firewall, check if it's a stack
 		var sID int64
-		errStack := activeDB.DB().QueryRow("SELECT id FROM template_stacks WHERE device_uuid = ?", deviceUUID).Scan(&sID)
+		errStack := activeDB.DB().QueryRow("SELECT id FROM template_stacks WHERE uuid = ?", deviceUUID).Scan(&sID)
 		if errStack == nil {
 			rows, err := activeDB.DB().Query(`
-				SELECT t.device_uuid 
+				SELECT t.uuid 
 				FROM template_stack_members_raw m
 				JOIN templates t ON m.template_id = t.id
 				WHERE m.stack_id = ?

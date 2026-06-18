@@ -32,7 +32,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
       try {
         const tmplRes = await apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;");
         const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
-        const stackMembersRes = await apiClient.queryDb("SELECT tsm.stack_id, t.uuid as template_uuid, tsm.sequence FROM template_stack_members_raw tsm JOIN templates t ON tsm.template_id = t.id ORDER BY tsm.sequence ASC;");
+        const stackMembersRes = await apiClient.queryDb("SELECT tsm.stack_id, tsm.template_id, t.uuid as template_uuid, tsm.sequence FROM template_stack_members_raw tsm JOIN templates t ON tsm.template_id = t.id ORDER BY tsm.sequence ASC;");
         const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
         
         if (isMounted) {
@@ -49,7 +49,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     return () => { isMounted = false; };
   }, [apiClient]);
 
-  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useTemplateHierarchy(templates, templateStacks, devices, templateStackMembers, {
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes, getDevicesForScope, getActiveConfigScope, deviceCounts } = useTemplateHierarchy(templates, templateStacks, devices, templateStackMembers, {
     includeShowAll: true,
     firewallValueKey: 'uuid'
   });
@@ -79,7 +79,12 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     () => [
       { key: 'name', label: 'Interface', width: '200px', renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.name}</span> },
       { key: 'device_uuid', label: 'Context / Scope', width: '250px', renderCell: (val: any) => {
-        const hierarchy = [...getVisibleScopes(val)].reverse();
+        const hierarchy = getVisibleScopes(val, selectedScopeUuid);
+        const activeConfig = getActiveConfigScope(selectedScopeUuid);
+        const isDeviceContext = activeConfig !== selectedScopeUuid;
+        const isInherited = isDeviceContext && val !== selectedScopeUuid;
+        const isOverride = isDeviceContext && val === selectedScopeUuid;
+        
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', lineHeight: '1.2' }}>
             {hierarchy.map((scopeId, idx) => {
@@ -100,9 +105,17 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                     title={`Switch active scope to ${displayName}`}
                   >
                     {isLast ? (
-                      <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
-                        {displayName}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
+                          {displayName}
+                        </span>
+                        {isInherited && (
+                          <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>Inherited</span>
+                        )}
+                        {isOverride && (
+                          <span className="badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-blue)', fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>Device Override</span>
+                        )}
+                      </div>
                     ) : (
                       <span style={{ color: 'var(--text-muted)' }}>{displayName}</span>
                     )}
@@ -133,10 +146,11 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                   <span style={{ width: '95px', display: 'inline-block', fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Template:</span>
                   <SearchableScopeDropdown
-                    value={selectedScopeUuid}
+                    value={getActiveConfigScope(selectedScopeUuid)}
                     options={hierarchyOptions}
                     onChange={setSelectedScopeUuid}
                     scopeNameMap={scopeNameMap}
+                    ruleCounts={deviceCounts}
                   />
                 </div>
 
@@ -146,10 +160,11 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         Scope Context:
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
-                          {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
-                            <React.Fragment key={scopeId}>
+                          {(() => {
+                            const activeConfig = getActiveConfigScope(selectedScopeUuid);
+                            return (
                               <span
-                                onClick={() => setSelectedScopeUuid(scopeId)}
+                                onClick={() => setSelectedScopeUuid(activeConfig)}
                                 style={{
                                   color: 'var(--text-muted)',
                                   cursor: 'pointer',
@@ -158,28 +173,54 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
                                 }}
                                 onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
-                                title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
+                                title={`Switch active scope to ${scopeNameMap[activeConfig] || activeConfig}`}
                               >
-                                {scopeNameMap[scopeId] || scopeId}
+                                {scopeNameMap[activeConfig] || activeConfig}
                               </span>
-                              {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
-                            </React.Fragment>
-                          ))}
-                          <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                          <span style={{
-                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                            color: 'var(--accent-blue)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(59, 130, 246, 0.25)',
-                            fontWeight: 600,
-                            fontSize: '11px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {scopeNameMap[selectedScopeUuid] || selectedScopeUuid}
-                          </span>
+                            );
+                          })()}
+                          {(() => {
+                             const activeConfig = getActiveConfigScope(selectedScopeUuid);
+                             const availableDevices = getDevicesForScope(activeConfig);
+                             if (availableDevices.length > 0) {
+                               const isDeviceSelected = selectedScopeUuid !== activeConfig;
+                               return (
+                                 <React.Fragment>
+                                   <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
+                                   <select
+                                     value={isDeviceSelected ? selectedScopeUuid : ""}
+                                     onChange={(e) => {
+                                        if (e.target.value) {
+                                          setSelectedScopeUuid(e.target.value);
+                                        } else {
+                                          setSelectedScopeUuid(activeConfig);
+                                        }
+                                     }}
+                                     style={{
+                                       appearance: 'none',
+                                       background: 'transparent',
+                                       border: 'none',
+                                       color: isDeviceSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                                       fontWeight: isDeviceSelected ? 600 : 400,
+                                       fontSize: '12px',
+                                       cursor: 'pointer',
+                                       outline: 'none',
+                                       padding: '0 12px 0 0',
+                                       backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                                       backgroundRepeat: 'no-repeat',
+                                       backgroundPosition: 'right center'
+                                     }}
+                                   >
+                                     <option value="">[ Select Device ]</option>
+                                     {availableDevices.map((fw: any) => (
+                                       <option key={fw.uuid} value={fw.uuid}>{fw.name}</option>
+                                     ))}
+                                   </select>
+                                 </React.Fragment>
+                               );
+                             }
+                             return null;
+                          })()}
                         </span>
                       </span>
                     ) : (

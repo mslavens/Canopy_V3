@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Database, Globe, Layers, Server, ChevronDown } from 'lucide-react';
+import { Search, Database, Globe, Layers, Server, ChevronDown, FileText } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 
 export interface SearchableScopeDropdownProps {
@@ -85,18 +85,21 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
   // Container inner height is ~269px. We use 268px to perfectly align exactly beneath the 1px sticky box-shadow.
   const calculatedPaddingBottom = Math.max(0, 268 - ((lastDepth + 1) * 32));
 
-  const renderOptionNode = (opt: ScopeHierarchyNode, overrideSticky?: boolean) => {
+  const renderOptionNode = (opt: SearchableScopeDropdownProps['options'][0], overrideSticky?: boolean) => {
     const isSelected = opt.value === value;
-    const isSticky = overrideSticky !== undefined ? overrideSticky : (!searchQuery && opt.type !== 'firewall');
+    const isHeader = opt.value.startsWith('header-');
+    const isSticky = overrideSticky !== undefined ? overrideSticky : (!searchQuery && (opt.type === 'template-stack' || isHeader));
     return (
       <div
         key={opt.value}
         tabIndex={-1}
         onClick={() => {
+          if (isHeader) return;
           onChange(opt.value);
           setIsOpen(false);
         }}
         onKeyDown={(e) => {
+          if (isHeader) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             onChange(opt.value);
@@ -122,45 +125,47 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          cursor: 'pointer',
+          cursor: isHeader ? 'default' : 'pointer',
           fontSize: '12px',
-          color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-          backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
+          color: isHeader ? 'var(--text-muted)' : (isSelected ? 'var(--text-main)' : 'var(--text-muted)'),
+          backgroundColor: isSelected && !isHeader ? 'var(--bg-element)' : 'var(--bg-surface)',
           transition: 'background-color 0.15s ease',
-          fontWeight: isSelected ? 600 : 400,
+          fontWeight: isSelected || isHeader ? 600 : 400,
+          textTransform: isHeader ? 'uppercase' : 'none',
+          letterSpacing: isHeader ? '0.5px' : 'normal',
           outline: 'none',
           ...(isSticky ? {
             position: 'sticky',
-            top: `${opt.depth * 32}px`,
+            top: opt.type === 'template-stack' ? '0px' : `${opt.depth * 32}px`,
             zIndex: 20 - opt.depth,
             borderBottom: 'none',
-            boxShadow: `0 1px 0 ${isSelected ? 'var(--bg-element)' : 'var(--bg-surface)'}`
+            boxShadow: `0 1px 0 ${isSelected && !isHeader ? 'var(--bg-element)' : 'var(--bg-surface)'}`
           } : {})
         }}
-        className={`dropdown-option-row ${isSelected ? 'active' : ''}`}
+        className={`dropdown-option-row ${isSelected && !isHeader ? 'active' : ''}`}
         data-depth={opt.depth}
-        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-        onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
+        onMouseEnter={(e) => { if (!isHeader) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+        onMouseLeave={(e) => { if (!isSelected || isHeader) e.currentTarget.style.backgroundColor = 'var(--bg-surface)'; }}
       >
-        {opt.type === 'global' && <Database size={12} className="text-accent" />}
-        {opt.type === 'shared' && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
-        {(opt.type === 'device-group' || opt.type === 'template-stack') && <Layers size={12} />}
-        {opt.type === 'template' && <Layers size={12} style={{ color: 'var(--text-muted)' }} />}
+        {opt.type === 'global' && !isHeader && <Database size={12} className="text-accent" />}
+        {opt.type === 'shared' && !isHeader && <Globe size={12} style={{ color: 'var(--accent-blue)' }} />}
+        {opt.type === 'device-group' && <Layers size={12} style={{ color: 'var(--accent-purple)' }} />}
+        {opt.type === 'template-stack' && <Layers size={12} style={{ color: 'var(--accent-blue)' }} />}
+        {opt.type === 'template' && <FileText size={12} style={{ color: 'var(--text-muted)' }} />}
         {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {opt.label}
         </span>
         {ruleCounts && ruleCounts[opt.value] !== undefined && ruleCounts[opt.value] > 0 && (
           <span style={{
-            fontSize: '10px',
-            padding: '2px 6px',
-            backgroundColor: 'var(--bg-app)',
+            fontSize: '11px',
             color: 'var(--text-muted)',
-            borderRadius: '10px',
-            border: '1px solid var(--border-main)',
-            marginLeft: 'auto'
+            fontWeight: 600,
+            marginLeft: 'auto',
+            fontFamily: 'var(--font-mono, monospace)',
+            letterSpacing: '0.5px'
           }}>
-            {ruleCounts[opt.value]}
+            [{ruleCounts[opt.value]}]
           </span>
         )}
       </div>
@@ -216,8 +221,8 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
             scrollableOptions.map(opt => renderOptionNode(opt))
           ) : (
             (() => {
-              const rootNodes: { opt: ScopeHierarchyNode; children: any[] }[] = [];
-              const stack: { opt: ScopeHierarchyNode; children: any[] }[] = [];
+              const rootNodes: { opt: SearchableScopeDropdownProps['options'][0]; children: any[] }[] = [];
+              const stack: { opt: SearchableScopeDropdownProps['options'][0]; children: any[] }[] = [];
 
               for (const opt of scrollableOptions) {
                 const node = { opt, children: [] };
