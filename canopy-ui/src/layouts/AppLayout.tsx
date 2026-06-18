@@ -712,7 +712,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {isSidebarOpen && (
           <>
-            <aside style={{ width: sidebarWidth, backgroundColor: 'var(--bg-surface)', padding: '15px 10px', display: 'flex', flexDirection: 'column', gap: '5px', overflowY: 'auto', flexShrink: 0 }}>
+            <aside style={{ width: sidebarWidth, backgroundColor: 'var(--bg-surface)', padding: '15px 10px', display: 'flex', flexDirection: 'column', gap: '5px', overflowY: 'scroll', flexShrink: 0 }}>
               <div style={{ marginBottom: '10px' }}>
                 <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginBottom: '8px' }}>
                   Active Workspace

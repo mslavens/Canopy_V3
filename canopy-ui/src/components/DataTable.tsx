@@ -556,7 +556,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       </div>
 
       {/* Main Table Area */}
-      <div ref={scrollContainerRef} style={{ flex: 1, overflow: 'auto', containerType: 'inline-size' }}>
+      <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'auto', containerType: 'inline-size' }}>
         <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>

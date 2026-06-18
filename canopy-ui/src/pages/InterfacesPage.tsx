@@ -128,7 +128,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Context:</span>
+                  <span style={{ width: '95px', display: 'inline-block', fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Template:</span>
                   <SearchableScopeDropdown
                     value={selectedScopeUuid}
                     options={hierarchyOptions}

@@ -195,7 +195,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
       {/* Options list */}
       <div 
         className="portal-scope-dropdown-scroll" 
-        style={{ overflowY: 'auto', flex: 1, paddingBottom: `${calculatedPaddingBottom}px` }}
+        style={{ overflowY: 'scroll', flex: 1, paddingBottom: `${calculatedPaddingBottom}px` }}
         ref={(node) => {
           if (node && !node.dataset.scrolled) {
             const selectedIndex = scrollableOptions.findIndex(o => o.value === value);
