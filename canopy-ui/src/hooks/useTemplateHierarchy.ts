@@ -107,6 +107,18 @@ export function useTemplateHierarchy(
     const scopes: string[] = [];
     scopes.push(currentScope);
 
+    // If the scope is a firewall, check if it belongs to a stack or template
+    const fw = firewalls.find(f => (firewallValueKey === 'uuid' ? f.uuid === currentScope : `fw-${f.serial}` === currentScope));
+    if (fw) {
+      if (fw.template_stack_id) {
+        const stack = templateStacks.find(ts => ts.id === fw.template_stack_id);
+        if (stack) scopes.push(stack.uuid);
+      } else if (fw.template_id) {
+        const tmpl = templates.find(t => t.id === fw.template_id);
+        if (tmpl) scopes.push(tmpl.uuid);
+      }
+    }
+
     return scopes;
   }, [firewalls, templates, templateStacks, firewallValueKey]);
 
