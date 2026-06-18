@@ -485,6 +485,7 @@ type XMLTemplateStack struct {
 	Name           string   `xml:"name,attr"`
 	Templates      []string `xml:"templates>member"`
 	Devices        []string `xml:"devices>member"`
+	Variable       []XMLVariableEntry `xml:"variable>entry"`
 	DevicesEntries []struct {
 		Name     string             `xml:"name,attr"`
 		Variable []XMLVariableEntry `xml:"variable>entry"`
@@ -2932,6 +2933,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				return 0, 0, fmt.Errorf("failed to register template stack scope %s: %w", stack.Name, err)
 			}
 			devicesImported++
+
+			if err := insertVariables(variableStmt, stackUUID, "Template Stack: "+stack.Name, stack.Variable); err != nil {
+				return 0, 0, fmt.Errorf("failed to insert template stack variables: %w", err)
+			}
 
 			for idx, tmplMember := range stack.Templates {
 				tmplID, ok := templateNameToID[tmplMember]
