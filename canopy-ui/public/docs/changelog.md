@@ -1,6 +1,17 @@
 # Canopy Framework Changelog
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
+
+## v0.23.0 - UI Polish & Data Table Reliability
+**Date:** 2026-06-17
+
+### Added
+- **Network Templates Header**: Added a clear "Template Stacks" header to the Network dropdown menus to logically separate them from standalone templates and firewalls.
+
+### Changed
+- **Device & Firewall Display**: Cleaned up the Scope and Template dropdowns to prioritize Firewall and Device Group names. Serial numbers are now hidden by default and only used as a fallback if a name is missing, resulting in a significantly cleaner UI.
+- **Pagination Reliability**: Audited and fixed pagination across multiple major data tables including Device Management, Audit Logs, Workspaces, Snapshots, Secrets Vault, Policies, and Heatmap Candidates to ensure large datasets slice reliably.
+
 ## v0.22.0 - Database Health & Healing Engine
 **Date:** 2026-06-16
 
