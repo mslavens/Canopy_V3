@@ -4,7 +4,7 @@ export interface ScopeHierarchyNode {
   label: string;
   value: string;
   depth: number;
-  type: 'global' | 'shared' | 'device-group' | 'firewall';
+  type: 'global' | 'shared' | 'device-group' | 'firewall' | 'template' | 'template-stack';
 }
 
 export function useScopeHierarchy(

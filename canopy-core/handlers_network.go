@@ -385,20 +385,18 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 		FROM variables
 	`
 	var args []interface{}
+	ancestry := getTemplateAncestry(deviceUUID)
 	
-	if deviceUUID != "" {
-		ancestry := getTemplateAncestry(deviceUUID)
-		if len(ancestry) > 0 {
-			placeholders := make([]string, len(ancestry))
-			for i, id := range ancestry {
-				placeholders[i] = "?"
-				args = append(args, id)
-			}
-			query += " WHERE device_uuid IN (" + strings.Join(placeholders, ",") + ")"
-		} else {
-			query += " WHERE device_uuid = ?"
-			args = append(args, deviceUUID)
+	if deviceUUID != "" && len(ancestry) > 0 {
+		placeholders := make([]string, len(ancestry))
+		for i, id := range ancestry {
+			placeholders[i] = "?"
+			args = append(args, id)
 		}
+		query += " WHERE device_uuid IN (" + strings.Join(placeholders, ",") + ")"
+	} else if deviceUUID != "" {
+		query += " WHERE device_uuid = ?"
+		args = append(args, deviceUUID)
 	}
 
 	query += " ORDER BY scope ASC, name ASC"
@@ -410,14 +408,37 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
+	varsMap := make(map[string]Variable)
+	ancestryRank := make(map[string]int)
+	for i, uuid := range ancestry {
+		ancestryRank[uuid] = i
+	}
+	varsRank := make(map[string]int)
+
 	var variables []Variable
 	for rows.Next() {
 		var v Variable
 		if err := rows.Scan(&v.ID, &v.DeviceUUID, &v.Scope, &v.Name, &v.Type, &v.Value); err != nil {
 			continue
 		}
-		variables = append(variables, v)
+		
+		if deviceUUID != "" {
+			rank := ancestryRank[v.DeviceUUID]
+			if existingRank, exists := varsRank[v.Name]; !exists || rank >= existingRank {
+				varsMap[v.Name] = v
+				varsRank[v.Name] = rank
+			}
+		} else {
+			variables = append(variables, v)
+		}
 	}
+	
+	if deviceUUID != "" {
+		for _, v := range varsMap {
+			variables = append(variables, v)
+		}
+	}
+
 	if variables == nil {
 		variables = []Variable{}
 	}

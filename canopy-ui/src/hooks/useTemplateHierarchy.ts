@@ -5,6 +5,7 @@ export function useTemplateHierarchy(
   templates: any[],
   templateStacks: any[],
   firewalls: any[],
+  templateStackMembers: any[] = [],
   options?: {
     includeShowAll?: boolean;
     firewallValueKey?: 'uuid' | 'serial';
@@ -109,18 +110,35 @@ export function useTemplateHierarchy(
 
     // If the scope is a firewall, check if it belongs to a stack or template
     const fw = firewalls.find(f => (firewallValueKey === 'uuid' ? f.uuid === currentScope : `fw-${f.serial}` === currentScope));
+    
+    let activeStackId: number | null = null;
+    
     if (fw) {
       if (fw.template_stack_id) {
+        activeStackId = fw.template_stack_id;
         const stack = templateStacks.find(ts => ts.id === fw.template_stack_id);
         if (stack) scopes.push(stack.uuid);
       } else if (fw.template_id) {
         const tmpl = templates.find(t => t.id === fw.template_id);
         if (tmpl) scopes.push(tmpl.uuid);
       }
+    } else {
+      // Is currentScope a stack?
+      const stack = templateStacks.find(ts => ts.uuid === currentScope);
+      if (stack) {
+        activeStackId = stack.id;
+      }
+    }
+
+    if (activeStackId) {
+       // get all templates in this stack, ordered by sequence ascending
+       // sequence 1 is top priority, so sequence 1 overrides sequence 2
+       const stackTemplates = templateStackMembers.filter(m => m.stack_id === activeStackId).sort((a, b) => a.sequence - b.sequence);
+       stackTemplates.forEach(m => scopes.push(m.template_uuid));
     }
 
     return scopes;
-  }, [firewalls, templates, templateStacks, firewallValueKey]);
+  }, [firewalls, templates, templateStacks, templateStackMembers, firewallValueKey]);
 
   return {
     hierarchyOptions,

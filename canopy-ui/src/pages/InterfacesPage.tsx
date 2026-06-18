@@ -19,6 +19,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [templateStacks, setTemplateStacks] = useState<any[]>([]);
+  const [templateStackMembers, setTemplateStackMembers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('show-all');
 
@@ -31,11 +32,13 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
       try {
         const tmplRes = await apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;");
         const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
+        const stackMembersRes = await apiClient.queryDb("SELECT tsm.stack_id, t.uuid as template_uuid, tsm.sequence FROM template_stack_members_raw tsm JOIN templates t ON tsm.template_id = t.id ORDER BY tsm.sequence ASC;");
         const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
         
         if (isMounted) {
           setTemplates(tmplRes?.rows || []);
           setTemplateStacks(stackRes?.rows || []);
+          setTemplateStackMembers(stackMembersRes?.rows || []);
           setDevices(fwRes?.rows || []);
         }
       } catch (err) {
@@ -46,7 +49,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     return () => { isMounted = false; };
   }, [apiClient]);
 
-  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useTemplateHierarchy(templates, templateStacks, devices, {
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useTemplateHierarchy(templates, templateStacks, devices, templateStackMembers, {
     includeShowAll: true,
     firewallValueKey: 'uuid'
   });
