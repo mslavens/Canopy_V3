@@ -53,7 +53,10 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         { tableName: "network_topology", label: "Interface Mappings", description: "Platform-blind physical/logical network interfaces, subnets, and zone mappings.", icon: <Layers size={14} /> },
         { tableName: "static_routes", label: "Static Routing Tables", description: "Virtual Router static route entries including exit interfaces and next-hops.", icon: <Layers size={14} /> },
         { tableName: "managed_devices", label: "Managed Inventory (View)", description: "Complete ledger of managed firewalls and their serials discovered via Panorama.", icon: <Server size={14} /> },
-        { tableName: "managed_devices_raw", label: "Managed Inventory (Raw)", description: "Physical ledger of managed appliances (underlying raw normalized storage).", icon: <Server size={14} /> }
+        { tableName: "managed_devices_raw", label: "Managed Inventory (Raw)", description: "Physical ledger of managed appliances (underlying raw normalized storage).", icon: <Server size={14} /> },
+        { tableName: "interfaces", label: "Logical Interfaces", description: "Configured logical network interfaces, subinterfaces, and tunnels.", icon: <Layers size={14} /> },
+        { tableName: "zones", label: "Security Zones", description: "Network security zones mapped to interfaces.", icon: <Layers size={14} /> },
+        { tableName: "variables", label: "Template Variables", description: "Template stack device variables and local override parameters.", icon: <Layers size={14} /> }
       ]
     },
     {
