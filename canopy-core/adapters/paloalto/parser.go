@@ -482,14 +482,16 @@ type XMLTemplate struct {
 }
 
 type XMLTemplateStack struct {
-	Name           string   `xml:"name,attr"`
-	Templates      []string `xml:"templates>member"`
-	Devices        []string `xml:"devices>member"`
-	Variable       []XMLVariableEntry `xml:"variable>entry"`
-	DevicesEntries []struct {
-		Name     string             `xml:"name,attr"`
-		Variable []XMLVariableEntry `xml:"variable>entry"`
-	} `xml:"devices>entry"`
+	Name      string             `xml:"name,attr"`
+	Templates []string           `xml:"templates>member"`
+	Variable  []XMLVariableEntry `xml:"variable>entry"`
+	Devices   *struct {
+		Members []string `xml:"member"`
+		Entries []struct {
+			Name     string             `xml:"name,attr"`
+			Variable []XMLVariableEntry `xml:"variable>entry"`
+		} `xml:"entry"`
+	} `xml:"devices"`
 }
 
 type XMLDeviceConfig struct {
@@ -862,17 +864,19 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			}
 		}
 		for _, stack := range allTemplateStacks {
-			for _, devMember := range stack.Devices {
-				if devMember != "" && devMember != "localhost.localdomain" {
-					if _, exists := allManagedDevices[devMember]; !exists {
-						allManagedDevices[devMember] = XMLManagedDeviceEntry{Serial: devMember}
+			if stack.Devices != nil {
+				for _, devMember := range stack.Devices.Members {
+					if devMember != "" && devMember != "localhost.localdomain" {
+						if _, exists := allManagedDevices[devMember]; !exists {
+							allManagedDevices[devMember] = XMLManagedDeviceEntry{Serial: devMember}
+						}
 					}
 				}
-			}
-			for _, devEntry := range stack.DevicesEntries {
-				if devEntry.Name != "" && devEntry.Name != "localhost.localdomain" {
-					if _, exists := allManagedDevices[devEntry.Name]; !exists {
-						allManagedDevices[devEntry.Name] = XMLManagedDeviceEntry{Serial: devEntry.Name}
+				for _, devEntry := range stack.Devices.Entries {
+					if devEntry.Name != "" && devEntry.Name != "localhost.localdomain" {
+						if _, exists := allManagedDevices[devEntry.Name]; !exists {
+							allManagedDevices[devEntry.Name] = XMLManagedDeviceEntry{Serial: devEntry.Name}
+						}
 					}
 				}
 			}
@@ -898,23 +902,25 @@ func (a *Adapter) Analyze(xmlData []byte, filename string) (*IngestionStats, err
 			}
 			if stackName == "" {
 				for _, stack := range allTemplateStacks {
-					for _, devMember := range stack.Devices {
-						if devMember == mdev.Serial {
-							stackName = stack.Name
+					if stack.Devices != nil {
+						for _, devMember := range stack.Devices.Members {
+							if devMember == mdev.Serial {
+								stackName = stack.Name
+								break
+							}
+						}
+						if stackName != "" {
 							break
 						}
-					}
-					if stackName != "" {
-						break
-					}
-					for _, devEntry := range stack.DevicesEntries {
-						if devEntry.Name == mdev.Serial {
-							stackName = stack.Name
+						for _, devEntry := range stack.Devices.Entries {
+							if devEntry.Name == mdev.Serial {
+								stackName = stack.Name
+								break
+							}
+						}
+						if stackName != "" {
 							break
 						}
-					}
-					if stackName != "" {
-						break
 					}
 				}
 			}
@@ -3321,20 +3327,22 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			}
 		}
 		for _, stack := range allTemplateStacks {
-			for _, devMember := range stack.Devices {
-				if devMember != "" && devMember != "localhost.localdomain" {
-					if _, exists := allManagedDevices[devMember]; !exists {
-						allManagedDevices[devMember] = XMLManagedDeviceEntry{
-							Serial: devMember,
+			if stack.Devices != nil {
+				for _, devMember := range stack.Devices.Members {
+					if devMember != "" && devMember != "localhost.localdomain" {
+						if _, exists := allManagedDevices[devMember]; !exists {
+							allManagedDevices[devMember] = XMLManagedDeviceEntry{
+								Serial: devMember,
+							}
 						}
 					}
 				}
-			}
-			for _, devEntry := range stack.DevicesEntries {
-				if devEntry.Name != "" && devEntry.Name != "localhost.localdomain" {
-					if _, exists := allManagedDevices[devEntry.Name]; !exists {
-						allManagedDevices[devEntry.Name] = XMLManagedDeviceEntry{
-							Serial: devEntry.Name,
+				for _, devEntry := range stack.Devices.Entries {
+					if devEntry.Name != "" && devEntry.Name != "localhost.localdomain" {
+						if _, exists := allManagedDevices[devEntry.Name]; !exists {
+							allManagedDevices[devEntry.Name] = XMLManagedDeviceEntry{
+								Serial: devEntry.Name,
+							}
 						}
 					}
 				}
@@ -3367,23 +3375,25 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 				if stackName == "" {
 					for _, stack := range allTemplateStacks {
-						for _, devMember := range stack.Devices {
-							if devMember == mdev.Serial {
-								stackName = stack.Name
+						if stack.Devices != nil {
+							for _, devMember := range stack.Devices.Members {
+								if devMember == mdev.Serial {
+									stackName = stack.Name
+									break
+								}
+							}
+							if stackName != "" {
 								break
 							}
-						}
-						if stackName != "" {
-							break
-						}
-						for _, devEntry := range stack.DevicesEntries {
-							if devEntry.Name == mdev.Serial {
-								stackName = stack.Name
+							for _, devEntry := range stack.Devices.Entries {
+								if devEntry.Name == mdev.Serial {
+									stackName = stack.Name
+									break
+								}
+							}
+							if stackName != "" {
 								break
 							}
-						}
-						if stackName != "" {
-							break
 						}
 					}
 				}
@@ -3472,23 +3482,25 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			stackName := mdev.TemplateStack
 			if stackName == "" {
 				for _, stack := range allTemplateStacks {
-					for _, devMember := range stack.Devices {
-						if devMember == mdev.Serial {
-							stackName = stack.Name
+					if stack.Devices != nil {
+						for _, devMember := range stack.Devices.Members {
+							if devMember == mdev.Serial {
+								stackName = stack.Name
+								break
+							}
+						}
+						if stackName != "" {
 							break
 						}
-					}
-					if stackName != "" {
-						break
-					}
-					for _, devEntry := range stack.DevicesEntries {
-						if devEntry.Name == mdev.Serial {
-							stackName = stack.Name
+						for _, devEntry := range stack.Devices.Entries {
+							if devEntry.Name == mdev.Serial {
+								stackName = stack.Name
+								break
+							}
+						}
+						if stackName != "" {
 							break
 						}
-					}
-					if stackName != "" {
-						break
 					}
 				}
 			}
@@ -3591,6 +3603,31 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				tx.QueryRow("SELECT device_uuid FROM managed_devices_raw WHERE serial = ?", serial).Scan(&existingDeviceUUID)
 			}
 
+			// Preserve existing device variables before clearing the tables
+			// This prevents local firewall configs from wiping Template Stack device overrides
+			// that were just inserted by a Panorama config parse in the same batch.
+			var preservedVars []struct {
+				Name        string
+				Type        string
+				Value       string
+				Scope       string
+				Description string
+			}
+			rows, err := tx.Query("SELECT name, type, value, scope, description FROM variables WHERE device_uuid = ? OR (device_uuid = ? AND ? != '')", deviceUUID, existingDeviceUUID, existingDeviceUUID)
+			if err == nil {
+				for rows.Next() {
+					var v struct{ Name, Type, Value, Scope, Description string }
+					var desc sql.NullString
+					if err := rows.Scan(&v.Name, &v.Type, &v.Value, &v.Scope, &desc); err == nil {
+						if desc.Valid {
+							v.Description = desc.String
+						}
+						preservedVars = append(preservedVars, v)
+					}
+				}
+				rows.Close()
+			}
+
 			// Protect the managed_devices_raw row from cascade delete when the scope is cleared
 			if existingDeviceUUID != "" {
 				tx.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-temp-placeholder', 'shared', 'Temporary Placeholder')")
@@ -3642,6 +3679,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 
 			if err := insertVariables(variableStmt, deviceUUID, "local", dev.Variable); err != nil {
 				return 0, 0, fmt.Errorf("failed to insert device variables: %w", err)
+			}
+
+			// Restore preserved variables (ensuring no duplicates with local overrides)
+			for _, v := range preservedVars {
+				tx.Exec("INSERT INTO variables (device_uuid, scope, name, type, value, description) SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM variables WHERE device_uuid = ? AND name = ? AND scope = ?)", deviceUUID, v.Scope, v.Name, v.Type, v.Value, v.Description, deviceUUID, v.Name, v.Scope)
 			}
 
 			interfaceToZone := make(map[string]string)
@@ -4006,7 +4048,10 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 
 	// Process Template Stack Device Variables (Done after scopes are inserted to avoid FK constraints)
 	for _, stack := range allTemplateStacks {
-		for _, dev := range stack.DevicesEntries {
+		if stack.Devices == nil {
+			continue
+		}
+		for _, dev := range stack.Devices.Entries {
 			serial := dev.Name
 			if serial == "" || serial == "Unknown" || serial == "localhost.localdomain" {
 				continue
