@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"canopy-core/engine"
 )
 
 type Zone struct {
@@ -13,98 +14,6 @@ type Zone struct {
 	Scope      string `json:"scope"`
 	Name       string `json:"name"`
 	Type       string `json:"type"`
-}
-
-func getTemplateAncestry(deviceUUID string) []string {
-	var ancestry []string
-	
-	if deviceUUID == "" {
-		return ancestry
-	}
-
-	// 1. Check if the deviceUUID is explicitly a firewall (in managed_devices)
-	var stackID sql.NullInt64
-	var tmplID sql.NullInt64
-	err := activeDB.DB().QueryRow("SELECT template_stack_id, template_id FROM managed_devices_raw WHERE device_uuid = ?", deviceUUID).Scan(&stackID, &tmplID)
-	
-	if err == nil {
-		if stackID.Valid {
-			// Find the stack uuid
-			var stackUUID string
-			activeDB.DB().QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", stackID.Int64).Scan(&stackUUID)
-			
-			// Find all template uuids in sequence
-			rows, err := activeDB.DB().Query(`
-				SELECT t.uuid 
-				FROM template_stack_members_raw m
-				JOIN templates t ON m.template_id = t.id
-				WHERE m.stack_id = ?
-				ORDER BY m.sequence DESC
-			`, stackID.Int64)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var tUUID string
-					rows.Scan(&tUUID)
-					ancestry = append(ancestry, tUUID)
-				}
-			}
-			ancestry = append(ancestry, stackUUID)
-		} else if tmplID.Valid {
-			var tUUID string
-			activeDB.DB().QueryRow("SELECT uuid FROM templates WHERE id = ?", tmplID.Int64).Scan(&tUUID)
-			ancestry = append(ancestry, tUUID)
-		}
-		
-		// The device itself is the most specific
-		ancestry = append(ancestry, deviceUUID)
-	} else {
-		// If it's not a firewall, check if it's a stack
-		var sID int64
-		errStack := activeDB.DB().QueryRow("SELECT id FROM template_stacks WHERE uuid = ?", deviceUUID).Scan(&sID)
-		if errStack == nil {
-			rows, err := activeDB.DB().Query(`
-				SELECT t.uuid 
-				FROM template_stack_members_raw m
-				JOIN templates t ON m.template_id = t.id
-				WHERE m.stack_id = ?
-				ORDER BY m.sequence DESC
-			`, sID)
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var tUUID string
-					rows.Scan(&tUUID)
-					ancestry = append(ancestry, tUUID)
-				}
-			}
-			ancestry = append(ancestry, deviceUUID)
-		} else {
-			// Just a raw template or other scope
-			ancestry = append(ancestry, deviceUUID)
-		}
-	}
-	
-	return ancestry
-}
-
-func resolveVariables(ancestry []string) map[string]string {
-	resolved := make(map[string]string)
-	if len(ancestry) == 0 {
-		return resolved
-	}
-	for _, devUUID := range ancestry {
-		rows, err := activeDB.DB().Query("SELECT name, value FROM variables WHERE device_uuid = ?", devUUID)
-		if err == nil {
-			for rows.Next() {
-				var name, value string
-				rows.Scan(&name, &value)
-				resolved[name] = value
-			}
-			rows.Close()
-		}
-	}
-	return resolved
 }
 
 func handleGetZones(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +28,7 @@ func handleGetZones(w http.ResponseWriter, r *http.Request) {
 	`
 	
 	var args []interface{}
-	ancestry := getTemplateAncestry(deviceUUID)
+	ancestry := engine.GetScopeLineage(activeDB.DB(), deviceUUID)
 	
 	if deviceUUID != "" && len(ancestry) > 0 {
 		placeholders := make([]string, len(ancestry))
@@ -180,14 +89,15 @@ func handleGetZones(w http.ResponseWriter, r *http.Request) {
 }
 
 type Interface struct {
-	ID         int    `json:"id"`
-	DeviceUUID string `json:"device_uuid"`
-	Scope      string `json:"scope"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	IPAddress  string `json:"ip_address"`
-	Zone       string `json:"zone"`
-	VRName     string `json:"vr_name"`
+	ID                int    `json:"id"`
+	DeviceUUID        string `json:"device_uuid"`
+	Scope             string `json:"scope"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	IPAddress         string `json:"ip_address"`
+	ResolvedIPAddress string `json:"resolved_ip_address"`
+	Zone              string `json:"zone"`
+	VRName            string `json:"vr_name"`
 }
 
 func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +112,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	`
 	
 	var args []interface{}
-	ancestry := getTemplateAncestry(deviceUUID)
+	ancestry := engine.GetScopeLineage(activeDB.DB(), deviceUUID)
 	
 	if deviceUUID != "" && len(ancestry) > 0 {
 		placeholders := make([]string, len(ancestry))
@@ -222,7 +132,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	vars := resolveVariables(ancestry)
+	vars := engine.ResolveVariables(activeDB.DB(), ancestry)
 	
 	// Create map to keep most specific interface if multiple templates define the same interface name
 	interfacesMap := make(map[string]Interface)
@@ -239,10 +149,8 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		
-		// Substitute variables
-		for vName, vVal := range vars {
-			i.IPAddress = strings.ReplaceAll(i.IPAddress, vName, vVal)
-		}
+		// Resolve variables for IP Address
+		i.ResolvedIPAddress = engine.ApplyVariables(i.IPAddress, vars)
 		
 		if deviceUUID != "" {
 			rank := ancestryRank[i.DeviceUUID]
@@ -270,14 +178,16 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 }
 
 type Route struct {
-	ID          int    `json:"id"`
-	DeviceUUID  string `json:"device_uuid"`
-	VRName      string `json:"vr_name"`
-	RouteName   string `json:"route_name"`
-	Destination string `json:"destination"`
-	NextHop     string `json:"nexthop"`
-	Interface   string `json:"interface"`
-	Metric      int    `json:"metric"`
+	ID                  int    `json:"id"`
+	DeviceUUID          string `json:"device_uuid"`
+	VRName              string `json:"vr_name"`
+	RouteName           string `json:"route_name"`
+	Destination         string `json:"destination"`
+	ResolvedDestination string `json:"resolved_destination"`
+	NextHop             string `json:"nexthop"`
+	ResolvedNextHop     string `json:"resolved_nexthop"`
+	Interface           string `json:"interface"`
+	Metric              int    `json:"metric"`
 }
 
 func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +202,7 @@ func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
 	`
 	
 	var args []interface{}
-	ancestry := getTemplateAncestry(deviceUUID)
+	ancestry := engine.GetScopeLineage(activeDB.DB(), deviceUUID)
 	
 	if deviceUUID != "" && len(ancestry) > 0 {
 		placeholders := make([]string, len(ancestry))
@@ -312,7 +222,7 @@ func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	vars := resolveVariables(ancestry)
+	vars := engine.ResolveVariables(activeDB.DB(), ancestry)
 	
 	// Create map to keep most specific route if multiple templates define the same route name
 	// In Palo Alto, a route is unique by VR Name + Route Name
@@ -334,10 +244,8 @@ func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
 		rt.Interface = iface.String
 		
 		// Substitute variables in Destination and NextHop
-		for vName, vVal := range vars {
-			rt.Destination = strings.ReplaceAll(rt.Destination, vName, vVal)
-			rt.NextHop = strings.ReplaceAll(rt.NextHop, vName, vVal)
-		}
+		rt.ResolvedDestination = engine.ApplyVariables(rt.Destination, vars)
+		rt.ResolvedNextHop = engine.ApplyVariables(rt.NextHop, vars)
 		
 		if deviceUUID != "" {
 			rank := ancestryRank[rt.DeviceUUID]
@@ -385,7 +293,7 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 		FROM variables
 	`
 	var args []interface{}
-	ancestry := getTemplateAncestry(deviceUUID)
+	ancestry := engine.GetScopeLineage(activeDB.DB(), deviceUUID)
 	
 	if deviceUUID != "" && len(ancestry) > 0 {
 		placeholders := make([]string, len(ancestry))

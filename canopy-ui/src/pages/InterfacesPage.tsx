@@ -5,6 +5,7 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { Network, Loader2 } from 'lucide-react';
 
@@ -61,7 +62,6 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
     firewallValueKey: 'uuid'
   });
 
-  const visibleScopes = getVisibleScopes(selectedScopeUuid);
 
   const fetchInterfaces = async () => {
     if (!apiClient) return;
@@ -134,7 +134,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast }
         );
       }},
       { key: 'type', label: 'Type', width: '150px' },
-      { key: 'ip_address', label: 'IP Address', width: '200px' },
+      { key: 'ip_address', label: 'IP Address', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.ip_address} resolved={row.resolved_ip_address} /> },
       { key: 'zone', label: 'Security Zone', width: '200px' },
       { key: 'vr_name', label: 'Virtual Router', width: '200px' },
     ],

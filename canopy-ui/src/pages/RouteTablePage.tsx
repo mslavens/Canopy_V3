@@ -5,6 +5,7 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { Map, Loader2 } from 'lucide-react';
 
@@ -61,7 +62,6 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast }
     firewallValueKey: 'uuid'
   });
 
-  const visibleScopes = getVisibleScopes(selectedScopeUuid);
 
   const fetchRoutes = async () => {
     if (!apiClient) return;
@@ -134,8 +134,8 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast }
         );
       }},
       { key: 'vr_name', label: 'Virtual Router', width: '200px' },
-      { key: 'destination', label: 'Destination', width: '200px' },
-      { key: 'nexthop', label: 'Next Hop', width: '180px' },
+      { key: 'destination', label: 'Destination', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.destination} resolved={row.resolved_destination} /> },
+      { key: 'nexthop', label: 'Next Hop', width: '180px', renderCell: (val: any, row: any) => <VariableResolver raw={row.nexthop} resolved={row.resolved_nexthop} /> },
       { key: 'interface', label: 'Interface', width: '150px' },
       { key: 'metric', label: 'Metric', width: '100px' },
     ],
