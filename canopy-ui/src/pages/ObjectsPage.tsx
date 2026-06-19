@@ -42,6 +42,7 @@ import { ObjectDataSources } from '../hooks/useObjectDependencies';
 
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
+import { useObjectTabCounts } from '../hooks/useObjectTabCounts';
 
 interface ObjectsPageProps {
   auth: { url: string; token: string } | null;
@@ -1147,6 +1148,18 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     });
     return resolved;
   };
+
+  useObjectTabCounts(
+    visibleScopes,
+    allAddresses,
+    allAddressGroups,
+    allServices,
+    allServiceGroups,
+    allApplications,
+    allApplicationGroups,
+    allTags,
+    allSecurityProfiles
+  );
 
   const hasInitiallyLoaded = useRef(false);
 

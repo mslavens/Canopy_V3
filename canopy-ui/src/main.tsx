@@ -55,6 +55,14 @@ const App = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('subTab') || 'Overview';
   });
+  const [networkScopeUuid, setNetworkScopeUuid] = useState<string>('show-all');
+  const prevMainTab = React.useRef(activeMainTab);
+  useEffect(() => {
+    if (activeMainTab === 'Networks' && prevMainTab.current !== 'Networks') {
+      setNetworkScopeUuid('show-all');
+    }
+    prevMainTab.current = activeMainTab;
+  }, [activeMainTab]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [notificationsHistory, setNotificationsHistory] = useState<ToastMessage[]>(() => {
     if (typeof window !== 'undefined') {
@@ -263,16 +271,16 @@ const App = () => {
   // Router Switch Logic
   const renderActivePage = () => {
     if (activeMainTab === 'Networks' && activeSubTab === 'Interfaces') {
-      return <InterfacesPage auth={auth} addToast={addToast} />;
+      return <InterfacesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Zones') {
-      return <ZonesPage auth={auth} addToast={addToast} />;
+      return <ZonesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Route Table') {
-      return <RouteTablePage auth={auth} addToast={addToast} />;
+      return <RouteTablePage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Template Variables') {
-      return <VariablesPage auth={auth} addToast={addToast} />;
+      return <VariablesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
     }
     if (activeMainTab === 'Analytics' && activeSubTab === 'Traffic Heatmap') {
       return <HeatmapPage auth={auth} addToast={addToast} />;

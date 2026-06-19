@@ -243,10 +243,46 @@ export function useTemplateHierarchy(
     return path;
   }, [firewalls, templates, templateStacks, firewallValueKey]);
 
+  const getScopeLineage = useCallback((scopeUuid: string) => {
+    if (!scopeUuid || scopeUuid === 'show-all') return [];
+    
+    const lineage = [scopeUuid];
+    
+    const fw = firewalls.find(f => (firewallValueKey === 'uuid' ? f.uuid === scopeUuid : `fw-${f.serial}` === scopeUuid));
+    if (fw) {
+      if (fw.template_stack_id) {
+        const stack = templateStacks.find(ts => ts.id === fw.template_stack_id);
+        if (stack) {
+          lineage.push(stack.uuid);
+          const members = templateStackMembers.filter(m => m.stack_id === stack.id).sort((a, b) => a.sequence - b.sequence);
+          for (const m of members) {
+            if (m.template_uuid) lineage.push(m.template_uuid);
+          }
+        }
+      } else if (fw.template_id) {
+        const tmpl = templates.find(t => t.id === fw.template_id);
+        if (tmpl) {
+          lineage.push(tmpl.uuid);
+        }
+      }
+    } else {
+      const stack = templateStacks.find(ts => ts.uuid === scopeUuid);
+      if (stack) {
+        const members = templateStackMembers.filter(m => m.stack_id === stack.id).sort((a, b) => a.sequence - b.sequence);
+        for (const m of members) {
+          if (m.template_uuid) lineage.push(m.template_uuid);
+        }
+      }
+    }
+    
+    return Array.from(new Set(lineage));
+  }, [firewalls, templates, templateStacks, templateStackMembers, firewallValueKey]);
+
   return {
     hierarchyOptions,
     scopeNameMap,
     getVisibleScopes,
+    getScopeLineage,
     getDevicesForScope,
     getActiveConfigScope,
     deviceCounts

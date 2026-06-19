@@ -6,14 +6,17 @@ import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
+import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { FileCode2, Loader2 } from 'lucide-react';
 
 interface VariablesPageProps {
   auth: { url: string; token: string } | null;
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
+  sharedScopeUuid: string;
+  setSharedScopeUuid: (val: string) => void;
 }
 
-export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast }) => {
+export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sharedScopeUuid, setSharedScopeUuid }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [variables, setVariables] = useState<any[]>([]);
@@ -23,7 +26,8 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast }) 
   const [templateStacks, setTemplateStacks] = useState<any[]>([]);
   const [templateStackMembers, setTemplateStackMembers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
-  const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('show-all');
+  const selectedScopeUuid = sharedScopeUuid;
+  const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
@@ -57,12 +61,14 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast }) 
     return () => { isMounted = false; };
   }, [apiClient]);
 
-  const { hierarchyOptions, scopeNameMap, getVisibleScopes, getDevicesForScope, getActiveConfigScope, deviceCounts } = useTemplateHierarchy(templates, templateStacks, devices, templateStackMembers, {
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes, getScopeLineage, getDevicesForScope, getActiveConfigScope, deviceCounts } = useTemplateHierarchy(templates, templateStacks, devices, templateStackMembers, {
     includeShowAll: true,
     firewallValueKey: 'uuid'
   });
 
-  const visibleScopes = getVisibleScopes(selectedScopeUuid);
+  const lineageScopes = getScopeLineage(selectedScopeUuid);
+
+  useNetworkTabCounts(apiClient, selectedScopeUuid, lineageScopes);
 
   const fetchVariables = async () => {
     if (!apiClient) return;
