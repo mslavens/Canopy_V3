@@ -1039,6 +1039,34 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     return getVisibleScopes(currentScope);
   }, [currentScope, getVisibleScopes]);
 
+  const objectCounts = useMemo(() => {
+    let sourceArray: any[] = [];
+    switch (activeSubTab) {
+      case 'Address Objects': sourceArray = allAddresses; break;
+      case 'Address Groups': sourceArray = allAddressGroups; break;
+      case 'Services': sourceArray = allServices; break;
+      case 'Service Groups': sourceArray = allServiceGroups; break;
+      case 'Applications': sourceArray = allApplications; break;
+      case 'Application Groups': sourceArray = allApplicationGroups; break;
+      case 'Tags': sourceArray = allTags; break;
+      case 'Antivirus': sourceArray = allSecurityProfiles.filter(p => p.type === 'antivirus'); break;
+      case 'Anti-Spyware': sourceArray = allSecurityProfiles.filter(p => p.type === 'spyware'); break;
+      case 'Vulnerability Protection': sourceArray = allSecurityProfiles.filter(p => p.type === 'vulnerability'); break;
+      case 'URL Filtering': sourceArray = allSecurityProfiles.filter(p => p.type === 'url-filtering'); break;
+      case 'File Blocking': sourceArray = allSecurityProfiles.filter(p => p.type === 'file-blocking'); break;
+      case 'WildFire Analysis': sourceArray = allSecurityProfiles.filter(p => p.type === 'wildfire'); break;
+      default: break;
+    }
+
+    const counts: Record<string, number> = {};
+    for (const item of sourceArray) {
+      if (item && item.device_uuid) {
+        counts[item.device_uuid] = (counts[item.device_uuid] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [activeSubTab, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allTags, allSecurityProfiles]);
+
   const handleScopeChange = (val: string) => {
     setCurrentScope(val);
   };
@@ -2847,6 +2875,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
                     options={hierarchyOptions}
                     onChange={handleScopeChange}
                     scopeNameMap={scopeNameMap}
+                    ruleCounts={objectCounts}
                   />
                 </div>
 
