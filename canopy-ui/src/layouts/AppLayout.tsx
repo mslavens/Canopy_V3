@@ -739,10 +739,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginBottom: '8px' }}>{activeMainTab} Elements</div>
               {visibleSubTabs.map((subTab) => {
                 if (typeof subTab === 'string') {
+                  let label = subTab;
+                  if (tabCounts[subTab] !== undefined) {
+                    label = `${label} (${tabCounts[subTab]})`;
+                  }
                   return (
                     <button key={subTab} onClick={() => handleNavigation(() => setActiveSubTab(subTab))} style={{ textAlign: 'left', background: activeSubTab === subTab ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === subTab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '8px 10px', borderRadius: '4px', color: activeSubTab === subTab ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === subTab ? 500 : 400, cursor: 'pointer', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {subTab}
-                      {activeMainTab !== 'Policies' && tabCounts[subTab] ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0, marginLeft: '6px' }} title="Has data for scope" /> : null}
+                      {label}
+                      {tabCounts[subTab] ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0, marginLeft: '6px' }} title="Has data for scope" /> : null}
                     </button>
                   );
                 } else {
@@ -765,14 +769,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         const value = isObj ? (item as NavItemObj).value : item as string;
                         let label = isObj ? (item as NavItemObj).label : item as string;
                         
-                        if (activeMainTab === 'Policies' && tabCounts[value] !== undefined) {
+                        if (tabCounts[value] !== undefined) {
                           label = `${label} (${tabCounts[value]})`;
                         }
                         
                         return (
                           <button key={value} onClick={() => handleNavigation(() => setActiveSubTab(value))} style={{ textAlign: 'left', background: activeSubTab === value ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === value ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === value ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === value ? 500 : 400, cursor: 'pointer', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             {label}
-                            {activeMainTab !== 'Policies' && tabCounts[value] ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0, marginLeft: '6px' }} title="Has data for scope" /> : null}
+                            {tabCounts[value] ? <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0, marginLeft: '6px' }} title="Has data for scope" /> : null}
                           </button>
                         );
                       })}

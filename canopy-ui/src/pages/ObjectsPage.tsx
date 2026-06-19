@@ -1178,15 +1178,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   };
 
   useObjectTabCounts(
-    visibleScopes,
-    allAddresses,
-    allAddressGroups,
-    allServices,
-    allServiceGroups,
-    allApplications,
-    allApplicationGroups,
-    allTags,
-    allSecurityProfiles
+    apiClient,
+    currentScope,
+    visibleScopes
   );
 
   const hasInitiallyLoaded = useRef(false);
@@ -3011,7 +3005,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               loading={loading}
               toolbarTitle={
                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  {activeSubTab}
+                  {activeSubTab} ({displayedTableData.length})
                 </h2>
               }
               topRightActions={

@@ -152,9 +152,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
       if (!auth || !policyType || !activeSubTab) return;
       try {
         const client = new CanopyApiClient(auth);
-        let tableName = `${policyType}_rules`;
         const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
-        if (!validTables.includes(tableName)) tableName = 'security_rules';
+        const tableToPrefix: Record<string, string> = {
+          'security_rules': 'Security',
+          'nat_rules': 'NAT',
+          'qos_rules': 'QoS',
+          'pbf_rules': 'Policy Based Forwarding',
+          'decryption_rules': 'Decryption',
+          'application_override_rules': 'Application Override',
+          'tunnel_inspection_rules': 'Tunnel Inspection',
+          'authentication_rules': 'Authentication',
+          'dos_rules': 'DoS Protection'
+        };
         
         let scopeFilter = "";
         if (selectedScopeUuid !== 'show-all') {
@@ -164,23 +173,33 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
           }
         }
         
-        const countsRes = await client.queryDb(`SELECT scope, COUNT(id) as count FROM ${tableName} ${scopeFilter} GROUP BY scope;`);
+        const queries = validTables.map(async (table) => {
+          try {
+            const res = await client.queryDb(`SELECT scope, COUNT(id) as count FROM ${table} ${scopeFilter} GROUP BY scope;`);
+            return { table, rows: res?.rows || [] };
+          } catch (e) {
+            return { table, rows: [] };
+          }
+        });
+        
+        const results = await Promise.all(queries);
         
         if (isMounted) {
-          const counts = countsRes?.rows || [];
-          let pre = 0; let post = 0; let dev = 0;
-          counts.forEach((c: any) => {
-            if (c.scope.endsWith(':pre')) pre += c.count;
-            else if (c.scope.endsWith(':post')) post += c.count;
-            else dev += c.count;
-          });
+          const payload: Record<string, number> = {};
           
-          const prefix = activeSubTab.split(' - ')[0];
-          const payload = {
-            [`${prefix} - Pre Rules`]: pre,
-            [`${prefix} - Device Rules`]: dev,
-            [`${prefix} - Post Rules`]: post
-          };
+          results.forEach(({ table, rows }) => {
+            let pre = 0; let post = 0; let dev = 0;
+            rows.forEach((c: any) => {
+              if (c.scope.endsWith(':pre')) pre += c.count;
+              else if (c.scope.endsWith(':post')) post += c.count;
+              else dev += c.count;
+            });
+            const prefix = tableToPrefix[table];
+            payload[`${prefix} - Pre Rules`] = pre;
+            payload[`${prefix} - Device Rules`] = dev;
+            payload[`${prefix} - Post Rules`] = post;
+          });
+
           window.dispatchEvent(new CustomEvent('update-tab-counts', { detail: payload }));
         }
       } catch (err) {

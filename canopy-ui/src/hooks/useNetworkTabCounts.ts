@@ -19,10 +19,10 @@ export const useNetworkTabCounts = (apiClient: CanopyApiClient | null, selectedS
         if (isMounted) {
           window.dispatchEvent(new CustomEvent('update-tab-counts', {
             detail: {
-              'Zones': zones?.rows?.[0]?.c > 0 ? 1 : 0,
-              'Interfaces': ifs?.rows?.[0]?.c > 0 ? 1 : 0,
-              'Route Table': routes?.rows?.[0]?.c > 0 ? 1 : 0,
-              'Template Variables': vars?.rows?.[0]?.c > 0 ? 1 : 0
+              'Zones': zones?.rows?.[0]?.c || 0,
+              'Interfaces': ifs?.rows?.[0]?.c || 0,
+              'Route Table': routes?.rows?.[0]?.c || 0,
+              'Template Variables': vars?.rows?.[0]?.c || 0
             }
           }));
         }
