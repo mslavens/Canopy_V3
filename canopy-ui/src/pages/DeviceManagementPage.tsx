@@ -753,24 +753,40 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
-      <PageHeader
-        title={`Device ${activeSubTab}`}
-        description={`Display and audit client ${activeSubTab.toLowerCase()} contexts extracted from the ingested configuration.`}
-        actions={
-          activeSubTab === 'Inventory' ? (
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search inventory..." variant="local" />
-              <button
-                className="btn-primary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                onClick={handleOpenAddDeviceModal}
-              >
-                <Plus size={14} /> Add Firewall
-              </button>
+      {/* Main content canvas */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        {/* Custom Header Block mimicking Objects/Policies */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexShrink: 0
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px', minHeight: '64px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Device {activeSubTab}</h2>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                Display and audit client {activeSubTab.toLowerCase()} contexts extracted from the ingested configuration.
+              </p>
             </div>
-          ) : undefined
-        }
-      />
+
+            {/* Search Bar in Top Right Corner */}
+            {activeSubTab === 'Inventory' && (
+              <div style={{ width: '300px', flexShrink: 0 }}>
+                <SearchBar
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search inventory..."
+                  width="100%"
+                  variant="local"
+                />
+              </div>
+            )}
+          </div>
+          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
+        </div>
+      </div>
 
       {inventory.length === 0 ? (
         <EmptyState
@@ -784,14 +800,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
           {/* 1. Inventory View */}
           {activeSubTab === 'Inventory' && (
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-              <DataTable
-                columns={inventoryColumns}
-                data={inventory}
-                searchQuery={searchQuery}
-                exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
-                pagination={true}
-              />
+            <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <DataTable
+                  columns={inventoryColumns}
+                  data={inventory}
+                  searchQuery={searchQuery}
+                  exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
+                  pagination={true}
+                  toolbarTitle={
+                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      Inventory ({inventory.length})
+                    </h2>
+                  }
+                  topRightActions={
+                    <button
+                      className="btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                      onClick={handleOpenAddDeviceModal}
+                    >
+                      <Plus size={14} /> Add Firewall
+                    </button>
+                  }
+                />
+              </div>
             </div>
           )}
 
@@ -1144,6 +1176,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         </div>
       )}
 
+      </div>
       {/* --- MODALS --- */}
 
       {/* 1. Device (Firewall) Modal */}
