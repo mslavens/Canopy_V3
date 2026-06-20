@@ -12,13 +12,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, acti
     position: 'sticky',
     top: '-30px',
     zIndex: 10,
-    padding: '30px 0 15px 0',
-    margin: '-30px 0 0 0',
-    height: '105px'
+    padding: '30px 0 0 0',
+    margin: '-30px 0 25px 0'
   } : {
     flexShrink: 0,
-    padding: '0 0 20px 0',
-    height: '85px'
+    margin: '0 0 25px 0'
   };
 
   return (
@@ -26,15 +24,22 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, acti
       backgroundColor: 'var(--bg-app)', 
       display: 'flex', 
       flexDirection: 'column', 
-      gap: '10px', 
       ...stickyStyles
     }}>
-      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{title}</h2>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '32px' }}>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>{description}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {actions}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px', minHeight: '64px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>{title}</h2>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>{description}</p>
+          </div>
+          
+          {actions && (
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {actions}
+            </div>
+          )}
         </div>
+        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
       </div>
     </div>
   );
