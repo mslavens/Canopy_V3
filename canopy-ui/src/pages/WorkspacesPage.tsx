@@ -335,11 +335,19 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
             searchQuery={searchQuery} 
             highlightRow={(row) => row.name === activeWorkspaceName} 
             pagination={true}
+            exportActions={
+              <button 
+                className="btn-secondary btn-sm" 
+                onClick={() => setIsImportModalOpen(true)} 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+              >
+                <Download size={13} /> Import Backup
+              </button>
+            }
             topRightActions={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateWorkspaceOpen(true)}><Plus size={14} /> Create</button>
-                <button className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsImportModalOpen(true)}><Download size={14} /> Import</button>
-              </div>
+              <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateWorkspaceOpen(true)}>
+                <Plus size={14} /> Create
+              </button>
             }
           />
         )}
