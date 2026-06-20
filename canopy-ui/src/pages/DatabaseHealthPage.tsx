@@ -62,7 +62,7 @@ export const DatabaseHealthPage: React.FC<DatabaseHealthPageProps> = ({ auth, ad
                 }
             />
 
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-900">
+            <div className="flex-1 overflow-y-auto p-6 pt-[50px] bg-slate-900">
                 <div className="max-w-5xl mx-auto mb-8 bg-slate-800/80 border border-slate-700 rounded-lg p-5 shadow-sm text-sm text-slate-300 leading-relaxed">
                     <div className="flex items-center gap-2 font-bold text-white mb-3">
                         <Shield size={16} className="text-blue-400" /> Database Reconciliation Details

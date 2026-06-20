@@ -161,13 +161,10 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
         title="Traffic Logs" 
         description="Monitor, filter, and manage real-time and historical network traffic logs." 
         isSticky={true}
+        bottomSpacing={false}
         actions={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <SearchBar 
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search all columns..."
-            />
+          <div style={{ width: '250px' }}>
+            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search all columns..." variant="local" />
           </div>
         }
       />
@@ -202,14 +199,16 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
               </>
             }
             topRightActions={
-              <button 
-                onClick={() => setActiveSubTab('Log Import')} 
-                className="btn-secondary btn-sm" 
-                title="Add Logs"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} /> Add Logs
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button 
+                  onClick={() => setActiveSubTab('Log Import')} 
+                  className="btn-secondary btn-sm" 
+                  title="Add Logs"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Plus size={14} /> Add Logs
+                </button>
+              </div>
             }
             rowContextMenuActions={(row, closeMenu, colKey, cellValue, setFilterValue, clearColumnFilter, clearAllFilters) => (
               <>

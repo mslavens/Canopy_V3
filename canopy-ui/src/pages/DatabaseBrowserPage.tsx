@@ -153,13 +153,16 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
   }, [data]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '15px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '50px' }}>
       <PageHeader 
         title="Data Inspector" 
         description="Explore Panorama configurations and offline database tables without needing SQL experience." 
         isSticky={false}
+        bottomSpacing={false}
         actions={
-          <SearchBar value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search records..." variant="local" />
+          <div style={{ width: '250px' }}>
+            <SearchBar value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search records..." variant="local" />
+          </div>
         }
       />
 
@@ -269,7 +272,13 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
               </div>
             ) : data && data.columns.length > 0 ? (
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s ease', pointerEvents: loading ? 'none' : 'auto', minWidth: 0 }}>
-                 <DataTable columns={tableColumns} data={data.rows} searchQuery={pageSearchQuery} exportFilename={`inspection_${selectedTable}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} pagination={true} />
+                 <DataTable 
+                   columns={tableColumns} 
+                   data={data.rows} 
+                   searchQuery={pageSearchQuery} 
+                   exportFilename={`inspection_${selectedTable}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} 
+                   pagination={true} 
+                 />
               </div>
             ) : (!error && !loading && <EmptyState icon={<Database size={32} />} title="Empty Table" description="No configuration details found. Ensure you have loaded Palo Alto XML configs in the XML Import tab." minHeight="250px" />)}
           </div>

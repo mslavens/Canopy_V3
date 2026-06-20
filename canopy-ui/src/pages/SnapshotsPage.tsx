@@ -217,27 +217,31 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader 
-        title="System Snapshots" 
-        description="Manage local checkpoints and external system archives (.cbak)." 
+        title="Configuration Snapshots" 
+        description="Point-in-time backups of workspace objects, networks, and policies." 
         isSticky={false}
-        actions={
-          <>
-            <button className="btn-primary btn-sm" onClick={() => setIsTakeSnapshotModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }} disabled={isCreatingSnapshot}>
-              <Camera size={14} /> {isCreatingSnapshot ? 'Saving...' : 'Take Snapshot'}
-            </button>
-            <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-main)', marginLeft: '5px', marginRight: '5px' }} />
-            <button className="btn-secondary btn-sm" onClick={() => setIsRestoreModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Upload size={14} /> Import Backup
-            </button>
-          </>
-        }
+        bottomSpacing={false}
       />
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', margin: '0 -30px -30px -30px' }}>
         {isLoadingSnapshots ? (
           <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}><Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />Loading snapshots...</div>
         ) : snapshots.length > 0 ? (
-          <DataTable columns={snapshotColumns} data={snapshots} pagination={true} />
+          <DataTable 
+            columns={snapshotColumns} 
+            data={snapshots} 
+            pagination={true} 
+            topRightActions={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button className="btn-primary btn-sm" onClick={() => setIsTakeSnapshotModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }} disabled={isCreatingSnapshot}>
+                  <Camera size={14} /> {isCreatingSnapshot ? 'Saving...' : 'Take Snapshot'}
+                </button>
+                <button className="btn-secondary btn-sm" onClick={() => setIsRestoreModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Upload size={14} /> Import Backup
+                </button>
+              </div>
+            }
+          />
         ) : (
           <EmptyState icon={<Database size={32} />} title="No Snapshots Found" description="Take a snapshot to instantly save your current workspace configuration." minHeight="250px" />
         )}

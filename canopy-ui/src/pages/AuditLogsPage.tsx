@@ -58,12 +58,15 @@ export const AuditLogsPage: React.FC<AuditLogsPageProps> = ({ auth, addToast }) 
         title="Security Audit Logs" 
         description="Record of administrative actions taken within the workspace." 
         isSticky={false}
+        bottomSpacing={false}
         actions={
-          <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Filter audit trail..." variant="local" />
+          <div style={{ width: '250px' }}>
+            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Filter audit trail..." variant="local" />
+          </div>
         }
       />
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', margin: '0 -30px -30px -30px' }}>
         {error && (
           <div style={{ margin: '20px', backgroundColor: 'var(--bg-app)', borderLeft: '4px solid var(--status-red)', padding: '12px 15px', borderRadius: '4px', color: 'var(--status-red)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0 }} />
@@ -77,7 +80,14 @@ export const AuditLogsPage: React.FC<AuditLogsPageProps> = ({ auth, addToast }) 
             Decrypting audit trail...
           </div>
         ) : logs.length > 0 ? (
-          <DataTable columns={columns} data={logs} searchQuery={searchQuery} exportFilename={`canopy_audit_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} selectable={true} pagination={true} />
+          <DataTable 
+            columns={columns} 
+            data={logs} 
+            searchQuery={searchQuery} 
+            exportFilename={`canopy_audit_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`} 
+            selectable={true} 
+            pagination={true} 
+          />
         ) : (
           <EmptyState icon={<Inbox size={32} />} title="No audit events recorded" description="There is currently no administrative activity in the system logs." minHeight="250px" />
         )}

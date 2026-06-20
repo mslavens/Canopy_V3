@@ -5,18 +5,21 @@ interface PageHeaderProps {
   description: string;
   actions?: React.ReactNode;
   isSticky?: boolean;
+  bottomSpacing?: boolean;
 }
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, actions, isSticky = true }) => {
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, actions, isSticky = true, bottomSpacing = false }) => {
+  const marginBottom = bottomSpacing ? '15px' : '0';
+  
   const stickyStyles: React.CSSProperties = isSticky ? {
     position: 'sticky',
     top: '-30px',
     zIndex: 10,
     padding: '30px 0 0 0',
-    margin: '-30px 0 25px 0'
+    margin: `-30px 0 ${marginBottom} 0`
   } : {
     flexShrink: 0,
-    margin: '0 0 25px 0'
+    margin: `0 0 ${marginBottom} 0`
   };
 
   return (

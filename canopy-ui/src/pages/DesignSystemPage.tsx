@@ -39,13 +39,13 @@ export const DesignSystemPage: React.FC = () => {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '1200px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px' }}>
       <PageHeader 
         title="Design System & Components" 
         description="A living reference for Canopy's semantic UI tokens and reusable components." 
       />
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '50px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Tooltips & Micro-Context</h3>
         <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Hover over the elements below to view the standardized <code>&lt;Tooltip /&gt;</code> wrappers.</p>
         <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
@@ -61,7 +61,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Standard Buttons</h3>
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px' }}>
           <button className="btn-primary">Primary Button</button>
@@ -83,7 +83,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Standard Empty States</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Use the <code>&lt;EmptyState /&gt;</code> component for empty data grids, lists, or unconfigured settings.</p>
         <div style={{ border: '1px dashed var(--border-main)', borderRadius: '4px', backgroundColor: 'var(--bg-app)' }}>
@@ -96,7 +96,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Search & Filtering</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Canopy uses three distinct search paradigms depending on the context of the data being queried.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
@@ -120,7 +120,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Typography</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div>
@@ -148,7 +148,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Status & Feedback Banners</h3>
         <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Standardized contextual banners for system alerts and inline messaging.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '600px' }}>
@@ -170,7 +170,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Data Tables & Grids</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Tables must implement Pagination to prevent DOM bloat. Constrained vertical scrolling wrappers are explicitly prohibited to avoid scrollbar/sticky-header rendering collisions.</p>
         <div style={{ borderRadius: '4px', border: '1px solid var(--border-main)', height: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -178,7 +178,7 @@ export const DesignSystemPage: React.FC = () => {
           </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Semantic Colors</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
           {[
@@ -197,7 +197,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Form Elements</h3>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input type="text" className="input-text" placeholder="Standard Text Input" />
@@ -230,7 +230,7 @@ export const DesignSystemPage: React.FC = () => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 20px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Overlays & Modals</h3>
         <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-muted)' }}>Standardized dialog windows. Sizes include <code>sm</code> (400px), <code>md</code> (600px), and <code>lg</code> (800px).</p>
         <div style={{ display: 'flex', gap: '15px' }}>

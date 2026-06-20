@@ -150,13 +150,13 @@ export const SupportPage: React.FC<SupportPageProps> = ({ auth, addToast }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '1200px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px' }}>
       <PageHeader 
         title="System Support & Diagnostics" 
         description="View background telemetry and engine logs for troubleshooting." 
       />
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '50px' }}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Diagnostics & Troubleshooting</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
           Adjust the verbosity of the background engine logs or export the unified system event logs to assist with debugging. DEBUG mode will generate significantly more telemetry data.
@@ -177,7 +177,7 @@ export const SupportPage: React.FC<SupportPageProps> = ({ auth, addToast }) => {
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', marginTop: '25px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--accent-blue)' }}>Live System Logs</h3>
           

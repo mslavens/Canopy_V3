@@ -757,36 +757,33 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Custom Header Block mimicking Objects/Policies */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           flexShrink: 0
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px', minHeight: '64px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Device {activeSubTab}</h2>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                Display and audit client {activeSubTab.toLowerCase()} contexts extracted from the ingested configuration.
-              </p>
-            </div>
-
-            {/* Search Bar in Top Right Corner */}
-            {activeSubTab === 'Inventory' && (
-              <div style={{ width: '300px', flexShrink: 0 }}>
-                <SearchBar
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Search inventory..."
-                  width="100%"
-                  variant="local"
-                />
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Device {activeSubTab}</h2>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                  Display and audit client {activeSubTab.toLowerCase()} contexts extracted from the ingested configuration.
+                </p>
               </div>
-            )}
+
+              {/* Search Bar in Top Right Corner */}
+              {activeSubTab === 'Inventory' && (
+                <div style={{ width: '300px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search inventory..."
+                    width="100%"
+                    variant="local"
+                  />
+                </div>
+              )}
+            </div>
+            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
           </div>
-          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
         </div>
-      </div>
 
       {inventory.length === 0 ? (
         <EmptyState
@@ -829,7 +826,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
           {/* 2. Device Groups Tree Explorer */}
           {activeSubTab === 'Device Groups' && (
-            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
 
               {/* Left Tree Pane */}
               <div style={{
@@ -959,7 +956,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
           {/* 3. Templates & Stacks explorer */}
           {activeSubTab === 'Templates' && (
-            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
 
               {/* Left Tree/Stacks List Pane */}
               <div style={{

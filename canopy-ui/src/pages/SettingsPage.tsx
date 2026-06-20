@@ -122,13 +122,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ auth, addToast, auto
   useUnsavedChanges(currentPassword.length > 0 || newPassword.length > 0 || confirmPassword.length > 0, 'settings-password');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '1200px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px' }}>
       <PageHeader 
         title="System Settings" 
         description="Configure workspace security and offline vault credentials." 
       />
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '50px' }}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>General Preferences</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
           Configure workspace security and behavior preferences.
@@ -161,7 +161,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ auth, addToast, auto
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Vault Security</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
           Change the passphrase used to encrypt your offline database.
@@ -209,7 +209,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ auth, addToast, auto
         </div>
       </section>
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--status-red)' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--status-red)', marginTop: '25px' }}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '15px', color: 'var(--status-red)' }}>Danger Zone</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
           Permanently destroy the offline vault and reset the application to its factory state.

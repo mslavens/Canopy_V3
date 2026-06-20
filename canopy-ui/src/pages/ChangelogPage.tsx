@@ -130,7 +130,7 @@ export const ChangelogPage: React.FC = () => {
   if (loading) return <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px', height: '400px' }}><Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />Loading system changelog...</div>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '1200px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px' }}>
       <PageHeader 
         title="System Changelog" 
         description="Historical record of updates, bug fixes, and system patches." 
@@ -153,7 +153,7 @@ export const ChangelogPage: React.FC = () => {
           <strong>Asset Fault:</strong> {error}
         </div>
       ) : (
-        <section ref={containerRef} style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', color: 'var(--text-main)', lineHeight: 1.6 }}>
+        <section ref={containerRef} style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', color: 'var(--text-main)', lineHeight: 1.6, marginTop: '50px' }}>
           <div className="markdown-content">
             <SearchContext.Provider value={pageSearchQuery}>
               <ReactMarkdown components={stableMarkdownComponents}>{displayedContent}</ReactMarkdown>

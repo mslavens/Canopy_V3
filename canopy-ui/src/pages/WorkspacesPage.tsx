@@ -314,17 +314,15 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
         title="Workspace Management" 
         description="Manage, export, and color-code isolated client databases." 
         isSticky={false}
+        bottomSpacing={false}
         actions={
-          <>
-            <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateWorkspaceOpen(true)}><Plus size={14} /> Create</button>
-            <button className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsImportModalOpen(true)}><Download size={14} /> Import</button>
-            <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-main)', marginLeft: '5px', marginRight: '5px' }} />
+          <div style={{ width: '250px' }}>
             <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Find workspace..." variant="local" />
-          </>
+          </div>
         }
       />
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', margin: '0 -30px -30px -30px' }}>
         {loading ? (
           <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}>
             <Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
@@ -337,6 +335,12 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
             searchQuery={searchQuery} 
             highlightRow={(row) => row.name === activeWorkspaceName} 
             pagination={true}
+            topRightActions={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateWorkspaceOpen(true)}><Plus size={14} /> Create</button>
+                <button className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsImportModalOpen(true)}><Download size={14} /> Import</button>
+              </div>
+            }
           />
         )}
       </div>
