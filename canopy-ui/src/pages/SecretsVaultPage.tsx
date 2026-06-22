@@ -232,21 +232,19 @@ export const SecretsVaultPage: React.FC<SecretsVaultPageProps> = ({ auth, addToa
       />
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', margin: '0 -30px -30px -30px' }}>
-        {isLoading ? (
-          <div className="fade-in-delayed" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}><Loader2 size={24} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />Decrypting vault entries...</div>
-        ) : (
-          <DataTable 
-            columns={columns} 
-            data={secrets} 
-            searchQuery={searchQuery} 
-            pagination={true} 
-            topRightActions={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateSecretOpen(true)}><Plus size={14} /> Add Secret</button>
-              </div>
-            }
-          />
-        )}
+        <DataTable 
+          columns={columns} 
+          data={secrets} 
+          loading={isLoading}
+          searchQuery={searchQuery} 
+          pagination={true} 
+          toolbarTitle={<h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>Vault Entries ({secrets.length})</h2>}
+          topRightActions={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button className="btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setIsCreateSecretOpen(true)}><Plus size={14} /> Add Secret</button>
+            </div>
+          }
+        />
       </div>
 
       <Modal isOpen={isCreateSecretOpen} onClose={() => { setIsCreateSecretOpen(false); setNewSecretName(''); setNewSecretDesc(''); setNewSecretValue(''); }} title="Store New Secret" size="sm" footer={<><button className="btn-secondary btn-sm" onClick={() => { setIsCreateSecretOpen(false); setNewSecretName(''); setNewSecretDesc(''); setNewSecretValue(''); }}>Cancel</button><button className="btn-primary btn-sm" onClick={handleCreateSecret} disabled={!newSecretName.trim() || !newSecretValue.trim() || isCreatingSecret}>{isCreatingSecret ? 'Saving...' : 'Save to Vault'}</button></>}>

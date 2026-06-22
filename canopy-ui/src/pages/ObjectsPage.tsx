@@ -1016,12 +1016,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const [dgRes, fwRes] = await Promise.all([
-          apiClient.queryDb("SELECT id, uuid, name, parent_id FROM device_groups ORDER BY name ASC;"),
-          apiClient.queryDb("SELECT id, serial, name, device_group_id FROM managed_devices_raw ORDER BY name ASC;")
-        ]);
-        setDeviceGroups(dgRes.rows || []);
-        setFirewalls(fwRes.rows || []);
+        const res = await fetch(`${apiClient.auth.url}/api/system/policies-context`, {
+          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load device hierarchy');
+        const data = await res.json();
+        setDeviceGroups(data.device_groups || []);
+        setFirewalls(data.devices || []);
       } catch (err) {
         console.error('Failed to load device groups or firewalls:', err);
       }
@@ -1196,128 +1197,22 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       const scopeFilter = isShowAll ? '' : visibleScopes.map(s => `'${s}'`).join(',');
       let query = '';
 
-      switch (activeSubTab) {
-        case 'Address Objects':
-          query = isShowAll
-            ? `SELECT * FROM address_objects ORDER BY name ASC;`
-            : `SELECT * FROM address_objects WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Address Groups':
-          query = isShowAll
-            ? `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
-              FROM address_groups g
-              LEFT JOIN address_group_members agm ON g.id = agm.group_id
-              LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
-              LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `
-            : `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
-              FROM address_groups g
-              LEFT JOIN address_group_members agm ON g.id = agm.group_id
-              LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
-              LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
-              WHERE g.device_uuid IN (${scopeFilter})
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `;
-          break;
-        case 'Services':
-          query = isShowAll
-            ? `SELECT * FROM service_objects ORDER BY name ASC;`
-            : `SELECT * FROM service_objects WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Service Groups':
-          query = isShowAll
-            ? `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
-              FROM service_groups g
-              LEFT JOIN service_group_members sgm ON g.id = sgm.group_id
-              LEFT JOIN service_objects so ON sgm.member_service_id = so.id
-              LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `
-            : `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
-              FROM service_groups g
-              LEFT JOIN service_group_members sgm ON g.id = sgm.group_id
-              LEFT JOIN service_objects so ON sgm.member_service_id = so.id
-              LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
-              WHERE g.device_uuid IN (${scopeFilter})
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `;
-          break;
-        case 'Applications':
-          query = isShowAll
-            ? `SELECT * FROM application_objects ORDER BY name ASC;`
-            : `SELECT * FROM application_objects WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Application Groups':
-          query = isShowAll
-            ? `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
-              FROM application_groups g
-              LEFT JOIN application_group_members appgm ON g.id = appgm.group_id
-              LEFT JOIN application_objects app ON appgm.member_application_id = app.id
-              LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `
-            : `
-              SELECT g.*, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
-              FROM application_groups g
-              LEFT JOIN application_group_members appgm ON g.id = appgm.group_id
-              LEFT JOIN application_objects app ON appgm.member_application_id = app.id
-              LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
-              WHERE g.device_uuid IN (${scopeFilter})
-              GROUP BY g.id
-              ORDER BY g.name ASC;
-            `;
-          break;
-        case 'Tags':
-          query = isShowAll
-            ? `SELECT * FROM tags ORDER BY name ASC;`
-            : `SELECT * FROM tags WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Log Forwarding Profiles':
-          query = isShowAll
-            ? `SELECT * FROM log_forwarding_profiles ORDER BY name ASC;`
-            : `SELECT * FROM log_forwarding_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Antivirus':
-        case 'Anti-Spyware':
-        case 'Vulnerability Protection':
-        case 'URL Filtering':
-        case 'File Blocking':
-        case 'WildFire Analysis':
-          query = isShowAll
-            ? `SELECT * FROM security_profiles ORDER BY name ASC;`
-            : `SELECT * FROM security_profiles WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'Security Profile Groups':
-          query = isShowAll
-            ? `SELECT * FROM security_profile_groups ORDER BY name ASC;`
-            : `SELECT * FROM security_profile_groups WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'URL Categories':
-          query = isShowAll
-            ? `SELECT * FROM custom_url_categories ORDER BY name ASC;`
-            : `SELECT * FROM custom_url_categories WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
-        case 'External Dynamic Lists':
-          query = isShowAll
-            ? `SELECT * FROM external_dynamic_lists ORDER BY name ASC;`
-            : `SELECT * FROM external_dynamic_lists WHERE device_uuid IN (${scopeFilter}) ORDER BY name ASC;`;
-          break;
+      let queryType = activeSubTab;
+      if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
+        queryType = 'Security Profiles';
       }
-
-      if (query) {
-        const res = await apiClient.queryDb(query);
-        setTableData(res.rows || []);
+      
+      let url = `${apiClient.auth.url}/api/objects?type=${encodeURIComponent(queryType)}`;
+      if (!isShowAll) {
+        url += `&scopes=${encodeURIComponent(visibleScopes.join(','))}`;
+      }
+      
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${apiClient.auth.token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setTableData(data || []);
+      } else {
+        throw new Error('Failed to load table data');
       }
     } catch (err) {
       console.error('Failed to load table data:', err);
@@ -1335,48 +1230,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const loadReferenceData = async () => {
     if (!apiClient) return;
     try {
-      const [addRes, addGrpRes, svcRes, svcGrpRes, appRes, appGrpRes, secProfRes, tagsRes, mappingsRes] = await Promise.all([
-        apiClient.queryDb("SELECT id, name, device_uuid, type, value, description FROM address_objects;"),
-        apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, g.type, g.filter, g.description, CAST(GROUP_CONCAT(COALESCE(ao.name, nested.name, agm.member_name)) AS TEXT) AS member_list
-          FROM address_groups g
-          LEFT JOIN address_group_members agm ON g.id = agm.group_id
-          LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
-          LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
-          GROUP BY g.id;
-        `),
-        apiClient.queryDb("SELECT id, name, device_uuid, protocol, destination_port, source_port, description FROM service_objects;"),
-        apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, g.description, CAST(GROUP_CONCAT(COALESCE(so.name, nested.name, sgm.member_name)) AS TEXT) AS member_list
-          FROM service_groups g
-          LEFT JOIN service_group_members sgm ON g.id = sgm.group_id
-          LEFT JOIN service_objects so ON sgm.member_service_id = so.id
-          LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
-          GROUP BY g.id;
-        `),
-        apiClient.queryDb("SELECT id, name, device_uuid, category, subcategory, technology, risk, ports, description FROM application_objects;"),
-        apiClient.queryDb(`
-          SELECT g.id, g.name, g.device_uuid, g.description, CAST(GROUP_CONCAT(COALESCE(app.name, nested.name, appgm.member_name)) AS TEXT) AS member_list
-          FROM application_groups g
-          LEFT JOIN application_group_members appgm ON g.id = appgm.group_id
-          LEFT JOIN application_objects app ON appgm.member_application_id = app.id
-          LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
-          GROUP BY g.id;
-        `),
-        apiClient.queryDb("SELECT id, name, device_uuid, type FROM security_profiles;"),
-        apiClient.queryDb("SELECT id, name, device_uuid, color FROM tags;"),
-        apiClient.queryDb("SELECT entity_type, entity_id, tag_id FROM entity_tag_mappings;"),
-      ]);
+      const res = await fetch(`${apiClient.auth.url}/api/system/objects-reference`, {
+        headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch reference lists');
+      const data = await res.json();
 
-      setAllAddresses(addRes.rows || []);
-      setAllAddressGroups(addGrpRes.rows || []);
-      setAllServices(svcRes.rows || []);
-      setAllServiceGroups(svcGrpRes.rows || []);
-      setAllApplications(appRes.rows || []);
-      setAllApplicationGroups(appGrpRes.rows || []);
-      setAllSecurityProfiles(secProfRes.rows || []);
-      setAllTags(tagsRes.rows || []);
-      setAllTagMappings(mappingsRes.rows || []);
+      setAllAddresses(data.addresses || []);
+      setAllAddressGroups(data.address_groups || []);
+      setAllServices(data.services || []);
+      setAllServiceGroups(data.service_groups || []);
+      setAllApplications(data.applications || []);
+      setAllApplicationGroups(data.application_groups || []);
+      setAllSecurityProfiles(data.security_profiles || []);
+      setAllTags(data.tags || []);
+      setAllTagMappings(data.tag_mappings || []);
     } catch (e) {
       console.error('Failed to load validation reference lists', e);
     }
@@ -1503,131 +1371,24 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
     // Load reference data to ensure we have all addresses, groups, etc. in memory for recursive flattening
     await loadReferenceData();
-
-    let memberQuery = '';
-    let recursiveQuery = '';
-
-    switch (activeSubTab) {
-      case 'Address Groups':
-        memberQuery = `
-          SELECT agm.member_name, ao.name AS address_name, ao.type AS address_type, ao.value AS address_value, nested.name AS nested_group_name
-          FROM address_group_members agm
-          LEFT JOIN address_objects ao ON agm.member_address_id = ao.id
-          LEFT JOIN address_groups nested ON agm.member_group_id = nested.id
-          WHERE agm.group_id = ?;
-        `;
-        recursiveQuery = `
-          WITH RECURSIVE group_tree(member_address_id, member_group_id, id_path, name_path, is_cycle) AS (
-              SELECT agm.member_address_id, agm.member_group_id, 
-                     CAST(agm.group_id AS TEXT) || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
-                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
-                     0
-              FROM address_group_members agm
-              LEFT JOIN address_groups parent ON agm.group_id = parent.id
-              LEFT JOIN address_groups child_group ON agm.member_group_id = child_group.id
-              LEFT JOIN address_objects child_obj ON agm.member_address_id = child_obj.id
-              WHERE agm.group_id = ?
-            UNION ALL
-              SELECT agm.member_address_id, agm.member_group_id, 
-                     gt.id_path || ' > ' || COALESCE(agm.member_group_id, agm.member_address_id),
-                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
-                     INSTR(gt.id_path, CAST(agm.group_id AS TEXT)) > 0
-              FROM address_group_members agm
-              JOIN group_tree gt ON agm.group_id = gt.member_group_id
-              LEFT JOIN address_groups child_group ON agm.member_group_id = child_group.id
-              LEFT JOIN address_objects child_obj ON agm.member_address_id = child_obj.id
-              WHERE gt.is_cycle = 0
-          )
-          SELECT gt.name_path AS path, ao.name, ao.type, ao.value AS details, 'Address Object' AS obj_type
-          FROM group_tree gt
-          JOIN address_objects ao ON gt.member_address_id = ao.id
-          WHERE gt.member_address_id IS NOT NULL;
-        `;
-        break;
-      case 'Service Groups':
-        memberQuery = `
-          SELECT sgm.member_name, so.name AS service_name, so.protocol AS service_protocol, so.destination_port AS service_port, nested.name AS nested_group_name
-          FROM service_group_members sgm
-          LEFT JOIN service_objects so ON sgm.member_service_id = so.id
-          LEFT JOIN service_groups nested ON sgm.member_group_id = nested.id
-          WHERE sgm.group_id = ?;
-        `;
-        recursiveQuery = `
-          WITH RECURSIVE group_tree(member_service_id, member_group_id, id_path, name_path, is_cycle) AS (
-              SELECT sgm.member_service_id, sgm.member_group_id, 
-                     CAST(sgm.group_id AS TEXT) || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
-                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, sgm.member_name),
-                     0
-              FROM service_group_members sgm
-              LEFT JOIN service_groups parent ON sgm.group_id = parent.id
-              LEFT JOIN service_groups child_group ON sgm.member_group_id = child_group.id
-              LEFT JOIN service_objects child_obj ON sgm.member_service_id = child_obj.id
-              WHERE sgm.group_id = ?
-            UNION ALL
-              SELECT sgm.member_service_id, sgm.member_group_id, 
-                     gt.id_path || ' > ' || COALESCE(sgm.member_group_id, sgm.member_service_id),
-                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, sgm.member_name),
-                     INSTR(gt.id_path, CAST(sgm.group_id AS TEXT)) > 0
-              FROM service_group_members sgm
-              JOIN group_tree gt ON sgm.group_id = gt.member_group_id
-              LEFT JOIN service_groups child_group ON sgm.member_group_id = child_group.id
-              LEFT JOIN service_objects child_obj ON sgm.member_service_id = child_obj.id
-              WHERE gt.is_cycle = 0
-          )
-          SELECT gt.name_path AS path, so.name, 'Service Object' AS type, so.protocol || ':' || so.destination_port AS details, 'Service Object' AS obj_type
-          FROM group_tree gt
-          JOIN service_objects so ON gt.member_service_id = so.id
-          WHERE gt.member_service_id IS NOT NULL;
-        `;
-        break;
-      case 'Application Groups':
-        memberQuery = `
-          SELECT appgm.member_name, appo.name AS app_name, appo.category AS app_category, nested.name AS nested_group_name
-          FROM application_group_members appgm
-          LEFT JOIN application_objects appo ON appgm.member_application_id = appo.id
-          LEFT JOIN application_groups nested ON appgm.member_group_id = nested.id
-          WHERE appgm.group_id = ?;
-        `;
-        recursiveQuery = `
-          WITH RECURSIVE group_tree(member_application_id, member_group_id, id_path, name_path, is_cycle) AS (
-              SELECT agm.member_application_id, agm.member_group_id, 
-                     CAST(agm.group_id AS TEXT) || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
-                     COALESCE(parent.name, '') || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
-                     0
-              FROM application_group_members agm
-              LEFT JOIN application_groups parent ON agm.group_id = parent.id
-              LEFT JOIN application_groups child_group ON agm.member_group_id = child_group.id
-              LEFT JOIN application_objects child_obj ON agm.member_application_id = child_obj.id
-              WHERE agm.group_id = ?
-            UNION ALL
-              SELECT agm.member_application_id, agm.member_group_id, 
-                     gt.id_path || ' > ' || COALESCE(agm.member_group_id, agm.member_application_id),
-                     gt.name_path || ' > ' || COALESCE(child_group.name, child_obj.name, agm.member_name),
-                     INSTR(gt.id_path, CAST(agm.group_id AS TEXT)) > 0
-              FROM application_group_members agm
-              JOIN group_tree gt ON agm.group_id = gt.member_group_id
-              LEFT JOIN application_groups child_group ON agm.member_group_id = child_group.id
-              LEFT JOIN application_objects child_obj ON agm.member_application_id = child_obj.id
-              WHERE gt.is_cycle = 0
-          )
-          SELECT gt.name_path AS path, ao.name, 'Application Object' AS type, ao.category || ' / ' || ao.subcategory AS details, 'Application Object' AS obj_type
-          FROM group_tree gt
-          JOIN application_objects ao ON gt.member_application_id = ao.id
-          WHERE gt.member_application_id IS NOT NULL;
-        `;
-        break;
-    }
+    const fetchGroupMembers = async (flatten: boolean) => {
+      const res = await fetch(`${apiClient.auth.url}/api/objects/group-members?group_id=${groupRow.id}&type=${encodeURIComponent(activeSubTab)}&flatten=${flatten}`, {
+        headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch group members');
+      return await res.json();
+    };
 
     try {
-      const res = await apiClient.queryDb(memberQuery.replace('?', String(groupRow.id)));
-      setResolvedMembers(res.rows || []);
+      if (activeSubTab.endsWith('Groups')) {
+        const directMembers = await fetchGroupMembers(false);
+        setResolvedMembers(directMembers || []);
 
-      if (recursiveQuery) {
-        const flatRes = await apiClient.queryDb(recursiveQuery.replace('?', String(groupRow.id)));
+        const flatMembers = await fetchGroupMembers(true);
 
         // Aggregate paths for flattened members
         const aggregated: Record<string, any> = {};
-        (flatRes.rows || []).forEach((item: any) => {
+        (flatMembers || []).forEach((item: any) => {
           if (!aggregated[item.name]) {
             aggregated[item.name] = {
               name: item.name,

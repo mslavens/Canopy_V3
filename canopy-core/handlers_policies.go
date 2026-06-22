@@ -625,3 +625,93 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to encode policies: %v", err)
 	}
 }
+
+func handleGetPoliciesCounts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	scopesParam := r.URL.Query().Get("scopes")
+	var scopes []string
+	if scopesParam != "" {
+		scopes = strings.Split(scopesParam, ",")
+	}
+
+	vaultMutex.Lock()
+	if activeDB == nil {
+		vaultMutex.Unlock()
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+		return
+	}
+	dbConn := activeDB.DB()
+	vaultMutex.Unlock()
+
+	validTables := []string{
+		"security_rules", "nat_rules", "qos_rules", "pbf_rules", "decryption_rules",
+		"application_override_rules", "tunnel_inspection_rules", "authentication_rules", "dos_rules",
+	}
+
+	tableToPrefix := map[string]string{
+		"security_rules":             "Security",
+		"nat_rules":                  "NAT",
+		"qos_rules":                  "QoS",
+		"pbf_rules":                  "Policy Based Forwarding",
+		"decryption_rules":           "Decryption",
+		"application_override_rules": "Application Override",
+		"tunnel_inspection_rules":    "Tunnel Inspection",
+		"authentication_rules":       "Authentication",
+		"dos_rules":                  "DoS Protection",
+	}
+
+	counts := make(map[string]int)
+
+	scopeFilter := ""
+	var args []interface{}
+	if len(scopes) > 0 && scopes[0] != "show-all" {
+		placeholders := make([]string, len(scopes))
+		for i, s := range scopes {
+			placeholders[i] = "?"
+			args = append(args, s)
+		}
+		scopeFilter = " WHERE device_uuid IN (" + strings.Join(placeholders, ",") + ")"
+	}
+
+	for _, table := range validTables {
+		query := fmt.Sprintf("SELECT scope, COUNT(id) FROM %s%s GROUP BY scope", table, scopeFilter)
+		
+		rows, err := dbConn.Query(query, args...)
+		if err != nil {
+			log.Printf("Failed to query counts for %s: %v", table, err)
+			continue
+		}
+
+		pre := 0
+		post := 0
+		dev := 0
+
+		for rows.Next() {
+			var scopeName string
+			var count int
+			if err := rows.Scan(&scopeName, &count); err == nil {
+				if strings.HasSuffix(scopeName, ":pre") {
+					pre += count
+				} else if strings.HasSuffix(scopeName, ":post") {
+					post += count
+				} else {
+					dev += count
+				}
+			}
+		}
+		rows.Close()
+
+		prefix := tableToPrefix[table]
+		counts[fmt.Sprintf("%s - Pre Rules", prefix)] = pre
+		counts[fmt.Sprintf("%s - Device Rules", prefix)] = dev
+		counts[fmt.Sprintf("%s - Post Rules", prefix)] = post
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(counts)
+}

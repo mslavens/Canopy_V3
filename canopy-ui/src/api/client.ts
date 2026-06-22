@@ -1,8 +1,10 @@
 export class CanopyApiClient {
+  public auth: { url: string; token: string };
   private baseUrl: string;
   private token: string;
 
   constructor(auth: { url: string; token: string }) {
+    this.auth = auth;
     this.baseUrl = auth.url;
     this.token = auth.token;
   }
@@ -60,7 +62,8 @@ export class CanopyApiClient {
     return data;
   }
 
-  public queryDb = (query: string) => this.request<any>('/api/db/query', { method: 'POST', body: JSON.stringify({ query }) });
+  // System Inspector Only
+  public inspectDb = (query: string) => this.request<any>('/api/system/db-inspector', { method: 'POST', body: JSON.stringify({ query }) });
   public healthCheck = () => this.request<any>('/api/health');
   public lockVault = () => this.request<any>('/api/vault/lock', { method: 'POST' });
   public wipeVault = () => this.request<any>('/api/vault/wipe', { method: 'POST' });

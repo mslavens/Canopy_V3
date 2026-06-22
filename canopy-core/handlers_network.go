@@ -16,6 +16,51 @@ type Zone struct {
 	Type       string `json:"type"`
 }
 
+func handleGetNetworkCounts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	scopesParam := r.URL.Query().Get("scopes")
+	var filter string
+	var args []interface{}
+	if scopesParam != "" {
+		scopes := strings.Split(scopesParam, ",")
+		placeholders := make([]string, len(scopes))
+		for i, s := range scopes {
+			placeholders[i] = "?"
+			args = append(args, s)
+		}
+		filter = " WHERE device_uuid IN (" + strings.Join(placeholders, ",") + ")"
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, `{"error": "No active workspace loaded"}`, http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	dbConn := db.DB()
+
+	var zonesCount, ifsCount, routesCount, varsCount int
+	dbConn.QueryRow("SELECT COUNT(*) FROM zones"+filter, args...).Scan(&zonesCount)
+	dbConn.QueryRow("SELECT COUNT(*) FROM interfaces"+filter, args...).Scan(&ifsCount)
+	dbConn.QueryRow("SELECT COUNT(*) FROM static_routes"+filter, args...).Scan(&routesCount)
+	dbConn.QueryRow("SELECT COUNT(*) FROM variables"+filter, args...).Scan(&varsCount)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"Zones":              zonesCount,
+		"Interfaces":         ifsCount,
+		"Route Table":        routesCount,
+		"Template Variables": varsCount,
+	})
+}
+
 func handleGetZones(w http.ResponseWriter, r *http.Request) {
 	activeDB.WriteLock()
 	defer activeDB.WriteUnlock()

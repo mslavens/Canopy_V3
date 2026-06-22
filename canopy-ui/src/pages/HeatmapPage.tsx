@@ -120,12 +120,14 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
         if (schema && schema.length > 0) {
           setAvailableColumns(schema);
         }
-        const [dgRes, fwRes] = await Promise.all([
-          client.queryDb("SELECT id, uuid, name, parent_id FROM device_groups ORDER BY name ASC;"),
-          client.queryDb("SELECT id, serial, name, device_group_id FROM managed_devices_raw ORDER BY name ASC;")
-        ]);
-        setDeviceGroups(dgRes.rows || []);
-        setFirewalls(fwRes.rows || []);
+        const res = await fetch(`${client.auth.url}/api/system/policies-context`, {
+          headers: { 'Authorization': `Bearer ${client.auth.token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load device hierarchy');
+        const data = await res.json();
+        
+        setDeviceGroups(data.device_groups || []);
+        setFirewalls(data.devices || []);
       } catch (err) {
         console.error("Failed to load schema", err);
       }

@@ -196,19 +196,10 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
     )},
     { key: 'description', label: 'Description', renderCell: (val) => <span style={{ color: 'var(--text-muted)' }}>{val || '-'}</span> },
     { key: 'size_bytes', label: 'Total Matrix Size', renderCell: (val) => <span style={{ color: 'var(--text-muted)' }}>{(val / 1024 / 1024).toFixed(2)} MB</span> },
-    { key: 'actions', label: 'Actions', allowOverflow: true, renderCell: (_, row) => (
+    { key: 'actions', label: 'Actions', renderCell: (_, row) => (
         <div style={{ display: 'flex', gap: '4px' }}>
           <Tooltip content="Instantly Revert Workspace" position="top">
             <button className="btn-table-action" onClick={() => handleRevertSnapshot(row.id)}><RotateCcw size={14} /></button>
-          </Tooltip>
-          <Tooltip content="Edit Description" position="top">
-            <button className="btn-table-action" onClick={() => { setEditingSnapshot({ id: row.id, description: row.description || '' }); setEditSnapshotDesc(row.description || ''); }}><Edit2 size={14} /></button>
-          </Tooltip>
-          <Tooltip content="Download as Backup (.cbak)" position="top">
-            <button className="btn-table-action" onClick={() => { setExportId(row.id); setIsBackupModalOpen(true); }}><Download size={14} /></button>
-          </Tooltip>
-          <Tooltip content="Delete Snapshot" position="top" align="right">
-            <button className="btn-table-action-danger" onClick={() => handleDeleteSnapshot(row.id)}><Trash2 size={14} /></button>
           </Tooltip>
         </div>
       )}
@@ -245,6 +236,43 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
                 <Camera size={14} /> {isCreatingSnapshot ? 'Saving...' : 'Take Snapshot'}
               </button>
             }
+            rowContextMenuActions={(row, closeMenu) => (
+              <>
+                <button
+                  className="btn-secondary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  onClick={() => {
+                    closeMenu();
+                    setEditingSnapshot({ id: row.id, description: row.description || '' });
+                    setEditSnapshotDesc(row.description || '');
+                  }}
+                >
+                  <Edit2 size={13} /> Edit Description
+                </button>
+                <button
+                  className="btn-secondary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  onClick={() => {
+                    closeMenu();
+                    setExportId(row.id);
+                    setIsBackupModalOpen(true);
+                  }}
+                >
+                  <Download size={13} /> Download as Backup
+                </button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                <button
+                  className="btn-danger btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  onClick={() => {
+                    closeMenu();
+                    handleDeleteSnapshot(row.id);
+                  }}
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </>
+            )}
           />
         )}
       </div>

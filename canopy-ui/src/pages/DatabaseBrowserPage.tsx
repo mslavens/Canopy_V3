@@ -128,7 +128,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
     setLoading(true);
     setError(null);
     try {
-      const resData = await apiClient.queryDb(q);
+      const resData = await apiClient.inspectDb(q);
       setData(resData);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Failed to query database';

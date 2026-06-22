@@ -98,70 +98,22 @@ export const useObjectDependencies = () => {
       checkTable(dataSources.applicationGroups, 'applicationGroups', 'member_list', 'Application Group', true); // Nested groups
     }
 
-    // 2. Query rules from SQLite DB via API client (checking both ID and Name references)
+    // 2. Query rules from backend API
     if (apiClient) {
-      let query = '';
-      let params: any[] = [];
-      
-      if (type === 'address') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.direction = 'source' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.direction = 'destination' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'source' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'destination' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
-        `;
-        params = [id, name, id, name, id, name, id, name];
-      } else if (type === 'addressGroup') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.direction = 'source' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.direction = 'destination' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'source' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'destination' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
-        `;
-        params = [id, name, id, name, id, name, id, name];
-      } else if (type === 'service') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_service_mappings rsm JOIN security_rules sr ON rsm.rule_id = sr.id AND rsm.rule_type = 'security' WHERE rsm.service_id = ? OR rsm.ad_hoc_value = ?
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule' AS typeLabel FROM rule_service_mappings rsm JOIN nat_rules nr ON rsm.rule_id = nr.id AND rsm.rule_type = 'nat' WHERE rsm.service_id = ? OR rsm.ad_hoc_value = ?
-        `;
-        params = [id, name, id, name];
-      } else if (type === 'serviceGroup') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_service_mappings rsm JOIN security_rules sr ON rsm.rule_id = sr.id AND rsm.rule_type = 'security' WHERE rsm.group_id = ? OR rsm.ad_hoc_value = ?
-          UNION
-          SELECT DISTINCT nr.rule_name AS name, 'NAT Rule' AS typeLabel FROM rule_service_mappings rsm JOIN nat_rules nr ON rsm.rule_id = nr.id AND rsm.rule_type = 'nat' WHERE rsm.group_id = ? OR rsm.ad_hoc_value = ?
-        `;
-        params = [id, name, id, name];
-      } else if (type === 'application') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_application_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.custom_app_id = ? OR ram.predefined_app_name = ?
-        `;
-        params = [id, name];
-      } else if (type === 'applicationGroup') {
-        query = `
-          SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_application_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.predefined_app_name = ?
-        `;
-        params = [name];
-      }
+      try {
+        const url = new URL(`${apiClient.auth.url}/api/objects/dependencies`);
+        if (id) url.searchParams.append('id', String(id));
+        if (name) url.searchParams.append('name', String(name));
+        url.searchParams.append('type', String(type));
 
-      if (query) {
-        try {
-          let formattedQuery = query;
-          for (const param of params) {
-            const escapedParam = typeof param === 'number' ? param : `'${String(param).replace(/'/g, "''")}'`;
-            formattedQuery = formattedQuery.replace('?', String(escapedParam));
-          }
-          
-          const res = await apiClient.queryDb(formattedQuery);
-          if (res && res.rows) {
-            res.rows.forEach((row: any) => {
+        const res = await fetch(url.toString(), {
+          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+        });
+        
+        if (res.ok) {
+          const rows = await res.json();
+          if (rows && rows.length > 0) {
+            rows.forEach((row: any) => {
               dependencies.push({
                 id: row.id || 0,
                 name: row.name,
@@ -171,9 +123,9 @@ export const useObjectDependencies = () => {
               });
             });
           }
-        } catch (e) {
-          console.error("Failed to query rule dependencies", e);
         }
+      } catch (e) {
+        console.error("Failed to query rule dependencies", e);
       }
     }
 

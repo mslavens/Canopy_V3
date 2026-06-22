@@ -321,19 +321,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
     setLoading(true);
     try {
-      const [invRes, dgRes, tmplRes, stackRes, membersRes] = await Promise.all([
-        apiClient.queryDb('SELECT m.id, m.serial, m.name, m.ip_address, m.device_group_id, m.template_stack_id, m.template_id, dg.name AS device_group, COALESCE(ts.name, t.name) AS template_stack FROM managed_devices_raw m LEFT JOIN device_groups dg ON m.device_group_id = dg.id LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id LEFT JOIN templates t ON m.template_id = t.id ORDER BY m.name ASC;'),
-        apiClient.queryDb("SELECT dg.id, dg.uuid, dg.name, parent.uuid AS parent_uuid FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC;"),
-        apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;"),
-        apiClient.queryDb('SELECT id, uuid, name, device_uuid FROM template_stacks ORDER BY name ASC;'),
-        apiClient.queryDb('SELECT stack_id, template_name, sequence FROM template_stack_members ORDER BY stack_id, sequence ASC;'),
-      ]);
+      const res = await fetch(`${auth.url}/api/devices/inventory`, {
+        headers: { 'Authorization': `Bearer ${auth.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch inventory data');
+      const data = await res.json();
 
-      setInventory(invRes.rows || []);
-      setDeviceGroups(dgRes.rows || []);
-      setBaseTemplates(tmplRes.rows || []);
-      setTemplateStacks(stackRes.rows || []);
-      setStackMembers(membersRes.rows || []);
+      setInventory(data.inventory || []);
+      setDeviceGroups(data.device_groups || []);
+      setBaseTemplates(data.templates || []);
+      setTemplateStacks(data.template_stacks || []);
+      setStackMembers(data.stack_members || []);
     } catch (err) {
       console.error('Failed to load Device Management data:', err);
       addToast(err instanceof Error ? err.message : 'Failed to query database.', 'error');

@@ -152,7 +152,7 @@ export const UpgradePage: React.FC<UpgradePageProps> = ({ auth, addToast }) => {
         description="Apply offline .cpatch files to update the Canopy engine." 
       />
 
-      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '50px' }}>
+      <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '20px' }}>
         <h3 style={{ margin: '0 0 15px 0', fontSize: '15px', color: 'var(--accent-blue)' }}>Framework Patch Management</h3>
         <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
           Upload a signed Canopy Patch file (<code>.cpatch</code>) to upgrade the core engine, apply database schema migrations, or update documentation assets.

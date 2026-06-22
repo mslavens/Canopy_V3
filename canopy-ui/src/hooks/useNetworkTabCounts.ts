@@ -7,23 +7,16 @@ export const useNetworkTabCounts = (apiClient: CanopyApiClient | null, selectedS
     const loadTabCounts = async () => {
       if (!apiClient || !selectedScopeUuid) return;
       try {
-        const scopesStr = visibleScopes.map(s => `'${s}'`).join(',');
-        const filter = scopesStr ? `WHERE device_uuid IN (${scopesStr})` : '';
-        const [zones, ifs, routes, vars] = await Promise.all([
-          apiClient.queryDb(`SELECT COUNT(*) as c FROM zones ${filter}`),
-          apiClient.queryDb(`SELECT COUNT(*) as c FROM interfaces ${filter}`),
-          apiClient.queryDb(`SELECT COUNT(*) as c FROM static_routes ${filter}`),
-          apiClient.queryDb(`SELECT COUNT(*) as c FROM variables ${filter}`)
-        ]);
+        const scopesStr = visibleScopes.join(',');
+        const res = await fetch(`${apiClient.auth.url}/api/networks/counts?scopes=${scopesStr}`, {
+          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch network tab counts');
+        const counts = await res.json();
         
         if (isMounted) {
           window.dispatchEvent(new CustomEvent('update-tab-counts', {
-            detail: {
-              'Zones': zones?.rows?.[0]?.c || 0,
-              'Interfaces': ifs?.rows?.[0]?.c || 0,
-              'Route Table': routes?.rows?.[0]?.c || 0,
-              'Template Variables': vars?.rows?.[0]?.c || 0
-            }
+            detail: counts
           }));
         }
       } catch (err) {

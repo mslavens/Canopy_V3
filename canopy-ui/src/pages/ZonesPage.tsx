@@ -36,21 +36,18 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const tmplRes = await apiClient.queryDb("SELECT id, uuid, name FROM templates ORDER BY name ASC;");
-        const stackRes = await apiClient.queryDb("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC;");
-        const stackMembersRes = await apiClient.queryDb("SELECT tsm.stack_id, tsm.template_id, t.uuid as template_uuid, tsm.sequence FROM template_stack_members_raw tsm JOIN templates t ON tsm.template_id = t.id ORDER BY tsm.sequence ASC;");
-        const fwRes = await apiClient.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.template_stack_id, m.template_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
-        const countsRes = await apiClient.queryDb("SELECT device_uuid FROM zones GROUP BY device_uuid;");
+        const res = await fetch(`${apiClient.auth.url}/api/system/hierarchy-context?count_table=zones`, {
+          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load hierarchy context');
+        const data = await res.json();
         
         if (isMounted) {
-          setTemplates(tmplRes?.rows || []);
-          setTemplateStacks(stackRes?.rows || []);
-          setTemplateStackMembers(stackMembersRes?.rows || []);
-          setDevices(fwRes?.rows || []);
-          
-          const hm: Record<string, boolean> = {};
-          countsRes?.rows?.forEach((r: any) => hm[r.device_uuid] = true);
-          setHasValuesMap(hm);
+          setTemplates(data.templates || []);
+          setTemplateStacks(data.template_stacks || []);
+          setTemplateStackMembers(data.template_stack_members || []);
+          setDevices(data.devices || []);
+          setHasValuesMap(data.has_values_map || {});
         }
       } catch (err) {
         console.error("Failed to load scopes", err);

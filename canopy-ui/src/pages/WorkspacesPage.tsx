@@ -281,7 +281,7 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
     {
       key: 'actions',
       label: 'Management',
-      width: '210px',
+      width: '120px',
       allowOverflow: true,
       renderCell: (_, row) => {
         const ws = row as Workspace;
@@ -292,15 +292,6 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
               <button className={isActive ? "btn-secondary btn-sm" : "btn-primary btn-sm"} style={{ padding: '4px 8px', color: isActive ? 'var(--status-green)' : undefined, opacity: isActive ? 0.8 : 1 }} onClick={() => handleSwitchWorkspace(ws)} disabled={isActive}>
                 {isActive ? <Check size={14} strokeWidth={3} /> : <ArrowRight size={14} />}
               </button>
-            </Tooltip>
-            <Tooltip content="Edit Name & Color" position="top">
-              <button className="btn-table-action" onClick={() => handleEditClick(ws)}><Edit2 size={14} /></button>
-            </Tooltip>
-            <Tooltip content="Export Encrypted Vault" position="top">
-              <button className="btn-table-action" onClick={() => handleExportClick(ws)}><Upload size={14} /></button>
-            </Tooltip>
-            <Tooltip content="Delete Workspace" position="top" align="right">
-              <button className="btn-table-action-danger" onClick={() => handleDeleteClick(ws)} disabled={isActive}><Trash2 size={14} /></button>
             </Tooltip>
           </div>
         );
@@ -349,6 +340,46 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
                 <Plus size={14} /> Create
               </button>
             }
+            rowContextMenuActions={(row, closeMenu) => {
+              const ws = row as Workspace;
+              const isActive = ws.name === activeWorkspaceName;
+              return (
+                <>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      handleEditClick(ws);
+                    }}
+                  >
+                    <Edit2 size={13} /> Edit Workspace
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      handleExportClick(ws);
+                    }}
+                  >
+                    <Upload size={13} /> Export Vault
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                  <button
+                    className="btn-danger btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    onClick={() => {
+                      closeMenu();
+                      handleDeleteClick(ws);
+                    }}
+                    disabled={isActive}
+                  >
+                    <Trash2 size={13} /> Delete Workspace
+                  </button>
+                </>
+              );
+            }}
           />
         )}
       </div>

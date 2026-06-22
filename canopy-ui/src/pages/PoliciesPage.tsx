@@ -74,59 +74,29 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
 
   useEffect(() => {
     let isMounted = true;
-    const loadScopes = async () => {
-      if (!auth) return;
+    const loadContext = async () => {
+      if (!auth || !policyType) return;
       try {
-        const client = new CanopyApiClient(auth);
-        
-        const dgRes = await client.queryDb("SELECT id, uuid, name, parent_id FROM device_groups ORDER BY name ASC;");
-        const fwRes = await client.queryDb("SELECT m.id, s.uuid, m.serial, m.name, m.device_group_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC;");
+        let tableName = `${policyType}_rules`;
+        const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
+        if (!validTables.includes(tableName)) tableName = 'security_rules';
+
+        const res = await fetch(`${auth.url}/api/system/policies-context?count_table=${tableName}&rulebase=${rulebase || ''}`, {
+          headers: { 'Authorization': `Bearer ${auth.token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load policies context');
+        const data = await res.json();
         
         if (isMounted) {
-          const dgRows = dgRes?.rows || [];
-          const fwRows = fwRes?.rows || [];
-          
-          setDeviceGroups(dgRows);
-          setDevices(fwRows);
+          setDeviceGroups(data.device_groups || []);
+          setDevices(data.devices || []);
+          setRuleCounts(data.rule_counts_map || {});
         }
       } catch (err) {
         console.error("Failed to load scopes", err);
       }
     };
-    loadScopes();
-    return () => { isMounted = false; };
-  }, [auth]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadCounts = async () => {
-      if (!auth || !policyType) return;
-      try {
-        const client = new CanopyApiClient(auth);
-        let tableName = `${policyType}_rules`;
-        const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
-        if (!validTables.includes(tableName)) tableName = 'security_rules';
-        
-        let scopeFilter = "";
-        if (rulebase === 'pre') scopeFilter = "WHERE scope LIKE '%:pre'";
-        else if (rulebase === 'post') scopeFilter = "WHERE scope LIKE '%:post'";
-        else if (rulebase === 'device') scopeFilter = "WHERE scope NOT LIKE '%:pre' AND scope NOT LIKE '%:post'";
-
-        const countsRes = await client.queryDb(`SELECT device_uuid, COUNT(id) as count FROM ${tableName} ${scopeFilter} GROUP BY device_uuid;`);
-        
-        if (isMounted) {
-          const counts = countsRes?.rows || [];
-          const countMap: Record<string, number> = {};
-          counts.forEach((c: any) => {
-            countMap[c.device_uuid] = c.count;
-          });
-          setRuleCounts(countMap);
-        }
-      } catch (err) {
-        console.error("Failed to load rule counts", err);
-      }
-    };
-    loadCounts();
+    loadContext();
     return () => { isMounted = false; };
   }, [auth, policyType, rulebase]);
 
@@ -151,55 +121,21 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     const loadTabCounts = async () => {
       if (!auth || !policyType || !activeSubTab) return;
       try {
-        const client = new CanopyApiClient(auth);
-        const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
-        const tableToPrefix: Record<string, string> = {
-          'security_rules': 'Security',
-          'nat_rules': 'NAT',
-          'qos_rules': 'QoS',
-          'pbf_rules': 'Policy Based Forwarding',
-          'decryption_rules': 'Decryption',
-          'application_override_rules': 'Application Override',
-          'tunnel_inspection_rules': 'Tunnel Inspection',
-          'authentication_rules': 'Authentication',
-          'dos_rules': 'DoS Protection'
-        };
-        
-        let scopeFilter = "";
+        let url = `${auth.url}/api/system/policies-counts`;
         if (selectedScopeUuid !== 'show-all') {
-          const scopesStr = visibleScopes.map(s => `'${s}'`).join(',');
+          const scopesStr = visibleScopes.join(',');
           if (scopesStr) {
-            scopeFilter = `WHERE device_uuid IN (${scopesStr})`;
+            url += `?scopes=${encodeURIComponent(scopesStr)}`;
           }
         }
         
-        const queries = validTables.map(async (table) => {
-          try {
-            const res = await client.queryDb(`SELECT scope, COUNT(id) as count FROM ${table} ${scopeFilter} GROUP BY scope;`);
-            return { table, rows: res?.rows || [] };
-          } catch (e) {
-            return { table, rows: [] };
-          }
+        const res = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${auth.token}` }
         });
-        
-        const results = await Promise.all(queries);
+        if (!res.ok) throw new Error('Failed to fetch policies counts');
+        const payload = await res.json();
         
         if (isMounted) {
-          const payload: Record<string, number> = {};
-          
-          results.forEach(({ table, rows }) => {
-            let pre = 0; let post = 0; let dev = 0;
-            rows.forEach((c: any) => {
-              if (c.scope.endsWith(':pre')) pre += c.count;
-              else if (c.scope.endsWith(':post')) post += c.count;
-              else dev += c.count;
-            });
-            const prefix = tableToPrefix[table];
-            payload[`${prefix} - Pre Rules`] = pre;
-            payload[`${prefix} - Device Rules`] = dev;
-            payload[`${prefix} - Post Rules`] = post;
-          });
-
           window.dispatchEvent(new CustomEvent('update-tab-counts', { detail: payload }));
         }
       } catch (err) {
