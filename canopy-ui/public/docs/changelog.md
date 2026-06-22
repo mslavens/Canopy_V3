@@ -2,6 +2,25 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.23.2 - Architecture Enforcement
+**Date:** 2026-06-22
+
+### Added
+- **API Client Native Streaming**: Extended `CanopyApiClient` with a native `streamRequest` transport to securely wrapper Blobs and NDJSON streams, allowing all UI views to seamlessly handle file downloads and config imports while preserving unified token injection headers.
+
+### Changed
+- **Architectural Enforcement**: Replaced all remaining raw component `fetch()` calls in the frontend (such as Changelog, Workspaces, Snapshots, and XML imports) to exclusively use `CanopyApiClient` for uniform telemetry and auth handling.
+- **Additive Database Migrations**: Hardened backend SQL engine initialization constraints. Schema migrations are now strictly additive-only, completely stripping out any destructive `DROP TABLE` statements from `canopy-core` for forward-compatible database safety.
+
+### Fixed
+- **Objects React Lifecycle**: Fixed a dangling variable reference in `ObjectsPage.tsx` where an improperly scoped `isMounted` state could trigger background crash exceptions during device tree tear-down.
+
+## v0.23.1 - XML Parsing Fix
+**Date:** 2026-06-18
+
+### Fixed
+- **XML Import Variables**: Fixed a bug where Template Stack device variables were missing from the database. The Go XML parser now correctly interprets nested `devices` definitions, and the import engine safely buffers and preserves Panorama variables when subsequently parsing local firewall standalone configurations in the same batch.
+
 ## v0.23.0 - UI Polish & Data Table Reliability
 **Date:** 2026-06-17
 
