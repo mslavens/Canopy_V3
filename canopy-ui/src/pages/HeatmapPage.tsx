@@ -120,11 +120,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
         if (schema && schema.length > 0) {
           setAvailableColumns(schema);
         }
-        const res = await fetch(`${client.auth.url}/api/system/policies-context`, {
-          headers: { 'Authorization': `Bearer ${client.auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load device hierarchy');
-        const data = await res.json();
+        const data = await client.getPoliciesContext();
         
         setDeviceGroups(data.device_groups || []);
         setFirewalls(data.devices || []);

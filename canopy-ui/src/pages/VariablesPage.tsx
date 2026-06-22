@@ -37,11 +37,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const res = await fetch(`${apiClient.auth.url}/api/system/hierarchy-context?count_table=variables`, {
-          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load hierarchy context');
-        const data = await res.json();
+        const data = await apiClient.getHierarchyContext('variables');
         
         if (isMounted) {
           setTemplates(data.templates || []);

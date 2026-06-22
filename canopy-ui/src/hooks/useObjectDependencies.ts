@@ -101,18 +101,9 @@ export const useObjectDependencies = () => {
     // 2. Query rules from backend API
     if (apiClient) {
       try {
-        const url = new URL(`${apiClient.auth.url}/api/objects/dependencies`);
-        if (id) url.searchParams.append('id', String(id));
-        if (name) url.searchParams.append('name', String(name));
-        url.searchParams.append('type', String(type));
-
-        const res = await fetch(url.toString(), {
-          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-        });
+        const rows = await apiClient.getObjectDependencies(String(type), id ? String(id) : undefined, name ? String(name) : undefined);
         
-        if (res.ok) {
-          const rows = await res.json();
-          if (rows && rows.length > 0) {
+        if (rows && rows.length > 0) {
             rows.forEach((row: any) => {
               dependencies.push({
                 id: row.id || 0,
@@ -123,7 +114,6 @@ export const useObjectDependencies = () => {
               });
             });
           }
-        }
       } catch (e) {
         console.error("Failed to query rule dependencies", e);
       }

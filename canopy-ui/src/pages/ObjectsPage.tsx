@@ -1016,13 +1016,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const res = await fetch(`${apiClient.auth.url}/api/system/policies-context`, {
-          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load device hierarchy');
-        const data = await res.json();
-        setDeviceGroups(data.device_groups || []);
-        setFirewalls(data.devices || []);
+        const data = await apiClient.getPoliciesContext();
+        if (isMounted) {
+          setDeviceGroups(data.device_groups || []);
+          setFirewalls(data.devices || []);
+        }
       } catch (err) {
         console.error('Failed to load device groups or firewalls:', err);
       }
@@ -1202,18 +1200,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         queryType = 'Security Profiles';
       }
       
-      let url = `${apiClient.auth.url}/api/objects?type=${encodeURIComponent(queryType)}`;
-      if (!isShowAll) {
-        url += `&scopes=${encodeURIComponent(visibleScopes.join(','))}`;
-      }
-      
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${apiClient.auth.token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setTableData(data || []);
-      } else {
-        throw new Error('Failed to load table data');
-      }
+      const scopesStr = !isShowAll ? visibleScopes.join(',') : undefined;
+      const data = await apiClient.getObjects(queryType, scopesStr);
+      setTableData(data || []);
     } catch (err) {
       console.error('Failed to load table data:', err);
       addToast('Failed to load objects from the database.', 'error');
@@ -1230,11 +1219,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   const loadReferenceData = async () => {
     if (!apiClient) return;
     try {
-      const res = await fetch(`${apiClient.auth.url}/api/system/objects-reference`, {
-        headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch reference lists');
-      const data = await res.json();
+      const data = await apiClient.getObjectsReference();
 
       setAllAddresses(data.addresses || []);
       setAllAddressGroups(data.address_groups || []);
@@ -1372,11 +1357,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     // Load reference data to ensure we have all addresses, groups, etc. in memory for recursive flattening
     await loadReferenceData();
     const fetchGroupMembers = async (flatten: boolean) => {
-      const res = await fetch(`${apiClient.auth.url}/api/objects/group-members?group_id=${groupRow.id}&type=${encodeURIComponent(activeSubTab)}&flatten=${flatten}`, {
-        headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch group members');
-      return await res.json();
+      return await apiClient.getGroupMembers(groupRow.id, activeSubTab, flatten);
     };
 
     try {

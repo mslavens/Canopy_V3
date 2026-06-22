@@ -37,11 +37,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const res = await fetch(`${apiClient.auth.url}/api/system/hierarchy-context?count_table=static_routes`, {
-          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load hierarchy context');
-        const data = await res.json();
+        const data = await apiClient.getHierarchyContext('static_routes');
         
         if (isMounted) {
           setTemplates(data.templates || []);

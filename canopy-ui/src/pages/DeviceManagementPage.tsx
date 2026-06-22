@@ -321,11 +321,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
     setLoading(true);
     try {
-      const res = await fetch(`${auth.url}/api/devices/inventory`, {
-        headers: { 'Authorization': `Bearer ${auth.token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch inventory data');
-      const data = await res.json();
+      const data = await apiClient.getDevicesInventory();
 
       setInventory(data.inventory || []);
       setDeviceGroups(data.device_groups || []);

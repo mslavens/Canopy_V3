@@ -85,17 +85,45 @@ export class CanopyApiClient {
   public updateWorkspace = (id: number, name: string, color: string) => this.request<any>('/api/workspaces/update', { method: 'POST', body: JSON.stringify({ id, name, color }) });
   public deleteWorkspace = (id: number) => this.request<any>('/api/workspaces/delete', { method: 'POST', body: JSON.stringify({ id }) });
   public importWorkspace = (formData: FormData) => this.request<any>('/api/workspaces/import', { method: 'POST', body: formData });
+  public healWorkspace = () => this.request<any>('/api/workspaces/heal', { method: 'POST' });
+  public exportWorkspace = () => this.request<any>('/api/workspaces/export');
+  
+  public search = (query: string) => this.request<any[]>(`/api/search?q=${encodeURIComponent(query)}`);
 
   // Networks & Variables
   public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
   public getNetworksInterfaces = (deviceUuid?: string) => this.request<any[]>(`/api/networks/interfaces${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
   public getNetworksRoutes = (deviceUuid?: string) => this.request<any[]>(`/api/networks/routes${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public getNetworkCounts = (scopesStr: string) => this.request<any>(`/api/networks/counts?scopes=${encodeURIComponent(scopesStr)}`);
   public getVariables = (deviceUuid?: string) => {
     let url = '/api/variables';
     if (deviceUuid && deviceUuid !== 'show-all') {
       url += `?device_uuid=${encodeURIComponent(deviceUuid)}`;
     }
     return this.request<any[]>(url);
+  };
+
+  // System & Context
+  public getHierarchyContext = (countTable: string) => this.request<any>(`/api/system/hierarchy-context?count_table=${encodeURIComponent(countTable)}`);
+  public getPoliciesContext = (countTable?: string, rulebase?: string) => {
+    let url = '/api/system/policies-context';
+    const params = new URLSearchParams();
+    if (countTable) params.append('count_table', countTable);
+    if (rulebase) params.append('rulebase', rulebase);
+    if (params.toString()) url += `?${params.toString()}`;
+    return this.request<any>(url);
+  };
+  public getObjectsReference = () => this.request<any>('/api/system/objects-reference');
+  public globalSearch = (query: string) => this.request<any>(`/api/search?q=${encodeURIComponent(query)}`);
+  public getChangelog = async () => {
+    const response = await fetch('./docs/changelog.md');
+    if (!response.ok) throw new Error('Failed to load changelog');
+    return response.text();
+  };
+  public getManualDoc = async (docId: string) => {
+    const response = await fetch(`./docs/manual/${docId}.md`);
+    if (!response.ok) throw new Error(`Failed to load manual doc: ${docId}`);
+    return response.text();
   };
 
   // Secrets Vault
@@ -112,6 +140,7 @@ export class CanopyApiClient {
   public deleteSnapshot = (id: string) => this.request<any>('/api/system/snapshots/delete', { method: 'POST', body: JSON.stringify({ id }) });
   public revertSnapshot = (id: string) => this.request<any>('/api/system/snapshots/revert', { method: 'POST', body: JSON.stringify({ id }) });
   public importSnapshot = (formData: FormData) => this.request<any>('/api/system/snapshots/import', { method: 'POST', body: formData });
+  public exportSnapshots = () => this.request<any>('/api/system/snapshots/export');
 
   // Audit Logs
   public getAuditLogs = () => this.request<any[]>('/api/audit/logs');
@@ -132,9 +161,27 @@ export class CanopyApiClient {
   public deleteTemplateStack = (id: number) => this.request<any>('/api/template-stacks/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   // Devices CRUD
+  public getDevicesInventory = () => this.request<any>('/api/devices/inventory');
   public createDevice = (name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/create', { method: 'POST', body: JSON.stringify({ name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
   public updateDevice = (id: number, name: string, serial: string, ipAddress: string, deviceGroupId: number | null, templateStackId: number | null, templateId: number | null) => this.request<any>('/api/devices/update', { method: 'POST', body: JSON.stringify({ id, name, serial, ip_address: ipAddress, device_group_id: deviceGroupId, template_stack_id: templateStackId, template_id: templateId }) });
   public deleteDevice = (id: number) => this.request<any>('/api/devices/delete', { method: 'POST', body: JSON.stringify({ id }) });
+
+  // Objects & Policies
+  public getObjects = (type: string, scopesStr?: string) => {
+    let url = `/api/objects?type=${encodeURIComponent(type)}`;
+    if (scopesStr) url += `&scopes=${encodeURIComponent(scopesStr)}`;
+    return this.request<any[]>(url);
+  };
+  public getObjectCounts = (scopesStr: string) => this.request<any>(`/api/objects/counts?scopes=${encodeURIComponent(scopesStr)}`);
+  public getObjectDependencies = (type: string, id?: string, name?: string) => {
+    const params = new URLSearchParams();
+    if (id) params.append('id', id);
+    if (name) params.append('name', name);
+    params.append('type', type);
+    return this.request<any[]>(`/api/objects/dependencies?${params.toString()}`);
+  };
+  public getGroupMembers = (groupId: number, type: string, flatten: boolean) => this.request<any>(`/api/objects/group-members?group_id=${groupId}&type=${encodeURIComponent(type)}&flatten=${flatten}`);
+  public getPolicies = (type: string, scope: string, rulebase: string) => this.request<any>(`/api/policies?type=${encodeURIComponent(type)}&scope=${encodeURIComponent(scope)}&rulebase=${encodeURIComponent(rulebase)}`);
 
   // Objects CRUD
   public createAddressObject = (data: any) => this.request<any>('/api/objects/address/create', { method: 'POST', body: JSON.stringify(data) });

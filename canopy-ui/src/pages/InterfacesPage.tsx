@@ -37,11 +37,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
-        const res = await fetch(`${apiClient.auth.url}/api/system/hierarchy-context?count_table=interfaces`, {
-          headers: { 'Authorization': `Bearer ${apiClient.auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load hierarchy context');
-        const data = await res.json();
+        const data = await apiClient.getHierarchyContext('interfaces');
         
         if (isMounted) {
           setTemplates(data.templates || []);

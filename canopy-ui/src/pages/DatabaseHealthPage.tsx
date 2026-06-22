@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, Wand2, RefreshCw, CheckCircle, Shield, Layers, Box, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
+import { CanopyApiClient } from '../api/client';
 
 interface DatabaseHealthPageProps {
     auth: { url: string; token: string } | null;
@@ -21,12 +22,8 @@ export const DatabaseHealthPage: React.FC<DatabaseHealthPageProps> = ({ auth, ad
         setHasScanned(false);
         try {
             if (!auth) throw new Error('Not authenticated');
-            const response = await fetch(`${auth.url}/api/workspaces/heal`, { 
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${auth.token}` }
-            });
-            if (!response.ok) throw new Error('Failed to run heal engine');
-            const data = await response.json();
+            const apiClient = new CanopyApiClient(auth);
+            const data = await apiClient.healWorkspace();
             setStats({
                 addressesHealed: data.addresses_healed || 0,
                 servicesHealed: data.services_healed || 0,

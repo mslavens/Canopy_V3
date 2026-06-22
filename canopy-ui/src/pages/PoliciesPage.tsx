@@ -72,20 +72,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }
   }, [rulebase, devices, deviceGroups]);
 
+  const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
+
   useEffect(() => {
     let isMounted = true;
     const loadContext = async () => {
-      if (!auth || !policyType) return;
+      if (!apiClient || !policyType) return;
       try {
         let tableName = `${policyType}_rules`;
         const validTables = ['security_rules', 'nat_rules', 'qos_rules', 'pbf_rules', 'decryption_rules', 'application_override_rules', 'tunnel_inspection_rules', 'authentication_rules', 'dos_rules'];
         if (!validTables.includes(tableName)) tableName = 'security_rules';
 
-        const res = await fetch(`${auth.url}/api/system/policies-context?count_table=${tableName}&rulebase=${rulebase || ''}`, {
-          headers: { 'Authorization': `Bearer ${auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to load policies context');
-        const data = await res.json();
+        const data = await apiClient.getPoliciesContext(tableName, rulebase || '');
         
         if (isMounted) {
           setDeviceGroups(data.device_groups || []);
@@ -98,7 +96,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     };
     loadContext();
     return () => { isMounted = false; };
-  }, [auth, policyType, rulebase]);
+  }, [apiClient, policyType, rulebase]);
 
   const { hierarchyOptions: allHierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, devices, {
     includeShowAll: true,
@@ -129,11 +127,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
           }
         }
         
-        const res = await fetch(url, {
-          headers: { 'Authorization': `Bearer ${auth.token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch policies counts');
-        const payload = await res.json();
+        const payload = await apiClient.request<any>(url.replace(apiClient.auth.url, ''));
         
         if (isMounted) {
           window.dispatchEvent(new CustomEvent('update-tab-counts', { detail: payload }));
@@ -180,29 +174,14 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
     }, 150);
 
     try {
-      const res = await fetch(`${auth.url}/api/policies?type=${policyType}&scope=${selectedScopeUuid}&rulebase=${rulebase}`, {
-        headers: { 'Authorization': `Bearer ${auth.token}` }
-      });
+      const data = await apiClient.getPolicies(policyType, selectedScopeUuid, rulebase || '');
       
       // Ignore stale responses if a newer fetch was initiated
       if (activeFetchRef.current !== fetchId) return;
 
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
-        setRules(mapped);
-        setLoadedContext(`${policyType}::${selectedScopeUuid}::${rulebase}`);
-      } else {
-        const text = await res.text();
-        let errMsg = 'Failed to fetch rules';
-        try {
-          const parsed = JSON.parse(text);
-          errMsg = parsed.error || errMsg;
-        } catch (e) {
-          errMsg = text || errMsg;
-        }
-        addToast(errMsg, 'error');
-      }
+      const mapped = (data || []).map((r: any, idx: number) => ({ ...r, _index: idx + 1 }));
+      setRules(mapped);
+      setLoadedContext(`${policyType}::${selectedScopeUuid}::${rulebase}`);
     } catch (err) {
       if (activeFetchRef.current === fetchId) {
         addToast(err instanceof Error ? err.message : 'Fetch failed', 'error');

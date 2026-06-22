@@ -289,12 +289,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     const timer = setTimeout(async () => {
       try {
         const creds = await window.electron.getBackendAuth();
-        // Use native fetch to bypass CanopyApiClient in case it hides raw methods
-        const response = await fetch(`${creds.url}/api/search?q=${encodeURIComponent(queryStr)}`, {
-            headers: { 'Authorization': `Bearer ${creds.token}` }
-        });
-        // Safely handle both raw fetch Responses and pre-parsed JSON arrays
-        const data = typeof response.json === 'function' ? await response.json() : response;
+        const apiClient = new CanopyApiClient(creds);
+        const data = await apiClient.search(queryStr);
         setSearchResults(data || []);
       } catch (err) {
         console.error("Search failed:", err);
@@ -386,11 +382,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     const fetchWorkspaces = async () => {
       try {
         const creds = await window.electron.getBackendAuth();
-        const response = await fetch(`${creds.url}/api/workspaces`, {
-          headers: { 'Authorization': `Bearer ${creds.token}` }
-        });
-        if (response.ok && isMounted) {
-          const data = await response.json();
+        const apiClient = new CanopyApiClient(creds);
+        const data = await apiClient.getWorkspaces();
+        if (isMounted) {
           setWorkspaces(data || []);
           if (data && data.length > 0) {
             const savedWorkspace = localStorage.getItem('canopy-active-workspace');
@@ -405,11 +399,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             if (isInitialFetch) {
               isInitialFetch = false;
               // Ensure backend is strictly synced with the loaded UI state on mount
-              fetch(`${creds.url}/api/workspaces/switch`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: target.id })
-              }).catch(console.error);
+              apiClient.switchWorkspace(target.id).catch(console.error);
             }
           }
         }
@@ -441,17 +431,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     handleNavigation(async () => {
       try {
         const creds = await window.electron.getBackendAuth();
-        const response = await fetch(`${creds.url}/api/workspaces/switch`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: target.id })
-        });
-        if (response.ok) {
-          localStorage.setItem('canopy-active-workspace', target.name);
-          localStorage.setItem('canopy-active-workspace-color', target.color || 'var(--accent-blue)');
-          sessionStorage.setItem('canopy-is-switching', 'true');
-          window.location.reload(); // Flush React memory state and remount everything to the new DB
-        }
+        const apiClient = new CanopyApiClient(creds);
+        await apiClient.switchWorkspace(target.id);
+        
+        localStorage.setItem('canopy-active-workspace', target.name);
+        localStorage.setItem('canopy-active-workspace-color', target.color || 'var(--accent-blue)');
+        sessionStorage.setItem('canopy-is-switching', 'true');
+        window.location.reload(); // Flush React memory state and remount everything to the new DB
       } catch (err) {
         console.error("Failed to switch workspace:", err);
       }
@@ -463,21 +449,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     setIsCreatingWorkspace(true);
     try {
       const creds = await window.electron.getBackendAuth();
-      const res = await fetch(`${creds.url}/api/workspaces/create`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newWorkspaceName, color: newWorkspaceColor })
-      });
-      if (res.ok) {
-        addToast('Workspace created successfully', 'success');
-        window.dispatchEvent(new Event('workspaces-updated'));
-        setIsCreateWorkspaceOpen(false);
-        setNewWorkspaceName('');
-        setNewWorkspaceColor('');
-      } else {
-        const err = await res.json();
-        addToast(err.error || 'Failed to create workspace.', 'error');
-      }
+      const apiClient = new CanopyApiClient(creds);
+      await apiClient.createWorkspace(newWorkspaceName, newWorkspaceColor);
+      
+      addToast('Workspace created successfully', 'success');
+      window.dispatchEvent(new Event('workspaces-updated'));
+      setIsCreateWorkspaceOpen(false);
+      setNewWorkspaceName('');
+      setNewWorkspaceColor('');
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Create failed', 'error');
     } finally {

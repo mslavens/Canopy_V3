@@ -4,6 +4,7 @@ import { X, Book } from 'lucide-react';
 import { SearchBar } from './SearchBar';
 import { HighlightedText } from './HighlightedText';
 import { Tooltip } from './Tooltip';
+import { CanopyApiClient } from '../api/client';
 
 // --- Error Boundary ---
 
@@ -280,10 +281,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ docId, isOpen, onClose, in
     const timer = setTimeout(async () => {
       try {
         const creds = await window.electron.getBackendAuth();
-        const response = await fetch(`${creds.url}/api/search?q=${encodeURIComponent(searchQuery)}`, {
-            headers: { 'Authorization': `Bearer ${creds.token}` }
-        });
-        const data = typeof response.json === 'function' ? await response.json() : response;
+        const apiClient = new CanopyApiClient(creds);
+        const data = await apiClient.search(searchQuery);
         const docResults = (data || []).filter((r: any) => r.type === 'documentation');
         setSearchResults(docResults);
       } catch (err) {

@@ -859,65 +859,10 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	}
 
 	if runMigration {
-		slog.Info("Migrating workspace database schema to version 3 (dropping legacy tables/views)")
-		// Drop views first
-		legacyViews := []string{"devices", "managed_devices", "template_stack_members"}
-		for _, name := range legacyViews {
-			db.Exec(fmt.Sprintf("DROP VIEW IF EXISTS %s", name))
-		}
-		// Drop tables
-		legacyTables := []string{
-			"template_stack_members_raw",
-			"template_stacks",
-			"templates",
-			"device_groups",
-			"managed_devices_raw",
-			"scopes",
-			"devices",
-			"managed_devices",
-			"template_stack_members",
-			"address_objects",
-			"address_groups",
-			"address_group_members",
-			"service_objects",
-			"service_groups",
-			"service_group_members",
-			"application_objects",
-			"application_groups",
-			"application_group_members",
-			"regions",
-			"schedules",
-			"tags",
-			"security_profiles",
-			"log_forwarding_profiles",
-			"security_profile_groups",
-			"custom_url_categories",
-			"external_dynamic_lists",
-			"security_rules",
-			"nat_rules",
-			"qos_rules",
-			"pbf_rules",
-			"decryption_rules",
-			"application_override_rules",
-			"tunnel_inspection_rules",
-			"authentication_rules",
-			"dos_rules",
-			"static_routes",
-			"network_topology",
-			"interfaces",
-			"zones",
-			"variables",
-			"rule_address_mappings",
-			"rule_service_mappings",
-			"rule_application_mappings",
-			"rule_zone_mappings",
-			"rule_category_mappings",
-			"entity_tag_mappings",
-			"security_rule_profiles",
-		}
-		for _, name := range legacyTables {
-			db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", name))
-		}
+		slog.Info("Migrating workspace database schema to version 3")
+		// Per Canopy Constraints: Database schema mutations must be strictly additive (Forward-Only).
+		// Dropping columns or renaming tables is prohibited to ensure .cpatch downgrade compatibility.
+		// Therefore, we no longer drop legacy V2 tables/views here. We rely entirely on ALTER TABLE and CREATE TABLE IF NOT EXISTS.
 	}
 
 	// Dynamic column migrations for Objects module (errors are safely ignored if columns already exist)
