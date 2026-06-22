@@ -106,21 +106,9 @@ const HelpContent: React.FC<HelpContentProps> = ({ docId, onNavigate }) => {
 
     const fetchDocument = async () => {
       try {
-        const res = await fetch(`./docs/manual/${docId}.md`);
-        if (!res.ok) {
-          throw new Error(`Failed to fetch document: ${res.status}`);
-        }
-
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('text/html')) {
-          throw new Error('Help document not found (received HTML fallback)');
-        }
-
-        const text = await res.text();
-        if (text.trim().toLowerCase().startsWith('<!doctype html>')) {
-          throw new Error('Help document not found (received HTML fallback)');
-        }
-
+        const apiClient = new CanopyApiClient({ url: '', token: '' });
+        const text = await apiClient.getManualDoc(docId);
+        
         if (isMounted) {
           setContent(text);
         }

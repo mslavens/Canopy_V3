@@ -4,6 +4,7 @@ import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { Loader2 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
+import { CanopyApiClient } from '../api/client';
 
 // --- Stable Context-Driven Highlight Components ---
 const SearchContext = createContext<string>('');
@@ -41,21 +42,8 @@ export const ChangelogPage: React.FC = () => {
 
     const fetchChangelog = async () => {
       try {
-        const res = await fetch('./docs/changelog.md');
-        if (!res.ok) {
-          throw new Error(`Failed to fetch changelog document: ${res.status}`);
-        }
-
-        // Catch Vite SPA fallback returning index.html instead of a 404
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('text/html')) {
-          throw new Error('Changelog asset not found (received HTML fallback).');
-        }
-
-        const text = await res.text();
-        if (text.trim().toLowerCase().startsWith('<!doctype html>')) {
-          throw new Error('Changelog asset not found (received HTML fallback).');
-        }
+        const apiClient = new CanopyApiClient({ url: '', token: '' });
+        const text = await apiClient.getChangelog();
 
         if (isMounted) {
           setContent(text);

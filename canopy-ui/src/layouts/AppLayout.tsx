@@ -351,9 +351,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   useEffect(() => {
     const fetchChangelog = async () => {
       try {
-        const res = await fetch('./docs/changelog.md');
-        if (res.ok) {
-          const text = await res.text();
+        const apiClient = new CanopyApiClient({ url: '', token: '' });
+        const text = await apiClient.getChangelog();
+        if (text) {
           const blocks = text.split(/(?=^## )/gm);
           if (blocks.length > 1) {
             // Strip the "## v0.x.x - Title" and "**Date:**" lines to cleanly extract just the feature bullets

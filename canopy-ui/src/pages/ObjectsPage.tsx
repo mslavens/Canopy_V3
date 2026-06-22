@@ -1013,6 +1013,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   // Load basic configurations on mount
   useEffect(() => {
+    let isMounted = true;
     const loadScopes = async () => {
       if (!apiClient) return;
       try {
@@ -1026,6 +1027,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
       }
     };
     loadScopes();
+    return () => { isMounted = false; };
   }, [apiClient]);
 
   // Scope Name Map to map UUIDs/Serials to human-readable names

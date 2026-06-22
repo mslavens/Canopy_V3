@@ -127,16 +127,8 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
     setIsBackingUp(true);
     addToast('Exporting secure archive...', 'info');
     try {
-      const res = await fetch(`${auth.url}/api/system/snapshots/export`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: exportId, archive_password: backupPassword })
-      });
-      if (!res.ok) {
-        let errMsg = 'Failed to generate backup.';
-        try { errMsg = (await res.json()).error || errMsg; } catch {}
-        throw new Error(errMsg);
-      }
+      const apiClient = new CanopyApiClient(auth);
+      const res = await apiClient.downloadSnapshot(exportId, backupPassword);
       
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

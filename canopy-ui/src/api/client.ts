@@ -62,6 +62,72 @@ export class CanopyApiClient {
     return data;
   }
 
+  public async downloadBlob(endpoint: string, options?: RequestInit): Promise<Blob> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${this.token}`,
+      ...options?.headers,
+    };
+
+    if (options?.body && typeof options.body === 'string') {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 423) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('vault-locked'));
+        }
+      }
+      const text = await response.text();
+      let errorMessage = `Engine fault (${response.status}): ${text}`;
+      try {
+        const data = JSON.parse(text);
+        if (data && data.error) errorMessage = data.error;
+      } catch (e) { /* fallback to raw text */ }
+      throw new Error(errorMessage);
+    }
+
+    return response.blob();
+  }
+
+  public async streamRequest(endpoint: string, options?: RequestInit): Promise<Response> {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${this.token}`,
+      ...options?.headers,
+    };
+
+    if (options?.body && typeof options.body === 'string') {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 423) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('vault-locked'));
+        }
+      }
+      const text = await response.text();
+      let errorMessage = `Engine fault (${response.status}): ${text}`;
+      try {
+        const data = JSON.parse(text);
+        if (data && data.error) errorMessage = data.error;
+      } catch (e) { /* fallback to raw text */ }
+      throw new Error(errorMessage);
+    }
+
+    return response;
+  }
+
   // System Inspector Only
   public inspectDb = (query: string) => this.request<any>('/api/system/db-inspector', { method: 'POST', body: JSON.stringify({ query }) });
   public healthCheck = () => this.request<any>('/api/health');
@@ -76,7 +142,7 @@ export class CanopyApiClient {
   public inspectPatch = (formData: FormData) => this.request<any>('/api/system/patch/inspect', { method: 'POST', body: formData });
   public applyPatch = (formData: FormData) => this.request<any>('/api/system/patch', { method: 'POST', body: formData });
   public rollbackSystem = () => this.request<any>('/api/system/rollback', { method: 'POST' });
-  public importDeviceXml = (formData: FormData, preview: boolean = false) => this.request<any>(`/api/devices/import?preview=${preview}`, { method: 'POST', body: formData });
+  public importDeviceXml = (formData: FormData, preview: boolean = false) => this.streamRequest(`/api/devices/import?preview=${preview}`, { method: 'POST', body: formData });
 
   // Workspaces
   public getWorkspaces = () => this.request<any[]>('/api/workspaces');
@@ -86,7 +152,7 @@ export class CanopyApiClient {
   public deleteWorkspace = (id: number) => this.request<any>('/api/workspaces/delete', { method: 'POST', body: JSON.stringify({ id }) });
   public importWorkspace = (formData: FormData) => this.request<any>('/api/workspaces/import', { method: 'POST', body: formData });
   public healWorkspace = () => this.request<any>('/api/workspaces/heal', { method: 'POST' });
-  public exportWorkspace = () => this.request<any>('/api/workspaces/export');
+  public downloadWorkspace = (id: number, archive_password: string) => this.streamRequest('/api/workspaces/export', { method: 'POST', body: JSON.stringify({ id, archive_password }) });
   
   public search = (query: string) => this.request<any[]>(`/api/search?q=${encodeURIComponent(query)}`);
 
@@ -138,6 +204,7 @@ export class CanopyApiClient {
   public createSnapshot = (description: string) => this.request<any>('/api/system/snapshots/create', { method: 'POST', body: JSON.stringify({ description }) });
   public updateSnapshot = (id: string, description: string) => this.request<any>('/api/system/snapshots/update', { method: 'POST', body: JSON.stringify({ id, description }) });
   public deleteSnapshot = (id: string) => this.request<any>('/api/system/snapshots/delete', { method: 'POST', body: JSON.stringify({ id }) });
+  public downloadSnapshot = (id: string, archive_password: string) => this.streamRequest('/api/system/snapshots/export', { method: 'POST', body: JSON.stringify({ id, archive_password }) });
   public revertSnapshot = (id: string) => this.request<any>('/api/system/snapshots/revert', { method: 'POST', body: JSON.stringify({ id }) });
   public importSnapshot = (formData: FormData) => this.request<any>('/api/system/snapshots/import', { method: 'POST', body: formData });
   public exportSnapshots = () => this.request<any>('/api/system/snapshots/export');

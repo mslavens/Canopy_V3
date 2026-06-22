@@ -155,16 +155,8 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
     setIsSubmitting(true);
     addToast(`Preparing to export ${exportWorkspace.name}...`, 'info');
     try {
-      const res = await fetch(`${auth.url}/api/workspaces/export`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: exportWorkspace.id, archive_password: exportPassword })
-      });
-      if (!res.ok) {
-        let errMsg = 'Failed to export workspace';
-        try { errMsg = (await res.json()).error || errMsg; } catch {}
-        throw new Error(errMsg);
-      }
+      const apiClient = new CanopyApiClient(auth);
+      const res = await apiClient.downloadWorkspace(exportWorkspace.id, exportPassword);
       
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);

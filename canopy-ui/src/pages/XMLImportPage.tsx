@@ -106,8 +106,9 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
 
       // Trigger pre-flight preview check
       const res = await apiClient.importDeviceXml(formData, true);
+      const data = await res.json();
       clearInterval(parseInterval);
-      setPreviewData(res);
+      setPreviewData(data);
       addToast('XML configuration parsed successfully.', 'success');
     } catch (err) {
       clearInterval(parseInterval);
@@ -152,24 +153,9 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
       const formData = new FormData();
       formData.append('xml', file);
 
-      // Connect to the NDJSON streaming endpoint
-      const response = await fetch(`${auth.url}/api/devices/import?preview=false`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = `Engine fault (${response.status}): ${text}`;
-        try {
-          const data = JSON.parse(text);
-          if (data && data.error) errorMessage = data.error;
-        } catch (e) {}
-        throw new Error(errorMessage);
-      }
+      const creds = await window.electron.getBackendAuth();
+      const apiClient = new CanopyApiClient(creds);
+      const response = await apiClient.importDeviceXml(formData, false);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
