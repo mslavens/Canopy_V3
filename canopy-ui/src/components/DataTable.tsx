@@ -77,10 +77,58 @@ export const DataTable: React.FC<DataTableProps> = ({
   const [filterMenuSearch, setFilterMenuSearch] = useState('');
   const filterMenuRef = useRef<HTMLDivElement>(null);
 
+  const searchedRows = useMemo(() => {
+    let rows = data || [];
+    
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase();
+      rows = rows.filter(row => {
+        // Search through all values in the row object natively
+        const matchesRowValues = Object.values(row).some(val => {
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(lowerQuery);
+        });
+        
+        if (matchesRowValues) return true;
+
+        // Also search through derived filter values (e.g. arrays or computed properties)
+        return columns.some(col => {
+          const val = col.getFilterValues ? col.getFilterValues(row) : row[col.key];
+          if (Array.isArray(val)) {
+            return val.some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(lowerQuery));
+          }
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(lowerQuery);
+        });
+      });
+    }
+    return rows;
+  }, [data, searchQuery, columns]);
+
   const uniqueValuesForFilter = useMemo(() => {
     if (!filterMenuCol) return [];
+    
+    let baseRows = searchedRows;
+    const otherFilterKeys = Object.keys(columnFilters).filter(k => k !== filterMenuCol && columnFilters[k] !== undefined);
+    
+    if (otherFilterKeys.length > 0) {
+      baseRows = baseRows.filter(row => {
+        return otherFilterKeys.every(k => {
+          const colDef = columns.find(c => c.key === k);
+          const v = colDef?.getFilterValues ? colDef.getFilterValues(row) : row[k];
+          if (Array.isArray(v)) {
+            if (v.length === 0) return columnFilters[k].has('');
+            return v.some(item => columnFilters[k].has(item !== null && item !== undefined ? String(item) : ''));
+          } else {
+            const rowVal = v !== null && v !== undefined ? String(v) : '';
+            return columnFilters[k].has(rowVal);
+          }
+        });
+      });
+    }
+
     const vals = new Set<string>();
-    data.forEach(row => {
+    baseRows.forEach(row => {
       const colDef = columns.find(c => c.key === filterMenuCol);
       const v = colDef?.getFilterValues ? colDef.getFilterValues(row) : row[filterMenuCol];
       if (Array.isArray(v)) {
@@ -91,7 +139,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       }
     });
     return Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  }, [data, filterMenuCol]);
+  }, [searchedRows, filterMenuCol, columns, columnFilters]);
 
   const filteredUniqueValues = useMemo(() => {
     if (!filterMenuSearch) return uniqueValuesForFilter;
@@ -219,30 +267,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   // Process global search filtering and column sorting internally
   const processedRows = useMemo(() => {
-    let rows = data || [];
-    
-    if (searchQuery.trim()) {
-      const lowerQuery = searchQuery.toLowerCase();
-      rows = rows.filter(row => {
-        // Search through all values in the row object natively
-        const matchesRowValues = Object.values(row).some(val => {
-          if (val === null || val === undefined) return false;
-          return String(val).toLowerCase().includes(lowerQuery);
-        });
-        
-        if (matchesRowValues) return true;
-
-        // Also search through derived filter values (e.g. arrays or computed properties)
-        return columns.some(col => {
-          const val = col.getFilterValues ? col.getFilterValues(row) : row[col.key];
-          if (Array.isArray(val)) {
-            return val.some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(lowerQuery));
-          }
-          if (val === null || val === undefined) return false;
-          return String(val).toLowerCase().includes(lowerQuery);
-        });
-      });
-    }
+    let rows = searchedRows;
 
     const filterKeys = Object.keys(columnFilters).filter(k => columnFilters[k] !== undefined);
     if (filterKeys.length > 0) {
@@ -275,7 +300,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       });
     }
     return rows;
-  }, [data, searchQuery, sortConfig, columns, columnFilters]);
+  }, [searchedRows, sortConfig, columns, columnFilters]);
 
   useEffect(() => {
     if (!pagination) setCurrentPage(1);
