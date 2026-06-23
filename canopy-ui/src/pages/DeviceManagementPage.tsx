@@ -132,14 +132,17 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
             <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--text-sub)' }} />
           )}
         </span>
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-          {cleanGroupName(group.name)}
-        </span>
-        {count !== undefined && (
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>
-            ({count})
+        <Layers size={14} style={{ marginRight: '8px', color: isSelected ? 'var(--accent-purple)' : 'var(--text-sub)', flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+            {cleanGroupName(group.name)}
           </span>
-        )}
+          {count !== undefined && count > 0 && (
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.5px' }}>
+              ({count})
+            </span>
+          )}
+        </div>
       </div>
       {hasChildren && isExpanded && (
         <div style={{ borderLeft: '1px solid var(--border-main)', marginLeft: '7px', paddingLeft: '4px' }}>
@@ -931,15 +934,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               </div>
 
               {/* Search Bar in Top Right Corner */}
-              <div style={{ width: '300px', flexShrink: 0 }}>
-                <SearchBar
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={activeSubTab === 'Inventory' ? "Search inventory..." : `Search ${activeSubTab.toLowerCase()}...`}
-                  width="100%"
-                  variant="global"
-                />
-              </div>
+              {activeSubTab === 'Inventory' && (
+                <div style={{ width: '300px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Search inventory..."
+                    width="100%"
+                    variant="global"
+                  />
+                </div>
+              )}
             </div>
             <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
           </div>
@@ -1170,6 +1175,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       </div>
                     )}
                   </div>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder="Filter groups..."
+                    width="100%"
+                    variant="local"
+                  />
                 </div>
                 {rootGroups.length === 0 ? (
                   <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
