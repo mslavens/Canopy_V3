@@ -70,17 +70,26 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 	stagingTable := "staging_" + strings.ReplaceAll(filepath.Base(tempFile.Name()), ".", "_")
 
 	importCmd := fmt.Sprintf(`CREATE TEMP TABLE %s AS SELECT * FROM read_csv_auto('%s', header=true);`, stagingTable, tempFile.Name())
+	slog.Debug("Executing DuckDB CSV import", slog.String("query", importCmd))
+	
 	if _, err := logDB.DB().Exec(importCmd); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to load CSV into staging: %v", err), http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Failed to load CSV into staging: %v", err)
+		slog.Error("DuckDB Import Error", slog.String("error", err.Error()))
+		logAuditSafe("Log Import Failed", "Diagnostics", errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 
 	colRows, err := logDB.DB().Query(fmt.Sprintf("PRAGMA table_info('%s');", stagingTable))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get staging columns: %v", err), http.StatusInternalServerError)
+		errMsg := fmt.Sprintf("Failed to get staging columns: %v", err)
+		slog.Error("DuckDB Schema Error", slog.String("error", err.Error()))
+		logAuditSafe("Log Import Failed", "Diagnostics", errMsg)
+		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
 	exactCols := make(map[string]string)
+	var rawCols []string
 	for colRows.Next() {
 		var cid interface{}
 		var name string
@@ -92,6 +101,7 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 			slog.Error("Failed to scan table_info row", slog.String("error", err.Error()))
 			continue
 		}
+		rawCols = append(rawCols, name)
 		// Clean the name for flexible matching
 		cleanName := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(name, "\xef\xbb\xbf")))
 		cleanName = strings.ReplaceAll(cleanName, "_", " ")
@@ -99,13 +109,14 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 	}
 	colRows.Close()
 
-	slog.Info("Staging table schema parsed", slog.Int("num_cols", len(exactCols)), slog.Any("columns", exactCols))
+	slog.Info("Staging table schema parsed", slog.Any("raw_columns", rawCols), slog.Int("mapped_cols", len(exactCols)))
 
 	// Strict validation: check if at least "device name" or "count" exists
 	if _, hasDevice := exactCols["device name"]; !hasDevice {
 		// Log and return the exact parsed columns back to the UI so we can see what went wrong
-		errMsg := fmt.Sprintf("CSV Mapping Failed: Could not find 'Device Name' column. Detected columns: %v", exactCols)
-		slog.Error(errMsg)
+		errMsg := fmt.Sprintf("CSV Mapping Failed: Could not find 'Device Name' column. Raw headers detected: %v", rawCols)
+		slog.Error("DuckDB Mapping Error", slog.Any("detected_headers", rawCols))
+		logAuditSafe("Log Import Failed", "Diagnostics", errMsg)
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return
 	}
