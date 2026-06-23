@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy, MoreHorizontal, ExternalLink } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy, MoreHorizontal, ExternalLink, Globe } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -101,20 +101,20 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: '6px 10px',
-          borderRadius: '4px',
+          height: '32px',
+          padding: '0 10px',
+          boxSizing: 'border-box',
           cursor: 'pointer',
           backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
           borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
           color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
           fontSize: '13px',
-          marginBottom: '2px',
           transition: 'all 0.15s ease',
           userSelect: 'none',
           position: 'sticky',
-          top: `${depth * 28}px`,
+          top: `${10 + depth * 32}px`,
           zIndex: 10 - depth,
-          boxShadow: '0 1px 0 var(--bg-surface)'
+          boxShadow: `0 1px 0 var(--bg-surface)`
         }}
       >
         <span
@@ -138,10 +138,14 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
             <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--text-sub)' }} />
           )}
         </span>
-        <Layers size={14} style={{ marginRight: '8px', color: isSelected ? 'var(--accent-purple)' : 'var(--text-sub)', flexShrink: 0 }} />
+        {group.uuid === 'paloalto-dg-shared' ? (
+          <Globe size={14} style={{ marginRight: '8px', color: 'var(--accent-blue)', flexShrink: 0 }} />
+        ) : (
+          <Layers size={14} style={{ marginRight: '8px', color: isSelected ? 'var(--accent-purple)' : 'var(--text-sub)', flexShrink: 0 }} />
+        )}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-            {cleanGroupName(group.name)}
+            {group.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(group.name)}
           </span>
           {count !== undefined && count > 0 && (
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.5px' }}>
@@ -313,7 +317,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [isAssignModalPoppedOut, setIsAssignModalPoppedOut] = useState(false);
   const [selectedAssignDevices, setSelectedAssignDevices] = useState<ManagedDevice[]>([]);
   const hierarchyDropdownRef = React.useRef<HTMLDivElement>(null);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(320);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(380);
   const isDragging = useRef(false);
 
   useEffect(() => {
@@ -454,24 +458,24 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     if (searchQuery.trim() && activeSubTab === 'Device Groups') {
       const q = searchQuery.toLowerCase();
       const matches = new Set<string>();
-      
+
       const checkMatch = (group: DeviceGroupNode): boolean => {
         if (matches.has(group.uuid)) return true;
         const selfMatch = group.name.toLowerCase().includes(q) || (group.description || '').toLowerCase().includes(q);
-        
+
         const children = deviceGroups.filter(g => g.parent_uuid === group.uuid);
         let childMatch = false;
         for (const child of children) {
           if (checkMatch(child)) childMatch = true;
         }
-        
+
         if (selfMatch || childMatch) {
           matches.add(group.uuid);
           return true;
         }
         return false;
       };
-      
+
       filtered = deviceGroups.filter(g => checkMatch(g));
     }
     return filtered;
@@ -799,12 +803,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Columns definition for full Inventory table
   const inventoryColumns: ColumnDef[] = useMemo(() => [
-    { 
-      key: 'name', 
+    {
+      key: 'name',
       label: 'Device Name',
       renderCell: (val, row) => (
-        <span 
-          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }} 
+        <span
+          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }}
           onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
           title="Click to edit device"
         >
@@ -851,12 +855,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Columns definition for Device Group table (right pane)
   const groupMemberColumns: ColumnDef[] = useMemo(() => [
-    { 
-      key: 'name', 
+    {
+      key: 'name',
       label: 'Device Name',
       renderCell: (val, row) => (
-        <span 
-          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }} 
+        <span
+          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }}
           onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
           title="Click to edit device"
         >
@@ -903,11 +907,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   }
 
   // 3. Parent Device Group Dropdown
-  const parentGroupList = deviceGroups.filter(g => (!editingGroup || g.id !== editingGroup.id));
-  const parentGroupOptions = ['shared (Root)', ...parentGroupList.map(g => cleanGroupName(g.name))];
+  const parentGroupList = deviceGroups.filter(g => g.uuid !== 'paloalto-dg-shared' && (!editingGroup || g.id !== editingGroup.id));
+  const parentGroupOptions = ['Shared', ...parentGroupList.map(g => cleanGroupName(g.name))];
   const activeParentGroupLabel = groupParentId
     ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '')
-    : 'shared (Root)';
+    : 'Shared';
 
   // 4. Member Templates Dropdown for Stack Modal
   const availableTemplates = baseTemplates.filter(t => !stackTemplateIds.includes(t.id));
@@ -956,717 +960,728 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           </div>
         </div>
 
-      {inventory.length === 0 ? (
-        <EmptyState
-          icon={<Server size={32} />}
-          title="No Devices Registered"
-          description="Import a Panorama or firewall configuration XML file from the XML Import tab to populate the appliance catalog."
-          minHeight="350px"
-        />
-      ) : (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {inventory.length === 0 ? (
+          <EmptyState
+            icon={<Server size={32} />}
+            title="No Devices Registered"
+            description="Import a Panorama or firewall configuration XML file from the XML Import tab to populate the appliance catalog."
+            minHeight="350px"
+          />
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
-          {/* 1. Inventory View */}
-          {activeSubTab === 'Inventory' && (
-            <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                <DataTable
-                  columns={inventoryColumns}
-                  data={inventory}
-                  searchQuery={searchQuery}
-                  exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
-                  pagination={true}
-                  selectable={true}
-                  onSelectionChange={setSelectedDevices}
-                  bulkActions={
-                    selectedDevices.length > 0 ? (
-                      <button 
-                        className="btn-danger btn-sm" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                        onClick={() => handleBulkDeleteDevices(selectedDevices)}
+            {/* 1. Inventory View */}
+            {activeSubTab === 'Inventory' && (
+              <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+                <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                  <DataTable
+                    columns={inventoryColumns}
+                    data={inventory}
+                    searchQuery={searchQuery}
+                    exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
+                    pagination={true}
+                    selectable={true}
+                    onSelectionChange={setSelectedDevices}
+                    bulkActions={
+                      selectedDevices.length > 0 ? (
+                        <button
+                          className="btn-danger btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => handleBulkDeleteDevices(selectedDevices)}
+                        >
+                          <Trash2 size={14} /> Delete Selected ({selectedDevices.length})
+                        </button>
+                      ) : undefined
+                    }
+                    rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { if (row.ip_address) { navigator.clipboard.writeText(row.ip_address); addToast('Copied Management IP'); } else { addToast('No IP Address to copy', 'error'); } closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Management IP
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { if (row.device_group) { navigator.clipboard.writeText(row.device_group); addToast('Copied Device Group'); } else { addToast('No Device Group to copy', 'error'); } closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Group
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { if (row.template_stack) { navigator.clipboard.writeText(row.template_stack); addToast('Copied Template Stack'); } else { addToast('No Template Stack to copy', 'error'); } closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Template Stack
+                        </button>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleDeleteDevice(row); closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Device
+                        </button>
+                      </div>
+                    )}
+                    toolbarTitle={
+                      <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        Inventory ({inventory.length})
+                      </h2>
+                    }
+                    topRightActions={
+                      <button
+                        className="btn-primary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        onClick={() => handleOpenAddDeviceModal()}
                       >
-                        <Trash2 size={14} /> Delete Selected ({selectedDevices.length})
+                        <Plus size={14} /> Add Firewall
                       </button>
-                    ) : undefined
-                  }
-                  rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 2. Device Groups Tree Explorer */}
+            {activeSubTab === 'Device Groups' && (
+              <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
+
+                {/* Left Panel - Hierarchy Tree */}
+                <div style={{
+                  width: `${leftPanelWidth}px`,
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-main)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flexShrink: 0
+                }}>
+                <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
+                  {/* Title and Search Row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        Hierarchy Tree
+                      </h3>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <SearchBar
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        placeholder="Filter groups..."
+                        width="180px"
+                        variant="local"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Internal Divider (Aligned with right panel) */}
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+
+                  {/* Buttons below the divider */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', height: '28px', marginTop: '16px', marginBottom: '4px' }}>
+                    <div style={{ position: 'relative', height: '100%' }} ref={hierarchyDropdownRef}>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
+                        onClick={() => setIsHierarchyDropdownOpen(!isHierarchyDropdownOpen)}
+                        title="More Actions"
                       >
-                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                        <MoreHorizontal size={14} /> Actions
                       </button>
-                      <button 
+                      {isHierarchyDropdownOpen && (
+                        <div className="dropdown-menu" style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: '100%',
+                          marginTop: '4px',
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-main)',
+                          borderRadius: '6px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                          zIndex: 2000,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                          padding: '4px',
+                          minWidth: '180px'
+                        }}>
+                          {selectedGroupId && selectedGroupDetails ? (
+                            <>
+                              <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                                {cleanGroupName(selectedGroupDetails.name)}
+                              </div>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleOpenAddGroupModal(selectedGroupDetails.id); setIsHierarchyDropdownOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Child Group
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { setIsAssignFirewallsModalOpen(true); setIsHierarchyDropdownOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
+                              </button>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleOpenEditGroupModal(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
+                              </button>
+                              {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleDeleteGroup(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button
+                              className="context-menu-item"
+                              onClick={() => { handleOpenAddGroupModal(null); setIsHierarchyDropdownOpen(false); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Root Group
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="btn-primary btn-sm"
+                      style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                      onClick={() => handleOpenAddGroupModal(selectedGroupId ? (selectedGroupDetails?.id || null) : null)}
+                    >
+                      <Plus size={14} /> {selectedGroupId ? 'Add Child Group' : 'Add Root Group'}
+                    </button>
+                  </div>
+                  {/* Internal Divider */}
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                </div>
+                
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px', position: 'relative' }}>
+                    <div style={{ position: 'sticky', top: 0, height: '10px', backgroundColor: 'var(--bg-surface)', zIndex: 100, margin: '0 -20px' }} />
+                    {rootGroups.length === 0 ? (
+                      <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
+                    ) : (
+                      rootGroups.map(group => (
+                        <GroupTreeItem
+                          key={group.uuid}
+                          group={group}
+                          allGroups={filteredDeviceGroups}
+                          selectedGroupId={selectedGroupId}
+                          onSelect={setSelectedGroupId}
+                          deviceCounts={deviceCounts}
+                          onContextMenu={(e, g) => setTreeContextMenu({ x: e.pageX, y: e.pageY, group: g })}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Tree Context Menu Overlay */}
+                {treeContextMenu && (
+                  <div
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      top: treeContextMenu.y,
+                      left: treeContextMenu.x,
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-main)',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                      zIndex: 2000,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      padding: '4px',
+                      minWidth: '180px'
+                    }}>
+                    <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                      {cleanGroupName(treeContextMenu.group.name)}
+                    </div>
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { handleOpenAddGroupModal(treeContextMenu.group.id); setTreeContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Child Group
+                    </button>
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { setIsAssignFirewallsModalOpen(true); setTreeContextMenu(null); setSelectedGroupId(treeContextMenu.group.uuid); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { navigator.clipboard.writeText(cleanGroupName(treeContextMenu.group.name)); addToast('Copied Group Name'); setTreeContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Group Name
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { handleOpenEditGroupModal(treeContextMenu.group); setTreeContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
+                    </button>
+                    {treeContextMenu.group.uuid !== 'paloalto-dg-shared' && (
+                      <button
                         className="context-menu-item"
-                        onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                      </button>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { if (row.ip_address) { navigator.clipboard.writeText(row.ip_address); addToast('Copied Management IP'); } else { addToast('No IP Address to copy', 'error'); } closeMenu(); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Management IP
-                      </button>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { if (row.device_group) { navigator.clipboard.writeText(row.device_group); addToast('Copied Device Group'); } else { addToast('No Device Group to copy', 'error'); } closeMenu(); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Group
-                      </button>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { if (row.template_stack) { navigator.clipboard.writeText(row.template_stack); addToast('Copied Template Stack'); } else { addToast('No Template Stack to copy', 'error'); } closeMenu(); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Template Stack
-                      </button>
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
-                      </button>
-                      <button 
-                        className="context-menu-item"
-                        onClick={() => { handleDeleteDevice(row); closeMenu(); }}
+                        onClick={() => { handleDeleteGroup(treeContextMenu.group); setTreeContextMenu(null); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Device
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
                       </button>
-                    </div>
-                  )}
-                  toolbarTitle={
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                      Inventory ({inventory.length})
-                    </h2>
-                  }
-                  topRightActions={
-                    <button
-                      className="btn-primary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                      onClick={() => handleOpenAddDeviceModal()}
-                    >
-                      <Plus size={14} /> Add Firewall
-                    </button>
-                  }
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 2. Device Groups Tree Explorer */}
-          {activeSubTab === 'Device Groups' && (
-            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
-
-              {/* Left Panel - Hierarchy Tree */}
-              <div style={{
-                width: `${leftPanelWidth}px`,
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-main)',
-                borderRadius: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                flexShrink: 0
-              }}>
-                <div style={{ padding: '15px 15px 10px 15px', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <h3 style={{ margin: 0, fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                      Hierarchy Tree
-                    </h3>
+                    )}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', height: '28px' }}>
-                  <div style={{ position: 'relative', height: '100%' }} ref={hierarchyDropdownRef}>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
-                      onClick={() => setIsHierarchyDropdownOpen(!isHierarchyDropdownOpen)}
-                      title="More Actions"
-                    >
-                      <MoreHorizontal size={14} /> Actions
-                    </button>
-                    {isHierarchyDropdownOpen && (
-                      <div className="dropdown-menu" style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: '100%',
-                        marginTop: '4px',
-                        backgroundColor: 'var(--bg-surface)',
-                        border: '1px solid var(--border-main)',
-                        borderRadius: '6px',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                        zIndex: 2000,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '2px',
-                        padding: '4px',
-                        minWidth: '180px'
-                      }}>
-                        {selectedGroupId && selectedGroupDetails ? (
-                          <>
-                            <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
-                              {cleanGroupName(selectedGroupDetails.name)}
-                            </div>
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { handleOpenAddGroupModal(selectedGroupDetails.id); setIsHierarchyDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                )}
+
+                {/* Resizer */}
+                <div
+                  style={{
+                    width: '12px',
+                    cursor: 'col-resize',
+                    backgroundColor: 'transparent',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 10,
+                    margin: '0 -2px'
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    isDragging.current = true;
+                    const startX = e.pageX;
+                    const startWidth = leftPanelWidth;
+
+                    const handleMouseMove = (moveEvent: MouseEvent) => {
+                      if (isDragging.current) {
+                        const newWidth = Math.max(200, Math.min(800, startWidth + (moveEvent.pageX - startX)));
+                        setLeftPanelWidth(newWidth);
+                      }
+                    };
+
+                    const handleMouseUp = () => {
+                      isDragging.current = false;
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }}
+                >
+                  <div style={{ width: '4px', height: '24px', backgroundColor: 'var(--border-main)', borderRadius: '2px', transition: 'background-color 0.2s ease' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--text-sub)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--border-main)'} />
+                </div>
+
+                {/* Right Content Pane */}
+                <div style={{
+                  flex: 1,
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-main)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  overflow: 'hidden'
+                }}>
+                  {selectedGroupId && selectedGroupDetails ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                      <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                              {selectedGroupDetails.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(selectedGroupDetails.name)}
+                            </h4>
+                            {selectedGroupDetails.description && (
+                              <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+                                {selectedGroupDetails.description}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <SearchBar value={memberSearchQuery} onChange={setMemberSearchQuery} placeholder="Search members..." variant="local" />
+                          </div>
+                        </div>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                        <DataTable
+                          toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Firewalls ({devicesInSelectedGroup.length})</span>}
+                          columns={groupMemberColumns}
+                          data={devicesInSelectedGroup}
+                          searchQuery={memberSearchQuery}
+                          pagination={true}
+                          selectable={true}
+                          onSelectionChange={setSelectedDevices}
+                          topRightActions={
+                            <button
+                              className="btn-primary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                              onClick={() => setIsAssignFirewallsModalOpen(true)}
                             >
-                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Child Group
+                              <Server size={14} /> Assign Firewalls
                             </button>
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { setIsAssignFirewallsModalOpen(true); setIsHierarchyDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
-                            </button>
-                            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { handleOpenEditGroupModal(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
-                            </button>
-                            {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
-                              <button 
+                          }
+                          bulkActions={
+                            selectedDevices.length > 0 ? (
+                              <button
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => handleBulkRemoveFromGroup(selectedDevices)}
+                              >
+                                <Trash2 size={14} /> Remove Selected ({selectedDevices.length})
+                              </button>
+                            ) : undefined
+                          }
+                          rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                              <button
                                 className="context-menu-item"
-                                onClick={() => { handleDeleteGroup(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
+                                onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Settings
+                              </button>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleBulkRemoveFromGroup([row]); closeMenu(); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               >
-                                <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
+                                <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Group
                               </button>
-                            )}
-                          </>
-                        ) : (
-                          <button 
-                            className="context-menu-item"
-                            onClick={() => { handleOpenAddGroupModal(null); setIsHierarchyDropdownOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                          >
-                            <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Root Group
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    className="btn-primary btn-sm"
-                    style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                    onClick={() => handleOpenAddGroupModal(selectedGroupId ? (selectedGroupDetails?.id || null) : null)}
-                  >
-                    <Plus size={14} /> {selectedGroupId ? 'Add Child Group' : 'Add Root Group'}
-                  </button>
-                </div>
-                <div style={{ marginBottom: '0px' }}>
-                  <SearchBar
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder="Filter groups..."
-                    width="100%"
-                    variant="local"
-                  />
-                </div>
-                </div>
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
-                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 15px 15px 15px' }}>
-                {rootGroups.length === 0 ? (
-                  <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
-                ) : (
-                  rootGroups.map(group => (
-                    <GroupTreeItem
-                      key={group.uuid}
-                      group={group}
-                      allGroups={filteredDeviceGroups}
-                      selectedGroupId={selectedGroupId}
-                      onSelect={setSelectedGroupId}
-                      deviceCounts={deviceCounts}
-                      onContextMenu={(e, g) => setTreeContextMenu({ x: e.pageX, y: e.pageY, group: g })}
-                    />
-                  ))
-                )}
-                </div>
-              </div>
-
-              {/* Tree Context Menu Overlay */}
-              {treeContextMenu && (
-                <div 
-                  onMouseDown={(e) => e.stopPropagation()}
-                  style={{
-                  position: 'absolute',
-                  top: treeContextMenu.y,
-                  left: treeContextMenu.x,
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-main)',
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                  zIndex: 2000,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2px',
-                  padding: '4px',
-                  minWidth: '180px'
-                }}>
-                  <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
-                    {cleanGroupName(treeContextMenu.group.name)}
-                  </div>
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => { handleOpenAddGroupModal(treeContextMenu.group.id); setTreeContextMenu(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Child Group
-                  </button>
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => { setIsAssignFirewallsModalOpen(true); setTreeContextMenu(null); setSelectedGroupId(treeContextMenu.group.uuid); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => { navigator.clipboard.writeText(cleanGroupName(treeContextMenu.group.name)); addToast('Copied Group Name'); setTreeContextMenu(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Group Name
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                  <button 
-                    className="context-menu-item"
-                    onClick={() => { handleOpenEditGroupModal(treeContextMenu.group); setTreeContextMenu(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
-                  </button>
-                  {treeContextMenu.group.uuid !== 'paloalto-dg-shared' && (
-                    <button 
-                      className="context-menu-item"
-                      onClick={() => { handleDeleteGroup(treeContextMenu.group); setTreeContextMenu(null); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Resizer */}
-              <div
-                style={{
-                  width: '12px',
-                  cursor: 'col-resize',
-                  backgroundColor: 'transparent',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  zIndex: 10,
-                  margin: '0 -2px'
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  isDragging.current = true;
-                  const startX = e.pageX;
-                  const startWidth = leftPanelWidth;
-                  
-                  const handleMouseMove = (moveEvent: MouseEvent) => {
-                    if (isDragging.current) {
-                      const newWidth = Math.max(200, Math.min(800, startWidth + (moveEvent.pageX - startX)));
-                      setLeftPanelWidth(newWidth);
-                    }
-                  };
-                  
-                  const handleMouseUp = () => {
-                    isDragging.current = false;
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
-                  };
-                  
-                  document.addEventListener('mousemove', handleMouseMove);
-                  document.addEventListener('mouseup', handleMouseUp);
-                }}
-              >
-                <div style={{ width: '4px', height: '24px', backgroundColor: 'var(--border-main)', borderRadius: '2px', transition: 'background-color 0.2s ease' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--text-sub)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--border-main)'} />
-              </div>
-
-              {/* Right Content Pane */}
-              <div style={{
-                flex: 1,
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-main)',
-                borderRadius: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                overflow: 'hidden'
-              }}>
-                {selectedGroupId && selectedGroupDetails ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                    <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                            {cleanGroupName(selectedGroupDetails.name)}
-                          </h4>
-                          {selectedGroupDetails.description && (
-                            <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
-                              {selectedGroupDetails.description}
                             </div>
                           )}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <EmptyState
+                      icon={<LayoutGrid size={32} />}
+                      title="Select a Device Group"
+                      description="Choose a device group context from the hierarchy tree on the left to inspect its assigned firewalls."
+                      minHeight="100%"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Templates & Stacks explorer */}
+            {activeSubTab === 'Templates' && (
+              <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
+
+                {/* Left Tree/Stacks List Pane */}
+                <div style={{
+                  width: '320px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-main)',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  overflowY: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '15px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
+                      <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                        Template Stacks
+                      </h3>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
+                        onClick={handleOpenAddStackModal}
+                      >
+                        <Plus size={11} /> Add Stack
+                      </button>
+                    </div>
+                    {templateStacks.length === 0 ? (
+                      <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
+                    ) : (
+                      templateStacks.map(stack => (
+                        <TemplateStackItem
+                          key={stack.id}
+                          stack={stack}
+                          members={stackMembers.filter(m => m.stack_id === stack.id)}
+                          selectedTemplateId={selectedTemplateId}
+                          onSelect={handleSelectTemplate}
+                          templateCounts={templateCounts}
+                        />
+                      ))
+                    )}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
+                      <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                        Base Templates
+                      </h3>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
+                        onClick={handleOpenAddTemplateModal}
+                      >
+                        <Plus size={11} /> Add Template
+                      </button>
+                    </div>
+                    {baseTemplates.length === 0 ? (
+                      <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
+                    ) : (
+                      baseTemplates.map(tmpl => {
+                        const count = templateCounts[tmpl.name] || 0;
+                        const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
+                        return (
+                          <div
+                            key={tmpl.uuid}
+                            onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '6px 10px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+                              borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                              color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                              fontSize: '13px',
+                              marginBottom: '2px',
+                              transition: 'all 0.15s ease',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+                              {cleanTemplateName(tmpl.name)}
+                            </span>
+                            {count > 0 && (
+                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '2px 5px', borderRadius: '10px', marginLeft: '6px', border: '1px solid var(--border-main)' }}>
+                                {count}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Content Pane */}
+                <div style={{
+                  flex: 1,
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-main)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  overflow: 'hidden'
+                }}>
+                  {selectedTemplateId && selectedTemplateName ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                      <div style={{ padding: '20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
+                            {cleanTemplateName(selectedTemplateName)}
+                          </h4>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code>
+                          </span>
                         </div>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          <SearchBar value={memberSearchQuery} onChange={setMemberSearchQuery} placeholder="Search members..." variant="local" />
-                        </div>
-                      </div>
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
-                    </div>
-
-                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                      <DataTable
-                        toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Firewalls ({devicesInSelectedGroup.length})</span>}
-                        columns={groupMemberColumns}
-                        data={devicesInSelectedGroup}
-                        searchQuery={memberSearchQuery}
-                        pagination={true}
-                        selectable={true}
-                        onSelectionChange={setSelectedDevices}
-                        topRightActions={
-                          <button
-                            className="btn-primary btn-sm"
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                            onClick={() => setIsAssignFirewallsModalOpen(true)}
-                          >
-                            <Server size={14} /> Assign Firewalls
-                          </button>
-                        }
-                        bulkActions={
-                          selectedDevices.length > 0 ? (
-                            <button 
-                              className="btn-secondary btn-sm" 
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                              onClick={() => handleBulkRemoveFromGroup(selectedDevices)}
-                            >
-                              <Trash2 size={14} /> Remove Selected ({selectedDevices.length})
-                            </button>
-                          ) : undefined
-                        }
-                        rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
-                            </button>
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                            </button>
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Settings
-                            </button>
-                            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                            <button 
-                              className="context-menu-item"
-                              onClick={() => { handleBulkRemoveFromGroup([row]); closeMenu(); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Group
-                            </button>
-                          </div>
-                        )}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<LayoutGrid size={32} />}
-                    title="Select a Device Group"
-                    description="Choose a device group context from the hierarchy tree on the left to inspect its assigned firewalls."
-                    minHeight="100%"
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Templates & Stacks explorer */}
-          {activeSubTab === 'Templates' && (
-            <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
-
-              {/* Left Tree/Stacks List Pane */}
-              <div style={{
-                width: '320px',
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-main)',
-                borderRadius: '8px',
-                padding: '15px',
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '15px'
-              }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
-                    <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                      Template Stacks
-                    </h3>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
-                      onClick={handleOpenAddStackModal}
-                    >
-                      <Plus size={11} /> Add Stack
-                    </button>
-                  </div>
-                  {templateStacks.length === 0 ? (
-                    <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
-                  ) : (
-                    templateStacks.map(stack => (
-                      <TemplateStackItem
-                        key={stack.id}
-                        stack={stack}
-                        members={stackMembers.filter(m => m.stack_id === stack.id)}
-                        selectedTemplateId={selectedTemplateId}
-                        onSelect={handleSelectTemplate}
-                        templateCounts={templateCounts}
-                      />
-                    ))
-                  )}
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
-                    <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                      Base Templates
-                    </h3>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
-                      onClick={handleOpenAddTemplateModal}
-                    >
-                      <Plus size={11} /> Add Template
-                    </button>
-                  </div>
-                  {baseTemplates.length === 0 ? (
-                    <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
-                  ) : (
-                    baseTemplates.map(tmpl => {
-                      const count = templateCounts[tmpl.name] || 0;
-                      const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
-                      return (
-                        <div
-                          key={tmpl.uuid}
-                          onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '6px 10px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
-                            borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
-                            color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                            fontSize: '13px',
-                            marginBottom: '2px',
-                            transition: 'all 0.15s ease',
-                            userSelect: 'none',
-                          }}
-                        >
-                          <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
-                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-                            {cleanTemplateName(tmpl.name)}
-                          </span>
-                          {count > 0 && (
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '2px 5px', borderRadius: '10px', marginLeft: '6px', border: '1px solid var(--border-main)' }}>
-                              {count}
-                            </span>
+                          {selectedTemplateId.startsWith('stack-') ? (
+                            <>
+                              <button
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  const stackId = parseInt(selectedTemplateId.slice(6), 10);
+                                  const stack = templateStacks.find(s => s.id === stackId);
+                                  if (stack) handleOpenEditStackModal(stack);
+                                }}
+                              >
+                                <Edit2 size={13} /> Edit Stack
+                              </button>
+                              <button
+                                className="btn-danger btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  const stackId = parseInt(selectedTemplateId.slice(6), 10);
+                                  const stack = templateStacks.find(s => s.id === stackId);
+                                  if (stack) handleDeleteStack(stack);
+                                }}
+                              >
+                                <Trash2 size={13} /> Delete Stack
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
+                                  if (tmpl) handleOpenEditTemplateModal(tmpl);
+                                }}
+                              >
+                                <Edit2 size={13} /> Edit Template
+                              </button>
+                              <button
+                                className="btn-danger btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
+                                  if (tmpl) handleDeleteTemplate(tmpl);
+                                }}
+                              >
+                                <Trash2 size={13} /> Delete Template
+                              </button>
+                            </>
                           )}
+                          <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search members..." variant="local" />
                         </div>
-                      );
-                    })
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+                        {devicesInSelectedTemplate.length === 0 ? (
+                          <div style={{ color: 'var(--text-sub)', fontSize: '13px', padding: '30px', textAlign: 'center', fontStyle: 'italic' }}>
+                            No devices assigned to this template context {searchQuery ? 'matching the filter' : ''}.
+                          </div>
+                        ) : (
+                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '2px solid var(--border-main)' }}>
+                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Name</th>
+                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Serial Number</th>
+                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Management IP</th>
+                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Group</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {devicesInSelectedTemplate.map(dev => (
+                                <tr key={dev.id} style={{ borderBottom: '1px solid var(--border-main)' }} className="table-row">
+                                  <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{dev.name}</td>
+                                  <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.serial}</td>
+                                  <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.ip_address || '-'}</td>
+                                  <td style={{ padding: '12px 10px', fontSize: '13px', color: 'var(--text-main)' }}>{dev.device_group ? cleanGroupName(dev.device_group) : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <EmptyState
+                      icon={<Layers size={32} />}
+                      title="Select a Template Context"
+                      description="Choose a template or template stack from the list on the left to inspect its assigned firewalls."
+                      minHeight="100%"
+                    />
                   )}
                 </div>
               </div>
+            )}
 
-              {/* Right Content Pane */}
-              <div style={{
-                flex: 1,
-                backgroundColor: 'var(--bg-surface)',
-                border: '1px solid var(--border-main)',
-                borderRadius: '8px',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-                overflow: 'hidden'
-              }}>
-                {selectedTemplateId && selectedTemplateName ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                    <div style={{ padding: '20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                      <div>
-                        <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
-                          {cleanTemplateName(selectedTemplateName)}
-                        </h4>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code>
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        {selectedTemplateId.startsWith('stack-') ? (
-                          <>
-                            <button
-                              className="btn-secondary btn-sm"
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                              onClick={() => {
-                                const stackId = parseInt(selectedTemplateId.slice(6), 10);
-                                const stack = templateStacks.find(s => s.id === stackId);
-                                if (stack) handleOpenEditStackModal(stack);
-                              }}
-                            >
-                              <Edit2 size={13} /> Edit Stack
-                            </button>
-                            <button
-                              className="btn-danger btn-sm"
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                              onClick={() => {
-                                const stackId = parseInt(selectedTemplateId.slice(6), 10);
-                                const stack = templateStacks.find(s => s.id === stackId);
-                                if (stack) handleDeleteStack(stack);
-                              }}
-                            >
-                              <Trash2 size={13} /> Delete Stack
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className="btn-secondary btn-sm"
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                              onClick={() => {
-                                const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
-                                if (tmpl) handleOpenEditTemplateModal(tmpl);
-                              }}
-                            >
-                              <Edit2 size={13} /> Edit Template
-                            </button>
-                            <button
-                              className="btn-danger btn-sm"
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                              onClick={() => {
-                                const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
-                                if (tmpl) handleDeleteTemplate(tmpl);
-                              }}
-                            >
-                              <Trash2 size={13} /> Delete Template
-                            </button>
-                          </>
-                        )}
-                        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search members..." variant="local" />
-                      </div>
-                    </div>
-
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
-                      {devicesInSelectedTemplate.length === 0 ? (
-                        <div style={{ color: 'var(--text-sub)', fontSize: '13px', padding: '30px', textAlign: 'center', fontStyle: 'italic' }}>
-                          No devices assigned to this template context {searchQuery ? 'matching the filter' : ''}.
-                        </div>
-                      ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '2px solid var(--border-main)' }}>
-                              <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Name</th>
-                              <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Serial Number</th>
-                              <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Management IP</th>
-                              <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Group</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {devicesInSelectedTemplate.map(dev => (
-                              <tr key={dev.id} style={{ borderBottom: '1px solid var(--border-main)' }} className="table-row">
-                                <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{dev.name}</td>
-                                <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.serial}</td>
-                                <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.ip_address || '-'}</td>
-                                <td style={{ padding: '12px 10px', fontSize: '13px', color: 'var(--text-main)' }}>{dev.device_group ? cleanGroupName(dev.device_group) : '-'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<Layers size={32} />}
-                    title="Select a Template Context"
-                    description="Choose a template or template stack from the list on the left to inspect its assigned firewalls."
-                    minHeight="100%"
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-        </div>
-      )}
+          </div>
+        )}
 
       </div>
       {/* --- MODALS --- */}
@@ -1697,7 +1712,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onChange={(e) => setDeviceName(e.target.value)}
                 style={{ width: '100%', paddingRight: '30px' }}
               />
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceName); addToast('Copied Device Name'); }}
                 style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
                 title="Copy to clipboard"
@@ -1717,7 +1732,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onChange={(e) => setDeviceSerial(e.target.value)}
                 style={{ width: '100%', paddingRight: '30px' }}
               />
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceSerial); addToast('Copied Serial Number'); }}
                 style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
                 title="Copy to clipboard"
@@ -1737,7 +1752,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onChange={(e) => setDeviceIp(e.target.value)}
                 style={{ width: '100%', paddingRight: '30px' }}
               />
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceIp); addToast('Copied Management IP'); }}
                 style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
                 title="Copy to clipboard"
@@ -1749,7 +1764,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Device Group Assignment</label>
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeGroupLabel); addToast('Copied Device Group'); }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
                 title="Copy current group to clipboard"
@@ -1774,7 +1789,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template / Stack Context</label>
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeParentLabel); addToast('Copied Template Context'); }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
                 title="Copy current template context to clipboard"
@@ -1845,7 +1860,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               value={activeParentGroupLabel}
               options={parentGroupOptions}
               onChange={(val) => {
-                if (val === 'shared (Root)') {
+                if (val === 'Shared') {
                   setGroupParentId(null);
                 } else {
                   const match = deviceGroups.find(g => cleanGroupName(g.name) === val);
@@ -2017,8 +2032,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           size="lg"
           headerActions={
             <Tooltip content="Pop Out to New Window" align="center">
-              <button 
-                onClick={() => setIsAssignModalPoppedOut(true)} 
+              <button
+                onClick={() => setIsAssignModalPoppedOut(true)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '4px' }}
               >
                 <ExternalLink size={14} />
@@ -2028,8 +2043,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           footer={
             <>
               <button className="btn-secondary btn-sm" onClick={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}>Cancel</button>
-              <button 
-                className="btn-primary btn-sm" 
+              <button
+                className="btn-primary btn-sm"
                 onClick={handleAssignFirewalls}
                 disabled={selectedAssignDevices.length === 0}
               >
@@ -2040,7 +2055,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px' }}>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-sub)' }}>
-              Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</strong>. 
+              Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</strong>.
               Firewalls already assigned to this group are hidden.
             </p>
             <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -2059,8 +2074,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
       {/* 6. Assign Firewalls Modal (Popped Out Window) */}
       {isAssignFirewallsModalOpen && isAssignModalPoppedOut && (
-        <NewWindowPortal 
-          title={`Assign Firewalls - ${selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}`} 
+        <NewWindowPortal
+          title={`Assign Firewalls - ${selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}`}
           onClose={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}
         >
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
@@ -2080,8 +2095,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="btn-secondary btn-sm" onClick={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}>Cancel</button>
-              <button 
-                className="btn-primary btn-sm" 
+              <button
+                className="btn-primary btn-sm"
                 onClick={handleAssignFirewalls}
                 disabled={selectedAssignDevices.length === 0}
               >
