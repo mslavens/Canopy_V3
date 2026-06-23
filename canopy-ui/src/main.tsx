@@ -398,9 +398,24 @@ const App = () => {
   const params = new URLSearchParams(window.location.search);
   const isPopout = params.get('popout') === 'candidates';
   const isObjectEditor = params.get('editor') === 'object';
+  const isAssignFirewallsEditor = params.get('editor') === 'assign-firewalls';
 
   if (isPopout) {
     return <CandidatesPopoutPage />;
+  }
+
+  if (isAssignFirewallsEditor) {
+    const groupIdParam = params.get('groupId');
+    const standaloneGroupId = groupIdParam ? decodeURIComponent(groupIdParam) : null;
+    
+    return (
+      <DeviceManagementPage
+        auth={auth}
+        addToast={addToast}
+        standaloneAssign={true}
+        standaloneGroupId={standaloneGroupId}
+      />
+    );
   }
 
   if (isObjectEditor) {

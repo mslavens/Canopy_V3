@@ -223,9 +223,25 @@ export const DataTable: React.FC<DataTableProps> = ({
     
     if (searchQuery.trim()) {
       const lowerQuery = searchQuery.toLowerCase();
-      rows = rows.filter(row => 
-        columns.some(col => String(row[col.key] || '').toLowerCase().includes(lowerQuery))
-      );
+      rows = rows.filter(row => {
+        // Search through all values in the row object natively
+        const matchesRowValues = Object.values(row).some(val => {
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(lowerQuery);
+        });
+        
+        if (matchesRowValues) return true;
+
+        // Also search through derived filter values (e.g. arrays or computed properties)
+        return columns.some(col => {
+          const val = col.getFilterValues ? col.getFilterValues(row) : row[col.key];
+          if (Array.isArray(val)) {
+            return val.some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(lowerQuery));
+          }
+          if (val === null || val === undefined) return false;
+          return String(val).toLowerCase().includes(lowerQuery);
+        });
+      });
     }
 
     const filterKeys = Object.keys(columnFilters).filter(k => columnFilters[k] !== undefined);
@@ -645,6 +661,23 @@ export const DataTable: React.FC<DataTableProps> = ({
                                 placeholder="Search values..." 
                                 value={filterMenuSearch}
                                 onChange={(e) => setFilterMenuSearch(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (filterMenuSearch.trim()) {
+                                      setColumnFilters(prev => {
+                                        const next = { ...prev };
+                                        if (filteredUniqueValues.length === uniqueValuesForFilter.length) {
+                                          delete next[colKey];
+                                        } else {
+                                          next[colKey] = new Set(filteredUniqueValues);
+                                        }
+                                        return next;
+                                      });
+                                    }
+                                    setFilterMenuCol(null);
+                                  }
+                                }}
                                 style={{ width: '100%', padding: '6px 8px 6px 26px', fontSize: '12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-main)', outline: 'none' }}
                                 autoFocus
                               />
@@ -729,7 +762,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                             )}
                           </div>
                           
-                          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <button 
                               className="btn-secondary btn-sm"
                               onClick={() => {
@@ -745,7 +778,27 @@ export const DataTable: React.FC<DataTableProps> = ({
                               style={{ fontSize: '11px', padding: '4px 8px' }}
                               disabled={columnFilters[colKey] === undefined}
                             >
-                              Clear Filter
+                              Clear
+                            </button>
+                            <button 
+                              className="btn-primary btn-sm"
+                              onClick={() => {
+                                if (filterMenuSearch.trim()) {
+                                  setColumnFilters(prev => {
+                                    const next = { ...prev };
+                                    if (filteredUniqueValues.length === uniqueValuesForFilter.length) {
+                                      delete next[colKey];
+                                    } else {
+                                      next[colKey] = new Set(filteredUniqueValues);
+                                    }
+                                    return next;
+                                  });
+                                }
+                                setFilterMenuCol(null);
+                              }}
+                              style={{ fontSize: '11px', padding: '4px 12px' }}
+                            >
+                              Apply
                             </button>
                           </div>
                         </div>

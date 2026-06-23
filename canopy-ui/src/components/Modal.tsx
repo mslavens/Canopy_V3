@@ -32,15 +32,23 @@ export const Modal: React.FC<ModalProps> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  // Prevent background scrolling when modal is open
+  // Prevent background scrolling and layout shifts when modal is open
   useEffect(() => {
     if (isOpen) {
       setPosition({ x: 0, y: 0 });
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
+      document.body.style.paddingRight = '0px';
     }
-    return () => { document.body.style.overflow = 'unset'; };
+    return () => { 
+      document.body.style.overflow = 'unset'; 
+      document.body.style.paddingRight = '0px';
+    };
   }, [isOpen]);
 
   // Focus trap

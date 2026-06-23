@@ -14,8 +14,10 @@ import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
-  activeSubTab: string;
-  setActiveSubTab: (tab: string) => void;
+  activeSubTab?: string;
+  setActiveSubTab?: (tab: string) => void;
+  standaloneAssign?: boolean;
+  standaloneGroupId?: string | null;
 }
 
 interface ManagedDevice {
@@ -302,10 +304,13 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
 };
 
 // 3. Main Page Component
-export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
-  auth,
-  addToast,
-  activeSubTab,
+export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({ 
+  auth, 
+  addToast, 
+  activeSubTab = 'Hierarchy', 
+  setActiveSubTab = () => {},
+  standaloneAssign = false,
+  standaloneGroupId = null
 }) => {
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
@@ -321,8 +326,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [templateStacks, setTemplateStacks] = useState<TemplateStack[]>([]);
   const [stackMembers, setStackMembers] = useState<TemplateStackMember[]>([]);
 
-  // Selection states
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  // Device Group State
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(standaloneGroupId);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedTemplateName, setSelectedTemplateName] = useState<string | null>(null);
 
@@ -331,6 +336,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [isHierarchyDropdownOpen, setIsHierarchyDropdownOpen] = useState(false);
   const [isAssignFirewallsModalOpen, setIsAssignFirewallsModalOpen] = useState(false);
   const [isAssignModalPoppedOut, setIsAssignModalPoppedOut] = useState(false);
+  const [assignModalWindow, setAssignModalWindow] = useState<Window | null>(null);
   const [selectedAssignDevices, setSelectedAssignDevices] = useState<ManagedDevice[]>([]);
   const hierarchyDropdownRef = React.useRef<HTMLDivElement>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(380);
@@ -406,6 +412,23 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       setInitialLoading(false);
     }
   };
+
+  const [syncTrigger, setSyncTrigger] = useState(0);
+
+  // Sync Data Across Windows
+  useEffect(() => {
+    if (window.electron && window.electron.onMutationDetected) {
+      window.electron.onMutationDetected(() => {
+        setSyncTrigger(prev => prev + 1);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (syncTrigger > 0) {
+      fetchData(false);
+    }
+  }, [syncTrigger]);
 
   useEffect(() => {
     fetchData(true);
@@ -625,7 +648,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   };
 
   const handleAssignFirewalls = async () => {
-    if (!apiClient || !selectedGroupId) return;
+    if (!apiClient || !selectedGroupId) return false;
     try {
       const match = deviceGroups.find(g => g.uuid === selectedGroupId);
       if (!match) throw new Error("Group not found");
@@ -636,8 +659,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       setIsAssignFirewallsModalOpen(false);
       setSelectedAssignDevices([]);
       fetchData();
+      return true;
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Assignment failed', 'error');
+      return false;
     }
   };
 
@@ -938,6 +963,60 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       <div className="fade-in-delayed" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px', color: 'var(--text-muted)', fontSize: '13px', gap: '15px' }}>
         <Loader2 size={28} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
         Querying appliance catalog...
+      </div>
+    );
+  }
+
+  // If we are in standalone mode, render ONLY the Assign Firewalls modal content natively
+  if (standaloneAssign) {
+    if (initialLoading) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: 'var(--bg-app)', color: 'var(--text-muted)', gap: '15px' }}>
+          <Loader2 size={32} className="spin-animation" style={{ color: 'var(--accent-blue)' }} />
+          <div style={{ fontSize: '14px', fontWeight: 500 }}>Loading inventory...</div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--bg-app)', padding: '20px' }}>
+        <h2 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'var(--text-main)' }}>
+          Assign Firewalls to {selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}
+        </h2>
+        <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-sub)' }}>
+          Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</strong>.
+          Firewalls already assigned to this group are hidden.
+        </p>
+        <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', marginBottom: '20px' }}>
+          <DataTable
+            columns={inventoryColumns}
+            data={inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1))}
+            searchQuery=""
+            pagination={true}
+            selectable={true}
+            onSelectionChange={setSelectedAssignDevices}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button className="btn-secondary btn-sm" onClick={() => window.close()}>Cancel</button>
+          <button
+            className="btn-primary btn-sm"
+            onClick={async () => {
+              const success = await handleAssignFirewalls();
+              if (success) {
+                if (window.electron && window.electron.broadcastMutation) {
+                  window.electron.broadcastMutation('device_group');
+                }
+                setTimeout(() => {
+                  window.close();
+                }, 100);
+              }
+            }}
+            disabled={selectedAssignDevices.length === 0}
+          >
+            Assign Selected ({selectedAssignDevices.length})
+          </button>
+        </div>
       </div>
     );
   }
@@ -2050,7 +2129,43 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           headerActions={
             <Tooltip content="Pop Out to New Window" align="center">
               <button
-                onClick={() => setIsAssignModalPoppedOut(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (window.electron && window.electron.spawnWindow) {
+                    const idParam = selectedGroupDetails ? encodeURIComponent(String(selectedGroupDetails.uuid)) : '';
+                    window.electron.spawnWindow(`editor=assign-firewalls&groupId=${idParam}`, {
+                      width: 800,
+                      height: 600,
+                      minWidth: 700,
+                      minHeight: 500
+                    });
+                  } else {
+                    const newWin = window.open('', '', 'width=800,height=600,left=200,top=200');
+                    if (newWin) {
+                      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                      const bgColor = isDark ? '#1e1e2e' : '#f2f3f5';
+                      newWin.document.write(`
+                        <html>
+                          <head>
+                            <title>Assign Firewalls</title>
+                            <style>body { margin: 0; padding: 0; background-color: ${bgColor}; }</style>
+                          </head>
+                          <body class="${isDark ? 'dark' : ''}">
+                            <div id="portal-root"></div>
+                          </body>
+                        </html>
+                      `);
+                      newWin.document.close();
+
+                      setAssignModalWindow(newWin);
+                      setIsAssignModalPoppedOut(true);
+                    } else {
+                      console.error("Popup blocker prevented opening the window.");
+                    }
+                  }
+                  setIsAssignFirewallsModalOpen(false);
+                }}
+                title="Pop out into separate window"
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '4px' }}
               >
                 <ExternalLink size={14} />
@@ -2093,7 +2208,14 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       {isAssignFirewallsModalOpen && isAssignModalPoppedOut && (
         <NewWindowPortal
           title={`Assign Firewalls - ${selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}`}
-          onClose={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}
+          externalWindow={assignModalWindow}
+          onClose={() => { 
+            assignModalWindow?.close();
+            setIsAssignFirewallsModalOpen(false); 
+            setSelectedAssignDevices([]); 
+            setIsAssignModalPoppedOut(false); 
+            setAssignModalWindow(null);
+          }}
         >
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
             <h2 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Assign Firewalls to {selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</h2>
