@@ -97,7 +97,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
   const renderOptionNode = (opt: SearchableScopeDropdownProps['options'][0], overrideSticky?: boolean) => {
     const isSelected = opt.value === value;
     const isHeader = opt.value.startsWith('header-');
-    const isSticky = overrideSticky !== undefined ? overrideSticky : (!searchQuery && (opt.type === 'template-stack' || isHeader));
+    const isSticky = overrideSticky !== undefined ? overrideSticky : (!searchQuery && opt.type !== 'firewall');
     return (
       <div
         key={opt.value}
@@ -145,7 +145,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
           outline: 'none',
           ...(isSticky ? {
             position: 'sticky',
-            top: opt.type === 'template-stack' ? '0px' : `${opt.depth * 32}px`,
+            top: `${opt.depth * 32}px`,
             zIndex: 20 - opt.depth,
             borderBottom: 'none',
             boxShadow: `0 1px 0 ${isSelected && !isHeader ? 'var(--bg-element)' : 'var(--bg-surface)'}`

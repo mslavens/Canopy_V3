@@ -69,6 +69,7 @@ interface GroupTreeItemProps {
   onSelect: (uuid: string) => void;
   deviceCounts: Record<string, number>;
   onContextMenu?: (e: React.MouseEvent, group: DeviceGroupNode) => void;
+  depth?: number;
 }
 
 const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
@@ -78,6 +79,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
   onSelect,
   deviceCounts,
   onContextMenu,
+  depth = 0,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const children = allGroups.filter(g => g.parent_uuid === group.uuid);
@@ -86,7 +88,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
   const count = deviceCounts[group.uuid] || 0;
 
   return (
-    <div style={{ marginLeft: '12px' }}>
+    <div style={{ marginLeft: depth > 0 ? '12px' : 0 }}>
       <div
         onClick={() => onSelect(group.uuid)}
         onContextMenu={(e) => {
@@ -102,13 +104,17 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
           padding: '6px 10px',
           borderRadius: '4px',
           cursor: 'pointer',
-          backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+          backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
           borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
           color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
           fontSize: '13px',
           marginBottom: '2px',
           transition: 'all 0.15s ease',
           userSelect: 'none',
+          position: 'sticky',
+          top: `${depth * 28}px`,
+          zIndex: 10 - depth,
+          boxShadow: '0 1px 0 var(--bg-surface)'
         }}
       >
         <span
@@ -155,6 +161,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
               onSelect={onSelect}
               deviceCounts={deviceCounts}
               onContextMenu={onContextMenu}
+              depth={depth + 1}
             />
           ))}
         </div>
@@ -472,8 +479,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   const rootGroups = useMemo(() => {
     return filteredDeviceGroups.filter(g =>
-      g.uuid !== 'paloalto-dg-shared' &&
-      (!g.parent_uuid || g.parent_uuid === 'paloalto-dg-shared' || !filteredDeviceGroups.some(p => p.uuid === g.parent_uuid))
+      !g.parent_uuid || !filteredDeviceGroups.some(p => p.uuid === g.parent_uuid)
     );
   }, [filteredDeviceGroups]);
 
@@ -897,7 +903,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   }
 
   // 3. Parent Device Group Dropdown
-  const parentGroupList = deviceGroups.filter(g => g.uuid !== 'paloalto-dg-shared' && (!editingGroup || g.id !== editingGroup.id));
+  const parentGroupList = deviceGroups.filter(g => (!editingGroup || g.id !== editingGroup.id));
   const parentGroupOptions = ['shared (Root)', ...parentGroupList.map(g => cleanGroupName(g.name))];
   const activeParentGroupLabel = groupParentId
     ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '')
@@ -1080,29 +1086,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border-main)',
                 borderRadius: '8px',
-                padding: '15px',
-                overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px',
                 flexShrink: 0
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
-                  <h3 style={{ margin: 0, fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                    Hierarchy Tree
-                  </h3>
-                  <div style={{ position: 'relative' }} ref={hierarchyDropdownRef}>
+                <div style={{ padding: '15px 15px 10px 15px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                      Hierarchy Tree
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', height: '28px' }}>
+                  <div style={{ position: 'relative', height: '100%' }} ref={hierarchyDropdownRef}>
                     <button
                       className="btn-secondary btn-sm"
-                      style={{ padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                      style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
                       onClick={() => setIsHierarchyDropdownOpen(!isHierarchyDropdownOpen)}
+                      title="More Actions"
                     >
                       <MoreHorizontal size={14} /> Actions
                     </button>
                     {isHierarchyDropdownOpen && (
                       <div className="dropdown-menu" style={{
                         position: 'absolute',
-                        right: 0,
+                        left: 0,
                         top: '100%',
                         marginTop: '4px',
                         backgroundColor: 'var(--bg-surface)',
@@ -1175,8 +1182,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       </div>
                     )}
                   </div>
+                  <button
+                    className="btn-primary btn-sm"
+                    style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                    onClick={() => handleOpenAddGroupModal(selectedGroupId ? (selectedGroupDetails?.id || null) : null)}
+                  >
+                    <Plus size={14} /> {selectedGroupId ? 'Add Child Group' : 'Add Root Group'}
+                  </button>
                 </div>
-                <div style={{ marginBottom: '10px' }}>
+                <div style={{ marginBottom: '0px' }}>
                   <SearchBar
                     value={searchQuery}
                     onChange={setSearchQuery}
@@ -1185,6 +1199,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     variant="local"
                   />
                 </div>
+                </div>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 15px 15px 15px' }}>
                 {rootGroups.length === 0 ? (
                   <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
                 ) : (
@@ -1200,6 +1217,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     />
                   ))
                 )}
+                </div>
               </div>
 
               {/* Tree Context Menu Overlay */}
