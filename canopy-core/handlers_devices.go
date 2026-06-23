@@ -23,8 +23,9 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name     string `json:"name"`
-		ParentID *int   `json:"parent_id"`
+		Name        string `json:"name"`
+		ParentID    *int   `json:"parent_id"`
+		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -86,7 +87,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, parent_id) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, parentID)
+	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, parent_id, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, parentID, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device group: " + err.Error()})
@@ -118,9 +119,10 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID       int    `json:"id"`
-		Name     string `json:"name"`
-		ParentID *int   `json:"parent_id"`
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		ParentID    *int   `json:"parent_id"`
+		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -218,8 +220,8 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Update device group name and parent
-	_, err = tx.Exec("UPDATE device_groups SET name = ?, parent_id = ? WHERE id = ?", name, parentID, req.ID)
+	// Update device group name, parent, and description
+	_, err = tx.Exec("UPDATE device_groups SET name = ?, parent_id = ?, description = ? WHERE id = ?", name, parentID, req.Description, req.ID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update device group: " + err.Error()})
@@ -1468,7 +1470,7 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Device Groups
-	dgRows, err := dbConn.Query("SELECT dg.id, dg.uuid, dg.name, parent.uuid AS parent_uuid FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC")
+	dgRows, err := dbConn.Query("SELECT dg.id, dg.uuid, dg.name, parent.uuid AS parent_uuid, dg.description FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query device groups: " + err.Error()})
@@ -1480,14 +1482,14 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	for dgRows.Next() {
 		var id int
 		var uuid, name string
-		var parentUUID *string
-		err := dgRows.Scan(&id, &uuid, &name, &parentUUID)
-		if err == nil {
+		var parentUUID, description *string
+		if err := dgRows.Scan(&id, &uuid, &name, &parentUUID, &description); err == nil {
 			deviceGroups = append(deviceGroups, map[string]interface{}{
 				"id":          id,
 				"uuid":        uuid,
 				"name":        name,
 				"parent_uuid": parentUUID,
+				"description": description,
 			})
 		}
 	}

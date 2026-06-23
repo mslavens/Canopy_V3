@@ -70,13 +70,11 @@ export class CanopyApiClient {
   }
 
   public async downloadBlob(endpoint: string, options?: RequestInit): Promise<Blob> {
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.token}`,
-      ...options?.headers,
-    };
+    const headers = new Headers(options?.headers || {});
+    headers.set('Authorization', `Bearer ${this.token}`);
 
     if (options?.body && typeof options.body === 'string') {
-      headers['Content-Type'] = 'application/json';
+      headers.set('Content-Type', 'application/json');
     }
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -103,13 +101,11 @@ export class CanopyApiClient {
   }
 
   public async streamRequest(endpoint: string, options?: RequestInit): Promise<Response> {
-    const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.token}`,
-      ...options?.headers,
-    };
+    const headers = new Headers(options?.headers || {});
+    headers.set('Authorization', `Bearer ${this.token}`);
 
     if (options?.body && typeof options.body === 'string') {
-      headers['Content-Type'] = 'application/json';
+      headers.set('Content-Type', 'application/json');
     }
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -220,8 +216,8 @@ export class CanopyApiClient {
   public getAuditLogs = () => this.request<any[]>('/api/audit/logs');
 
   // Device Groups CRUD
-  public createDeviceGroup = (name: string, parentId: number | null) => this.request<any>('/api/device-groups/create', { method: 'POST', body: JSON.stringify({ name, parent_id: parentId }) });
-  public updateDeviceGroup = (id: number, name: string, parentId: number | null) => this.request<any>('/api/device-groups/update', { method: 'POST', body: JSON.stringify({ id, name, parent_id: parentId }) });
+  public createDeviceGroup = (name: string, parentId: number | null, description: string | null = null) => this.request<any>('/api/device-groups/create', { method: 'POST', body: JSON.stringify({ name, parent_id: parentId, description }) });
+  public updateDeviceGroup = (id: number, name: string, parentId: number | null, description: string | null = null) => this.request<any>('/api/device-groups/update', { method: 'POST', body: JSON.stringify({ id, name, parent_id: parentId, description }) });
   public deleteDeviceGroup = (id: number) => this.request<any>('/api/device-groups/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   // Templates CRUD

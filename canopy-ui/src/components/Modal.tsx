@@ -13,6 +13,7 @@ interface ModalProps {
   resizable?: boolean;
   draggable?: boolean;
   fullScreen?: boolean;
+  hasBackdrop?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({ 
@@ -25,7 +26,8 @@ export const Modal: React.FC<ModalProps> = ({
   headerActions,
   resizable = true,
   draggable = true,
-  fullScreen = false
+  fullScreen = false,
+  hasBackdrop = true
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -122,19 +124,21 @@ export const Modal: React.FC<ModalProps> = ({
     <div 
       style={{ 
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-        backgroundColor: fullScreen ? 'var(--bg-app)' : 'rgba(0, 0, 0, 0.6)', 
-        backdropFilter: fullScreen ? 'none' : 'blur(2px)', 
+        backgroundColor: fullScreen ? 'var(--bg-app)' : (hasBackdrop ? 'rgba(0, 0, 0, 0.6)' : 'transparent'), 
+        backdropFilter: fullScreen ? 'none' : (hasBackdrop ? 'blur(2px)' : 'none'), 
         display: 'flex', alignItems: 'center', justifyContent: 'center', 
-        zIndex: 10000 
+        zIndex: 10000,
+        pointerEvents: hasBackdrop ? 'auto' : 'none'
       }}
       onMouseDown={(e) => {
-        if (!fullScreen && e.target === e.currentTarget) onClose();
+        if (!fullScreen && hasBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
       <div 
         ref={modalRef} 
         tabIndex={-1} 
         style={{ 
+          pointerEvents: 'auto',
           backgroundColor: 'var(--bg-app)', 
           border: fullScreen ? 'none' : '1px solid var(--border-main)', 
           borderRadius: fullScreen ? '0' : '8px', 

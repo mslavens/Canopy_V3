@@ -397,6 +397,7 @@ type XMLRulebase struct {
 type XMLDeviceGroup struct {
 	Name                  string                         `xml:"name,attr"`
 	Parent                string                         `xml:"parent,attr"`
+	Description           string                         `xml:"description"`
 	Address               []XMLAddressEntry              `xml:"address>entry"`
 	AddressGroup          []XMLAddressGroupEntry         `xml:"address-group>entry"`
 	Service               []XMLServiceEntry              `xml:"service>entry"`
@@ -2766,8 +2767,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	defer scopeStmt.Close()
 
 	dgStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO device_groups (device_uuid, uuid, name, parent_id)
-		VALUES (?, ?, ?, ?)
+		INSERT OR REPLACE INTO device_groups (device_uuid, uuid, name, parent_id, description)
+		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to prepare device group statement: %w", err)
@@ -3030,7 +3031,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		progress(2, 55, "Synchronizing Device Group contexts...")
 		// Register default implicit "shared" root device group context
 		clearDeviceTables(tx, "paloalto-dg-shared")
-		resShared, err := dgStmt.Exec(sharedUUID, "paloalto-dg-shared", "shared", nil)
+		resShared, err := dgStmt.Exec(sharedUUID, "paloalto-dg-shared", "shared", nil, "")
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to register root shared device group: %w", err)
 		}
@@ -3045,7 +3046,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			dgUUID := "paloalto-dg-" + dg.Name
 			clearDeviceTables(tx, dgUUID)
 
-			res, err := dgStmt.Exec(sharedUUID, dgUUID, dg.Name, nil)
+			res, err := dgStmt.Exec(sharedUUID, dgUUID, dg.Name, nil, dg.Description)
 			if err != nil {
 				return 0, 0, fmt.Errorf("failed to register device group %s: %w", dg.Name, err)
 			}
@@ -3931,9 +3932,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				continue
 			}
 			res, err := tx.Exec(`
-				INSERT INTO device_groups (device_uuid, uuid, name, parent_id)
-				VALUES (?, ?, ?, ?)
-			`, "paloalto-panorama-global", dg.UUID, cleanName, sharedID)
+				INSERT INTO device_groups (device_uuid, uuid, name, parent_id, description)
+				VALUES (?, ?, ?, ?, ?)
+			`, "paloalto-panorama-global", dg.UUID, cleanName, sharedID, "")
 			if err == nil {
 				newID, _ := res.LastInsertId()
 				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, dg.UUID)
