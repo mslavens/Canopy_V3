@@ -137,11 +137,11 @@ export const ChangelogPage: React.FC = () => {
       />
       
       {error ? (
-        <div style={{ backgroundColor: 'var(--bg-surface)', borderLeft: '4px solid var(--status-red)', padding: '15px', borderRadius: '4px', color: 'var(--status-red)' }}>
+        <div style={{ backgroundColor: 'var(--bg-surface)', borderLeft: '4px solid var(--status-red)', padding: '15px', borderRadius: '4px', color: 'var(--status-red)', marginTop: '50px' }}>
           <strong>Asset Fault:</strong> {error}
         </div>
       ) : (
-        <section ref={containerRef} style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', color: 'var(--text-main)', lineHeight: 1.6, marginTop: '20px' }}>
+        <section ref={containerRef} style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', color: 'var(--text-main)', lineHeight: 1.6, marginTop: '50px' }}>
           <div className="markdown-content">
             <SearchContext.Provider value={pageSearchQuery}>
               <ReactMarkdown components={stableMarkdownComponents}>{displayedContent}</ReactMarkdown>

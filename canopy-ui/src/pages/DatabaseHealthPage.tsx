@@ -42,7 +42,7 @@ export const DatabaseHealthPage: React.FC<DatabaseHealthPageProps> = ({ auth, ad
     const totalHealed = stats.addressesHealed + stats.servicesHealed + stats.applicationsHealed;
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 text-slate-200">
+        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '1200px' }}>
             <PageHeader 
                 title="Database Health" 
                 description="Scan and heal your workspace database automatically." 
@@ -59,7 +59,7 @@ export const DatabaseHealthPage: React.FC<DatabaseHealthPageProps> = ({ auth, ad
                 }
             />
 
-            <div className="flex-1 overflow-y-auto p-6 pt-6 bg-slate-900">
+            <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)', marginTop: '50px' }}>
                 <div className="max-w-5xl mx-auto mb-8 bg-slate-800/80 border border-slate-700 rounded-lg p-5 shadow-sm text-sm text-slate-300 leading-relaxed">
                     <div className="flex items-center gap-2 font-bold text-white mb-3">
                         <Shield size={16} className="text-blue-400" /> Database Reconciliation Details
@@ -115,7 +115,7 @@ export const DatabaseHealthPage: React.FC<DatabaseHealthPageProps> = ({ auth, ad
                         </div>
                     </div>
                 )}
-            </div>
+            </section>
         </div>
     );
 };
