@@ -8,7 +8,7 @@ import { Tooltip } from '../components/Tooltip';
 import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -272,6 +272,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Loaded DB data
   const [inventory, setInventory] = useState<ManagedDevice[]>([]);
+  const [selectedDevices, setSelectedDevices] = useState<ManagedDevice[]>([]);
   const [deviceGroups, setDeviceGroups] = useState<DeviceGroupNode[]>([]);
   const [baseTemplates, setBaseTemplates] = useState<BaseTemplateNode[]>([]);
   const [templateStacks, setTemplateStacks] = useState<TemplateStack[]>([]);
@@ -482,6 +483,28 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     });
   };
 
+  const handleBulkDeleteDevices = (devices: ManagedDevice[]) => {
+    confirm({
+      title: `Remove ${devices.length} Managed Firewalls`,
+      message: `Are you sure you want to permanently delete ${devices.length} managed firewalls? This will clear all associated network interfaces and static route entries.`,
+      confirmText: 'Delete Devices',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          for (const dev of devices) {
+            await apiClient.deleteDevice(dev.id);
+          }
+          addToast(`Successfully removed ${devices.length} managed devices.`, 'success');
+          setSelectedDevices([]);
+          fetchData();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Bulk deletion failed', 'error');
+        }
+      }
+    });
+  };
+
   // Group Form Trigger
   const handleOpenAddGroupModal = () => {
     setEditingGroup(null);
@@ -658,7 +681,19 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Columns definition for full Inventory table
   const inventoryColumns: ColumnDef[] = useMemo(() => [
-    { key: 'name', label: 'Device Name' },
+    { 
+      key: 'name', 
+      label: 'Device Name',
+      renderCell: (val, row) => (
+        <span 
+          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }} 
+          onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
+          title="Click to edit device"
+        >
+          {val}
+        </span>
+      )
+    },
     { key: 'serial', label: 'Serial Number' },
     { key: 'ip_address', label: 'Management IP' },
     {
@@ -799,6 +834,87 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   searchQuery={searchQuery}
                   exportFilename={`canopy_inventory_${new Date().toISOString().slice(0, 10)}.csv`}
                   pagination={true}
+                  selectable={true}
+                  onSelectionChange={setSelectedDevices}
+                  bulkActions={
+                    selectedDevices.length > 0 ? (
+                      <button 
+                        className="btn-danger btn-sm" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        onClick={() => handleBulkDeleteDevices(selectedDevices)}
+                      >
+                        <Trash2 size={14} /> Delete Selected ({selectedDevices.length})
+                      </button>
+                    ) : undefined
+                  }
+                  rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                      </button>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
+                      </button>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { if (row.ip_address) { navigator.clipboard.writeText(row.ip_address); addToast('Copied Management IP'); } else { addToast('No IP Address to copy', 'error'); } closeMenu(); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Management IP
+                      </button>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { if (row.device_group) { navigator.clipboard.writeText(row.device_group); addToast('Copied Device Group'); } else { addToast('No Device Group to copy', 'error'); } closeMenu(); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Group
+                      </button>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { if (row.template_stack) { navigator.clipboard.writeText(row.template_stack); addToast('Copied Template Stack'); } else { addToast('No Template Stack to copy', 'error'); } closeMenu(); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Template Stack
+                      </button>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
+                      </button>
+                      <button 
+                        className="context-menu-item"
+                        onClick={() => { handleDeleteDevice(row); closeMenu(); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Device
+                      </button>
+                    </div>
+                  )}
                   toolbarTitle={
                     <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
                       Inventory ({inventory.length})
@@ -1187,36 +1303,75 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Firewall Name</label>
-            <input
-              type="text"
-              className="input-text"
-              placeholder="e.g. Corp-FW-01"
-              value={deviceName}
-              onChange={(e) => setDeviceName(e.target.value)}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="e.g. Corp-FW-01"
+                value={deviceName}
+                onChange={(e) => setDeviceName(e.target.value)}
+                style={{ width: '100%', paddingRight: '30px' }}
+              />
+              <button 
+                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceName); addToast('Copied Device Name'); }}
+                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                title="Copy to clipboard"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Serial Number (Unique)</label>
-            <input
-              type="text"
-              className="input-text"
-              placeholder="e.g. 0123456789ABC"
-              value={deviceSerial}
-              onChange={(e) => setDeviceSerial(e.target.value)}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="e.g. 0123456789ABC"
+                value={deviceSerial}
+                onChange={(e) => setDeviceSerial(e.target.value)}
+                style={{ width: '100%', paddingRight: '30px' }}
+              />
+              <button 
+                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceSerial); addToast('Copied Serial Number'); }}
+                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                title="Copy to clipboard"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Management IP Address</label>
-            <input
-              type="text"
-              className="input-text"
-              placeholder="e.g. 192.168.1.1"
-              value={deviceIp}
-              onChange={(e) => setDeviceIp(e.target.value)}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="e.g. 192.168.1.1"
+                value={deviceIp}
+                onChange={(e) => setDeviceIp(e.target.value)}
+                style={{ width: '100%', paddingRight: '30px' }}
+              />
+              <button 
+                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceIp); addToast('Copied Management IP'); }}
+                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+                title="Copy to clipboard"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Device Group Assignment</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Device Group Assignment</label>
+              <button 
+                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeGroupLabel); addToast('Copied Device Group'); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                title="Copy current group to clipboard"
+              >
+                <Copy size={11} /> Copy
+              </button>
+            </div>
             <Dropdown
               value={activeGroupLabel}
               options={groupOptions}
@@ -1232,7 +1387,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template Stack / Base Template Assignment</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template / Stack Context</label>
+              <button 
+                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeParentLabel); addToast('Copied Template Context'); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+                title="Copy current template context to clipboard"
+              >
+                <Copy size={11} /> Copy
+              </button>
+            </div>
             <Dropdown
               value={activeParentLabel}
               options={parentOptions}
