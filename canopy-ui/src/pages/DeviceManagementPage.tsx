@@ -70,6 +70,7 @@ interface GroupTreeItemProps {
   deviceCounts: Record<string, number>;
   onContextMenu?: (e: React.MouseEvent, group: DeviceGroupNode) => void;
   depth?: number;
+  isLastInTree?: boolean;
 }
 
 const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
@@ -80,6 +81,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
   deviceCounts,
   onContextMenu,
   depth = 0,
+  isLastInTree = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const children = allGroups.filter(g => g.parent_uuid === group.uuid);
@@ -88,7 +90,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
   const count = deviceCounts[group.uuid] || 0;
 
   return (
-    <div style={{ marginLeft: depth > 0 ? '12px' : 0 }}>
+    <div>
       <div
         onClick={() => onSelect(group.uuid)}
         onContextMenu={(e) => {
@@ -103,6 +105,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
           alignItems: 'center',
           height: '32px',
           padding: '0 10px',
+          paddingLeft: `${10 + (depth > 0 ? 12 : 0)}px`,
           boxSizing: 'border-box',
           cursor: 'pointer',
           backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
@@ -154,9 +157,9 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
           )}
         </div>
       </div>
-      {hasChildren && isExpanded && (
-        <div style={{ borderLeft: '1px solid var(--border-main)', marginLeft: '7px', paddingLeft: '4px' }}>
-          {children.map(child => (
+      {isExpanded && hasChildren && (
+        <div style={{ borderLeft: '1px solid var(--border-main)', marginLeft: `${19 + (depth > 0 ? 12 : 0)}px` }}>
+          {children.map((child, index) => (
             <GroupTreeItem
               key={child.uuid}
               group={child}
@@ -166,9 +169,13 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
               deviceCounts={deviceCounts}
               onContextMenu={onContextMenu}
               depth={depth + 1}
+              isLastInTree={isLastInTree && index === children.length - 1}
             />
           ))}
         </div>
+      )}
+      {isLastInTree && (!isExpanded || !hasChildren) && (
+        <div style={{ height: 'calc(100vh - 400px)', minHeight: '50px', flexShrink: 0 }} />
       )}
     </div>
   );
@@ -1215,12 +1222,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
                 </div>
                 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px', position: 'relative' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px', position: 'relative' }}>
                     <div style={{ position: 'sticky', top: 0, height: '10px', backgroundColor: 'var(--bg-surface)', zIndex: 100, margin: '0 -20px' }} />
                     {rootGroups.length === 0 ? (
                       <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
                     ) : (
-                      rootGroups.map(group => (
+                      rootGroups.map((group, index) => (
                         <GroupTreeItem
                           key={group.uuid}
                           group={group}
@@ -1229,6 +1236,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           onSelect={setSelectedGroupId}
                           deviceCounts={deviceCounts}
                           onContextMenu={(e, g) => setTreeContextMenu({ x: e.pageX, y: e.pageY, group: g })}
+                          isLastInTree={index === rootGroups.length - 1}
                         />
                       ))
                     )}
