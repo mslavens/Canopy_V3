@@ -69,7 +69,7 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 	// Create a staging table
 	stagingTable := "staging_" + strings.ReplaceAll(filepath.Base(tempFile.Name()), ".", "_")
 
-	importCmd := fmt.Sprintf(`CREATE TEMP TABLE %s AS SELECT * FROM read_csv_auto('%s');`, stagingTable, tempFile.Name())
+	importCmd := fmt.Sprintf(`CREATE TEMP TABLE %s AS SELECT * FROM read_csv_auto('%s', header=true);`, stagingTable, tempFile.Name())
 	if _, err := logDB.DB().Exec(importCmd); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to load CSV into staging: %v", err), http.StatusInternalServerError)
 		return
@@ -80,35 +80,56 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 		http.Error(w, fmt.Sprintf("Failed to get staging columns: %v", err), http.StatusInternalServerError)
 		return
 	}
-	existingCols := make(map[string]bool)
+	exactCols := make(map[string]string)
 	for colRows.Next() {
-		var cid int
-		var name, ctype string
-		var notnull bool
+		var cid interface{}
+		var name string
+		var ctype interface{}
+		var notnull interface{}
 		var dfltValue interface{}
-		var pk int
-		colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk)
-		existingCols[name] = true
+		var pk interface{}
+		if err := colRows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			slog.Error("Failed to scan table_info row", slog.String("error", err.Error()))
+			continue
+		}
+		// Clean the name for flexible matching
+		cleanName := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(name, "\xef\xbb\xbf")))
+		cleanName = strings.ReplaceAll(cleanName, "_", " ")
+		exactCols[cleanName] = name
 	}
 	colRows.Close()
 
-	getStrCol := func(name string) string {
-		if existingCols[name] {
-			return fmt.Sprintf(`"%s"`, name)
+	slog.Info("Staging table schema parsed", slog.Int("num_cols", len(exactCols)), slog.Any("columns", exactCols))
+
+	// Strict validation: check if at least "device name" or "count" exists
+	if _, hasDevice := exactCols["device name"]; !hasDevice {
+		// Log and return the exact parsed columns back to the UI so we can see what went wrong
+		errMsg := fmt.Sprintf("CSV Mapping Failed: Could not find 'Device Name' column. Detected columns: %v", exactCols)
+		slog.Error(errMsg)
+		http.Error(w, errMsg, http.StatusBadRequest)
+		return
+	}
+
+	getStrCol := func(target string) string {
+		cleanTarget := strings.ToLower(strings.TrimSpace(target))
+		if actualName, ok := exactCols[cleanTarget]; ok {
+			return fmt.Sprintf(`"%s"`, actualName)
 		}
 		return "'na'"
 	}
 	
-	getNumCol := func(name string) string {
-		if existingCols[name] {
-			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 0))`, name)
+	getNumCol := func(target string) string {
+		cleanTarget := strings.ToLower(strings.TrimSpace(target))
+		if actualName, ok := exactCols[cleanTarget]; ok {
+			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 0))`, actualName)
 		}
 		return "0"
 	}
 	
-	getCountCol := func(name string) string {
-		if existingCols[name] {
-			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 1))`, name)
+	getCountCol := func(target string) string {
+		cleanTarget := strings.ToLower(strings.TrimSpace(target))
+		if actualName, ok := exactCols[cleanTarget]; ok {
+			return fmt.Sprintf(`SUM(COALESCE(TRY_CAST("%s" AS BIGINT), 1))`, actualName)
 		}
 		return "SUM(1)"
 	}

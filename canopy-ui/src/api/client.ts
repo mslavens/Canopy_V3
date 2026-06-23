@@ -12,7 +12,14 @@ export class CanopyApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers || {});
     headers.set('Authorization', `Bearer ${this.token}`);
-    if (options.body && !(options.body instanceof FormData)) {
+    
+    // Robust check for FormData to prevent boundary corruption
+    const isFormData = options.body && (
+      options.body instanceof FormData || 
+      (typeof (options.body as any).append === 'function' && Object.prototype.toString.call(options.body) === '[object FormData]')
+    );
+
+    if (options.body && !isFormData) {
       headers.set('Content-Type', 'application/json');
     }
 
