@@ -158,7 +158,16 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
         </div>
       </div>
       {isExpanded && hasChildren && (
-        <div style={{ borderLeft: '1px solid var(--border-main)', marginLeft: `${19 + (depth > 0 ? 12 : 0)}px` }}>
+        <div style={{ position: 'relative', marginLeft: `${19 + (depth > 0 ? 12 : 0)}px` }}>
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: isLastInTree ? 'max(50px, calc(100vh - 400px))' : 0,
+            width: '1px',
+            backgroundColor: 'var(--border-main)',
+            zIndex: 1
+          }} />
           {children.map((child, index) => (
             <GroupTreeItem
               key={child.uuid}
@@ -175,7 +184,7 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
         </div>
       )}
       {isLastInTree && (!isExpanded || !hasChildren) && (
-        <div style={{ height: 'calc(100vh - 400px)', minHeight: '50px', flexShrink: 0 }} />
+        <div style={{ height: 'max(50px, calc(100vh - 400px))', flexShrink: 0 }} />
       )}
     </div>
   );
@@ -1222,7 +1231,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
                 </div>
                 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px', position: 'relative' }}>
+                <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px', position: 'relative' }}>
                     <div style={{ position: 'sticky', top: 0, height: '10px', backgroundColor: 'var(--bg-surface)', zIndex: 100, margin: '0 -20px' }} />
                     {rootGroups.length === 0 ? (
                       <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '10px', textAlign: 'center' }}>No device groups found.</div>
