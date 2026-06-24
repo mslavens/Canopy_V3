@@ -14,6 +14,7 @@ interface ModalProps {
   draggable?: boolean;
   fullScreen?: boolean;
   hasBackdrop?: boolean;
+  zIndex?: number;
 }
 
 export const Modal: React.FC<ModalProps> = ({ 
@@ -27,7 +28,8 @@ export const Modal: React.FC<ModalProps> = ({
   resizable = true,
   draggable = true,
   fullScreen = false,
-  hasBackdrop = true
+  hasBackdrop = true,
+  zIndex = 10000
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -135,7 +137,7 @@ export const Modal: React.FC<ModalProps> = ({
         backgroundColor: fullScreen ? 'var(--bg-app)' : (hasBackdrop ? 'rgba(0, 0, 0, 0.6)' : 'transparent'), 
         backdropFilter: fullScreen ? 'none' : (hasBackdrop ? 'blur(2px)' : 'none'), 
         display: 'flex', alignItems: 'center', justifyContent: 'center', 
-        zIndex: 10000,
+        zIndex: zIndex,
         pointerEvents: hasBackdrop ? 'auto' : 'none'
       }}
       onMouseDown={(e) => {

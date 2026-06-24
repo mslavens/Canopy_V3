@@ -969,6 +969,141 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     );
   }
 
+  const renderDeviceModal = () => (
+    <Modal
+      isOpen={isDeviceModalOpen}
+      onClose={() => setIsDeviceModalOpen(false)}
+      title={editingDevice ? 'Edit Firewall Configuration' : 'Register Managed Firewall'}
+      zIndex={10010}
+      footer={
+        <>
+          <button className="btn-secondary btn-sm" onClick={() => setIsDeviceModalOpen(false)}>Cancel</button>
+          <button className="btn-primary btn-sm" onClick={handleSaveDevice}>
+            {editingDevice ? 'Save Changes' : 'Register Firewall'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Firewall Name</label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. Corp-FW-01"
+              value={deviceName}
+              onChange={(e) => setDeviceName(e.target.value)}
+              style={{ width: '100%', paddingRight: '30px' }}
+            />
+            <button
+              onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceName); addToast('Copied Device Name'); }}
+              style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+              title="Copy to clipboard"
+            >
+              <Copy size={13} />
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Serial Number (Unique)</label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 0123456789ABC"
+              value={deviceSerial}
+              onChange={(e) => setDeviceSerial(e.target.value)}
+              style={{ width: '100%', paddingRight: '30px' }}
+            />
+            <button
+              onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceSerial); addToast('Copied Serial Number'); }}
+              style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+              title="Copy to clipboard"
+            >
+              <Copy size={13} />
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Management IP Address</label>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 192.168.1.1"
+              value={deviceIp}
+              onChange={(e) => setDeviceIp(e.target.value)}
+              style={{ width: '100%', paddingRight: '30px' }}
+            />
+            <button
+              onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceIp); addToast('Copied Management IP'); }}
+              style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
+              title="Copy to clipboard"
+            >
+              <Copy size={13} />
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Device Group Assignment</label>
+            <button
+              onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeGroupLabel); addToast('Copied Device Group'); }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+              title="Copy current group to clipboard"
+            >
+              <Copy size={11} /> Copy
+            </button>
+          </div>
+          <Dropdown
+            value={activeGroupLabel}
+            options={groupOptions}
+            onChange={(val) => {
+              if (val === 'Unassigned') {
+                setDeviceGroupId(null);
+              } else {
+                const match = deviceGroups.find(g => cleanGroupName(g.name) === val);
+                if (match) setDeviceGroupId(match.id);
+              }
+            }}
+            width="100%"
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template / Stack Context</label>
+            <button
+              onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeParentLabel); addToast('Copied Template Context'); }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+              title="Copy current template context to clipboard"
+            >
+              <Copy size={11} /> Copy
+            </button>
+          </div>
+          <Dropdown
+            value={activeParentLabel}
+            options={parentOptions}
+            onChange={(val) => {
+              if (val === 'None') {
+                setDeviceParentConfigVal('');
+              } else if (val.startsWith('Stack: ')) {
+                const stackName = val.replace('Stack: ', '');
+                const stack = templateStacks.find(s => s.name === stackName);
+                if (stack) setDeviceParentConfigVal(`stack-${stack.id}`);
+              } else if (val.startsWith('Template: ')) {
+                const tmplName = val.replace('Template: ', '');
+                const tmpl = baseTemplates.find(t => cleanTemplateName(t.name) === tmplName);
+                if (tmpl) setDeviceParentConfigVal(`tmpl-${tmpl.id}`);
+              }
+            }}
+            width="100%"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+
   // If we are in standalone mode, render ONLY the Assign Firewalls modal content natively
   if (standaloneAssign) {
     if (initialLoading) {
@@ -1019,6 +1154,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             Assign Selected ({selectedAssignDevices.length})
           </button>
         </div>
+        {renderDeviceModal()}
       </div>
     );
   }
@@ -1785,137 +1921,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       {/* --- MODALS --- */}
 
       {/* 1. Device (Firewall) Modal */}
-      <Modal
-        isOpen={isDeviceModalOpen}
-        onClose={() => setIsDeviceModalOpen(false)}
-        title={editingDevice ? 'Edit Firewall Configuration' : 'Register Managed Firewall'}
-        footer={
-          <>
-            <button className="btn-secondary btn-sm" onClick={() => setIsDeviceModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveDevice}>
-              {editingDevice ? 'Save Changes' : 'Register Firewall'}
-            </button>
-          </>
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Firewall Name</label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="e.g. Corp-FW-01"
-                value={deviceName}
-                onChange={(e) => setDeviceName(e.target.value)}
-                style={{ width: '100%', paddingRight: '30px' }}
-              />
-              <button
-                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceName); addToast('Copied Device Name'); }}
-                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
-                title="Copy to clipboard"
-              >
-                <Copy size={13} />
-              </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Serial Number (Unique)</label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="e.g. 0123456789ABC"
-                value={deviceSerial}
-                onChange={(e) => setDeviceSerial(e.target.value)}
-                style={{ width: '100%', paddingRight: '30px' }}
-              />
-              <button
-                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceSerial); addToast('Copied Serial Number'); }}
-                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
-                title="Copy to clipboard"
-              >
-                <Copy size={13} />
-              </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Management IP Address</label>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="e.g. 192.168.1.1"
-                value={deviceIp}
-                onChange={(e) => setDeviceIp(e.target.value)}
-                style={{ width: '100%', paddingRight: '30px' }}
-              />
-              <button
-                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(deviceIp); addToast('Copied Management IP'); }}
-                style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex' }}
-                title="Copy to clipboard"
-              >
-                <Copy size={13} />
-              </button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Device Group Assignment</label>
-              <button
-                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeGroupLabel); addToast('Copied Device Group'); }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
-                title="Copy current group to clipboard"
-              >
-                <Copy size={11} /> Copy
-              </button>
-            </div>
-            <Dropdown
-              value={activeGroupLabel}
-              options={groupOptions}
-              onChange={(val) => {
-                if (val === 'Unassigned') {
-                  setDeviceGroupId(null);
-                } else {
-                  const match = deviceGroups.find(g => cleanGroupName(g.name) === val);
-                  if (match) setDeviceGroupId(match.id);
-                }
-              }}
-              width="100%"
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Template / Stack Context</label>
-              <button
-                onClick={(e) => { e.preventDefault(); navigator.clipboard.writeText(activeParentLabel); addToast('Copied Template Context'); }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
-                title="Copy current template context to clipboard"
-              >
-                <Copy size={11} /> Copy
-              </button>
-            </div>
-            <Dropdown
-              value={activeParentLabel}
-              options={parentOptions}
-              onChange={(val) => {
-                if (val === 'None') {
-                  setDeviceParentConfigVal('');
-                } else if (val.startsWith('Stack: ')) {
-                  const stackName = val.replace('Stack: ', '');
-                  const stack = templateStacks.find(s => s.name === stackName);
-                  if (stack) setDeviceParentConfigVal(`stack-${stack.id}`);
-                } else if (val.startsWith('Template: ')) {
-                  const tmplName = val.replace('Template: ', '');
-                  const tmpl = baseTemplates.find(t => cleanTemplateName(t.name) === tmplName);
-                  if (tmpl) setDeviceParentConfigVal(`tmpl-${tmpl.id}`);
-                }
-              }}
-              width="100%"
-            />
-          </div>
-        </div>
-      </Modal>
+      {renderDeviceModal()}
 
       {/* 2. Device Group Modal */}
       <Modal
