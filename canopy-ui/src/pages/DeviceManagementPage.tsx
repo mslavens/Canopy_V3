@@ -436,12 +436,14 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Reset selections when sub-tab changes
   useEffect(() => {
-    setSelectedGroupId(null);
-    setSelectedTemplateId(null);
-    setSelectedTemplateName(null);
+    if (!standaloneAssign) {
+      setSelectedGroupId(null);
+      setSelectedTemplateId(null);
+      setSelectedTemplateName(null);
+    }
     setSearchQuery('');
     setMemberSearchQuery('');
-  }, [activeSubTab]);
+  }, [activeSubTab, standaloneAssign]);
 
   // Direct device counts per device group
   const deviceCounts = useMemo(() => {
