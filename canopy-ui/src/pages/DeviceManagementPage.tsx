@@ -1320,6 +1320,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 {/* Left Panel - Hierarchy Tree */}
                 <div style={{
                   width: `${leftPanelWidth}px`,
+                  minWidth: '340px',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '8px',
@@ -1563,7 +1564,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
                     const handleMouseMove = (moveEvent: MouseEvent) => {
                       if (isDragging.current) {
-                        const newWidth = Math.max(200, Math.min(800, startWidth + (moveEvent.pageX - startX)));
+                        const newWidth = Math.max(340, Math.min(800, startWidth + (moveEvent.pageX - startX)));
                         setLeftPanelWidth(newWidth);
                       }
                     };
@@ -1584,6 +1585,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 {/* Right Content Pane */}
                 <div style={{
                   flex: 1,
+                  minWidth: '500px',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '8px',

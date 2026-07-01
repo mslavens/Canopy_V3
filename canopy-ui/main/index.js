@@ -46,6 +46,26 @@ function createAppWindow(queryStr = '', options = {}) {
         newWindow.show();
     });
 
+    newWindow.webContents.on('context-menu', (event, params) => {
+        const template = [];
+        if (params.isEditable) {
+            template.push({ role: 'undo' });
+            template.push({ role: 'redo' });
+            template.push({ type: 'separator' });
+            template.push({ role: 'cut' });
+            template.push({ role: 'copy' });
+            template.push({ role: 'paste' });
+            template.push({ role: 'selectAll' });
+        } else if (params.selectionText) {
+            template.push({ role: 'copy' });
+        }
+        
+        if (template.length > 0) {
+            const menu = Menu.buildFromTemplate(template);
+            menu.popup(newWindow);
+        }
+    });
+
     const isPackaged = app.isPackaged;
 
     if (isPackaged) {
