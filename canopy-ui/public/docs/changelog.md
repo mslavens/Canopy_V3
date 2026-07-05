@@ -2,6 +2,19 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.24.0 - Template Stack Reordering & Base Template Descriptions
+**Date:** 2026-07-05
+
+### Added
+- **Native Description Storage**: Added full SQLite database persistence for Base Template and Template Stack descriptions.
+- **XML Import Description Extraction**: Configured Palo Alto config XML import to parse and store template descriptions automatically.
+- **Member Template Actions Menu**: Integrated a custom reordering actions context menu (Move to Top/Bottom, Move Before/After) for template stack configuration with full portal-based type-ahead searchable dropdown submenus.
+- **Type-ahead Dropdowns**: Integrated search capabilities into the "Add Member Template" selector dropdown on the template stack modal.
+
+### Changed
+- **Visual Alignment Refinement**: Standardized header container heights on both the left template list and right template detail panels to `130px`, keeping the tab bars horizontally aligned across the page.
+- **Sidebar Tab Swap**: Swapped the sidebar tab order to prioritize "Base Templates" as the first tab by default, and changed the default active sidebar tab on page load.
+
 ## v0.23.2 - Architecture Enforcement
 **Date:** 2026-06-22
 

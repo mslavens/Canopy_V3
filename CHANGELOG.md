@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2026-07-05
+### Added
+- **Native Description Storage**: Added full SQLite database persistence for Base Template and Template Stack descriptions.
+- **XML Import Description Extraction**: Configured Palo Alto config XML import to parse and store template descriptions automatically.
+- **Member Template Actions Menu**: Integrated a custom reordering actions context menu (Move to Top/Bottom, Move Before/After) for template stack configuration with full portal-based type-ahead searchable dropdown submenus.
+- **Type-ahead Dropdowns**: Integrated search capabilities into the "Add Member Template" selector dropdown on the template stack modal.
+
+### Changed
+- **Visual Alignment Refinement**: Standardized header container heights on both the left template list and right template detail panels to `130px`, keeping the tab bars horizontally aligned across the page.
+- **Sidebar Tab Swap**: Swapped the sidebar tab order to prioritize "Base Templates" as the first tab by default, and changed the default active sidebar tab on page load.
+
 ## [0.23.2] - 2026-06-22
 ### Added
 - **API Client Native Streaming**: Extended `CanopyApiClient` with a native `streamRequest` transport to securely wrapper Blobs and NDJSON streams, allowing all UI views to seamlessly handle file downloads and config imports while preserving unified token injection headers.

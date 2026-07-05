@@ -1092,7 +1092,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenEditTemplateModal = (tmpl: BaseTemplateNode) => {
     setEditingTemplate(tmpl);
     setTemplateName(cleanTemplateName(tmpl.name));
-    setTemplateDescription(templateDescriptions[tmpl.name] || '');
+    setTemplateDescription(tmpl.description || templateDescriptions[tmpl.name] || '');
     setIsTemplateModalOpen(true);
   };
 
@@ -1156,7 +1156,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenEditStackModal = (stack: TemplateStack) => {
     setEditingStack(stack);
     setStackName(stack.name);
-    setStackDescription(stackDescriptions[stack.name] || '');
+    setStackDescription(stack.description || stackDescriptions[stack.name] || '');
     const members = stackMembers.filter(m => m.stack_id === stack.id);
     const tmplIds = members.map(m => {
       const t = baseTemplates.find(bt => bt.name === m.template_name);
