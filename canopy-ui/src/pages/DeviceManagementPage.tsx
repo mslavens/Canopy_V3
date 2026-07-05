@@ -369,6 +369,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [leftTemplatesPanelWidth, setLeftTemplatesPanelWidth] = useState(380);
   const [templatesSearchQuery, setTemplatesSearchQuery] = useState('');
   const [templateMemberSearchQuery, setTemplateMemberSearchQuery] = useState('');
+  const [stackMemberSearchQuery, setStackMemberSearchQuery] = useState('');
   const [isTemplatesDropdownOpen, setIsTemplatesDropdownOpen] = useState(false);
   const [templateContextMenu, setTemplateContextMenu] = useState<{ x: number; y: number; type: 'stack' | 'template'; data: any } | null>(null);
   const templatesDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -382,6 +383,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   useEffect(() => {
     setTemplatesRightTab('firewalls');
     setSelectedMemberTemplates([]);
+    setStackMemberSearchQuery('');
   }, [selectedTemplateId]);
 
   // Local storage cache for template stack descriptions
@@ -1955,9 +1957,21 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                              {selectedGroupDetails.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(selectedGroupDetails.name)}
-                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                {selectedGroupDetails.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(selectedGroupDetails.name)}
+                              </h4>
+                              {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
+                                <button
+                                  className="btn-secondary btn-sm"
+                                  style={{ padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '22px' }}
+                                  onClick={() => handleOpenEditGroupModal(selectedGroupDetails)}
+                                  title="Edit Name and Description"
+                                >
+                                  <Edit2 size={11} /> Edit Info
+                                </button>
+                              )}
+                            </div>
                             {selectedGroupDetails.description && (
                               <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
                                 {selectedGroupDetails.description}
@@ -2329,7 +2343,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           </div>
                           {templatesRightTab === 'firewalls' && (
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                              <SearchBar value={templateMemberSearchQuery} onChange={setTemplateMemberSearchQuery} placeholder="Search members..." variant="local" />
+                              <SearchBar value={templateMemberSearchQuery} onChange={setTemplateMemberSearchQuery} placeholder="Search firewalls..." variant="local" />
+                            </div>
+                          )}
+                          {templatesRightTab === 'templates' && (
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              <SearchBar value={stackMemberSearchQuery} onChange={setStackMemberSearchQuery} placeholder="Search templates..." variant="local" />
                             </div>
                           )}
                         </div>
@@ -2456,6 +2475,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                             toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Stack Members ({activeStackMembers.length})</span>}
                             columns={stackMemberColumns}
                             data={activeStackMembers}
+                            searchQuery={stackMemberSearchQuery}
                             selectable={true}
                             onSelectionChange={setSelectedMemberTemplates}
                             topRightActions={
