@@ -378,17 +378,33 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [submenuSearchQuery, setSubmenuSearchQuery] = useState('');
   const templatesDropdownRef = React.useRef<HTMLDivElement>(null);
   const isTemplatesDragging = useRef(false);
-  const [templatesRightTab, setTemplatesRightTab] = useState<'firewalls' | 'templates'>('firewalls');
+  const [templatesRightTab, setTemplatesRightTab] = useState<'firewalls' | 'templates'>('templates');
   const [isAddTemplateToStackModalOpen, setIsAddTemplateToStackModalOpen] = useState(false);
   const [selectedAddableTemplates, setSelectedAddableTemplates] = useState<BaseTemplateNode[]>([]);
   const [assignModalSearchQuery, setAssignModalSearchQuery] = useState('');
   const [addTemplateModalSearchQuery, setAddTemplateModalSearchQuery] = useState('');
 
+  const [templatesLeftSidebarTab, setTemplatesLeftSidebarTab] = useState<'stacks' | 'templates'>('stacks');
+
   useEffect(() => {
-    setTemplatesRightTab('firewalls');
+    const isStackSelected = selectedTemplateId && !selectedTemplateId.startsWith('tmpl-');
+    setTemplatesRightTab(isStackSelected ? 'templates' : 'firewalls');
     setSelectedMemberTemplates([]);
     setStackMemberSearchQuery('');
   }, [selectedTemplateId]);
+
+  useEffect(() => {
+    if (selectedTemplateId) {
+      const isBaseTemplate = selectedTemplateId.startsWith('tmpl-');
+      if (templatesLeftSidebarTab === 'stacks' && isBaseTemplate) {
+        setSelectedTemplateId(null);
+        setSelectedTemplateName(null);
+      } else if (templatesLeftSidebarTab === 'templates' && !isBaseTemplate) {
+        setSelectedTemplateId(null);
+        setSelectedTemplateName(null);
+      }
+    }
+  }, [templatesLeftSidebarTab]);
 
   // Local storage cache for template stack descriptions
   const [stackDescriptions, setStackDescriptions] = useState<Record<string, string>>(() => {
@@ -2179,65 +2195,61 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       </div>
                     </div>
 
-                    {/* Divider */}
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                    {/* Left Sidebar Tabs Switcher */}
+                    <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)', marginTop: '8px' }}>
+                      <button
+                        onClick={() => setTemplatesLeftSidebarTab('stacks')}
+                        style={{
+                          padding: '8px 4px',
+                          background: 'none',
+                          border: 'none',
+                          borderBottom: templatesLeftSidebarTab === 'stacks' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                          color: templatesLeftSidebarTab === 'stacks' ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: templatesLeftSidebarTab === 'stacks' ? 600 : 400,
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        Stacks
+                      </button>
+                      <button
+                        onClick={() => setTemplatesLeftSidebarTab('templates')}
+                        style={{
+                          padding: '8px 4px',
+                          background: 'none',
+                          border: 'none',
+                          borderBottom: templatesLeftSidebarTab === 'templates' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                          color: templatesLeftSidebarTab === 'templates' ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: templatesLeftSidebarTab === 'templates' ? 600 : 400,
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        Base Templates
+                      </button>
+                    </div>
 
                     {/* Actions Menu row */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', height: '28px', marginTop: '16px', marginBottom: '4px' }}>
-                      <div style={{ position: 'relative', height: '100%' }} ref={templatesDropdownRef}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', height: '28px', marginTop: '12px', marginBottom: '4px' }}>
+                      {templatesLeftSidebarTab === 'stacks' ? (
                         <button
-                          className="btn-secondary btn-sm"
-                          style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
-                          onClick={() => setIsTemplatesDropdownOpen(!isTemplatesDropdownOpen)}
-                          title="More Actions"
+                          className="btn-primary btn-sm"
+                          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                          onClick={handleOpenAddStackModal}
                         >
-                          <MoreHorizontal size={14} /> Actions
+                          <Plus size={14} /> Add Stack
                         </button>
-                        {isTemplatesDropdownOpen && (
-                          <div className="dropdown-menu" style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: '100%',
-                            marginTop: '4px',
-                            backgroundColor: 'var(--bg-surface)',
-                            border: '1px solid var(--border-main)',
-                            borderRadius: '6px',
-                            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                            zIndex: 2000,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '2px',
-                            padding: '4px',
-                            minWidth: '180px'
-                          }}>
-                            <button
-                              className="context-menu-item"
-                              onClick={() => { handleOpenAddStackModal(); setIsTemplatesDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Template Stack
-                            </button>
-                            <button
-                              className="context-menu-item"
-                              onClick={() => { handleOpenAddTemplateModal(); setIsTemplatesDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Base Template
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        className="btn-primary btn-sm"
-                        style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                        onClick={handleOpenAddStackModal}
-                      >
-                        <Plus size={14} /> Add Stack
-                      </button>
+                      ) : (
+                        <button
+                          className="btn-primary btn-sm"
+                          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                          onClick={handleOpenAddTemplateModal}
+                        >
+                          <Plus size={14} /> Add Template
+                        </button>
+                      )}
                     </div>
 
                     {/* Divider */}
@@ -2248,86 +2260,75 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px', position: 'relative' }}>
                     <div style={{ position: 'sticky', top: 0, height: '10px', backgroundColor: 'var(--bg-surface)', zIndex: 100, margin: '0 -20px' }} />
 
-                    {/* Template Stacks Section */}
-                    <div style={{ marginBottom: '20px' }}>
-                      <div style={{ position: 'sticky', top: '10px', backgroundColor: 'var(--bg-surface)', padding: '10px 0', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                          Template Stacks
-                        </h3>
-                      </div>
-                      {filteredTemplateStacks.length === 0 ? (
-                        <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
-                      ) : (
-                        filteredTemplateStacks.map(stack => (
-                          <TemplateStackItem
-                            key={stack.id}
-                            stack={stack}
-                            members={stackMembers.filter(m => m.stack_id === stack.id)}
-                            selectedTemplateId={selectedTemplateId}
-                            onSelect={handleSelectTemplate}
-                            templateCounts={templateCounts}
-                            baseTemplates={baseTemplates}
-                            onContextMenu={(e, type, data) => {
-                              setTemplateContextMenu({ x: e.pageX, y: e.pageY, type, data });
-                            }}
-                          />
-                        ))
-                      )}
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '15px 0' }} />
-
-                    {/* Base Templates Section */}
-                    <div>
-                      <div style={{ position: 'sticky', top: '10px', backgroundColor: 'var(--bg-surface)', padding: '10px 0', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                          Base Templates
-                        </h3>
-                      </div>
-                      {filteredBaseTemplates.length === 0 ? (
-                        <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
-                      ) : (
-                        filteredBaseTemplates.map(tmpl => {
-                          const count = templateCounts[tmpl.name] || 0;
-                          const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
-                          return (
-                            <div
-                              key={tmpl.uuid}
-                              onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                setTemplateContextMenu({ x: e.pageX, y: e.pageY, type: 'template', data: tmpl });
+                    {templatesLeftSidebarTab === 'stacks' ? (
+                      /* Template Stacks Section */
+                      <div style={{ marginBottom: '20px' }}>
+                        {filteredTemplateStacks.length === 0 ? (
+                          <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
+                        ) : (
+                          filteredTemplateStacks.map(stack => (
+                            <TemplateStackItem
+                              key={stack.id}
+                              stack={stack}
+                              members={stackMembers.filter(m => m.stack_id === stack.id)}
+                              selectedTemplateId={selectedTemplateId}
+                              onSelect={handleSelectTemplate}
+                              templateCounts={templateCounts}
+                              baseTemplates={baseTemplates}
+                              onContextMenu={(e, type, data) => {
+                                setTemplateContextMenu({ x: e.pageX, y: e.pageY, type, data });
                               }}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '6px 10px',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
-                                borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
-                                color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                                fontSize: '13px',
-                                marginBottom: '2px',
-                                transition: 'all 0.15s ease',
-                                userSelect: 'none',
-                              }}
-                            >
-                              <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
-                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-                                {cleanTemplateName(tmpl.name)}
-                              </span>
-                              {count > 0 && (
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: 400 }}>
-                                  ({count})
+                            />
+                          ))
+                        )}
+                      </div>
+                    ) : (
+                      /* Base Templates Section */
+                      <div>
+                        {filteredBaseTemplates.length === 0 ? (
+                          <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
+                        ) : (
+                          filteredBaseTemplates.map(tmpl => {
+                            const count = templateCounts[tmpl.name] || 0;
+                            const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
+                            return (
+                              <div
+                                key={tmpl.uuid}
+                                onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  setTemplateContextMenu({ x: e.pageX, y: e.pageY, type: 'template', data: tmpl });
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '6px 10px',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+                                  borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                                  color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                                  fontSize: '13px',
+                                  marginBottom: '2px',
+                                  transition: 'all 0.15s ease',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
+                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+                                  {cleanTemplateName(tmpl.name)}
                                 </span>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
+                                {count > 0 && (
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontWeight: 400 }}>
+                                    ({count})
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2432,22 +2433,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         {activeStack ? (
                           <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-main)', marginTop: '20px' }}>
                             <button
-                              onClick={() => setTemplatesRightTab('firewalls')}
-                              style={{
-                                padding: '8px 4px',
-                                background: 'none',
-                                border: 'none',
-                                borderBottom: templatesRightTab === 'firewalls' ? '2px solid var(--accent-blue)' : '2px solid transparent',
-                                color: templatesRightTab === 'firewalls' ? 'var(--text-main)' : 'var(--text-muted)',
-                                fontWeight: templatesRightTab === 'firewalls' ? 600 : 400,
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              Assigned Firewalls
-                            </button>
-                            <button
                               onClick={() => setTemplatesRightTab('templates')}
                               style={{
                                 padding: '8px 4px',
@@ -2462,6 +2447,22 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               }}
                             >
                               Member Templates ({activeStackMembers.length})
+                            </button>
+                            <button
+                              onClick={() => setTemplatesRightTab('firewalls')}
+                              style={{
+                                padding: '8px 4px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: templatesRightTab === 'firewalls' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                                color: templatesRightTab === 'firewalls' ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontWeight: templatesRightTab === 'firewalls' ? 600 : 400,
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              Assigned Firewalls
                             </button>
                           </div>
                         ) : (
