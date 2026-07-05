@@ -960,8 +960,8 @@ export const DataTable: React.FC<DataTableProps> = ({
             ref={contextMenuRef}
             style={{
               position: 'absolute',
-              top: `${contextMenu.y}px`,
-              left: `${contextMenu.x}px`,
+              top: `${Math.min(contextMenu.y, window.innerHeight - 280)}px`,
+              left: `${Math.min(contextMenu.x, window.innerWidth - 200)}px`,
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-main)',
               borderRadius: '6px',
