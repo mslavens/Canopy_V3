@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy, MoreHorizontal, ExternalLink, Globe } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -372,6 +372,13 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [templateContextMenu, setTemplateContextMenu] = useState<{ x: number; y: number; type: 'stack' | 'template'; data: any } | null>(null);
   const templatesDropdownRef = React.useRef<HTMLDivElement>(null);
   const isTemplatesDragging = useRef(false);
+  const [templatesRightTab, setTemplatesRightTab] = useState<'firewalls' | 'templates'>('firewalls');
+  const [isAddTemplateToStackModalOpen, setIsAddTemplateToStackModalOpen] = useState(false);
+  const [selectedAddableTemplateId, setSelectedAddableTemplateId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTemplatesRightTab('firewalls');
+  }, [selectedTemplateId]);
 
   // Local storage cache for template stack descriptions
   const [stackDescriptions, setStackDescriptions] = useState<Record<string, string>>(() => {
@@ -567,6 +574,22 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
     return null;
   }, [selectedTemplateId, templateStacks, stackDescriptions]);
+
+  const activeStack = useMemo(() => {
+    if (!selectedTemplateId || !selectedTemplateId.startsWith('stack-')) return null;
+    const id = parseInt(selectedTemplateId.replace('stack-', ''), 10);
+    return templateStacks.find(s => s.id === id) || null;
+  }, [selectedTemplateId, templateStacks]);
+
+  const activeStackMembers = useMemo(() => {
+    if (!activeStack) return [];
+    return stackMembers.filter(m => m.stack_id === activeStack.id);
+  }, [activeStack, stackMembers]);
+
+  const availableTemplatesToAdd = useMemo(() => {
+    if (!activeStack) return [];
+    return baseTemplates.filter(bt => !activeStackMembers.some(m => m.template_name === bt.name));
+  }, [activeStack, baseTemplates, activeStackMembers]);
 
   const assignTargetLabel = useMemo(() => {
     if (activeSubTab === 'Device Groups') {
@@ -770,6 +793,71 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         }
       }
     });
+  };
+
+  const handleAddMemberTemplate = async (stack: TemplateStack, templateId: number) => {
+    if (!apiClient) return;
+    const members = stackMembers.filter(m => m.stack_id === stack.id);
+    const currentIds = members.map(m => {
+      const bt = baseTemplates.find(t => t.name === m.template_name);
+      return bt ? bt.id : null;
+    }).filter(id => id !== null) as number[];
+
+    const newIds = [...currentIds, templateId];
+    try {
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      addToast(`Added template to stack: ${stack.name}`, 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to add template to stack', 'error');
+    }
+  };
+
+  const handleRemoveMemberTemplate = async (stack: TemplateStack, templateName: string) => {
+    if (!apiClient) return;
+    const members = stackMembers.filter(m => m.stack_id === stack.id);
+    const currentIds = members.map(m => {
+      const bt = baseTemplates.find(t => t.name === m.template_name);
+      return bt ? bt.id : null;
+    }).filter(id => id !== null) as number[];
+
+    const targetBt = baseTemplates.find(t => t.name === templateName);
+    if (!targetBt) return;
+
+    const newIds = currentIds.filter(id => id !== targetBt.id);
+    try {
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      addToast(`Removed template from stack: ${stack.name}`, 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to remove template from stack', 'error');
+    }
+  };
+
+  const handleMoveMemberTemplate = async (stack: TemplateStack, index: number, direction: 'up' | 'down') => {
+    if (!apiClient) return;
+    const members = stackMembers.filter(m => m.stack_id === stack.id);
+    const currentIds = members.map(m => {
+      const bt = baseTemplates.find(t => t.name === m.template_name);
+      return bt ? bt.id : null;
+    }).filter(id => id !== null) as number[];
+
+    const newIds = [...currentIds];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newIds.length) return;
+
+    // Swap elements
+    const temp = newIds[index];
+    newIds[index] = newIds[targetIndex];
+    newIds[targetIndex] = temp;
+
+    try {
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      addToast('Reordered stack templates successfully', 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to reorder stack', 'error');
+    }
   };
 
   const handleAssignFirewalls = async () => {
@@ -2118,9 +2206,26 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                              {cleanTemplateName(selectedTemplateName)}
-                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                {cleanTemplateName(selectedTemplateName)}
+                              </h4>
+                              <button
+                                className="btn-secondary btn-sm"
+                                style={{ padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '22px' }}
+                                onClick={() => {
+                                  if (selectedTemplateId.startsWith('stack-')) {
+                                    if (activeStack) handleOpenEditStackModal(activeStack);
+                                  } else {
+                                    const tmpl = baseTemplates.find(t => t.name === selectedTemplateName);
+                                    if (tmpl) handleOpenEditTemplateModal(tmpl);
+                                  }
+                                }}
+                                title="Edit Name and Description"
+                              >
+                                <Edit2 size={11} /> Edit Info
+                              </button>
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
                               <span>Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code></span>
                             </div>
@@ -2130,95 +2235,250 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               </div>
                             )}
                           </div>
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <SearchBar value={templateMemberSearchQuery} onChange={setTemplateMemberSearchQuery} placeholder="Search members..." variant="local" />
-                          </div>
-                        </div>
-
-                        {/* Internal Divider */}
-                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
-                      </div>
-
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '10px 20px' }}>
-                        <DataTable
-                          toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Firewalls ({devicesInSelectedTemplate.length})</span>}
-                          columns={templateMemberColumns}
-                          data={devicesInSelectedTemplate}
-                          searchQuery={templateMemberSearchQuery}
-                          pagination={true}
-                          selectable={true}
-                          onSelectionChange={setSelectedDevices}
-                          topRightActions={
-                            <button
-                              className="btn-primary btn-sm"
-                              style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                              onClick={() => setIsAssignFirewallsModalOpen(true)}
-                            >
-                              <Server size={14} /> Assign Firewalls
-                            </button>
-                          }
-                          bulkActions={
-                            selectedDevices.length > 0 ? (
-                              <button
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => handleBulkRemoveFromTemplateContext(selectedDevices)}
-                              >
-                                <Trash2 size={14} /> Remove Selected ({selectedDevices.length})
-                              </button>
-                            ) : undefined
-                          }
-                          rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                              <button
-                                className="context-menu-item"
-                                onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
-                              </button>
-                              <button
-                                className="context-menu-item"
-                                onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                              </button>
-                              <button
-                                className="context-menu-item"
-                                onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
-                              </button>
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                              <button
-                                className="context-menu-item"
-                                onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Template
-                              </button>
+                          {templatesRightTab === 'firewalls' && (
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              <SearchBar value={templateMemberSearchQuery} onChange={setTemplateMemberSearchQuery} placeholder="Search members..." variant="local" />
                             </div>
                           )}
-                        />
+                        </div>
+
+                        {/* TABS ROW */}
+                        {activeStack ? (
+                          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-main)', marginTop: '20px' }}>
+                            <button
+                              onClick={() => setTemplatesRightTab('firewalls')}
+                              style={{
+                                padding: '8px 4px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: templatesRightTab === 'firewalls' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                                color: templatesRightTab === 'firewalls' ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontWeight: templatesRightTab === 'firewalls' ? 600 : 400,
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              Assigned Firewalls
+                            </button>
+                            <button
+                              onClick={() => setTemplatesRightTab('templates')}
+                              style={{
+                                padding: '8px 4px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: templatesRightTab === 'templates' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                                color: templatesRightTab === 'templates' ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontWeight: templatesRightTab === 'templates' ? 600 : 400,
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              Member Templates ({activeStackMembers.length})
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                        )}
+                      </div>
+
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '10px 20px 20px 20px' }}>
+                        {/* Tab 1: Assigned Firewalls */}
+                        {templatesRightTab === 'firewalls' && (
+                          <DataTable
+                            toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Firewalls ({devicesInSelectedTemplate.length})</span>}
+                            columns={templateMemberColumns}
+                            data={devicesInSelectedTemplate}
+                            searchQuery={templateMemberSearchQuery}
+                            pagination={true}
+                            selectable={true}
+                            onSelectionChange={setSelectedDevices}
+                            topRightActions={
+                              <button
+                                className="btn-primary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                                onClick={() => setIsAssignFirewallsModalOpen(true)}
+                              >
+                                <Server size={14} /> Assign Firewalls
+                              </button>
+                            }
+                            bulkActions={
+                              selectedDevices.length > 0 ? (
+                                <button
+                                  className="btn-secondary btn-sm"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => handleBulkRemoveFromTemplateContext(selectedDevices)}
+                                >
+                                  <Trash2 size={14} /> Remove Selected ({selectedDevices.length})
+                                </button>
+                              ) : undefined
+                            }
+                            rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                                </button>
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
+                                </button>
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
+                                </button>
+                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Template
+                                </button>
+                              </div>
+                            )}
+                          />
+                        )}
+
+                        {/* Tab 2: Member Templates (Only for Stacks) */}
+                        {templatesRightTab === 'templates' && activeStack && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '100%', minHeight: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
+                                Configure Stack Members
+                              </span>
+                              {availableTemplatesToAdd.length > 0 && (
+                                <button
+                                  className="btn-primary btn-sm"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => {
+                                    setSelectedAddableTemplateId(null);
+                                    setIsAddTemplateToStackModalOpen(true);
+                                  }}
+                                >
+                                  <Plus size={14} /> Add Template
+                                </button>
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)' }}>
+                              {activeStackMembers.length === 0 ? (
+                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-sub)' }}>
+                                  No templates currently assigned to this stack.
+                                </div>
+                              ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                  <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                      <th style={{ padding: '10px 16px' }}>Template Name</th>
+                                      <th style={{ padding: '10px 16px', width: '140px', textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {activeStackMembers.map((m, idx) => (
+                                      <tr key={m.template_name} style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)' }}>
+                                        <td style={{ padding: '10px 16px', fontWeight: 500 }}>
+                                          {cleanTemplateName(m.template_name)}
+                                        </td>
+                                        <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                                            <button
+                                              className="btn-table-action"
+                                              onClick={() => handleMoveMemberTemplate(activeStack, idx, 'up')}
+                                              disabled={idx === 0}
+                                              style={{
+                                                opacity: idx === 0 ? 0.3 : 1,
+                                                cursor: idx === 0 ? 'not-allowed' : 'pointer'
+                                              }}
+                                              title="Move Up"
+                                            >
+                                              <ArrowUp size={14} />
+                                            </button>
+                                            <button
+                                              className="btn-table-action"
+                                              onClick={() => handleMoveMemberTemplate(activeStack, idx, 'down')}
+                                              disabled={idx === activeStackMembers.length - 1}
+                                              style={{
+                                                opacity: idx === activeStackMembers.length - 1 ? 0.3 : 1,
+                                                cursor: idx === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer'
+                                              }}
+                                              title="Move Down"
+                                            >
+                                              <ArrowDown size={14} />
+                                            </button>
+                                            <button
+                                              className="btn-table-action-danger"
+                                              onClick={() => handleRemoveMemberTemplate(activeStack, m.template_name)}
+                                              title="Remove Template from Stack"
+                                            >
+                                              <X size={14} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
-                    <EmptyState
-                      icon={<Layers size={32} />}
-                      title="Select a Template Context"
-                      description="Choose a template or template stack from the list on the left to inspect its assigned firewalls."
-                      minHeight="100%"
-                    />
+                    <div style={{
+                      flex: 1,
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-main)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      minHeight: 0,
+                      overflow: 'hidden'
+                    }}>
+                      <EmptyState
+                        icon={<Layers size={32} />}
+                        title="Select a Template Context"
+                        description="Choose a template or template stack from the list on the left to inspect its assigned firewalls."
+                        minHeight="100%"
+                        action={
+                          <div style={{ display: 'flex', gap: '10px', marginTop: '15px', justifyContent: 'center' }}>
+                            <button
+                              className="btn-primary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                              onClick={handleOpenAddTemplateModal}
+                            >
+                              <Plus size={14} /> Add Base Template
+                            </button>
+                            <button
+                              className="btn-secondary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                              onClick={handleOpenAddStackModal}
+                            >
+                              <Plus size={14} /> Add Template Stack
+                            </button>
+                          </div>
+                        }
+                      />
+                    </div>
                   )}
                 {/* Templates Context Menu Overlay */}
                 {templateContextMenu && (
@@ -2306,6 +2566,78 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
       </div>
       {/* --- MODALS --- */}
+      <Modal
+        isOpen={isAddTemplateToStackModalOpen}
+        onClose={() => setIsAddTemplateToStackModalOpen(false)}
+        title="Add Template to Stack"
+        footer={
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button className="btn-secondary" onClick={() => setIsAddTemplateToStackModalOpen(false)}>Cancel</button>
+            <button
+              className="btn-primary"
+              disabled={selectedAddableTemplateId === null}
+              onClick={() => {
+                if (activeStack && selectedAddableTemplateId !== null) {
+                  handleAddMemberTemplate(activeStack, selectedAddableTemplateId);
+                  setIsAddTemplateToStackModalOpen(false);
+                }
+              }}
+            >
+              Add Selected
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+            Select a base template to append to <strong>{activeStack ? cleanTemplateName(activeStack.name) : ''}</strong>:
+          </span>
+          
+          <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)' }}>
+            {availableTemplatesToAdd.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No templates available to add.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <th style={{ padding: '10px 16px', width: '40px' }}></th>
+                    <th style={{ padding: '10px 16px' }}>Template Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableTemplatesToAdd.map((t) => (
+                    <tr
+                      key={t.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-main)',
+                        color: 'var(--text-main)',
+                        cursor: 'pointer',
+                        backgroundColor: selectedAddableTemplateId === t.id ? 'var(--accent-blue-10)' : 'transparent'
+                      }}
+                      onClick={() => setSelectedAddableTemplateId(t.id)}
+                    >
+                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                        <input
+                          type="radio"
+                          name="selectedTemplateToAdd"
+                          checked={selectedAddableTemplateId === t.id}
+                          onChange={() => setSelectedAddableTemplateId(t.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </td>
+                      <td style={{ padding: '10px 16px', fontWeight: 500 }}>
+                        {cleanTemplateName(t.name)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       {/* 1. Device (Firewall) Modal */}
       {renderDeviceModal()}
