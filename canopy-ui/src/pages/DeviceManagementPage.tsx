@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -372,6 +372,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [stackMemberSearchQuery, setStackMemberSearchQuery] = useState('');
   const [isTemplatesDropdownOpen, setIsTemplatesDropdownOpen] = useState(false);
   const [templateContextMenu, setTemplateContextMenu] = useState<{ x: number; y: number; type: 'stack' | 'template'; data: any } | null>(null);
+  const [reorderContextMenu, setReorderContextMenu] = useState<{ x: number; y: number; index: number; templateName: string } | null>(null);
+  const [reorderSubMenuType, setReorderSubMenuType] = useState<'before' | 'after' | null>(null);
   const templatesDropdownRef = React.useRef<HTMLDivElement>(null);
   const isTemplatesDragging = useRef(false);
   const [templatesRightTab, setTemplatesRightTab] = useState<'firewalls' | 'templates'>('firewalls');
@@ -400,6 +402,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     const closeContextMenus = () => {
       setTreeContextMenu(null);
       setTemplateContextMenu(null);
+      setReorderContextMenu(null);
+      setReorderSubMenuType(null);
     };
     const handleClickOutsideDropdown = (e: MouseEvent) => {
       if (hierarchyDropdownRef.current && !hierarchyDropdownRef.current.contains(e.target as Node)) {
@@ -866,6 +870,48 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
   };
 
+  const handleMoveMemberTemplateToPosition = async (
+    stack: TemplateStack, 
+    currentIndex: number, 
+    position: 'top' | 'bottom' | 'before' | 'after', 
+    targetIndex?: number
+  ) => {
+    if (!apiClient) return;
+    const members = stackMembers.filter(m => m.stack_id === stack.id);
+    const currentIds = members.map(m => {
+      const bt = baseTemplates.find(t => t.name === m.template_name);
+      return bt ? bt.id : null;
+    }).filter(id => id !== null) as number[];
+
+    const newIds = [...currentIds];
+    const element = newIds[currentIndex];
+    
+    // Remove element from current position
+    newIds.splice(currentIndex, 1);
+
+    if (position === 'top') {
+      newIds.unshift(element);
+    } else if (position === 'bottom') {
+      newIds.push(element);
+    } else if (position === 'before' && targetIndex !== undefined) {
+      const originalTargetId = currentIds[targetIndex];
+      const newTargetIndex = newIds.indexOf(originalTargetId);
+      newIds.splice(newTargetIndex, 0, element);
+    } else if (position === 'after' && targetIndex !== undefined) {
+      const originalTargetId = currentIds[targetIndex];
+      const newTargetIndex = newIds.indexOf(originalTargetId);
+      newIds.splice(newTargetIndex + 1, 0, element);
+    }
+
+    try {
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      addToast('Reordered stack templates successfully', 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to reorder stack', 'error');
+    }
+  };
+
   const handleBulkRemoveMembersFromStack = async () => {
     if (!activeStack || !apiClient || selectedMemberTemplates.length === 0) return;
     const currentMembers = stackMembers.filter(m => m.stack_id === activeStack.id);
@@ -1221,7 +1267,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     {
       key: 'actions',
       label: 'Actions',
-      width: '140px',
+      width: '165px',
       renderCell: (_val, row) => {
         const idx = activeStackMembers.findIndex(m => m.template_name === row.template_name);
         return (
@@ -1249,6 +1295,22 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               title="Move Down"
             >
               <ArrowDown size={14} />
+            </button>
+            <button
+              className="btn-table-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                setReorderContextMenu({
+                  x: e.clientX,
+                  y: e.clientY,
+                  index: idx,
+                  templateName: row.template_name
+                });
+                setReorderSubMenuType(null);
+              }}
+              title="Move Template to..."
+            >
+              <ArrowUpDown size={14} />
             </button>
             <button
               className="btn-table-action-danger"
@@ -2503,6 +2565,77 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                 </button>
                               ) : undefined
                             }
+                            rowContextMenuActions={(row, closeMenu) => {
+                               const idx = activeStackMembers.findIndex(m => m.template_name === row.template_name);
+                               return (
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                                   <button
+                                     className="context-menu-item"
+                                     onClick={() => {
+                                       handleMoveMemberTemplateToPosition(activeStack, idx, 'top');
+                                       closeMenu();
+                                     }}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                   >
+                                     Move to Top
+                                   </button>
+                                   <button
+                                     className="context-menu-item"
+                                     onClick={() => {
+                                       handleMoveMemberTemplateToPosition(activeStack, idx, 'bottom');
+                                       closeMenu();
+                                     }}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                   >
+                                     Move to Bottom
+                                   </button>
+                                   <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                   <button
+                                     className="context-menu-item"
+                                     onClick={() => {
+                                       handleMoveMemberTemplate(activeStack, idx, 'up');
+                                       closeMenu();
+                                     }}
+                                     disabled={idx === 0}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: idx === 0 ? 'var(--text-muted)' : 'var(--text-main)', cursor: idx === 0 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                     onMouseEnter={(e) => { if (idx !== 0) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                   >
+                                     Move Up
+                                   </button>
+                                   <button
+                                     className="context-menu-item"
+                                     onClick={() => {
+                                       handleMoveMemberTemplate(activeStack, idx, 'down');
+                                       closeMenu();
+                                     }}
+                                     disabled={idx === activeStackMembers.length - 1}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: idx === activeStackMembers.length - 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: idx === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                     onMouseEnter={(e) => { if (idx !== activeStackMembers.length - 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                   >
+                                     Move Down
+                                   </button>
+                                   <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                   <button
+                                     className="context-menu-item"
+                                     onClick={() => {
+                                       handleRemoveMemberTemplate(activeStack, row.template_name);
+                                       closeMenu();
+                                     }}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                   >
+                                     <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Stack
+                                   </button>
+                                 </div>
+                               );
+                             }}
                           />
                         )}
                       </div>
@@ -2619,6 +2752,123 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     >
                       <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Context Name
                     </button>
+                  </div>
+                )}
+
+                {reorderContextMenu && (
+                  <div
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'fixed',
+                      top: Math.min(reorderContextMenu.y, window.innerHeight - 200),
+                      left: Math.min(reorderContextMenu.x, window.innerWidth - 180),
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-main)',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                      zIndex: 2000,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      padding: '4px',
+                      minWidth: '150px'
+                    }}
+                  >
+                    {reorderSubMenuType === null ? (
+                      <>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => {
+                            if (activeStack) {
+                              handleMoveMemberTemplateToPosition(activeStack, reorderContextMenu.index, 'top');
+                            }
+                            setReorderContextMenu(null);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          Move to Top
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => {
+                            if (activeStack) {
+                              handleMoveMemberTemplateToPosition(activeStack, reorderContextMenu.index, 'bottom');
+                            }
+                            setReorderContextMenu(null);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          Move to Bottom
+                        </button>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        <button
+                          className="context-menu-item"
+                          disabled={activeStackMembers.length <= 1}
+                          onClick={() => setReorderSubMenuType('before')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'none', border: 'none', color: activeStackMembers.length <= 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: activeStackMembers.length <= 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <span>Move Before...</span>
+                          <span style={{ fontSize: '10px' }}>▶</span>
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          disabled={activeStackMembers.length <= 1}
+                          onClick={() => setReorderSubMenuType('after')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'none', border: 'none', color: activeStackMembers.length <= 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: activeStackMembers.length <= 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <span>Move After...</span>
+                          <span style={{ fontSize: '10px' }}>▶</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => setReorderSubMenuType(null)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '11px', fontWeight: 600, width: '100%' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          ◀ Back
+                        </button>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        {activeStackMembers
+                          .map((m, idx) => ({ name: m.template_name, originalIndex: idx }))
+                          .filter(item => item.name !== reorderContextMenu.templateName)
+                          .map(item => (
+                            <button
+                              key={item.name}
+                              className="context-menu-item"
+                              onClick={() => {
+                                if (activeStack) {
+                                  handleMoveMemberTemplateToPosition(
+                                    activeStack,
+                                    reorderContextMenu.index,
+                                    reorderSubMenuType,
+                                    item.originalIndex
+                                  );
+                                }
+                                setReorderContextMenu(null);
+                                setReorderSubMenuType(null);
+                              }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              title={cleanTemplateName(item.name)}
+                            >
+                              {cleanTemplateName(item.name)}
+                            </button>
+                          ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
