@@ -232,12 +232,16 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
           padding: '6px 10px',
           borderRadius: '4px',
           cursor: 'pointer',
-          backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+          backgroundColor: isSelected ? 'var(--bg-element)' : 'var(--bg-surface)',
           borderLeft: isSelected ? '3px solid var(--accent-purple)' : '3px solid transparent',
           color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
           fontSize: '13px',
           transition: 'all 0.15s ease',
           userSelect: 'none',
+          position: 'sticky',
+          top: '42px',
+          zIndex: 8,
+          boxShadow: '0 1px 0 var(--bg-surface)'
         }}
       >
         <span
@@ -737,6 +741,28 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', null, dev.template_stack_id || null, dev.template_id || null);
           }
           addToast(`Successfully removed ${devices.length} firewalls from group.`, 'success');
+          setSelectedDevices([]);
+          fetchData();
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : 'Bulk removal failed', 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkRemoveFromTemplateContext = (devices: ManagedDevice[]) => {
+    confirm({
+      title: `Remove ${devices.length} Firewalls from Template Context`,
+      message: `Are you sure you want to unassign ${devices.length} firewalls from this template / stack context? They will remain in your inventory.`,
+      confirmText: 'Remove from Context',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          for (const dev of devices) {
+            await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', dev.device_group_id || null, null, null);
+          }
+          addToast(`Successfully removed ${devices.length} firewalls from template context.`, 'success');
           setSelectedDevices([]);
           fetchData();
         } catch (err) {
@@ -2207,6 +2233,58 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               <Server size={14} /> Assign Firewalls
                             </button>
                           }
+                          bulkActions={
+                            selectedDevices.length > 0 ? (
+                              <button
+                                className="btn-secondary btn-sm"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => handleBulkRemoveFromTemplateContext(selectedDevices)}
+                              >
+                                <Trash2 size={14} /> Remove Selected ({selectedDevices.length})
+                              </button>
+                            ) : undefined
+                          }
+                          rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
+                              </button>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Template
+                              </button>
+                            </div>
+                          )}
                         />
                       </div>
                     </div>
