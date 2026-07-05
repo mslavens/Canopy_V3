@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -401,7 +401,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   });
 
   useEffect(() => {
-    const closeContextMenus = () => {
+    const closeContextMenus = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('.portal-dropdown-menu') || 
+        target.closest('.datatable-context-menu') || 
+        target.closest('.reorder-context-menu')
+      ) {
+        return;
+      }
+
       setTreeContextMenu(null);
       setTemplateContextMenu(null);
       setReorderContextMenu(null);
@@ -2575,17 +2584,20 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px', maxHeight: '250px', overflowY: 'auto' }}>
                                    {rightClickSubMenuType === null ? (
                                      <>
+                                       <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                                         {cleanTemplateName(row.template_name)}
+                                       </div>
                                        <button
                                          className="context-menu-item"
                                          onClick={() => {
                                            handleMoveMemberTemplateToPosition(activeStack, idx, 'top');
                                            closeMenu();
                                          }}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         Move to Top
+                                         <ChevronsUp size={13} style={{ color: 'var(--text-muted)' }} /> Move to Top
                                        </button>
                                        <button
                                          className="context-menu-item"
@@ -2593,11 +2605,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                            handleMoveMemberTemplateToPosition(activeStack, idx, 'bottom');
                                            closeMenu();
                                          }}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         Move to Bottom
+                                         <ChevronsDown size={13} style={{ color: 'var(--text-muted)' }} /> Move to Bottom
                                        </button>
                                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                                        <button
@@ -2611,7 +2623,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                          onMouseEnter={(e) => { if (idx !== 0) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         Move Up
+                                         <ChevronUp size={13} style={{ color: 'var(--text-muted)' }} /> Move Up
                                        </button>
                                        <button
                                          className="context-menu-item"
@@ -2624,7 +2636,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                          onMouseEnter={(e) => { if (idx !== activeStackMembers.length - 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         Move Down
+                                         <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} /> Move Down
                                        </button>
                                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                                        <button
@@ -2635,7 +2647,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                          onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         <span>Move Before...</span>
+                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                           <ArrowUp size={13} style={{ color: 'var(--text-muted)' }} />
+                                           <span>Move Before...</span>
+                                         </div>
                                          <span style={{ fontSize: '10px' }}>▶</span>
                                        </button>
                                        <button
@@ -2646,7 +2661,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                          onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                        >
-                                         <span>Move After...</span>
+                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                           <ArrowDown size={13} style={{ color: 'var(--text-muted)' }} />
+                                           <span>Move After...</span>
+                                         </div>
                                          <span style={{ fontSize: '10px' }}>▶</span>
                                        </button>
                                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
@@ -2823,6 +2841,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 {reorderContextMenu && (
                   <div
                     onMouseDown={(e) => e.stopPropagation()}
+                    className="reorder-context-menu"
                     style={{
                       position: 'fixed',
                       top: Math.min(reorderContextMenu.y, window.innerHeight - 340),
@@ -2843,6 +2862,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   >
                     {reorderSubMenuType === null ? (
                       <>
+                        <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                          {cleanTemplateName(reorderContextMenu.templateName)}
+                        </div>
                         <button
                           className="context-menu-item"
                           onClick={() => {
@@ -2855,7 +2877,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          Move to Top
+                          <ChevronsUp size={13} style={{ color: 'var(--text-muted)' }} /> Move to Top
                         </button>
                         <button
                           className="context-menu-item"
@@ -2869,7 +2891,38 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          Move to Bottom
+                          <ChevronsDown size={13} style={{ color: 'var(--text-muted)' }} /> Move to Bottom
+                        </button>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        <button
+                          className="context-menu-item"
+                          onClick={() => {
+                            if (activeStack) {
+                              handleMoveMemberTemplate(activeStack, reorderContextMenu.index, 'up');
+                            }
+                            setReorderContextMenu(null);
+                          }}
+                          disabled={reorderContextMenu.index === 0}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: reorderContextMenu.index === 0 ? 'var(--text-muted)' : 'var(--text-main)', cursor: reorderContextMenu.index === 0 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => { if (reorderContextMenu.index !== 0) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <ChevronUp size={13} style={{ color: 'var(--text-muted)' }} /> Move Up
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => {
+                            if (activeStack) {
+                              handleMoveMemberTemplate(activeStack, reorderContextMenu.index, 'down');
+                            }
+                            setReorderContextMenu(null);
+                          }}
+                          disabled={reorderContextMenu.index === activeStackMembers.length - 1}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: reorderContextMenu.index === activeStackMembers.length - 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: reorderContextMenu.index === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                          onMouseEnter={(e) => { if (reorderContextMenu.index !== activeStackMembers.length - 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} /> Move Down
                         </button>
                         <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                         <button
@@ -2880,7 +2933,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <span>Move Before...</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <ArrowUp size={13} style={{ color: 'var(--text-muted)' }} />
+                            <span>Move Before...</span>
+                          </div>
                           <span style={{ fontSize: '10px' }}>▶</span>
                         </button>
                         <button
@@ -2891,7 +2947,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <span>Move After...</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <ArrowDown size={13} style={{ color: 'var(--text-muted)' }} />
+                            <span>Move After...</span>
+                          </div>
                           <span style={{ fontSize: '10px' }}>▶</span>
                         </button>
                       </>

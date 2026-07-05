@@ -11,6 +11,7 @@ export interface ColumnDef {
   width?: string;
   renderCell?: (value: any, row: any, searchQuery?: string) => React.ReactNode;
   getFilterValues?: (row: any) => string | string[];
+  allowOverflow?: boolean;
 }
 
 interface DataTableProps {
@@ -203,7 +204,14 @@ export const DataTable: React.FC<DataTableProps> = ({
         setShowTableActionsMenu(false);
       }
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
-        setContextMenu(null);
+        const portalDropdowns = document.querySelectorAll('.portal-dropdown-menu');
+        let clickedInsidePortal = false;
+        portalDropdowns.forEach(el => {
+          if (el.contains(event.target as Node)) clickedInsidePortal = true;
+        });
+        if (!clickedInsidePortal) {
+          setContextMenu(null);
+        }
       }
       if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
         // If clicking outside, close the filter menu
@@ -958,6 +966,7 @@ export const DataTable: React.FC<DataTableProps> = ({
         >
           <div
             ref={contextMenuRef}
+            className="datatable-context-menu"
             style={{
               position: 'absolute',
               top: `${Math.min(contextMenu.y, window.innerHeight - 280)}px`,
