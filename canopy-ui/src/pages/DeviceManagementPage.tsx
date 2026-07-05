@@ -1878,7 +1878,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
             {/* 3. Templates & Stacks explorer */}
             {activeSubTab === 'Templates' && (
-              <div style={{ flex: 1, display: 'flex', gap: '0px', minHeight: 0, marginTop: '50px' }}>
+              <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
 
                 {/* Left Templates Panel */}
                 <div style={{
@@ -2065,7 +2065,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 {/* Drag Handle Column */}
                 <div
                   style={{
-                    width: '8px',
+                    width: '12px',
                     cursor: 'col-resize',
                     backgroundColor: 'transparent',
                     display: 'flex',
@@ -2097,7 +2097,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     document.addEventListener('mouseup', handleMouseUp);
                   }}
                 >
-                  <div style={{ width: '2px', height: '30px', backgroundColor: 'var(--border-main)', borderRadius: '1px' }} />
+                  <div style={{ width: '4px', height: '24px', backgroundColor: 'var(--border-main)', borderRadius: '2px', transition: 'background-color 0.2s ease' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--text-sub)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--border-main)'} />
                 </div>
 
                 {/* Right Content Pane */}
