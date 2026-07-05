@@ -239,7 +239,7 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
           transition: 'all 0.15s ease',
           userSelect: 'none',
           position: 'sticky',
-          top: '42px',
+          top: '10px',
           zIndex: 8,
           boxShadow: '0 1px 0 var(--bg-surface)'
         }}
@@ -384,7 +384,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [assignModalSearchQuery, setAssignModalSearchQuery] = useState('');
   const [addTemplateModalSearchQuery, setAddTemplateModalSearchQuery] = useState('');
 
-  const [templatesLeftSidebarTab, setTemplatesLeftSidebarTab] = useState<'stacks' | 'templates'>('stacks');
+  const [templatesLeftSidebarTab, setTemplatesLeftSidebarTab] = useState<'stacks' | 'templates'>('templates');
 
   useEffect(() => {
     const isStackSelected = selectedTemplateId && !selectedTemplateId.startsWith('tmpl-');
@@ -2198,22 +2198,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     {/* Left Sidebar Tabs Switcher */}
                     <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)', marginTop: '8px' }}>
                       <button
-                        onClick={() => setTemplatesLeftSidebarTab('stacks')}
-                        style={{
-                          padding: '8px 4px',
-                          background: 'none',
-                          border: 'none',
-                          borderBottom: templatesLeftSidebarTab === 'stacks' ? '2px solid var(--accent-blue)' : '2px solid transparent',
-                          color: templatesLeftSidebarTab === 'stacks' ? 'var(--text-main)' : 'var(--text-muted)',
-                          fontWeight: templatesLeftSidebarTab === 'stacks' ? 600 : 400,
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        Stacks
-                      </button>
-                      <button
                         onClick={() => setTemplatesLeftSidebarTab('templates')}
                         style={{
                           padding: '8px 4px',
@@ -2228,6 +2212,22 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         }}
                       >
                         Base Templates
+                      </button>
+                      <button
+                        onClick={() => setTemplatesLeftSidebarTab('stacks')}
+                        style={{
+                          padding: '8px 4px',
+                          background: 'none',
+                          border: 'none',
+                          borderBottom: templatesLeftSidebarTab === 'stacks' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                          color: templatesLeftSidebarTab === 'stacks' ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: templatesLeftSidebarTab === 'stacks' ? 600 : 400,
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        Stacks
                       </button>
                     </div>
 
