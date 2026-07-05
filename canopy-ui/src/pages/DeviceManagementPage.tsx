@@ -1466,9 +1466,14 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--bg-app)', padding: '20px' }}>
-        <h2 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'var(--text-main)' }}>
-          Assign Firewalls to {selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)' }}>
+            Assign Firewalls to {selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}
+          </h2>
+          <div style={{ width: '220px', marginLeft: '10px' }}>
+            <SearchBar value={assignModalSearchQuery} onChange={setAssignModalSearchQuery} placeholder="Search available..." variant="local" width="100%" />
+          </div>
+        </div>
         <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-sub)' }}>
           Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</strong>.
           Firewalls already assigned to this group are hidden.
@@ -1477,7 +1482,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           <DataTable
             columns={inventoryColumns}
             data={inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1))}
-            searchQuery=""
+            searchQuery={assignModalSearchQuery}
             pagination={true}
             selectable={true}
             onSelectionChange={setSelectedAssignDevices}
@@ -2370,7 +2375,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         )}
                       </div>
 
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '10px 20px 20px 20px' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                         {/* Tab 1: Assigned Firewalls */}
                         {templatesRightTab === 'firewalls' && (
                           <DataTable
