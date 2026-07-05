@@ -2581,7 +2581,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                              rowContextMenuActions={(row, closeMenu) => {
                                const idx = activeStackMembers.findIndex(m => m.template_name === row.template_name);
                                return (
-                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px', maxHeight: '250px', overflowY: 'auto' }}>
+                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '240px', padding: '4px', maxHeight: '250px', overflowY: 'auto' }}>
                                    {rightClickSubMenuType === null ? (
                                      <>
                                        <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
@@ -2683,7 +2683,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                      </>
                                    ) : (
                                      <>
-                                       <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '160px' }}>
+                                       <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '240px' }}>
                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
                                            Move {rightClickSubMenuType === 'before' ? 'Before' : 'After'}:
@@ -2845,7 +2845,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     style={{
                       position: 'fixed',
                       top: Math.min(reorderContextMenu.y, window.innerHeight - 340),
-                      left: Math.min(reorderContextMenu.x, window.innerWidth - 200),
+                      left: Math.min(reorderContextMenu.x, window.innerWidth - 260),
                       backgroundColor: 'var(--bg-surface)',
                       border: '1px solid var(--border-main)',
                       borderRadius: '6px',
@@ -2855,7 +2855,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       flexDirection: 'column',
                       gap: '2px',
                       padding: '4px',
-                      minWidth: '150px',
+                      minWidth: '240px',
                       maxHeight: '300px',
                       overflowY: 'auto'
                     }}
@@ -2955,7 +2955,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         </button>
                       </>
                     ) : (
-                      <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '160px' }}>
+                      <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '240px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
                             Move {reorderSubMenuType === 'before' ? 'Before' : 'After'}:

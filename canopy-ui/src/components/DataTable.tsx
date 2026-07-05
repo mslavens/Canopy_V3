@@ -970,7 +970,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             style={{
               position: 'absolute',
               top: `${Math.min(contextMenu.y, window.innerHeight - 280)}px`,
-              left: `${Math.min(contextMenu.x, window.innerWidth - 200)}px`,
+              left: `${Math.min(contextMenu.x, window.innerWidth - 260)}px`,
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-main)',
               borderRadius: '6px',
