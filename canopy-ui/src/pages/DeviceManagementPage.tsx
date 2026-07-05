@@ -2176,9 +2176,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   flexDirection: 'column',
                   flexShrink: 0
                 }}>
-                  <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column', height: '130px', justifyContent: 'space-between', flexShrink: 0 }}>
                     {/* Title and Search Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
                           Templates
@@ -2196,7 +2196,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     </div>
 
                     {/* Left Sidebar Tabs Switcher */}
-                    <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)', marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)' }}>
                       <button
                         onClick={() => setTemplatesLeftSidebarTab('templates')}
                         style={{
@@ -2230,30 +2230,27 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         Stacks
                       </button>
                     </div>
+                  </div>
 
-                    {/* Actions Menu row */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', height: '28px', marginTop: '12px', marginBottom: '4px' }}>
-                      {templatesLeftSidebarTab === 'stacks' ? (
-                        <button
-                          className="btn-primary btn-sm"
-                          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                          onClick={handleOpenAddStackModal}
-                        >
-                          <Plus size={14} /> Add Stack
-                        </button>
-                      ) : (
-                        <button
-                          className="btn-primary btn-sm"
-                          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-                          onClick={handleOpenAddTemplateModal}
-                        >
-                          <Plus size={14} /> Add Template
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                  {/* Actions Menu row */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', height: '28px', margin: '12px 20px 4px 20px', flexShrink: 0 }}>
+                    {templatesLeftSidebarTab === 'stacks' ? (
+                      <button
+                        className="btn-primary btn-sm"
+                        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                        onClick={handleOpenAddStackModal}
+                      >
+                        <Plus size={14} /> Add Stack
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-primary btn-sm"
+                        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+                        onClick={handleOpenAddTemplateModal}
+                      >
+                        <Plus size={14} /> Add Template
+                      </button>
+                    )}
                   </div>
 
                   {/* Scrollable list viewport */}
@@ -2385,9 +2382,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   {selectedTemplateId && selectedTemplateName ? (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                       
-                      <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column', height: '130px', justifyContent: 'space-between', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
                                 {cleanTemplateName(selectedTemplateName)}
@@ -2412,7 +2409,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               <span>Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code></span>
                             </div>
                             {selectedTemplateDescription && (
-                              <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+                              <div style={{ fontSize: '12px', color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                                 {selectedTemplateDescription}
                               </div>
                             )}
@@ -2431,7 +2428,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
                         {/* TABS ROW */}
                         {activeStack ? (
-                          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-main)', marginTop: '20px' }}>
+                          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid var(--border-main)' }}>
                             <button
                               onClick={() => setTemplatesRightTab('templates')}
                               style={{
@@ -2466,7 +2463,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
                         )}
                       </div>
 
@@ -3196,6 +3193,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 }
               }}
               width="100%"
+              searchable={true}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
