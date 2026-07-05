@@ -221,13 +221,13 @@ export class CanopyApiClient {
   public deleteDeviceGroup = (id: number) => this.request<any>('/api/device-groups/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   // Templates CRUD
-  public createTemplate = (name: string) => this.request<any>('/api/templates/create', { method: 'POST', body: JSON.stringify({ name }) });
-  public updateTemplate = (id: number, name: string) => this.request<any>('/api/templates/update', { method: 'POST', body: JSON.stringify({ id, name }) });
+  public createTemplate = (name: string, description: string = '') => this.request<any>('/api/templates/create', { method: 'POST', body: JSON.stringify({ name, description }) });
+  public updateTemplate = (id: number, name: string, description: string = '') => this.request<any>('/api/templates/update', { method: 'POST', body: JSON.stringify({ id, name, description }) });
   public deleteTemplate = (id: number) => this.request<any>('/api/templates/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   // Template Stacks CRUD
-  public createTemplateStack = (name: string, templateIds: number[]) => this.request<any>('/api/template-stacks/create', { method: 'POST', body: JSON.stringify({ name, template_ids: templateIds }) });
-  public updateTemplateStack = (id: number, name: string, templateIds: number[]) => this.request<any>('/api/template-stacks/update', { method: 'POST', body: JSON.stringify({ id, name, template_ids: templateIds }) });
+  public createTemplateStack = (name: string, templateIds: number[], description: string = '') => this.request<any>('/api/template-stacks/create', { method: 'POST', body: JSON.stringify({ name, template_ids: templateIds, description }) });
+  public updateTemplateStack = (id: number, name: string, templateIds: number[], description: string = '') => this.request<any>('/api/template-stacks/update', { method: 'POST', body: JSON.stringify({ id, name, template_ids: templateIds, description }) });
   public deleteTemplateStack = (id: number) => this.request<any>('/api/template-stacks/delete', { method: 'POST', body: JSON.stringify({ id }) });
 
   // Devices CRUD

@@ -459,8 +459,9 @@ type VirtualRouterNode struct {
 }
 
 type XMLTemplate struct {
-	Name     string             `xml:"name,attr"`
-	Variable []XMLVariableEntry `xml:"variable>entry"`
+	Name        string             `xml:"name,attr"`
+	Description string             `xml:"description"`
+	Variable    []XMLVariableEntry `xml:"variable>entry"`
 	Config   struct {
 		Devices []struct {
 			Name    string `xml:"name,attr"`
@@ -483,9 +484,10 @@ type XMLTemplate struct {
 }
 
 type XMLTemplateStack struct {
-	Name      string             `xml:"name,attr"`
-	Templates []string           `xml:"templates>member"`
-	Variable  []XMLVariableEntry `xml:"variable>entry"`
+	Name        string             `xml:"name,attr"`
+	Description string             `xml:"description"`
+	Templates   []string           `xml:"templates>member"`
+	Variable    []XMLVariableEntry `xml:"variable>entry"`
 	Devices   *struct {
 		Members []string `xml:"member"`
 		Entries []struct {
@@ -2776,8 +2778,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	defer dgStmt.Close()
 
 	tmplStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO templates (device_uuid, uuid, name)
-		VALUES (?, ?, ?)
+		INSERT OR REPLACE INTO templates (device_uuid, uuid, name, description)
+		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to prepare template statement: %w", err)
@@ -2785,8 +2787,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	defer tmplStmt.Close()
 
 	stackStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO template_stacks (device_uuid, uuid, name)
-		VALUES (?, ?, ?)
+		INSERT OR REPLACE INTO template_stacks (device_uuid, uuid, name, description)
+		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to prepare template stack statement: %w", err)
@@ -2856,7 +2858,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			deviceUUID := "panorama-tmpl-" + tmpl.Name
 			clearDeviceTables(tx, deviceUUID)
 
-			res, err := tmplStmt.Exec(sharedUUID, deviceUUID, tmpl.Name)
+			res, err := tmplStmt.Exec(sharedUUID, deviceUUID, tmpl.Name, tmpl.Description)
 			if err != nil {
 				return 0, 0, fmt.Errorf("failed to register template %s: %w", tmpl.Name, err)
 			}
@@ -2929,7 +2931,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			stackUUID := "panorama-stack-" + stack.Name
 			clearDeviceTables(tx, stackUUID)
 
-			res, err := stackStmt.Exec(sharedUUID, stackUUID, stack.Name)
+			res, err := stackStmt.Exec(sharedUUID, stackUUID, stack.Name, stack.Description)
 			if err != nil {
 				return 0, 0, fmt.Errorf("failed to register template stack %s: %w", stack.Name, err)
 			}
@@ -2949,7 +2951,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				tmplID, ok := templateNameToID[tmplMember]
 				if !ok {
 					// Create a placeholder template record to preserve references
-					res, err := tmplStmt.Exec(sharedUUID, "panorama-tmpl-"+tmplMember, tmplMember)
+					res, err := tmplStmt.Exec(sharedUUID, "panorama-tmpl-"+tmplMember, tmplMember, "")
 					if err != nil {
 						return 0, 0, fmt.Errorf("failed to register placeholder template %s: %w", tmplMember, err)
 					}

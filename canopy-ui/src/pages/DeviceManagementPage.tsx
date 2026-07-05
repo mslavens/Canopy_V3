@@ -44,6 +44,7 @@ interface BaseTemplateNode {
   id: number;
   uuid: string;
   name: string;
+  description?: string | null;
 }
 
 interface TemplateStack {
@@ -51,6 +52,7 @@ interface TemplateStack {
   uuid: string;
   name: string;
   device_uuid: string;
+  description?: string | null;
 }
 
 interface TemplateStackMember {
@@ -416,6 +418,18 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
   });
 
+  // Local storage cache for base template descriptions
+  const [templateDescriptions, setTemplateDescriptions] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem('canopy_template_descriptions');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [templateDescription, setTemplateDescription] = useState('');
+
   useEffect(() => {
     const closeContextMenus = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -609,10 +623,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     if (selectedTemplateId.startsWith('stack-')) {
       const id = parseInt(selectedTemplateId.replace('stack-', ''), 10);
       const stack = templateStacks.find(s => s.id === id);
-      return stack ? (stackDescriptions[stack.name] || null) : null;
+      return stack ? (stack.description || stackDescriptions[stack.name] || null) : null;
+    }
+    if (selectedTemplateId.startsWith('tmpl-')) {
+      const name = selectedTemplateName;
+      const tmpl = baseTemplates.find(t => t.name === name);
+      return tmpl ? (tmpl.description || templateDescriptions[tmpl.name] || null) : null;
     }
     return null;
-  }, [selectedTemplateId, templateStacks, stackDescriptions]);
+  }, [selectedTemplateId, selectedTemplateName, templateStacks, baseTemplates, stackDescriptions, templateDescriptions]);
 
   const activeStack = useMemo(() => {
     if (!selectedTemplateId || !selectedTemplateId.startsWith('stack-')) return null;
@@ -844,7 +863,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
     const newIds = [...currentIds, templateId];
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
       addToast(`Added template to stack: ${stack.name}`, 'success');
       fetchData();
     } catch (err) {
@@ -865,7 +884,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
     const newIds = currentIds.filter(id => id !== targetBt.id);
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
       addToast(`Removed template from stack: ${stack.name}`, 'success');
       fetchData();
     } catch (err) {
@@ -891,7 +910,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     newIds[targetIndex] = temp;
 
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
       addToast('Reordered stack templates successfully', 'success');
       fetchData();
     } catch (err) {
@@ -933,7 +952,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
 
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds);
+      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
       addToast('Reordered stack templates successfully', 'success');
       fetchData();
     } catch (err) {
@@ -956,7 +975,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     const newIds = currentIds.filter(id => !removeIds.includes(id));
 
     try {
-      await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds);
+      await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds, activeStack.description || '');
       addToast(`Successfully removed ${selectedMemberTemplates.length} templates from stack: ${activeStack.name}`, 'success');
       setSelectedMemberTemplates([]);
       fetchData();
@@ -1066,12 +1085,14 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenAddTemplateModal = () => {
     setEditingTemplate(null);
     setTemplateName('');
+    setTemplateDescription('');
     setIsTemplateModalOpen(true);
   };
 
   const handleOpenEditTemplateModal = (tmpl: BaseTemplateNode) => {
     setEditingTemplate(tmpl);
     setTemplateName(cleanTemplateName(tmpl.name));
+    setTemplateDescription(templateDescriptions[tmpl.name] || '');
     setIsTemplateModalOpen(true);
   };
 
@@ -1083,12 +1104,18 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     if (!apiClient) return;
     try {
       if (editingTemplate) {
-        await apiClient.updateTemplate(editingTemplate.id, templateName);
+        await apiClient.updateTemplate(editingTemplate.id, templateName, templateDescription);
         addToast(`Renamed template: ${templateName}`, 'success');
       } else {
-        await apiClient.createTemplate(templateName);
+        await apiClient.createTemplate(templateName, templateDescription);
         addToast(`Added base template: ${templateName}`, 'success');
       }
+
+      // Persist base template description in local storage
+      const updatedDescriptions = { ...templateDescriptions, [templateName]: templateDescription };
+      setTemplateDescriptions(updatedDescriptions);
+      localStorage.setItem('canopy_template_descriptions', JSON.stringify(updatedDescriptions));
+
       setIsTemplateModalOpen(false);
       fetchData();
     } catch (err) {
@@ -1147,10 +1174,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     if (!apiClient) return;
     try {
       if (editingStack) {
-        await apiClient.updateTemplateStack(editingStack.id, stackName, stackTemplateIds);
+        await apiClient.updateTemplateStack(editingStack.id, stackName, stackTemplateIds, stackDescription);
         addToast(`Updated template stack context: ${stackName}`, 'success');
       } else {
-        await apiClient.createTemplateStack(stackName, stackTemplateIds);
+        await apiClient.createTemplateStack(stackName, stackTemplateIds, stackDescription);
         addToast(`Created template stack: ${stackName}`, 'success');
       }
 
@@ -3018,7 +3045,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   const selectedIds = selectedAddableTemplates.map(t => t.id);
                   const newIds = [...currentIds, ...selectedIds];
                   try {
-                    await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds);
+                    await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds, activeStack.description || '');
                     addToast(`Added ${selectedAddableTemplates.length} templates to stack: ${activeStack.name}`, 'success');
                     fetchData();
                   } catch (err) {
@@ -3137,6 +3164,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               placeholder="e.g. Global-Config"
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              className="input-text"
+              placeholder="e.g. Core networking and general configuration"
+              value={templateDescription}
+              onChange={(e) => setTemplateDescription(e.target.value)}
+              rows={3}
+              style={{ resize: 'vertical' }}
             />
           </div>
         </div>

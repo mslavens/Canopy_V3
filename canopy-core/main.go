@@ -83,6 +83,7 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
 		name TEXT UNIQUE NOT NULL,
+		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
@@ -91,6 +92,7 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
 		name TEXT UNIQUE NOT NULL,
+		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
@@ -871,6 +873,8 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE address_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE address_groups ADD COLUMN type TEXT DEFAULT 'static';")
 	db.Exec("ALTER TABLE device_groups ADD COLUMN description TEXT;")
+	db.Exec("ALTER TABLE templates ADD COLUMN description TEXT;")
+	db.Exec("ALTER TABLE template_stacks ADD COLUMN description TEXT;")
 	
 	// Ensure legacy tables have device_uuid
 	legacyObjectTables := []string{

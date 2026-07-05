@@ -339,7 +339,8 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -376,7 +377,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name) VALUES ('paloalto-panorama-global', ?, ?)", uuid, name)
+	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name, description) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template: " + err.Error()})
@@ -408,8 +409,9 @@ func handleTemplatesUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -455,7 +457,7 @@ func handleTemplatesUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec("UPDATE templates SET name = ? WHERE id = ?", name, req.ID)
+	_, err = tx.Exec("UPDATE templates SET name = ?, description = ? WHERE id = ?", name, req.Description, req.ID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update template: " + err.Error()})
@@ -552,6 +554,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Name        string `json:"name"`
+		Description string `json:"description"`
 		TemplateIDs []int  `json:"template_ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
@@ -589,7 +592,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name) VALUES ('paloalto-panorama-global', ?, ?)", uuid, name)
+	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name, description) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template stack: " + err.Error()})
@@ -633,6 +636,7 @@ func handleTemplateStacksUpdate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID          int    `json:"id"`
 		Name        string `json:"name"`
+		Description string `json:"description"`
 		TemplateIDs []int  `json:"template_ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
@@ -679,7 +683,7 @@ func handleTemplateStacksUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec("UPDATE template_stacks SET name = ? WHERE id = ?", name, req.ID)
+	_, err = tx.Exec("UPDATE template_stacks SET name = ?, description = ? WHERE id = ?", name, req.Description, req.ID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update stack: " + err.Error()})
@@ -1495,7 +1499,7 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Templates
-	tmplRows, err := dbConn.Query("SELECT id, uuid, name FROM templates ORDER BY name ASC")
+	tmplRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, '') FROM templates ORDER BY name ASC")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query templates: " + err.Error()})
@@ -1506,19 +1510,20 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	var templates []map[string]interface{}
 	for tmplRows.Next() {
 		var id int
-		var uuid, name string
-		err := tmplRows.Scan(&id, &uuid, &name)
+		var uuid, name, desc string
+		err := tmplRows.Scan(&id, &uuid, &name, &desc)
 		if err == nil {
 			templates = append(templates, map[string]interface{}{
-				"id":   id,
-				"uuid": uuid,
-				"name": name,
+				"id":          id,
+				"uuid":        uuid,
+				"name":        name,
+				"description": desc,
 			})
 		}
 	}
 
 	// 4. Template Stacks
-	stackRows, err := dbConn.Query("SELECT id, uuid, name, device_uuid FROM template_stacks ORDER BY name ASC")
+	stackRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, ''), device_uuid FROM template_stacks ORDER BY name ASC")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query template stacks: " + err.Error()})
@@ -1529,13 +1534,14 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	var templateStacks []map[string]interface{}
 	for stackRows.Next() {
 		var id int
-		var uuid, name, deviceUUID string
-		err := stackRows.Scan(&id, &uuid, &name, &deviceUUID)
+		var uuid, name, desc, deviceUUID string
+		err := stackRows.Scan(&id, &uuid, &name, &desc, &deviceUUID)
 		if err == nil {
 			templateStacks = append(templateStacks, map[string]interface{}{
 				"id":          id,
 				"uuid":        uuid,
 				"name":        name,
+				"description": desc,
 				"device_uuid": deviceUUID,
 			})
 		}
@@ -1609,7 +1615,7 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 	vaultMutex.Unlock()
 
 	// 1. Templates
-	tmplRows, err := dbConn.Query("SELECT id, uuid, name FROM templates ORDER BY name ASC")
+	tmplRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, '') FROM templates ORDER BY name ASC")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query templates: " + err.Error()})
@@ -1620,14 +1626,14 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 	var templates []map[string]interface{}
 	for tmplRows.Next() {
 		var id int
-		var uuid, name string
-		if err := tmplRows.Scan(&id, &uuid, &name); err == nil {
-			templates = append(templates, map[string]interface{}{"id": id, "uuid": uuid, "name": name})
+		var uuid, name, desc string
+		if err := tmplRows.Scan(&id, &uuid, &name, &desc); err == nil {
+			templates = append(templates, map[string]interface{}{"id": id, "uuid": uuid, "name": name, "description": desc})
 		}
 	}
 
 	// 2. Template Stacks
-	stackRows, err := dbConn.Query("SELECT id, uuid, name FROM template_stacks ORDER BY name ASC")
+	stackRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, '') FROM template_stacks ORDER BY name ASC")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query stacks: " + err.Error()})
@@ -1638,9 +1644,9 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 	var templateStacks []map[string]interface{}
 	for stackRows.Next() {
 		var id int
-		var uuid, name string
-		if err := stackRows.Scan(&id, &uuid, &name); err == nil {
-			templateStacks = append(templateStacks, map[string]interface{}{"id": id, "uuid": uuid, "name": name})
+		var uuid, name, desc string
+		if err := stackRows.Scan(&id, &uuid, &name, &desc); err == nil {
+			templateStacks = append(templateStacks, map[string]interface{}{"id": id, "uuid": uuid, "name": name, "description": desc})
 		}
 	}
 
