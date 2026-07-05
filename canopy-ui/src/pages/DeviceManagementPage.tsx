@@ -343,6 +343,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   // Loaded DB data
   const [inventory, setInventory] = useState<ManagedDevice[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<ManagedDevice[]>([]);
+  const [selectedMemberTemplates, setSelectedMemberTemplates] = useState<any[]>([]);
   const [deviceGroups, setDeviceGroups] = useState<DeviceGroupNode[]>([]);
   const [baseTemplates, setBaseTemplates] = useState<BaseTemplateNode[]>([]);
   const [templateStacks, setTemplateStacks] = useState<TemplateStack[]>([]);
@@ -374,10 +375,13 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const isTemplatesDragging = useRef(false);
   const [templatesRightTab, setTemplatesRightTab] = useState<'firewalls' | 'templates'>('firewalls');
   const [isAddTemplateToStackModalOpen, setIsAddTemplateToStackModalOpen] = useState(false);
-  const [selectedAddableTemplateId, setSelectedAddableTemplateId] = useState<number | null>(null);
+  const [selectedAddableTemplates, setSelectedAddableTemplates] = useState<BaseTemplateNode[]>([]);
+  const [assignModalSearchQuery, setAssignModalSearchQuery] = useState('');
+  const [addTemplateModalSearchQuery, setAddTemplateModalSearchQuery] = useState('');
 
   useEffect(() => {
     setTemplatesRightTab('firewalls');
+    setSelectedMemberTemplates([]);
   }, [selectedTemplateId]);
 
   // Local storage cache for template stack descriptions
@@ -860,6 +864,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
   };
 
+  const handleBulkRemoveMembersFromStack = async () => {
+    if (!activeStack || !apiClient || selectedMemberTemplates.length === 0) return;
+    const currentMembers = stackMembers.filter(m => m.stack_id === activeStack.id);
+    const currentIds = currentMembers.map(m => {
+      const bt = baseTemplates.find(t => t.name === m.template_name);
+      return bt ? bt.id : null;
+    }).filter(id => id !== null) as number[];
+
+    const removeNames = selectedMemberTemplates.map(row => row.template_name);
+    const removeBts = baseTemplates.filter(bt => removeNames.includes(bt.name));
+    const removeIds = removeBts.map(bt => bt.id);
+
+    const newIds = currentIds.filter(id => !removeIds.includes(id));
+
+    try {
+      await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds);
+      addToast(`Successfully removed ${selectedMemberTemplates.length} templates from stack: ${activeStack.name}`, 'success');
+      setSelectedMemberTemplates([]);
+      fetchData();
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Bulk removal failed', 'error');
+    }
+  };
+
   const handleAssignFirewalls = async () => {
     if (!apiClient) return false;
     try {
@@ -1179,6 +1207,65 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       key: 'device_group',
       label: 'Device Group',
       renderCell: (val) => val ? cleanGroupName(val) : <span style={{ color: 'var(--text-sub)', fontStyle: 'italic' }}>Unassigned</span>
+    }
+  ], []);
+
+  const stackMemberColumns: ColumnDef[] = useMemo(() => [
+    {
+      key: 'template_name',
+      label: 'Template Name',
+      renderCell: (val) => cleanTemplateName(String(val))
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      width: '140px',
+      renderCell: (_val, row) => {
+        const idx = activeStackMembers.findIndex(m => m.template_name === row.template_name);
+        return (
+          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn-table-action"
+              onClick={() => { if (activeStack) handleMoveMemberTemplate(activeStack, idx, 'up'); }}
+              disabled={idx === 0}
+              style={{
+                opacity: idx === 0 ? 0.3 : 1,
+                cursor: idx === 0 ? 'not-allowed' : 'pointer'
+              }}
+              title="Move Up"
+            >
+              <ArrowUp size={14} />
+            </button>
+            <button
+              className="btn-table-action"
+              onClick={() => { if (activeStack) handleMoveMemberTemplate(activeStack, idx, 'down'); }}
+              disabled={idx === activeStackMembers.length - 1}
+              style={{
+                opacity: idx === activeStackMembers.length - 1 ? 0.3 : 1,
+                cursor: idx === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer'
+              }}
+              title="Move Down"
+            >
+              <ArrowDown size={14} />
+            </button>
+            <button
+              className="btn-table-action-danger"
+              onClick={() => { if (activeStack) handleRemoveMemberTemplate(activeStack, row.template_name); }}
+              title="Remove Template from Stack"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        );
+      }
+    }
+  ], [activeStack, activeStackMembers]);
+
+  const addableTemplateColumns: ColumnDef[] = useMemo(() => [
+    {
+      key: 'name',
+      label: 'Template Name',
+      renderCell: (val) => cleanTemplateName(String(val))
     }
   ], []);
 
@@ -2360,86 +2447,38 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
                         {/* Tab 2: Member Templates (Only for Stacks) */}
                         {templatesRightTab === 'templates' && activeStack && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '100%', minHeight: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                Configure Stack Members
-                              </span>
-                              {availableTemplatesToAdd.length > 0 && (
+                          <DataTable
+                            toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Stack Members ({activeStackMembers.length})</span>}
+                            columns={stackMemberColumns}
+                            data={activeStackMembers}
+                            selectable={true}
+                            onSelectionChange={setSelectedMemberTemplates}
+                            topRightActions={
+                              availableTemplatesToAdd.length > 0 ? (
                                 <button
                                   className="btn-primary btn-sm"
                                   style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                                   onClick={() => {
-                                    setSelectedAddableTemplateId(null);
+                                    setSelectedAddableTemplates([]);
                                     setIsAddTemplateToStackModalOpen(true);
                                   }}
                                 >
                                   <Plus size={14} /> Add Template
                                 </button>
-                              )}
-                            </div>
-
-                            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)' }}>
-                              {activeStackMembers.length === 0 ? (
-                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-sub)' }}>
-                                  No templates currently assigned to this stack.
-                                </div>
-                              ) : (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                                  <thead>
-                                    <tr style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                      <th style={{ padding: '10px 16px' }}>Template Name</th>
-                                      <th style={{ padding: '10px 16px', width: '140px', textAlign: 'center' }}>Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {activeStackMembers.map((m, idx) => (
-                                      <tr key={m.template_name} style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-main)' }}>
-                                        <td style={{ padding: '10px 16px', fontWeight: 500 }}>
-                                          {cleanTemplateName(m.template_name)}
-                                        </td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'center' }}>
-                                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
-                                            <button
-                                              className="btn-table-action"
-                                              onClick={() => handleMoveMemberTemplate(activeStack, idx, 'up')}
-                                              disabled={idx === 0}
-                                              style={{
-                                                opacity: idx === 0 ? 0.3 : 1,
-                                                cursor: idx === 0 ? 'not-allowed' : 'pointer'
-                                              }}
-                                              title="Move Up"
-                                            >
-                                              <ArrowUp size={14} />
-                                            </button>
-                                            <button
-                                              className="btn-table-action"
-                                              onClick={() => handleMoveMemberTemplate(activeStack, idx, 'down')}
-                                              disabled={idx === activeStackMembers.length - 1}
-                                              style={{
-                                                opacity: idx === activeStackMembers.length - 1 ? 0.3 : 1,
-                                                cursor: idx === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer'
-                                              }}
-                                              title="Move Down"
-                                            >
-                                              <ArrowDown size={14} />
-                                            </button>
-                                            <button
-                                              className="btn-table-action-danger"
-                                              onClick={() => handleRemoveMemberTemplate(activeStack, m.template_name)}
-                                              title="Remove Template from Stack"
-                                            >
-                                              <X size={14} />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </div>
-                          </div>
+                              ) : undefined
+                            }
+                            bulkActions={
+                              selectedMemberTemplates.length > 0 ? (
+                                <button
+                                  className="btn-secondary btn-sm"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={handleBulkRemoveMembersFromStack}
+                                >
+                                  <Trash2 size={14} /> Remove Selected ({selectedMemberTemplates.length})
+                                </button>
+                              ) : undefined
+                            }
+                          />
                         )}
                       </div>
                     </div>
@@ -2568,73 +2607,61 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       {/* --- MODALS --- */}
       <Modal
         isOpen={isAddTemplateToStackModalOpen}
-        onClose={() => setIsAddTemplateToStackModalOpen(false)}
-        title="Add Template to Stack"
+        onClose={() => { setIsAddTemplateToStackModalOpen(false); setSelectedAddableTemplates([]); setAddTemplateModalSearchQuery(''); }}
+        title="Add Templates to Stack"
+        size="lg"
         footer={
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button className="btn-secondary" onClick={() => setIsAddTemplateToStackModalOpen(false)}>Cancel</button>
+            <button className="btn-secondary btn-sm" onClick={() => { setIsAddTemplateToStackModalOpen(false); setSelectedAddableTemplates([]); setAddTemplateModalSearchQuery(''); }}>Cancel</button>
             <button
-              className="btn-primary"
-              disabled={selectedAddableTemplateId === null}
-              onClick={() => {
-                if (activeStack && selectedAddableTemplateId !== null) {
-                  handleAddMemberTemplate(activeStack, selectedAddableTemplateId);
+              className="btn-primary btn-sm"
+              disabled={selectedAddableTemplates.length === 0}
+              onClick={async () => {
+                if (activeStack && apiClient && selectedAddableTemplates.length > 0) {
+                  const members = stackMembers.filter(m => m.stack_id === activeStack.id);
+                  const currentIds = members.map(m => {
+                    const bt = baseTemplates.find(t => t.name === m.template_name);
+                    return bt ? bt.id : null;
+                  }).filter(id => id !== null) as number[];
+
+                  const selectedIds = selectedAddableTemplates.map(t => t.id);
+                  const newIds = [...currentIds, ...selectedIds];
+                  try {
+                    await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds);
+                    addToast(`Added ${selectedAddableTemplates.length} templates to stack: ${activeStack.name}`, 'success');
+                    fetchData();
+                  } catch (err) {
+                    addToast(err instanceof Error ? err.message : 'Failed to add templates to stack', 'error');
+                  }
                   setIsAddTemplateToStackModalOpen(false);
+                  setSelectedAddableTemplates([]);
+                  setAddTemplateModalSearchQuery('');
                 }
               }}
             >
-              Add Selected
+              Add Selected ({selectedAddableTemplates.length})
             </button>
           </div>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
-            Select a base template to append to <strong>{activeStack ? cleanTemplateName(activeStack.name) : ''}</strong>:
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px', padding: '0 4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+              Select base templates to append to <strong style={{ color: 'var(--text-main)' }}>{activeStack ? cleanTemplateName(activeStack.name) : ''}</strong>:
+            </span>
+            <div style={{ width: '220px', marginLeft: '10px' }}>
+              <SearchBar value={addTemplateModalSearchQuery} onChange={setAddTemplateModalSearchQuery} placeholder="Search templates..." variant="local" width="100%" />
+            </div>
+          </div>
           
-          <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-surface)' }}>
-            {availableTemplatesToAdd.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No templates available to add.
-              </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <th style={{ padding: '10px 16px', width: '40px' }}></th>
-                    <th style={{ padding: '10px 16px' }}>Template Name</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {availableTemplatesToAdd.map((t) => (
-                    <tr
-                      key={t.id}
-                      style={{
-                        borderBottom: '1px solid var(--border-main)',
-                        color: 'var(--text-main)',
-                        cursor: 'pointer',
-                        backgroundColor: selectedAddableTemplateId === t.id ? 'var(--accent-blue-10)' : 'transparent'
-                      }}
-                      onClick={() => setSelectedAddableTemplateId(t.id)}
-                    >
-                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
-                        <input
-                          type="radio"
-                          name="selectedTemplateToAdd"
-                          checked={selectedAddableTemplateId === t.id}
-                          onChange={() => setSelectedAddableTemplateId(t.id)}
-                          style={{ cursor: 'pointer' }}
-                        />
-                      </td>
-                      <td style={{ padding: '10px 16px', fontWeight: 500 }}>
-                        {cleanTemplateName(t.name)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <DataTable
+              columns={addableTemplateColumns}
+              data={availableTemplatesToAdd}
+              searchQuery={addTemplateModalSearchQuery}
+              selectable={true}
+              onSelectionChange={setSelectedAddableTemplates}
+            />
           </div>
         </div>
       </Modal>
@@ -2925,16 +2952,21 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             </>
           }
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-sub)' }}>
-              Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{assignTargetLabel}</strong>.
-              Firewalls already assigned to this context are hidden.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px', padding: '0 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-sub)' }}>
+                Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{assignTargetLabel}</strong>.
+                Firewalls already assigned to this context are hidden.
+              </p>
+              <div style={{ width: '220px', marginLeft: '10px' }}>
+                <SearchBar value={assignModalSearchQuery} onChange={setAssignModalSearchQuery} placeholder="Search available..." variant="local" width="100%" />
+              </div>
+            </div>
             <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <DataTable
                 columns={inventoryColumns}
                 data={assignAvailableDevices}
-                searchQuery=""
+                searchQuery={assignModalSearchQuery}
                 pagination={true}
                 selectable={true}
                 onSelectionChange={setSelectedAssignDevices}
@@ -2958,7 +2990,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           }}
         >
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
-            <h2 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Assign Firewalls to {assignTargetLabel}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px' }}>Assign Firewalls to {assignTargetLabel}</h2>
+              <div style={{ width: '220px', marginLeft: '10px' }}>
+                <SearchBar value={assignModalSearchQuery} onChange={setAssignModalSearchQuery} placeholder="Search available..." variant="local" width="100%" />
+              </div>
+            </div>
             <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-sub)' }}>
               Select firewalls from your inventory to assign to this context. Firewalls already assigned to this context are hidden.
             </p>
@@ -2966,7 +3003,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               <DataTable
                 columns={inventoryColumns}
                 data={assignAvailableDevices}
-                searchQuery=""
+                searchQuery={assignModalSearchQuery}
                 pagination={true}
                 selectable={true}
                 onSelectionChange={setSelectedAssignDevices}
