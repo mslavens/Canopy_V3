@@ -199,6 +199,8 @@ interface TemplateStackItemProps {
   selectedTemplateId: string | null;
   onSelect: (id: string, name: string) => void;
   templateCounts: Record<string, number>;
+  baseTemplates: BaseTemplateNode[];
+  onContextMenu?: (e: React.MouseEvent, type: 'stack' | 'template', data: any) => void;
 }
 
 const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
@@ -207,6 +209,8 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
   selectedTemplateId,
   onSelect,
   templateCounts,
+  baseTemplates,
+  onContextMenu,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const count = templateCounts[stack.name] || 0;
@@ -216,6 +220,12 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
     <div style={{ marginBottom: '4px' }}>
       <div
         onClick={() => onSelect(`stack-${stack.id}`, stack.name)}
+        onContextMenu={(e) => {
+          if (onContextMenu) {
+            e.preventDefault();
+            onContextMenu(e, 'stack', stack);
+          }
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -271,6 +281,14 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
               <div
                 key={`${stack.id}-${member.template_name}-${idx}`}
                 onClick={() => onSelect(`tmpl-${member.template_name}`, member.template_name)}
+                onContextMenu={(e) => {
+                  if (onContextMenu) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const tmplObj = baseTemplates.find(t => t.name === member.template_name);
+                    onContextMenu(e, 'template', tmplObj || { name: member.template_name, uuid: member.template_name });
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -342,17 +360,42 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [leftPanelWidth, setLeftPanelWidth] = useState(380);
   const isDragging = useRef(false);
 
+  // Templates Panel layout states
+  const [leftTemplatesPanelWidth, setLeftTemplatesPanelWidth] = useState(380);
+  const [templatesSearchQuery, setTemplatesSearchQuery] = useState('');
+  const [templateMemberSearchQuery, setTemplateMemberSearchQuery] = useState('');
+  const [isTemplatesDropdownOpen, setIsTemplatesDropdownOpen] = useState(false);
+  const [templateContextMenu, setTemplateContextMenu] = useState<{ x: number; y: number; type: 'stack' | 'template'; data: any } | null>(null);
+  const templatesDropdownRef = React.useRef<HTMLDivElement>(null);
+  const isTemplatesDragging = useRef(false);
+
+  // Local storage cache for template stack descriptions
+  const [stackDescriptions, setStackDescriptions] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem('canopy_stack_descriptions');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
   useEffect(() => {
-    const closeTreeMenu = () => setTreeContextMenu(null);
+    const closeContextMenus = () => {
+      setTreeContextMenu(null);
+      setTemplateContextMenu(null);
+    };
     const handleClickOutsideDropdown = (e: MouseEvent) => {
       if (hierarchyDropdownRef.current && !hierarchyDropdownRef.current.contains(e.target as Node)) {
         setIsHierarchyDropdownOpen(false);
       }
+      if (templatesDropdownRef.current && !templatesDropdownRef.current.contains(e.target as Node)) {
+        setIsTemplatesDropdownOpen(false);
+      }
     };
-    document.addEventListener('mousedown', closeTreeMenu);
+    document.addEventListener('mousedown', closeContextMenus);
     document.addEventListener('mousedown', handleClickOutsideDropdown);
     return () => {
-      document.removeEventListener('mousedown', closeTreeMenu);
+      document.removeEventListener('mousedown', closeContextMenus);
       document.removeEventListener('mousedown', handleClickOutsideDropdown);
     };
   }, []);
@@ -386,6 +429,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   // Template Stack Form fields
   const [stackName, setStackName] = useState('');
+  const [stackDescription, setStackDescription] = useState('');
   const [stackTemplateIds, setStackTemplateIds] = useState<number[]>([]);
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
@@ -487,12 +531,65 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     if (!selectedTemplateName) return [];
     const cleanT = cleanTemplateName(selectedTemplateName).trim().toLowerCase();
     let devs = inventory.filter(dev => (dev.template_stack || '').trim().toLowerCase() === cleanT);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (templateMemberSearchQuery.trim()) {
+      const q = templateMemberSearchQuery.toLowerCase();
       devs = devs.filter(d => d.name.toLowerCase().includes(q) || d.serial.toLowerCase().includes(q) || (d.ip_address || '').toLowerCase().includes(q));
     }
     return devs;
-  }, [selectedTemplateName, inventory, searchQuery]);
+  }, [selectedTemplateName, inventory, templateMemberSearchQuery]);
+
+  const filteredTemplateStacks = useMemo(() => {
+    if (templatesSearchQuery.trim() && activeSubTab === 'Templates') {
+      const query = templatesSearchQuery.toLowerCase();
+      return templateStacks.filter(s => s.name.toLowerCase().includes(query));
+    }
+    return templateStacks;
+  }, [templateStacks, templatesSearchQuery, activeSubTab]);
+
+  const filteredBaseTemplates = useMemo(() => {
+    if (templatesSearchQuery.trim() && activeSubTab === 'Templates') {
+      const query = templatesSearchQuery.toLowerCase();
+      return baseTemplates.filter(t => t.name.toLowerCase().includes(query));
+    }
+    return baseTemplates;
+  }, [baseTemplates, templatesSearchQuery, activeSubTab]);
+
+  const selectedTemplateDescription = useMemo(() => {
+    if (!selectedTemplateId) return null;
+    if (selectedTemplateId.startsWith('stack-')) {
+      const id = parseInt(selectedTemplateId.replace('stack-', ''), 10);
+      const stack = templateStacks.find(s => s.id === id);
+      return stack ? (stackDescriptions[stack.name] || null) : null;
+    }
+    return null;
+  }, [selectedTemplateId, templateStacks, stackDescriptions]);
+
+  const assignTargetLabel = useMemo(() => {
+    if (activeSubTab === 'Device Groups') {
+      return selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : '';
+    } else if (activeSubTab === 'Templates') {
+      return selectedTemplateName ? cleanTemplateName(selectedTemplateName) : '';
+    }
+    return '';
+  }, [activeSubTab, selectedGroupDetails, selectedTemplateName]);
+
+  const assignAvailableDevices = useMemo(() => {
+    if (activeSubTab === 'Device Groups') {
+      return inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1));
+    } else if (activeSubTab === 'Templates') {
+      if (!selectedTemplateId) return [];
+      if (selectedTemplateId.startsWith('stack-')) {
+        const stackId = parseInt(selectedTemplateId.replace('stack-', ''), 10);
+        return inventory.filter(d => d.template_stack_id !== stackId);
+      } else if (selectedTemplateId.startsWith('tmpl-')) {
+        const tmplName = selectedTemplateId.replace('tmpl-', '');
+        const tmpl = baseTemplates.find(t => t.name === tmplName);
+        const tmplId = tmpl ? tmpl.id : -1;
+        return inventory.filter(d => d.template_id !== tmplId);
+      }
+    }
+    return inventory;
+  }, [inventory, activeSubTab, selectedGroupDetails, selectedTemplateId, baseTemplates]);
 
   const filteredDeviceGroups = useMemo(() => {
     let filtered = deviceGroups;
@@ -650,14 +747,33 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   };
 
   const handleAssignFirewalls = async () => {
-    if (!apiClient || !selectedGroupId) return false;
+    if (!apiClient) return false;
     try {
-      const match = deviceGroups.find(g => g.uuid === selectedGroupId);
-      if (!match) throw new Error("Group not found");
-      for (const dev of selectedAssignDevices) {
-        await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', match.id, dev.template_stack_id || null, dev.template_id || null);
+      if (activeSubTab === 'Device Groups') {
+        if (!selectedGroupId) return false;
+        const match = deviceGroups.find(g => g.uuid === selectedGroupId);
+        if (!match) throw new Error("Group not found");
+        for (const dev of selectedAssignDevices) {
+          await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', match.id, dev.template_stack_id || null, dev.template_id || null);
+        }
+        addToast(`Successfully assigned ${selectedAssignDevices.length} firewalls to group.`, 'success');
+      } else if (activeSubTab === 'Templates') {
+        if (!selectedTemplateId) return false;
+        if (selectedTemplateId.startsWith('stack-')) {
+          const stackId = parseInt(selectedTemplateId.replace('stack-', ''), 10);
+          for (const dev of selectedAssignDevices) {
+            await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', dev.device_group_id || null, stackId, null);
+          }
+        } else if (selectedTemplateId.startsWith('tmpl-')) {
+          const tmplName = selectedTemplateId.replace('tmpl-', '');
+          const tmpl = baseTemplates.find(t => t.name === tmplName);
+          if (!tmpl) throw new Error("Template not found");
+          for (const dev of selectedAssignDevices) {
+            await apiClient.updateDevice(dev.id, dev.name, dev.serial, dev.ip_address || '', dev.device_group_id || null, null, tmpl.id);
+          }
+        }
+        addToast(`Successfully assigned ${selectedAssignDevices.length} firewalls to template context.`, 'success');
       }
-      addToast(`Successfully assigned ${selectedAssignDevices.length} firewalls to group.`, 'success');
       setIsAssignFirewallsModalOpen(false);
       setSelectedAssignDevices([]);
       fetchData();
@@ -786,6 +902,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenAddStackModal = () => {
     setEditingStack(null);
     setStackName('');
+    setStackDescription('');
     setStackTemplateIds([]);
     setIsStackModalOpen(true);
   };
@@ -793,6 +910,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenEditStackModal = (stack: TemplateStack) => {
     setEditingStack(stack);
     setStackName(stack.name);
+    setStackDescription(stackDescriptions[stack.name] || '');
     const members = stackMembers.filter(m => m.stack_id === stack.id);
     const tmplIds = members.map(m => {
       const t = baseTemplates.find(bt => bt.name === m.template_name);
@@ -816,6 +934,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         await apiClient.createTemplateStack(stackName, stackTemplateIds);
         addToast(`Created template stack: ${stackName}`, 'success');
       }
+
+      // Persist the description field in local storage
+      const updatedDescriptions = { ...stackDescriptions, [stackName]: stackDescription };
+      setStackDescriptions(updatedDescriptions);
+      localStorage.setItem('canopy_stack_descriptions', JSON.stringify(updatedDescriptions));
+
       setIsStackModalOpen(false);
       fetchData();
     } catch (err) {
@@ -917,6 +1041,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       key: 'template_stack',
       label: 'Template Stack / Template',
       renderCell: (val) => val ? cleanTemplateName(val) : <span style={{ color: 'var(--text-sub)', fontStyle: 'italic' }}>None</span>
+    }
+  ], []);
+
+  // Columns definition for Template/Stack table (right pane)
+  const templateMemberColumns: ColumnDef[] = useMemo(() => [
+    {
+      key: 'name',
+      label: 'Device Name',
+      renderCell: (val, row) => (
+        <span
+          style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }}
+          onClick={(e) => { e.stopPropagation(); handleOpenEditDeviceModal(row); }}
+          title="Click to edit device"
+        >
+          {val}
+        </span>
+      )
+    },
+    { key: 'serial', label: 'Serial Number' },
+    { key: 'ip_address', label: 'Management IP' },
+    {
+      key: 'device_group',
+      label: 'Device Group',
+      renderCell: (val) => val ? cleanGroupName(val) : <span style={{ color: 'var(--text-sub)', fontStyle: 'italic' }}>Unassigned</span>
     }
   ], []);
 
@@ -1544,6 +1692,84 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   </div>
                 )}
 
+                {/* Templates Context Menu Overlay */}
+                {templateContextMenu && (
+                  <div
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      top: templateContextMenu.y,
+                      left: templateContextMenu.x,
+                      backgroundColor: 'var(--bg-surface)',
+                      border: '1px solid var(--border-main)',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                      zIndex: 2000,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      padding: '4px',
+                      minWidth: '180px'
+                    }}>
+                    <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                      {templateContextMenu.type === 'stack' ? templateContextMenu.data.name : cleanTemplateName(templateContextMenu.data.name)}
+                    </div>
+                    {templateContextMenu.type === 'stack' ? (
+                      <>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleOpenEditStackModal(templateContextMenu.data); setTemplateContextMenu(null); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Stack
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleDeleteStack(templateContextMenu.data); setTemplateContextMenu(null); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Stack
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleOpenEditTemplateModal(templateContextMenu.data); setTemplateContextMenu(null); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Template
+                        </button>
+                        <button
+                          className="context-menu-item"
+                          onClick={() => { handleDeleteTemplate(templateContextMenu.data); setTemplateContextMenu(null); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Template
+                        </button>
+                      </>
+                    )}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { navigator.clipboard.writeText(templateContextMenu.data.name); addToast('Copied context name'); setTemplateContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Context Name
+                    </button>
+                  </div>
+                )}
+
                 {/* Resizer */}
                 <div
                   style={{
@@ -1702,101 +1928,226 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
             {/* 3. Templates & Stacks explorer */}
             {activeSubTab === 'Templates' && (
-              <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, marginTop: '50px' }}>
+              <div style={{ flex: 1, display: 'flex', gap: '0px', minHeight: 0, marginTop: '50px' }}>
 
-                {/* Left Tree/Stacks List Pane */}
+                {/* Left Templates Panel */}
                 <div style={{
-                  width: '320px',
+                  width: `${leftTemplatesPanelWidth}px`,
+                  minWidth: '340px',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '8px',
-                  padding: '15px',
-                  overflowY: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '15px'
+                  flexShrink: 0
                 }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
-                      <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                        Template Stacks
-                      </h3>
+                  <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
+                    {/* Title and Search Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                          Templates
+                        </h3>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <SearchBar
+                          value={templatesSearchQuery}
+                          onChange={setTemplatesSearchQuery}
+                          placeholder="Filter templates..."
+                          width="180px"
+                          variant="local"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
+
+                    {/* Actions Menu row */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', height: '28px', marginTop: '16px', marginBottom: '4px' }}>
+                      <div style={{ position: 'relative', height: '100%' }} ref={templatesDropdownRef}>
+                        <button
+                          className="btn-secondary btn-sm"
+                          style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
+                          onClick={() => setIsTemplatesDropdownOpen(!isTemplatesDropdownOpen)}
+                          title="More Actions"
+                        >
+                          <MoreHorizontal size={14} /> Actions
+                        </button>
+                        {isTemplatesDropdownOpen && (
+                          <div className="dropdown-menu" style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: '100%',
+                            marginTop: '4px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-main)',
+                            borderRadius: '6px',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                            zIndex: 2000,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                            padding: '4px',
+                            minWidth: '180px'
+                          }}>
+                            <button
+                              className="context-menu-item"
+                              onClick={() => { handleOpenAddStackModal(); setIsTemplatesDropdownOpen(false); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Template Stack
+                            </button>
+                            <button
+                              className="context-menu-item"
+                              onClick={() => { handleOpenAddTemplateModal(); setIsTemplatesDropdownOpen(false); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Base Template
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <button
-                        className="btn-secondary btn-sm"
-                        style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
+                        className="btn-primary btn-sm"
+                        style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', fontSize: '12px' }}
                         onClick={handleOpenAddStackModal}
                       >
-                        <Plus size={11} /> Add Stack
+                        <Plus size={14} /> Add Stack
                       </button>
                     </div>
-                    {templateStacks.length === 0 ? (
-                      <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
-                    ) : (
-                      templateStacks.map(stack => (
-                        <TemplateStackItem
-                          key={stack.id}
-                          stack={stack}
-                          members={stackMembers.filter(m => m.stack_id === stack.id)}
-                          selectedTemplateId={selectedTemplateId}
-                          onSelect={handleSelectTemplate}
-                          templateCounts={templateCounts}
-                        />
-                      ))
-                    )}
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
                   </div>
 
-                  <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '15px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 10px 0' }}>
-                      <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                        Base Templates
-                      </h3>
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
-                        onClick={handleOpenAddTemplateModal}
-                      >
-                        <Plus size={11} /> Add Template
-                      </button>
-                    </div>
-                    {baseTemplates.length === 0 ? (
-                      <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
-                    ) : (
-                      baseTemplates.map(tmpl => {
-                        const count = templateCounts[tmpl.name] || 0;
-                        const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
-                        return (
-                          <div
-                            key={tmpl.uuid}
-                            onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              padding: '6px 10px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
-                              borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
-                              color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                              fontSize: '13px',
-                              marginBottom: '2px',
-                              transition: 'all 0.15s ease',
-                              userSelect: 'none',
+                  {/* Scrollable list viewport */}
+                  <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 20px', position: 'relative' }}>
+                    <div style={{ position: 'sticky', top: 0, height: '10px', backgroundColor: 'var(--bg-surface)', zIndex: 100, margin: '0 -20px' }} />
+
+                    {/* Template Stacks Section */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ position: 'sticky', top: '10px', backgroundColor: 'var(--bg-surface)', padding: '10px 0', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                          Template Stacks
+                        </h3>
+                      </div>
+                      {filteredTemplateStacks.length === 0 ? (
+                        <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No stacks defined.</div>
+                      ) : (
+                        filteredTemplateStacks.map(stack => (
+                          <TemplateStackItem
+                            key={stack.id}
+                            stack={stack}
+                            members={stackMembers.filter(m => m.stack_id === stack.id)}
+                            selectedTemplateId={selectedTemplateId}
+                            onSelect={handleSelectTemplate}
+                            templateCounts={templateCounts}
+                            baseTemplates={baseTemplates}
+                            onContextMenu={(e, type, data) => {
+                              setTemplateContextMenu({ x: e.clientX, y: e.clientY, type, data });
                             }}
-                          >
-                            <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
-                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-                              {cleanTemplateName(tmpl.name)}
-                            </span>
-                            {count > 0 && (
-                              <span style={{ fontSize: '9px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '2px 5px', borderRadius: '10px', marginLeft: '6px', border: '1px solid var(--border-main)' }}>
-                                {count}
+                          />
+                        ))
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '15px 0' }} />
+
+                    {/* Base Templates Section */}
+                    <div>
+                      <div style={{ position: 'sticky', top: '10px', backgroundColor: 'var(--bg-surface)', padding: '10px 0', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: 0, fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                          Base Templates
+                        </h3>
+                      </div>
+                      {filteredBaseTemplates.length === 0 ? (
+                        <div style={{ color: 'var(--text-sub)', fontSize: '12px', padding: '5px' }}>No base templates found.</div>
+                      ) : (
+                        filteredBaseTemplates.map(tmpl => {
+                          const count = templateCounts[tmpl.name] || 0;
+                          const isSelected = selectedTemplateId === `tmpl-${tmpl.name}`;
+                          return (
+                            <div
+                              key={tmpl.uuid}
+                              onClick={() => handleSelectTemplate(`tmpl-${tmpl.name}`, tmpl.name)}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setTemplateContextMenu({ x: e.clientX, y: e.clientY, type: 'template', data: tmpl });
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent',
+                                borderLeft: isSelected ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                                color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontSize: '13px',
+                                marginBottom: '2px',
+                                transition: 'all 0.15s ease',
+                                userSelect: 'none',
+                              }}
+                            >
+                              <FileText size={14} style={{ marginRight: '8px', color: 'var(--text-sub)' }} />
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+                                {cleanTemplateName(tmpl.name)}
                               </span>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
+                              {count > 0 && (
+                                <span style={{ fontSize: '9px', color: 'var(--text-muted)', backgroundColor: 'var(--bg-surface)', padding: '2px 5px', borderRadius: '10px', marginLeft: '6px', border: '1px solid var(--border-main)' }}>
+                                  {count}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* Drag Handle Column */}
+                <div
+                  style={{
+                    width: '8px',
+                    cursor: 'col-resize',
+                    backgroundColor: 'transparent',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 10,
+                    margin: '0 -2px'
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    isTemplatesDragging.current = true;
+                    const startX = e.pageX;
+                    const startWidth = leftTemplatesPanelWidth;
+
+                    const handleMouseMove = (moveEvent: MouseEvent) => {
+                      if (isTemplatesDragging.current) {
+                        const newWidth = Math.max(340, Math.min(800, startWidth + (moveEvent.pageX - startX)));
+                        setLeftTemplatesPanelWidth(newWidth);
+                      }
+                    };
+
+                    const handleMouseUp = () => {
+                      isTemplatesDragging.current = false;
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  }}
+                >
+                  <div style={{ width: '2px', height: '30px', backgroundColor: 'var(--border-main)', borderRadius: '1px' }} />
                 </div>
 
                 {/* Right Content Pane */}
@@ -1807,101 +2158,56 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   borderRadius: '8px',
                   display: 'flex',
                   flexDirection: 'column',
+                  minWidth: '500px',
                   minHeight: 0,
                   overflow: 'hidden'
                 }}>
                   {selectedTemplateId && selectedTemplateName ? (
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                      <div style={{ padding: '20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-                        <div>
-                          <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600, color: 'var(--text-main)' }}>
-                            {cleanTemplateName(selectedTemplateName)}
-                          </h4>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code>
-                          </span>
+                      
+                      <div style={{ padding: '20px 20px 0 20px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: '64px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                              {cleanTemplateName(selectedTemplateName)}
+                            </h4>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <span>Type: <code>{selectedTemplateId.startsWith('stack-') ? 'Template Stack' : 'Base Template'}</code></span>
+                            </div>
+                            {selectedTemplateDescription && (
+                              <div style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+                                {selectedTemplateDescription}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <SearchBar value={templateMemberSearchQuery} onChange={setTemplateMemberSearchQuery} placeholder="Search members..." variant="local" />
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                          {selectedTemplateId.startsWith('stack-') ? (
-                            <>
-                              <button
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  const stackId = parseInt(selectedTemplateId.slice(6), 10);
-                                  const stack = templateStacks.find(s => s.id === stackId);
-                                  if (stack) handleOpenEditStackModal(stack);
-                                }}
-                              >
-                                <Edit2 size={13} /> Edit Stack
-                              </button>
-                              <button
-                                className="btn-danger btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  const stackId = parseInt(selectedTemplateId.slice(6), 10);
-                                  const stack = templateStacks.find(s => s.id === stackId);
-                                  if (stack) handleDeleteStack(stack);
-                                }}
-                              >
-                                <Trash2 size={13} /> Delete Stack
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                className="btn-secondary btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
-                                  if (tmpl) handleOpenEditTemplateModal(tmpl);
-                                }}
-                              >
-                                <Edit2 size={13} /> Edit Template
-                              </button>
-                              <button
-                                className="btn-danger btn-sm"
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId);
-                                  if (tmpl) handleDeleteTemplate(tmpl);
-                                }}
-                              >
-                                <Trash2 size={13} /> Delete Template
-                              </button>
-                            </>
-                          )}
-                          <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search members..." variant="local" />
-                        </div>
+
+                        {/* Internal Divider */}
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%', marginTop: '12px' }} />
                       </div>
 
-                      <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
-                        {devicesInSelectedTemplate.length === 0 ? (
-                          <div style={{ color: 'var(--text-sub)', fontSize: '13px', padding: '30px', textAlign: 'center', fontStyle: 'italic' }}>
-                            No devices assigned to this template context {searchQuery ? 'matching the filter' : ''}.
-                          </div>
-                        ) : (
-                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '2px solid var(--border-main)' }}>
-                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Name</th>
-                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Serial Number</th>
-                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Management IP</th>
-                                <th style={{ padding: '10px', fontSize: '11px', color: 'var(--text-sub)', textTransform: 'uppercase' }}>Device Group</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {devicesInSelectedTemplate.map(dev => (
-                                <tr key={dev.id} style={{ borderBottom: '1px solid var(--border-main)' }} className="table-row">
-                                  <td style={{ padding: '12px 10px', fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{dev.name}</td>
-                                  <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.serial}</td>
-                                  <td style={{ padding: '12px 10px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{dev.ip_address || '-'}</td>
-                                  <td style={{ padding: '12px 10px', fontSize: '13px', color: 'var(--text-main)' }}>{dev.device_group ? cleanGroupName(dev.device_group) : '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '10px 20px' }}>
+                        <DataTable
+                          toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)' }}>Firewalls ({devicesInSelectedTemplate.length})</span>}
+                          columns={templateMemberColumns}
+                          data={devicesInSelectedTemplate}
+                          searchQuery={templateMemberSearchQuery}
+                          pagination={true}
+                          selectable={true}
+                          onSelectionChange={setSelectedDevices}
+                          topRightActions={
+                            <button
+                              className="btn-primary btn-sm"
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                              onClick={() => setIsAssignFirewallsModalOpen(true)}
+                            >
+                              <Server size={14} /> Assign Firewalls
+                            </button>
+                          }
+                        />
                       </div>
                     </div>
                   ) : (
@@ -2034,6 +2340,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              className="input-text"
+              placeholder="e.g. Standard template stack for edge routers"
+              value={stackDescription}
+              onChange={(e) => setStackDescription(e.target.value)}
+              rows={3}
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Add Member Template</label>
             <Dropdown
               value="-- Select template to append --"
@@ -2134,7 +2451,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         <Modal
           isOpen={isAssignFirewallsModalOpen}
           onClose={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}
-          title="Assign Firewalls to Group"
+          title={`Assign Firewalls to ${activeSubTab === 'Device Groups' ? 'Group' : 'Template Context'}`}
           size="lg"
           headerActions={
             <Tooltip content="Pop Out to New Window" align="center">
@@ -2142,7 +2459,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   if (window.electron && window.electron.spawnWindow) {
-                    const idParam = selectedGroupDetails ? encodeURIComponent(String(selectedGroupDetails.uuid)) : '';
+                    const idParam = activeSubTab === 'Device Groups'
+                      ? (selectedGroupDetails ? encodeURIComponent(String(selectedGroupDetails.uuid)) : '')
+                      : (selectedTemplateId ? encodeURIComponent(selectedTemplateId) : '');
                     window.electron.spawnWindow(`editor=assign-firewalls&groupId=${idParam}`, {
                       width: 800,
                       height: 600,
@@ -2197,13 +2516,13 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: '400px' }}>
             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-sub)' }}>
-              Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</strong>.
-              Firewalls already assigned to this group are hidden.
+              Select firewalls from your inventory to assign to <strong style={{ color: 'var(--text-main)' }}>{assignTargetLabel}</strong>.
+              Firewalls already assigned to this context are hidden.
             </p>
             <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <DataTable
                 columns={inventoryColumns}
-                data={inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1))}
+                data={assignAvailableDevices}
                 searchQuery=""
                 pagination={true}
                 selectable={true}
@@ -2217,7 +2536,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       {/* 6. Assign Firewalls Modal (Popped Out Window) */}
       {isAssignFirewallsModalOpen && isAssignModalPoppedOut && (
         <NewWindowPortal
-          title={`Assign Firewalls - ${selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}`}
+          title={`Assign Firewalls - ${assignTargetLabel}`}
           externalWindow={assignModalWindow}
           onClose={() => { 
             assignModalWindow?.close();
@@ -2228,14 +2547,14 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           }}
         >
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
-            <h2 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Assign Firewalls to {selectedGroupDetails ? cleanGroupName(selectedGroupDetails.name) : ''}</h2>
+            <h2 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Assign Firewalls to {assignTargetLabel}</h2>
             <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'var(--text-sub)' }}>
-              Select firewalls from your inventory to assign to this group. Firewalls already assigned to this group are hidden.
+              Select firewalls from your inventory to assign to this context. Firewalls already assigned to this context are hidden.
             </p>
             <div style={{ flex: 1, border: '1px solid var(--border-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', marginBottom: '20px' }}>
               <DataTable
                 columns={inventoryColumns}
-                data={inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1))}
+                data={assignAvailableDevices}
                 searchQuery=""
                 pagination={true}
                 selectable={true}
