@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X } from 'lucide-react';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X, Code } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -1214,6 +1214,32 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     });
   };
 
+  const [isCliModalOpen, setIsCliModalOpen] = useState(false);
+  const [generatedCliCommands, setGeneratedCliCommands] = useState('');
+
+  const handleGenerateCli = async (type: 'device-group' | 'stack' | 'template', data: any) => {
+    setIsCliModalOpen(true);
+    setGeneratedCliCommands('Generating...');
+    if (!apiClient) return;
+    try {
+      let entityType = '';
+      if (type === 'device-group') entityType = 'Device Groups';
+      else if (type === 'stack') entityType = 'Template Stacks';
+      else if (type === 'template') entityType = 'Base Templates';
+
+      const response = await apiClient.generateCliCommands({
+        entityType,
+        entityIds: [data.id],
+        scopeUuid: data.uuid,
+        includeNested: false
+      });
+      setGeneratedCliCommands(response.commands.join('\n') || '# No commands generated.');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to generate CLI commands', 'error');
+      setGeneratedCliCommands('Error generating commands.');
+    }
+  };
+
   // Columns definition for full Inventory table
   const inventoryColumns: ColumnDef[] = useMemo(() => [
     {
@@ -1983,6 +2009,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
+                    </button>
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { handleGenerateCli('device-group', treeContextMenu.group); setTreeContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
                     </button>
                     <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                     <button
@@ -2850,6 +2885,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         </button>
                       </>
                     )}
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { handleGenerateCli(templateContextMenu.type, templateContextMenu.data); setTemplateContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
+                    </button>
                     <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                     <button
                       className="context-menu-item"
@@ -3452,6 +3496,51 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           </div>
         </NewWindowPortal>
       )}
+
+      {/* CLI Commands Modal */}
+      <Modal
+        isOpen={isCliModalOpen}
+        onClose={() => { setIsCliModalOpen(false); setGeneratedCliCommands(''); }}
+        title="Generated CLI Commands"
+        size="lg"
+        footer={
+          <>
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => {
+                navigator.clipboard.writeText(generatedCliCommands);
+                addToast('Copied to clipboard', 'success');
+              }}
+              disabled={!generatedCliCommands || generatedCliCommands === 'Generating...' || generatedCliCommands === 'Error generating commands.'}
+            >
+              Copy to Clipboard
+            </button>
+            <button className="btn-primary btn-sm" onClick={() => { setIsCliModalOpen(false); setGeneratedCliCommands(''); }}>Close</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+            These Palo Alto Panorama Set commands represent the configuration defined for this element:
+          </p>
+          <textarea
+            className="input-text"
+            readOnly
+            value={generatedCliCommands || 'Generating...'}
+            rows={15}
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              backgroundColor: 'var(--bg-element)',
+              color: 'var(--text-main)',
+              padding: '10px',
+              borderRadius: '4px',
+              resize: 'vertical',
+              width: '100%'
+            }}
+          />
+        </div>
+      </Modal>
 
     </div>
   );

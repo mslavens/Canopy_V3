@@ -26,6 +26,13 @@ type CLIResponse struct {
 }
 
 // Map the scope UUID to the scope name (device group name or 'shared')
+func quoteIfHasSpace(val string) string {
+	if strings.Contains(val, " ") {
+		return fmt.Sprintf(`"%s"`, val)
+	}
+	return val
+}
+
 func (g *Generator) getScopePrefix(deviceUUID string) string {
 	if deviceUUID == "paloalto-panorama-global" {
 		return "set shared"
@@ -35,7 +42,7 @@ func (g *Generator) getScopePrefix(deviceUUID string) string {
 	if err != nil {
 		return "set device-group Unknown"
 	}
-	return fmt.Sprintf("set device-group %s", name)
+	return fmt.Sprintf("set device-group %s", quoteIfHasSpace(name))
 }
 
 func (g *Generator) Generate(req CLIRequest) ([]string, error) {
@@ -505,6 +512,78 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 		}
 		if wf.Valid && wf.String != "" {
 			cmds = append(cmds, fmt.Sprintf("%s profiles profile-group %s wildfire-analysis %s", scopePrefix, name.String, wf.String))
+		}
+
+	case "Device Groups":
+		var name, desc sql.NullString
+		err := g.DB.QueryRow("SELECT name, description FROM device_groups WHERE id = ?", id).Scan(&name, &desc)
+		if err != nil {
+			return nil, err
+		}
+		if visited["dg-"+name.String] {
+			return nil, nil
+		}
+		visited["dg-"+name.String] = true
+
+		qName := quoteIfHasSpace(name.String)
+		cmds = append(cmds, fmt.Sprintf("set device-group %s", qName))
+		if desc.Valid && desc.String != "" {
+			cmds = append(cmds, fmt.Sprintf(`set device-group %s description "%s"`, qName, desc.String))
+		}
+
+	case "Base Templates":
+		var name, desc sql.NullString
+		err := g.DB.QueryRow("SELECT name, description FROM templates WHERE id = ?", id).Scan(&name, &desc)
+		if err != nil {
+			return nil, err
+		}
+		if visited["tmpl-"+name.String] {
+			return nil, nil
+		}
+		visited["tmpl-"+name.String] = true
+
+		qName := quoteIfHasSpace(name.String)
+		cmds = append(cmds, fmt.Sprintf("set template %s", qName))
+		if desc.Valid && desc.String != "" {
+			cmds = append(cmds, fmt.Sprintf(`set template %s description "%s"`, qName, desc.String))
+		}
+
+	case "Template Stacks":
+		var name, desc sql.NullString
+		err := g.DB.QueryRow("SELECT name, description FROM template_stacks WHERE id = ?", id).Scan(&name, &desc)
+		if err != nil {
+			return nil, err
+		}
+		if visited["stack-"+name.String] {
+			return nil, nil
+		}
+		visited["stack-"+name.String] = true
+
+		qName := quoteIfHasSpace(name.String)
+		cmds = append(cmds, fmt.Sprintf("set template-stack %s", qName))
+		if desc.Valid && desc.String != "" {
+			cmds = append(cmds, fmt.Sprintf(`set template-stack %s description "%s"`, qName, desc.String))
+		}
+
+		rows, err := g.DB.Query(`
+			SELECT t.name
+			FROM template_stack_members_raw tsm
+			JOIN templates t ON tsm.template_id = t.id
+			WHERE tsm.stack_id = ?
+			ORDER BY tsm.sequence ASC
+		`, id)
+		if err == nil {
+			var members []string
+			for rows.Next() {
+				var tName string
+				if err := rows.Scan(&tName); err == nil {
+					members = append(members, quoteIfHasSpace(tName))
+				}
+			}
+			rows.Close()
+			if len(members) > 0 {
+				cmds = append(cmds, fmt.Sprintf("set template-stack %s templates [ %s ]", qName, strings.Join(members, " ")))
+			}
 		}
 	}
 
