@@ -10,6 +10,7 @@ Welcome to the Canopy Framework Help Center. Select a topic below to read the do
 * [Security Audit Logs](system-audit-logs)
 
 ### Device Management
+* [Device Inventory & Details](device-management-inventory)
 * [Device Group Setup & Assignments](device-management-device-groups)
 * [Network Templates & Stacks](device-management-templates)
 
