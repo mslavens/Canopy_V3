@@ -185,12 +185,12 @@ export class CanopyApiClient {
   public getObjectsReference = () => this.request<any>('/api/system/objects-reference');
   public globalSearch = (query: string) => this.request<any>(`/api/search?q=${encodeURIComponent(query)}`);
   public getChangelog = async () => {
-    const response = await fetch('./docs/changelog.md');
+    const response = await fetch('/docs/changelog.md');
     if (!response.ok) throw new Error('Failed to load changelog');
     return response.text();
   };
   public getManualDoc = async (docId: string) => {
-    const response = await fetch(`./docs/manual/${docId}.md`);
+    const response = await fetch(`/docs/manual/${docId}.md`);
     if (!response.ok) throw new Error(`Failed to load manual doc: ${docId}`);
     return response.text();
   };

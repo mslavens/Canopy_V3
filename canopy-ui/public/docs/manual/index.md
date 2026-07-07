@@ -9,6 +9,10 @@ Welcome to the Canopy Framework Help Center. Select a topic below to read the do
 * [Database Browser](system-database-browser)
 * [Security Audit Logs](system-audit-logs)
 
+### Device Management
+* [Device Group Setup & Assignments](device-management-device-groups)
+* [Network Templates & Stacks](device-management-templates)
+
 ### Network & Analytics
 * [Network Monitor & Logs](monitor-traffic-logs)
 * [Path Resolution Analysis](network-path-resolution)
