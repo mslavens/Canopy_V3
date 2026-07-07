@@ -9,11 +9,12 @@ import (
 )
 
 type Zone struct {
-	ID         int    `json:"id"`
-	DeviceUUID string `json:"device_uuid"`
-	Scope      string `json:"scope"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
+	ID          int    `json:"id"`
+	DeviceUUID  string `json:"device_uuid"`
+	Scope       string `json:"scope"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 func handleGetNetworkCounts(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +69,7 @@ func handleGetZones(w http.ResponseWriter, r *http.Request) {
 	deviceUUID := r.URL.Query().Get("device_uuid")
 	
 	query := `
-		SELECT id, device_uuid, scope, name, type
+		SELECT id, device_uuid, scope, name, type, COALESCE(description, '')
 		FROM zones
 	`
 	
@@ -104,7 +105,7 @@ func handleGetZones(w http.ResponseWriter, r *http.Request) {
 	var zones []Zone
 	for rows.Next() {
 		var z Zone
-		if err := rows.Scan(&z.ID, &z.DeviceUUID, &z.Scope, &z.Name, &z.Type); err != nil {
+		if err := rows.Scan(&z.ID, &z.DeviceUUID, &z.Scope, &z.Name, &z.Type, &z.Description); err != nil {
 			continue
 		}
 		
@@ -143,6 +144,7 @@ type Interface struct {
 	ResolvedIPAddress string `json:"resolved_ip_address"`
 	Zone              string `json:"zone"`
 	VRName            string `json:"vr_name"`
+	Description       string `json:"description"`
 }
 
 func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +154,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	deviceUUID := r.URL.Query().Get("device_uuid")
 	
 	query := `
-		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, 'untrusted'), COALESCE(vr_name, 'default')
+		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, 'untrusted'), COALESCE(vr_name, 'default'), COALESCE(description, '')
 		FROM interfaces
 	`
 	
@@ -190,7 +192,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	var interfaces []Interface
 	for rows.Next() {
 		var i Interface
-		if err := rows.Scan(&i.ID, &i.DeviceUUID, &i.Scope, &i.Name, &i.Type, &i.IPAddress, &i.Zone, &i.VRName); err != nil {
+		if err := rows.Scan(&i.ID, &i.DeviceUUID, &i.Scope, &i.Name, &i.Type, &i.IPAddress, &i.Zone, &i.VRName, &i.Description); err != nil {
 			continue
 		}
 		
@@ -319,12 +321,13 @@ func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
 }
 
 type Variable struct {
-	ID         int    `json:"id"`
-	DeviceUUID string `json:"device_uuid"`
-	Scope      string `json:"scope"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Value      string `json:"value"`
+	ID          int    `json:"id"`
+	DeviceUUID  string `json:"device_uuid"`
+	Scope       string `json:"scope"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Value       string `json:"value"`
+	Description string `json:"description"`
 }
 
 func handleGetVariables(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +337,7 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 	deviceUUID := r.URL.Query().Get("device_uuid")
 
 	query := `
-		SELECT id, device_uuid, scope, name, type, value
+		SELECT id, device_uuid, scope, name, type, value, COALESCE(description, '')
 		FROM variables
 	`
 	var args []interface{}
@@ -371,7 +374,7 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 	var variables []Variable
 	for rows.Next() {
 		var v Variable
-		if err := rows.Scan(&v.ID, &v.DeviceUUID, &v.Scope, &v.Name, &v.Type, &v.Value); err != nil {
+		if err := rows.Scan(&v.ID, &v.DeviceUUID, &v.Scope, &v.Name, &v.Type, &v.Value, &v.Description); err != nil {
 			continue
 		}
 		
@@ -398,4 +401,310 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(variables)
+}
+
+func handleSaveZone(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var z struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&z); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	var err error
+	if z.ID > 0 {
+		_, err = dbConn.Exec(`
+			UPDATE zones
+			SET device_uuid = ?, scope = ?, name = ?, type = ?, description = ?
+			WHERE id = ?
+		`, z.DeviceUUID, z.Scope, z.Name, z.Type, z.Description, z.ID)
+	} else {
+		_, err = dbConn.Exec(`
+			INSERT INTO zones (device_uuid, scope, name, type, description)
+			VALUES (?, ?, ?, ?, ?)
+		`, z.DeviceUUID, z.Scope, z.Name, z.Type, z.Description)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleDeleteZonesBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var payload struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || len(payload.IDs) == 0 {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	placeholders := make([]string, len(payload.IDs))
+	args := make([]interface{}, len(payload.IDs))
+	for i, id := range payload.IDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	_, err := dbConn.Exec("DELETE FROM zones WHERE id IN ("+strings.Join(placeholders, ",")+")", args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleSaveInterface(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var i struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		IPAddress   string `json:"ip_address"`
+		Description string `json:"description"`
+		Zone        string `json:"zone"`
+		VRName      string `json:"vr_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&i); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	var err error
+	if i.ID > 0 {
+		_, err = dbConn.Exec(`
+			UPDATE interfaces
+			SET device_uuid = ?, scope = ?, name = ?, type = ?, ip_address = ?, description = ?, zone = ?, vr_name = ?
+			WHERE id = ?
+		`, i.DeviceUUID, i.Scope, i.Name, i.Type, i.IPAddress, i.Description, i.Zone, i.VRName, i.ID)
+	} else {
+		_, err = dbConn.Exec(`
+			INSERT INTO interfaces (device_uuid, scope, name, type, ip_address, description, zone, vr_name)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, i.DeviceUUID, i.Scope, i.Name, i.Type, i.IPAddress, i.Description, i.Zone, i.VRName)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleDeleteInterfacesBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var payload struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || len(payload.IDs) == 0 {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	placeholders := make([]string, len(payload.IDs))
+	args := make([]interface{}, len(payload.IDs))
+	for i, id := range payload.IDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	_, err := dbConn.Exec("DELETE FROM interfaces WHERE id IN ("+strings.Join(placeholders, ",")+")", args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleSaveRoute(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var rt struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		VRName      string `json:"vr_name"`
+		RouteName   string `json:"route_name"`
+		Destination string `json:"destination"`
+		NextHop     string `json:"nexthop"`
+		Interface   string `json:"interface"`
+		Metric      int    `json:"metric"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&rt); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	var err error
+	if rt.ID > 0 {
+		_, err = dbConn.Exec(`
+			UPDATE static_routes
+			SET device_uuid = ?, vr_name = ?, route_name = ?, destination = ?, nexthop = ?, interface = ?, metric = ?
+			WHERE id = ?
+		`, rt.DeviceUUID, rt.VRName, rt.RouteName, rt.Destination, rt.NextHop, rt.Interface, rt.Metric, rt.ID)
+	} else {
+		_, err = dbConn.Exec(`
+			INSERT INTO static_routes (device_uuid, vr_name, route_name, destination, nexthop, interface, metric)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, rt.DeviceUUID, rt.VRName, rt.RouteName, rt.Destination, rt.NextHop, rt.Interface, rt.Metric)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleDeleteRoutesBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var payload struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || len(payload.IDs) == 0 {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	placeholders := make([]string, len(payload.IDs))
+	args := make([]interface{}, len(payload.IDs))
+	for i, id := range payload.IDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	_, err := dbConn.Exec("DELETE FROM static_routes WHERE id IN ("+strings.Join(placeholders, ",")+")", args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleSaveVariable(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var v struct {
+		ID          int    `json:"id"`
+		DeviceUUID  string `json:"device_uuid"`
+		Scope       string `json:"scope"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Value       string `json:"value"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	var err error
+	if v.ID > 0 {
+		_, err = dbConn.Exec(`
+			UPDATE variables
+			SET device_uuid = ?, scope = ?, name = ?, type = ?, value = ?, description = ?
+			WHERE id = ?
+		`, v.DeviceUUID, v.Scope, v.Name, v.Type, v.Value, v.Description, v.ID)
+	} else {
+		_, err = dbConn.Exec(`
+			INSERT INTO variables (device_uuid, scope, name, type, value, description)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, v.DeviceUUID, v.Scope, v.Name, v.Type, v.Value, v.Description)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleDeleteVariablesBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	activeDB.WriteLock()
+	defer activeDB.WriteUnlock()
+
+	var payload struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || len(payload.IDs) == 0 {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	dbConn := activeDB.DB()
+	placeholders := make([]string, len(payload.IDs))
+	args := make([]interface{}, len(payload.IDs))
+	for i, id := range payload.IDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	_, err := dbConn.Exec("DELETE FROM variables WHERE id IN ("+strings.Join(placeholders, ",")+")", args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

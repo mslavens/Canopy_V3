@@ -1772,11 +1772,22 @@ func main() {
 
 	// --- NETWORK MODULE ENDPOINTS ---
 	mux.HandleFunc("/api/networks/zones", handleGetZones)
+	mux.HandleFunc("/api/networks/zones/save", handleSaveZone)
+	mux.HandleFunc("/api/networks/zones/delete-batch", handleDeleteZonesBatch)
+
 	mux.HandleFunc("/api/networks/interfaces", handleGetInterfaces)
+	mux.HandleFunc("/api/networks/interfaces/save", handleSaveInterface)
+	mux.HandleFunc("/api/networks/interfaces/delete-batch", handleDeleteInterfacesBatch)
+
 	mux.HandleFunc("/api/networks/routes", handleGetRoutes)
+	mux.HandleFunc("/api/networks/routes/save", handleSaveRoute)
+	mux.HandleFunc("/api/networks/routes/delete-batch", handleDeleteRoutesBatch)
+
 	mux.HandleFunc("/api/networks/counts", handleGetNetworkCounts)
 
 	mux.HandleFunc("/api/variables", handleGetVariables)
+	mux.HandleFunc("/api/variables/save", handleSaveVariable)
+	mux.HandleFunc("/api/variables/delete-batch", handleDeleteVariablesBatch)
 	mux.HandleFunc("/api/objects", handleGetObjects)
 	mux.HandleFunc("/api/system/objects-reference", handleGetObjectsReference)
 	mux.HandleFunc("/api/objects/group-members", handleGetGroupMembers)

@@ -161,9 +161,19 @@ export class CanopyApiClient {
 
   // Networks & Variables
   public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public saveNetworksZone = (payload: any) => this.request<any>('/api/networks/zones/save', { method: 'POST', body: JSON.stringify(payload) });
+  public deleteNetworksZonesBatch = (ids: number[]) => this.request<any>('/api/networks/zones/delete-batch', { method: 'POST', body: JSON.stringify({ ids }) });
+
   public getNetworksInterfaces = (deviceUuid?: string) => this.request<any[]>(`/api/networks/interfaces${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public saveNetworksInterface = (payload: any) => this.request<any>('/api/networks/interfaces/save', { method: 'POST', body: JSON.stringify(payload) });
+  public deleteNetworksInterfacesBatch = (ids: number[]) => this.request<any>('/api/networks/interfaces/delete-batch', { method: 'POST', body: JSON.stringify({ ids }) });
+
   public getNetworksRoutes = (deviceUuid?: string) => this.request<any[]>(`/api/networks/routes${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
+  public saveNetworksRoute = (payload: any) => this.request<any>('/api/networks/routes/save', { method: 'POST', body: JSON.stringify(payload) });
+  public deleteNetworksRoutesBatch = (ids: number[]) => this.request<any>('/api/networks/routes/delete-batch', { method: 'POST', body: JSON.stringify({ ids }) });
+
   public getNetworkCounts = (scopesStr: string) => this.request<any>(`/api/networks/counts?scopes=${encodeURIComponent(scopesStr)}`);
+  
   public getVariables = (deviceUuid?: string) => {
     let url = '/api/variables';
     if (deviceUuid && deviceUuid !== 'show-all') {
@@ -171,6 +181,8 @@ export class CanopyApiClient {
     }
     return this.request<any[]>(url);
   };
+  public saveVariable = (payload: any) => this.request<any>('/api/variables/save', { method: 'POST', body: JSON.stringify(payload) });
+  public deleteVariablesBatch = (ids: number[]) => this.request<any>('/api/variables/delete-batch', { method: 'POST', body: JSON.stringify({ ids }) });
 
   // System & Context
   public getHierarchyContext = (countTable: string) => this.request<any>(`/api/system/hierarchy-context?count_table=${encodeURIComponent(countTable)}`);

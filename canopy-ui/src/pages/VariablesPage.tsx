@@ -5,9 +5,11 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { Modal } from '../components/Modal';
+import { useConfirm } from '../components/ConfirmProvider';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { FileCode2, Loader2 } from 'lucide-react';
+import { FileCode2, Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface VariablesPageProps {
   auth: { url: string; token: string } | null;
@@ -29,6 +31,18 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
   const selectedScopeUuid = sharedScopeUuid;
   const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
+
+  // CRUD & selection states
+  const confirm = useConfirm();
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVariable, setEditingVariable] = useState<any>(null);
+
+  // Form states
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('ip-netmask');
+  const [formValue, setFormValue] = useState('');
+  const [formDescription, setFormDescription] = useState('');
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
@@ -79,7 +93,97 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
 
   useEffect(() => {
     fetchVariables();
+    setSelectedRows([]);
   }, [apiClient, selectedScopeUuid]);
+
+  const handleOpenAddVariableModal = () => {
+    setEditingVariable(null);
+    setFormName('');
+    setFormType('ip-netmask');
+    setFormValue('');
+    setFormDescription('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditVariableModal = (v: any) => {
+    setEditingVariable(v);
+    setFormName(v.name);
+    setFormType(v.type || 'ip-netmask');
+    setFormValue(v.value || '');
+    setFormDescription(v.description || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveVariable = async () => {
+    if (!formName.trim()) {
+      addToast('Variable name is required', 'error');
+      return;
+    }
+    if (!formValue.trim()) {
+      addToast('Variable value is required', 'error');
+      return;
+    }
+    if (!apiClient) return;
+    try {
+      const scopeVal = selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid;
+      const scopeName = scopeNameMap[scopeVal] || scopeVal;
+      await apiClient.saveVariable({
+        id: editingVariable ? editingVariable.id : 0,
+        device_uuid: scopeVal,
+        scope: scopeName,
+        name: formName.startsWith('$') ? formName : '$' + formName,
+        type: formType,
+        value: formValue,
+        description: formDescription
+      });
+      addToast(`Variable ${editingVariable ? 'updated' : 'created'} successfully`, 'success');
+      setIsModalOpen(false);
+      fetchVariables();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to save variable', 'error');
+    }
+  };
+
+  const handleDeleteVariable = (v: any) => {
+    confirm({
+      title: 'Delete Template Variable',
+      message: `Are you sure you want to delete variable "${v.name}"?`,
+      confirmText: 'Delete',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          await apiClient.deleteVariablesBatch([v.id]);
+          addToast('Variable deleted successfully', 'success');
+          fetchVariables();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete variable', 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteVariables = () => {
+    if (selectedRows.length === 0) return;
+    confirm({
+      title: 'Bulk Delete Variables',
+      message: `Are you sure you want to delete ${selectedRows.length} selected template variables?`,
+      confirmText: 'Delete All',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          const ids = selectedRows.map(r => r.id);
+          await apiClient.deleteVariablesBatch(ids);
+          addToast('Selected variables deleted successfully', 'success');
+          setSelectedRows([]);
+          fetchVariables();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete variables', 'error');
+        }
+      }
+    });
+  };
 
   const columns: ColumnDef[] = useMemo(
     () => [
@@ -133,7 +237,8 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
         );
       }},
       { key: 'type', label: 'Type', width: '150px' },
-      { key: 'value', label: 'Value' },
+      { key: 'value', label: 'Value', width: '250px' },
+      { key: 'description', label: 'Description', width: '250px' },
     ],
     [scopeNameMap, getVisibleScopes]
   );
@@ -197,11 +302,11 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
                                      value={isDeviceSelected ? selectedScopeUuid : ""}
                                      options={["", ...availableDevices.map(fw => fw.uuid)]}
                                      onChange={(val) => {
-                                        if (val) {
-                                          setSelectedScopeUuid(val);
-                                        } else {
-                                          setSelectedScopeUuid(activeConfig);
-                                        }
+                                         if (val) {
+                                           setSelectedScopeUuid(val);
+                                         } else {
+                                           setSelectedScopeUuid(activeConfig);
+                                         }
                                      }}
                                      searchable={true}
                                      width="220px"
@@ -216,7 +321,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
                                          </div>
                                        );
                                      }}
-                                   />
+                                    />
                                  </React.Fragment>
                                );
                              }
@@ -226,7 +331,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {selectedScopeUuid === 'show-all' ? 'Viewing combined objects across all configured administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+                        {selectedScopeUuid === 'show-all' ? 'Viewing combined administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
                       </span>
                     )}
                   </div>
@@ -262,12 +367,61 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
                     Template Variables ({variables.length})
                   </h2>
                 }
+                topRightActions={
+                  <button
+                    onClick={handleOpenAddVariableModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedScopeUuid === 'show-all'}
+                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add variables" : "Add Variable"}
+                  >
+                    <Plus size={14} /> Add Variable
+                  </button>
+                }
+                bulkActions={
+                  selectedRows.length > 0 ? (
+                    <button className="btn-danger btn-sm" onClick={handleBulkDeleteVariables} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Trash2 size={14} /> Delete Selected ({selectedRows.length})
+                    </button>
+                  ) : null
+                }
                 columns={columns}
                 data={variables}
                 searchQuery={searchQuery}
                 exportFilename={`canopy_variables_${selectedScopeUuid}.csv`}
                 pagination={true}
                 allowScrollPastEnd={true}
+                selectable={true}
+                onSelectionChange={setSelectedRows}
+                rowContextMenuActions={(row, closeMenu) => {
+                  const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
+                  return (
+                    <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleOpenEditVariableModal(row);
+                        }}
+                      >
+                        <Edit2 size={13} /> Edit
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--red-500)' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleDeleteVariable(row);
+                        }}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete
+                      </button>
+                    </>
+                  );
+                }}
               />
             </div>
           ) : (
@@ -280,6 +434,63 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
           )}
         </div>
       </div>
+
+      {/* Save Variable Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingVariable ? 'Edit Template Variable' : 'Add Template Variable'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" onClick={handleSaveVariable}>Save Variable</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Variable Name</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. $internal_gateway (prefix with $)"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Type</label>
+            <Dropdown
+              value={formType}
+              options={['ip-netmask', 'ip-range', 'fqdn', 'group-ip-netmask', 'device-priority', 'device-id']}
+              onChange={setFormType}
+              width="100%"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Value</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 10.0.0.1"
+              value={formValue}
+              onChange={(e) => setFormValue(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              className="input-text"
+              rows={3}
+              placeholder="Provide a description..."
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

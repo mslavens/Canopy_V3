@@ -5,10 +5,12 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { Modal } from '../components/Modal';
+import { useConfirm } from '../components/ConfirmProvider';
 import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { Network, Loader2 } from 'lucide-react';
+import { Network, Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface InterfacesPageProps {
   auth: { url: string; token: string } | null;
@@ -29,6 +31,20 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
   const selectedScopeUuid = sharedScopeUuid;
   const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
+
+  // CRUD & selection states
+  const confirm = useConfirm();
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingInterface, setEditingInterface] = useState<any>(null);
+
+  // Form states
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('layer3');
+  const [formIP, setFormIP] = useState('');
+  const [formZone, setFormZone] = useState('trust');
+  const [formVR, setFormVR] = useState('default');
+  const [formDescription, setFormDescription] = useState('');
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
@@ -80,7 +96,99 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
 
   useEffect(() => {
     fetchInterfaces();
+    setSelectedRows([]);
   }, [apiClient, selectedScopeUuid]);
+
+  const handleOpenAddInterfaceModal = () => {
+    setEditingInterface(null);
+    setFormName('');
+    setFormType('layer3');
+    setFormIP('');
+    setFormZone('trust');
+    setFormVR('default');
+    setFormDescription('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditInterfaceModal = (iface: any) => {
+    setEditingInterface(iface);
+    setFormName(iface.name);
+    setFormType(iface.type || 'layer3');
+    setFormIP(iface.ip_address || '');
+    setFormZone(iface.zone || 'trust');
+    setFormVR(iface.vr_name || 'default');
+    setFormDescription(iface.description || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveInterface = async () => {
+    if (!formName.trim()) {
+      addToast('Interface name is required', 'error');
+      return;
+    }
+    if (!apiClient) return;
+    try {
+      const scopeVal = selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid;
+      const scopeName = scopeNameMap[scopeVal] || scopeVal;
+      await apiClient.saveNetworksInterface({
+        id: editingInterface ? editingInterface.id : 0,
+        device_uuid: scopeVal,
+        scope: scopeName,
+        name: formName,
+        type: formType,
+        ip_address: formIP,
+        zone: formZone,
+        vr_name: formVR,
+        description: formDescription
+      });
+      addToast(`Interface ${editingInterface ? 'updated' : 'created'} successfully`, 'success');
+      setIsModalOpen(false);
+      fetchInterfaces();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to save interface', 'error');
+    }
+  };
+
+  const handleDeleteInterface = (iface: any) => {
+    confirm({
+      title: 'Delete Network Interface',
+      message: `Are you sure you want to delete interface "${iface.name}"?`,
+      confirmText: 'Delete',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          await apiClient.deleteNetworksInterfacesBatch([iface.id]);
+          addToast('Interface deleted successfully', 'success');
+          fetchInterfaces();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete interface', 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteInterfaces = () => {
+    if (selectedRows.length === 0) return;
+    confirm({
+      title: 'Bulk Delete Network Interfaces',
+      message: `Are you sure you want to delete ${selectedRows.length} selected network interfaces?`,
+      confirmText: 'Delete All',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          const ids = selectedRows.map(r => r.id);
+          await apiClient.deleteNetworksInterfacesBatch(ids);
+          addToast('Selected interfaces deleted successfully', 'success');
+          setSelectedRows([]);
+          fetchInterfaces();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete interfaces', 'error');
+        }
+      }
+    });
+  };
 
   const columns: ColumnDef[] = useMemo(
     () => [
@@ -135,8 +243,9 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
       }},
       { key: 'type', label: 'Type', width: '150px' },
       { key: 'ip_address', label: 'IP Address', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.ip_address} resolved={row.resolved_ip_address} /> },
-      { key: 'zone', label: 'Security Zone', width: '200px' },
-      { key: 'vr_name', label: 'Virtual Router', width: '200px' },
+      { key: 'zone', label: 'Security Zone', width: '150px' },
+      { key: 'vr_name', label: 'Virtual Router', width: '150px' },
+      { key: 'description', label: 'Description', width: '200px' },
     ],
     [scopeNameMap, getVisibleScopes]
   );
@@ -199,11 +308,11 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
                                      value={isDeviceSelected ? selectedScopeUuid : ""}
                                      options={["", ...availableDevices.map(fw => fw.uuid)]}
                                      onChange={(val) => {
-                                        if (val) {
-                                          setSelectedScopeUuid(val);
-                                        } else {
-                                          setSelectedScopeUuid(activeConfig);
-                                        }
+                                         if (val) {
+                                           setSelectedScopeUuid(val);
+                                         } else {
+                                           setSelectedScopeUuid(activeConfig);
+                                         }
                                      }}
                                      searchable={true}
                                      width="220px"
@@ -228,7 +337,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {selectedScopeUuid === 'show-all' ? 'Viewing combined objects across all configured administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+                        {selectedScopeUuid === 'show-all' ? 'Viewing combined administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
                       </span>
                     )}
                   </div>
@@ -264,12 +373,61 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
                     Network Interfaces ({interfaces.length})
                   </h2>
                 }
+                topRightActions={
+                  <button
+                    onClick={handleOpenAddInterfaceModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedScopeUuid === 'show-all'}
+                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add interfaces" : "Add Interface"}
+                  >
+                    <Plus size={14} /> Add Interface
+                  </button>
+                }
+                bulkActions={
+                  selectedRows.length > 0 ? (
+                    <button className="btn-danger btn-sm" onClick={handleBulkDeleteInterfaces} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Trash2 size={14} /> Delete Selected ({selectedRows.length})
+                    </button>
+                  ) : null
+                }
                 columns={columns}
                 data={interfaces}
                 searchQuery={searchQuery}
                 exportFilename={`canopy_interfaces_${selectedScopeUuid}.csv`}
                 pagination={true}
                 allowScrollPastEnd={true}
+                selectable={true}
+                onSelectionChange={setSelectedRows}
+                rowContextMenuActions={(row, closeMenu) => {
+                  const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
+                  return (
+                    <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleOpenEditInterfaceModal(row);
+                        }}
+                      >
+                        <Edit2 size={13} /> Edit
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--red-500)' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleDeleteInterface(row);
+                        }}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete
+                      </button>
+                    </>
+                  );
+                }}
               />
             </div>
           ) : (
@@ -282,6 +440,83 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
           )}
         </div>
       </div>
+
+      {/* Save Interface Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingInterface ? 'Edit Network Interface' : 'Add Network Interface'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" onClick={handleSaveInterface}>Save Interface</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Interface Name</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. ethernet1/1"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Type</label>
+            <Dropdown
+              value={formType}
+              options={['layer3', 'layer2', 'vwire', 'tap', 'tunnel', 'ha']}
+              onChange={setFormType}
+              width="100%"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>IP Address</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 192.168.1.1/24 or $variable_name"
+              value={formIP}
+              onChange={(e) => setFormIP(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Security Zone</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. trust"
+              value={formZone}
+              onChange={(e) => setFormZone(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Virtual Router</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. default"
+              value={formVR}
+              onChange={(e) => setFormVR(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              className="input-text"
+              rows={3}
+              placeholder="Provide a description..."
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

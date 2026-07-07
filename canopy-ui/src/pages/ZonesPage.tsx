@@ -5,9 +5,11 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { Modal } from '../components/Modal';
+import { useConfirm } from '../components/ConfirmProvider';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { Network, Loader2 } from 'lucide-react';
+import { Network, Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface ZonesPageProps {
   auth: { url: string; token: string } | null;
@@ -28,6 +30,17 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
   const selectedScopeUuid = sharedScopeUuid;
   const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
+
+  // CRUD & selection states
+  const confirm = useConfirm();
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingZone, setEditingZone] = useState<any>(null);
+
+  // Form states
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('layer3');
+  const [formDescription, setFormDescription] = useState('');
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
@@ -79,7 +92,90 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
 
   useEffect(() => {
     fetchZones();
+    setSelectedRows([]);
   }, [apiClient, selectedScopeUuid]);
+
+  const handleOpenAddZoneModal = () => {
+    setEditingZone(null);
+    setFormName('');
+    setFormType('layer3');
+    setFormDescription('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditZoneModal = (zone: any) => {
+    setEditingZone(zone);
+    setFormName(zone.name);
+    setFormType(zone.type || 'layer3');
+    setFormDescription(zone.description || '');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveZone = async () => {
+    if (!formName.trim()) {
+      addToast('Zone name is required', 'error');
+      return;
+    }
+    if (!apiClient) return;
+    try {
+      const scopeVal = selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid;
+      const scopeName = scopeNameMap[scopeVal] || scopeVal;
+      await apiClient.saveNetworksZone({
+        id: editingZone ? editingZone.id : 0,
+        device_uuid: scopeVal,
+        scope: scopeName,
+        name: formName,
+        type: formType,
+        description: formDescription
+      });
+      addToast(`Zone ${editingZone ? 'updated' : 'created'} successfully`, 'success');
+      setIsModalOpen(false);
+      fetchZones();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to save zone', 'error');
+    }
+  };
+
+  const handleDeleteZone = (zone: any) => {
+    confirm({
+      title: 'Delete Security Zone',
+      message: `Are you sure you want to delete security zone "${zone.name}"?`,
+      confirmText: 'Delete',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          await apiClient.deleteNetworksZonesBatch([zone.id]);
+          addToast('Zone deleted successfully', 'success');
+          fetchZones();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete zone', 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteZones = () => {
+    if (selectedRows.length === 0) return;
+    confirm({
+      title: 'Bulk Delete Security Zones',
+      message: `Are you sure you want to delete ${selectedRows.length} selected security zones?`,
+      confirmText: 'Delete All',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          const ids = selectedRows.map(r => r.id);
+          await apiClient.deleteNetworksZonesBatch(ids);
+          addToast('Selected zones deleted successfully', 'success');
+          setSelectedRows([]);
+          fetchZones();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete zones', 'error');
+        }
+      }
+    });
+  };
 
   const columns: ColumnDef[] = useMemo(
     () => [
@@ -133,6 +229,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
         );
       }},
       { key: 'type', label: 'Type', width: '150px' },
+      { key: 'description', label: 'Description', width: '250px' },
       { key: 'interfaces', label: 'Interfaces', width: '400px', renderCell: (val: any) => val ? val.join(', ') : '' },
     ],
     [scopeNameMap, getVisibleScopes]
@@ -197,11 +294,11 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                                      value={isDeviceSelected ? selectedScopeUuid : ""}
                                      options={["", ...availableDevices.map(fw => fw.uuid)]}
                                      onChange={(val) => {
-                                        if (val) {
-                                          setSelectedScopeUuid(val);
-                                        } else {
-                                          setSelectedScopeUuid(activeConfig);
-                                        }
+                                         if (val) {
+                                           setSelectedScopeUuid(val);
+                                         } else {
+                                           setSelectedScopeUuid(activeConfig);
+                                         }
                                      }}
                                      searchable={true}
                                      width="220px"
@@ -216,7 +313,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                                          </div>
                                        );
                                      }}
-                                   />
+                                    />
                                  </React.Fragment>
                                );
                              }
@@ -226,7 +323,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {selectedScopeUuid === 'show-all' ? 'Viewing combined objects across all configured administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+                        {selectedScopeUuid === 'show-all' ? 'Viewing combined administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
                       </span>
                     )}
                   </div>
@@ -262,12 +359,61 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                     Security Zones ({zones.length})
                   </h2>
                 }
+                topRightActions={
+                  <button
+                    onClick={handleOpenAddZoneModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedScopeUuid === 'show-all'}
+                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add zones" : "Add Zone"}
+                  >
+                    <Plus size={14} /> Add Zone
+                  </button>
+                }
+                bulkActions={
+                  selectedRows.length > 0 ? (
+                    <button className="btn-danger btn-sm" onClick={handleBulkDeleteZones} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Trash2 size={14} /> Delete Selected ({selectedRows.length})
+                    </button>
+                  ) : null
+                }
                 columns={columns}
                 data={zones}
                 searchQuery={searchQuery}
                 exportFilename={`canopy_zones_${selectedScopeUuid}.csv`}
                 pagination={true}
                 allowScrollPastEnd={true}
+                selectable={true}
+                onSelectionChange={setSelectedRows}
+                rowContextMenuActions={(row, closeMenu) => {
+                  const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
+                  return (
+                    <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleOpenEditZoneModal(row);
+                        }}
+                      >
+                        <Edit2 size={13} /> Edit
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--red-500)' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleDeleteZone(row);
+                        }}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete
+                      </button>
+                    </>
+                  );
+                }}
               />
             </div>
           ) : (
@@ -280,6 +426,53 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
           )}
         </div>
       </div>
+
+      {/* Save Zone Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingZone ? 'Edit Security Zone' : 'Add Security Zone'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" onClick={handleSaveZone}>Save Zone</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Zone Name</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. untrust"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Type</label>
+            <Dropdown
+              value={formType}
+              options={['layer3', 'layer2', 'vwire', 'tap', 'tunnel', 'external']}
+              onChange={setFormType}
+              width="100%"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Description</label>
+            <textarea
+              className="input-text"
+              rows={3}
+              placeholder="Provide a description..."
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              style={{ resize: 'vertical' }}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

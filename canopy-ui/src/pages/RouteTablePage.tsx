@@ -5,10 +5,12 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchBar } from '../components/SearchBar';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { Dropdown } from '../components/Dropdown';
+import { Modal } from '../components/Modal';
+import { useConfirm } from '../components/ConfirmProvider';
 import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { Map, Loader2 } from 'lucide-react';
+import { Map, Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
 
 interface RouteTablePageProps {
   auth: { url: string; token: string } | null;
@@ -29,6 +31,20 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
   const selectedScopeUuid = sharedScopeUuid;
   const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
+
+  // CRUD & selection states
+  const confirm = useConfirm();
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<any>(null);
+
+  // Form states
+  const [formRouteName, setFormRouteName] = useState('');
+  const [formVRName, setFormVRName] = useState('default');
+  const [formDestination, setFormDestination] = useState('');
+  const [formNextHop, setFormNextHop] = useState('');
+  const [formInterface, setFormInterface] = useState('');
+  const [formMetric, setFormMetric] = useState(10);
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
@@ -80,7 +96,101 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
 
   useEffect(() => {
     fetchRoutes();
+    setSelectedRows([]);
   }, [apiClient, selectedScopeUuid]);
+
+  const handleOpenAddRouteModal = () => {
+    setEditingRoute(null);
+    setFormRouteName('');
+    setFormVRName('default');
+    setFormDestination('');
+    setFormNextHop('');
+    setFormInterface('');
+    setFormMetric(10);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditRouteModal = (rt: any) => {
+    setEditingRoute(rt);
+    setFormRouteName(rt.route_name);
+    setFormVRName(rt.vr_name || 'default');
+    setFormDestination(rt.destination || '');
+    setFormNextHop(rt.nexthop || '');
+    setFormInterface(rt.interface || '');
+    setFormMetric(rt.metric || 10);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveRoute = async () => {
+    if (!formRouteName.trim()) {
+      addToast('Route name is required', 'error');
+      return;
+    }
+    if (!formDestination.trim()) {
+      addToast('Destination CIDR is required', 'error');
+      return;
+    }
+    if (!apiClient) return;
+    try {
+      const scopeVal = selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid;
+      await apiClient.saveNetworksRoute({
+        id: editingRoute ? editingRoute.id : 0,
+        device_uuid: scopeVal,
+        vr_name: formVRName,
+        route_name: formRouteName,
+        destination: formDestination,
+        nexthop: formNextHop,
+        interface: formInterface,
+        metric: Number(formMetric) || 10
+      });
+      addToast(`Static route ${editingRoute ? 'updated' : 'created'} successfully`, 'success');
+      setIsModalOpen(false);
+      fetchRoutes();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to save static route', 'error');
+    }
+  };
+
+  const handleDeleteRoute = (rt: any) => {
+    confirm({
+      title: 'Delete Static Route',
+      message: `Are you sure you want to delete static route "${rt.route_name}"?`,
+      confirmText: 'Delete',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          await apiClient.deleteNetworksRoutesBatch([rt.id]);
+          addToast('Static route deleted successfully', 'success');
+          fetchRoutes();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete route', 'error');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteRoutes = () => {
+    if (selectedRows.length === 0) return;
+    confirm({
+      title: 'Bulk Delete Static Routes',
+      message: `Are you sure you want to delete ${selectedRows.length} selected static routes?`,
+      confirmText: 'Delete All',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (!apiClient) return;
+        try {
+          const ids = selectedRows.map(r => r.id);
+          await apiClient.deleteNetworksRoutesBatch(ids);
+          addToast('Selected static routes deleted successfully', 'success');
+          setSelectedRows([]);
+          fetchRoutes();
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete routes', 'error');
+        }
+      }
+    });
+  };
 
   const columns: ColumnDef[] = useMemo(
     () => [
@@ -133,7 +243,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
           </div>
         );
       }},
-      { key: 'vr_name', label: 'Virtual Router', width: '200px' },
+      { key: 'vr_name', label: 'Virtual Router', width: '150px' },
       { key: 'destination', label: 'Destination', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.destination} resolved={row.resolved_destination} /> },
       { key: 'nexthop', label: 'Next Hop', width: '180px', renderCell: (val: any, row: any) => <VariableResolver raw={row.nexthop} resolved={row.resolved_nexthop} /> },
       { key: 'interface', label: 'Interface', width: '150px' },
@@ -201,11 +311,11 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                                      value={isDeviceSelected ? selectedScopeUuid : ""}
                                      options={["", ...availableDevices.map(fw => fw.uuid)]}
                                      onChange={(val) => {
-                                        if (val) {
-                                          setSelectedScopeUuid(val);
-                                        } else {
-                                          setSelectedScopeUuid(activeConfig);
-                                        }
+                                         if (val) {
+                                           setSelectedScopeUuid(val);
+                                         } else {
+                                           setSelectedScopeUuid(activeConfig);
+                                         }
                                      }}
                                      searchable={true}
                                      width="220px"
@@ -220,7 +330,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                                          </div>
                                        );
                                      }}
-                                   />
+                                    />
                                  </React.Fragment>
                                );
                              }
@@ -230,7 +340,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {selectedScopeUuid === 'show-all' ? 'Viewing combined objects across all configured administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+                        {selectedScopeUuid === 'show-all' ? 'Viewing combined administrative scopes.' : 'Viewing context: ' + (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
                       </span>
                     )}
                   </div>
@@ -266,12 +376,61 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                     Routing Tables ({routes.length})
                   </h2>
                 }
+                topRightActions={
+                  <button
+                    onClick={handleOpenAddRouteModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedScopeUuid === 'show-all'}
+                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add routes" : "Add Route"}
+                  >
+                    <Plus size={14} /> Add Route
+                  </button>
+                }
+                bulkActions={
+                  selectedRows.length > 0 ? (
+                    <button className="btn-danger btn-sm" onClick={handleBulkDeleteRoutes} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Trash2 size={14} /> Delete Selected ({selectedRows.length})
+                    </button>
+                  ) : null
+                }
                 columns={columns}
                 data={routes}
                 searchQuery={searchQuery}
                 exportFilename={`canopy_routes_${selectedScopeUuid}.csv`}
                 pagination={true}
                 allowScrollPastEnd={true}
+                selectable={true}
+                onSelectionChange={setSelectedRows}
+                rowContextMenuActions={(row, closeMenu) => {
+                  const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
+                  return (
+                    <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleOpenEditRouteModal(row);
+                        }}
+                      >
+                        <Edit2 size={13} /> Edit
+                      </button>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--red-500)' }}
+                        disabled={isInherited}
+                        onClick={() => {
+                          closeMenu();
+                          handleDeleteRoute(row);
+                        }}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete
+                      </button>
+                    </>
+                  );
+                }}
               />
             </div>
           ) : (
@@ -284,6 +443,82 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
           )}
         </div>
       </div>
+
+      {/* Save Route Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingRoute ? 'Edit Static Route' : 'Add Static Route'}
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" onClick={handleSaveRoute}>Save Route</button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Route Name</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. default-route"
+              value={formRouteName}
+              onChange={(e) => setFormRouteName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Virtual Router</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. default"
+              value={formVRName}
+              onChange={(e) => setFormVRName(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Destination Network (CIDR)</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 0.0.0.0/0 or $destination_variable"
+              value={formDestination}
+              onChange={(e) => setFormDestination(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Next Hop (IP Address)</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. 10.0.0.1 or $nexthop_variable"
+              value={formNextHop}
+              onChange={(e) => setFormNextHop(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Interface</label>
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g. ethernet1/1"
+              value={formInterface}
+              onChange={(e) => setFormInterface(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>Metric</label>
+            <input
+              type="number"
+              className="input-text"
+              value={formMetric}
+              onChange={(e) => setFormMetric(Number(e.target.value))}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
