@@ -9,7 +9,7 @@ import { Modal } from '../components/Modal';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { Network, Loader2, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Network, Loader2, Plus, Edit2, Trash2, Code } from 'lucide-react';
 
 interface ZonesPageProps {
   auth: { url: string; token: string } | null;
@@ -36,6 +36,10 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<any>(null);
+
+  // CLI Generation states
+  const [isCliModalOpen, setIsCliModalOpen] = useState(false);
+  const [generatedCliCommands, setGeneratedCliCommands] = useState('');
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -175,6 +179,34 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
         }
       }
     });
+  };
+
+  const handleGenerateCli = async (overrideRows?: any[]) => {
+    const rows = overrideRows || (selectedRows.length > 0 ? selectedRows : zones);
+    if (rows.length === 0) {
+      addToast('No records available to generate commands.', 'info');
+      return;
+    }
+    setIsCliModalOpen(true);
+    setGeneratedCliCommands('Generating...');
+    if (!apiClient) return;
+    try {
+      const response = await apiClient.generateCliCommands({
+        entityType: 'Zones',
+        entityIds: rows.map(r => r.id),
+        scopeUuid: selectedScopeUuid,
+        includeNested: false
+      });
+      setGeneratedCliCommands(response.commands.join('\n') || '# No commands generated.');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to generate CLI commands', 'error');
+      setGeneratedCliCommands('Error generating commands.');
+    }
+  };
+
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(generatedCliCommands);
+    addToast('Commands copied to clipboard', 'success');
   };
 
   const columns: ColumnDef[] = useMemo(
@@ -360,15 +392,25 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                   </h2>
                 }
                 topRightActions={
-                  <button
-                    onClick={handleOpenAddZoneModal}
-                    className="btn-primary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    disabled={selectedScopeUuid === 'show-all'}
-                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add zones" : "Add Zone"}
-                  >
-                    <Plus size={14} /> Add Zone
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      className="btn-secondary btn-sm"
+                      onClick={() => handleGenerateCli()}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      title="Generate CLI commands for zones"
+                    >
+                      <Code size={14} /> Generate CLI
+                    </button>
+                    <button
+                      onClick={handleOpenAddZoneModal}
+                      className="btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      disabled={selectedScopeUuid === 'show-all'}
+                      title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add zones" : "Add Zone"}
+                    >
+                      <Plus size={14} /> Add Zone
+                    </button>
+                  </div>
                 }
                 bulkActions={
                   selectedRows.length > 0 ? (
@@ -389,6 +431,16 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                   const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
                   return (
                     <>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          handleGenerateCli([row]);
+                        }}
+                      >
+                        <Code size={13} /> Generate CLI
+                      </button>
                       <button
                         className="btn-secondary btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
@@ -471,6 +523,44 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
               style={{ resize: 'vertical' }}
             />
           </div>
+        </div>
+      </Modal>
+
+      {/* Generated CLI Commands Modal */}
+      <Modal
+        isOpen={isCliModalOpen}
+        onClose={() => setIsCliModalOpen(false)}
+        title="Generated PAN-OS CLI Set Commands"
+        size="lg"
+        footer={
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn-secondary btn-md" onClick={() => setIsCliModalOpen(false)}>Close</button>
+            <button className="btn-primary btn-md" onClick={handleCopyToClipboard}>Copy to Clipboard</button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            Execute the following native PAN-OS CLI commands in your device or Panorama terminal shell:
+          </div>
+          <pre
+            style={{
+              backgroundColor: 'var(--bg-app)',
+              border: '1px solid var(--border-main)',
+              borderRadius: '4px',
+              padding: '15px',
+              color: '#34d399',
+              fontFamily: 'Courier New, monospace',
+              fontSize: '12px',
+              overflowY: 'auto',
+              maxHeight: '350px',
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all'
+            }}
+          >
+            {generatedCliCommands}
+          </pre>
         </div>
       </Modal>
     </div>

@@ -37,10 +37,23 @@ func (g *Generator) getScopePrefix(deviceUUID string) string {
 	if deviceUUID == "paloalto-panorama-global" {
 		return "set shared"
 	}
-	var name string
-	err := g.DB.QueryRow("SELECT name FROM scopes WHERE uuid = ?", deviceUUID).Scan(&name)
+	var name, sType string
+	err := g.DB.QueryRow("SELECT name, type FROM scopes WHERE uuid = ?", deviceUUID).Scan(&name, &sType)
 	if err != nil {
 		return "set device-group Unknown"
+	}
+	name = strings.TrimSuffix(name, " (Panorama)")
+	switch sType {
+	case "shared":
+		return "set shared"
+	case "device-group":
+		return fmt.Sprintf("set device-group %s", quoteIfHasSpace(name))
+	case "template":
+		return fmt.Sprintf("set template %s", quoteIfHasSpace(name))
+	case "template-stack":
+		return fmt.Sprintf("set template-stack %s", quoteIfHasSpace(name))
+	case "firewall":
+		return fmt.Sprintf("set device %s", quoteIfHasSpace(name))
 	}
 	return fmt.Sprintf("set device-group %s", quoteIfHasSpace(name))
 }
@@ -584,6 +597,108 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 			if len(members) > 0 {
 				cmds = append(cmds, fmt.Sprintf("set template-stack %s templates [ %s ]", qName, strings.Join(members, " ")))
 			}
+		}
+
+	case "Zones", "Security Zones":
+		var name, devUUID, zoneType, desc sql.NullString
+		err := g.DB.QueryRow("SELECT name, device_uuid, type, description FROM zones WHERE id = ?", id).Scan(&name, &devUUID, &zoneType, &desc)
+		if err != nil {
+			return nil, err
+		}
+		if visited["zone-"+name.String] {
+			return nil, nil
+		}
+		visited["zone-"+name.String] = true
+		scopePrefix := g.getScopePrefix(devUUID.String)
+
+		cmds = append(cmds, fmt.Sprintf("%s config vsys vsys1 zone %s network %s", scopePrefix, name.String, zoneType.String))
+
+	case "Interfaces", "Network Interfaces":
+		var name, devUUID, ifaceType, ipAddr, desc, zone, vrName sql.NullString
+		err := g.DB.QueryRow("SELECT name, device_uuid, type, ip_address, description, zone, vr_name FROM interfaces WHERE id = ?", id).Scan(&name, &devUUID, &ifaceType, &ipAddr, &desc, &zone, &vrName)
+		if err != nil {
+			return nil, err
+		}
+		if visited["iface-"+name.String] {
+			return nil, nil
+		}
+		visited["iface-"+name.String] = true
+		scopePrefix := g.getScopePrefix(devUUID.String)
+
+		isEthernet := strings.HasPrefix(name.String, "ethernet")
+		if isEthernet {
+			cmds = append(cmds, fmt.Sprintf("%s config network interface ethernet %s %s", scopePrefix, name.String, ifaceType.String))
+			if ifaceType.String == "layer3" && ipAddr.Valid && ipAddr.String != "" {
+				cmds = append(cmds, fmt.Sprintf("%s config network interface ethernet %s layer3 ip %s", scopePrefix, name.String, ipAddr.String))
+			}
+			if desc.Valid && desc.String != "" {
+				cmds = append(cmds, fmt.Sprintf(`%s config network interface ethernet %s comment "%s"`, scopePrefix, name.String, desc.String))
+			}
+		} else {
+			unitsType := "vlan"
+			if strings.HasPrefix(name.String, "tunnel") {
+				unitsType = "tunnel"
+			} else if strings.HasPrefix(name.String, "loopback") {
+				unitsType = "loopback"
+			}
+			cmds = append(cmds, fmt.Sprintf("%s config network interface %s units %s", scopePrefix, unitsType, name.String))
+			if ipAddr.Valid && ipAddr.String != "" {
+				cmds = append(cmds, fmt.Sprintf("%s config network interface %s units %s ip %s", scopePrefix, unitsType, name.String, ipAddr.String))
+			}
+			if desc.Valid && desc.String != "" {
+				cmds = append(cmds, fmt.Sprintf(`%s config network interface %s units %s comment "%s"`, scopePrefix, unitsType, name.String, desc.String))
+			}
+		}
+
+		if zone.Valid && zone.String != "" {
+			cmds = append(cmds, fmt.Sprintf("%s config vsys vsys1 zone %s network interface %s", scopePrefix, zone.String, name.String))
+		}
+		if vrName.Valid && vrName.String != "" {
+			cmds = append(cmds, fmt.Sprintf("%s config network virtual-router %s interface %s", scopePrefix, vrName.String, name.String))
+		}
+
+	case "Route Table", "Static Routes", "Routes":
+		var devUUID, vrName, routeName, destination, nexthop, iface sql.NullString
+		var metric sql.NullInt64
+		err := g.DB.QueryRow("SELECT device_uuid, vr_name, route_name, destination, nexthop, interface, metric FROM static_routes WHERE id = ?", id).Scan(&devUUID, &vrName, &routeName, &destination, &nexthop, &iface, &metric)
+		if err != nil {
+			return nil, err
+		}
+		
+		key := fmt.Sprintf("route-%s-%s", vrName.String, routeName.String)
+		if visited[key] {
+			return nil, nil
+		}
+		visited[key] = true
+		scopePrefix := g.getScopePrefix(devUUID.String)
+
+		basePath := fmt.Sprintf("%s config network virtual-router %s protocol routing-table ip static-route %s", scopePrefix, vrName.String, routeName.String)
+		cmds = append(cmds, fmt.Sprintf("%s destination %s", basePath, destination.String))
+		if nexthop.Valid && nexthop.String != "" {
+			cmds = append(cmds, fmt.Sprintf("%s nexthop ip-address %s", basePath, nexthop.String))
+		}
+		if iface.Valid && iface.String != "" {
+			cmds = append(cmds, fmt.Sprintf("%s interface %s", basePath, iface.String))
+		}
+		if metric.Valid {
+			cmds = append(cmds, fmt.Sprintf("%s metric %d", basePath, metric.Int64))
+		}
+
+	case "Template Variables", "Variables":
+		var devUUID, name, varType, val, desc sql.NullString
+		err := g.DB.QueryRow("SELECT device_uuid, name, type, value, description FROM variables WHERE id = ?", id).Scan(&devUUID, &name, &varType, &val, &desc)
+		if err != nil {
+			return nil, err
+		}
+		if visited["var-"+name.String] {
+			return nil, nil
+		}
+		visited["var-"+name.String] = true
+		scopePrefix := g.getScopePrefix(devUUID.String)
+
+		cmds = append(cmds, fmt.Sprintf("%s variable %s type %s value %s", scopePrefix, name.String, varType.String, val.String))
+		if desc.Valid && desc.String != "" {
+			cmds = append(cmds, fmt.Sprintf(`%s variable %s description "%s"`, scopePrefix, name.String, desc.String))
 		}
 	}
 
