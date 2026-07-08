@@ -21,6 +21,7 @@ import (
 	"canopy-core/cli"
 	"canopy-core/engine"
 	"canopy-core/storage"
+	"canopy-core/adapters/registry"
 	_ "canopy-core/adapters/paloalto"
 	_ "canopy-core/adapters/fortinet"
 	_ "canopy-core/adapters/cisco"
@@ -1698,8 +1699,7 @@ func main() {
 
 	// System Rollback Endpoint
 	mux.HandleFunc("/api/system/rollback", handleSystemRollback)
-
-
+	mux.HandleFunc("/api/system/adapters", handleGetAdapters)
 
 	// --- OBJECTS MODULE ENDPOINTS ---
 	mux.HandleFunc("/api/objects/address/create", handleAddressCreate)
@@ -1912,4 +1912,14 @@ func handleCLIGenerate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cli.CLIResponse{Commands: commands})
+}
+
+func handleGetAdapters(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	adapters := registry.GetRegisteredAdapters()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(adapters)
 }

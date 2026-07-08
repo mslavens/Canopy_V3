@@ -144,6 +144,7 @@ export class CanopyApiClient {
   public setLogLevel = (level: string) => this.request<{level: string}>('/api/system/loglevel', { method: 'POST', body: JSON.stringify({ level }) });
   public inspectPatch = (formData: FormData) => this.request<any>('/api/system/patch/inspect', { method: 'POST', body: formData });
   public applyPatch = (formData: FormData) => this.request<any>('/api/system/patch', { method: 'POST', body: formData });
+  public getAdapters = () => this.request<string[]>('/api/system/adapters');
   public rollbackSystem = () => this.request<any>('/api/system/rollback', { method: 'POST' });
   public importDeviceXml = (formData: FormData, preview: boolean = false) => this.streamRequest(`/api/devices/import?preview=${preview}`, { method: 'POST', body: formData });
 

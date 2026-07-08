@@ -28,3 +28,12 @@ func GetAdapter(vendorID string) (VendorAdapter, bool) {
 	adapter, ok := adapters[vendorID]
 	return adapter, ok
 }
+
+// GetRegisteredAdapters returns a list of all registered vendor IDs.
+func GetRegisteredAdapters() []string {
+	var ids []string
+	for id := range adapters {
+		ids = append(ids, id)
+	}
+	return ids
+}
