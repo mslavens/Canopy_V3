@@ -21,6 +21,9 @@ import (
 	"canopy-core/cli"
 	"canopy-core/engine"
 	"canopy-core/storage"
+	_ "canopy-core/adapters/paloalto"
+	_ "canopy-core/adapters/fortinet"
+	_ "canopy-core/adapters/cisco"
 
 	"golang.org/x/term"
 )
