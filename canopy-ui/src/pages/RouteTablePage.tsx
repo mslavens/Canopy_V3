@@ -13,6 +13,22 @@ import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { DataImportWizard } from '../components/DataImportWizard';
 import { Map, Loader2, Plus, Edit2, Trash2, Code, Download } from 'lucide-react';
 
+const renderVendorBadge = (val: string) => {
+  const v = (val || 'paloalto').toLowerCase();
+  let bg = 'var(--bg-sub)';
+  let color = 'var(--text-main)';
+  let text = 'Palo Alto';
+  if (v === 'fortinet') { bg = 'rgba(194, 24, 91, 0.1)'; color = '#c2185b'; text = 'Fortinet'; }
+  else if (v === 'cisco') { bg = 'rgba(21, 101, 192, 0.1)'; color = '#1565c0'; text = 'Cisco'; }
+  else if (v === 'vmware') { bg = 'rgba(46, 125, 50, 0.1)'; color = '#2e7d32'; text = 'VMware'; }
+  else if (v === 'paloalto') { bg = 'rgba(235, 90, 40, 0.1)'; color = '#eb5a28'; text = 'Palo Alto'; }
+  return (
+    <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: color, whiteSpace: 'nowrap' }}>
+      {text}
+    </span>
+  );
+};
+
 interface RouteTablePageProps {
   auth: { url: string; token: string } | null;
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
@@ -277,13 +293,36 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
           </div>
         );
       }},
+        {
+          key: 'vendor',
+          label: 'Vendor',
+          width: '100px',
+          renderCell: (val: any, row: any) => {
+            let vendor = 'paloalto';
+            const scopeId = row.device_uuid;
+            if (scopeId === 'paloalto-panorama-global') {
+              vendor = 'paloalto';
+            } else if (scopeId && (scopeId.startsWith('fw-') || scopeId.startsWith('paloalto-fw-'))) {
+              const serial = scopeId.replace('paloalto-fw-', '').replace('fw-', '');
+              const fw = devices.find(f => f.serial === serial || f.uuid === scopeId);
+              if (fw && fw.vendor) vendor = fw.vendor;
+            } else if (scopeId && scopeId.startsWith('paloalto-stack-')) {
+              const st = templateStacks.find(s => s.uuid === scopeId);
+              if (st && st.vendor) vendor = st.vendor;
+            } else {
+              const tmpl = templates.find(t => t.uuid === scopeId);
+              if (tmpl && tmpl.vendor) vendor = tmpl.vendor;
+            }
+            return renderVendorBadge(vendor);
+          }
+        },
       { key: 'vr_name', label: 'Virtual Router', width: '150px' },
       { key: 'destination', label: 'Destination', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.destination} resolved={row.resolved_destination} /> },
       { key: 'nexthop', label: 'Next Hop', width: '180px', renderCell: (val: any, row: any) => <VariableResolver raw={row.nexthop} resolved={row.resolved_nexthop} /> },
       { key: 'interface', label: 'Interface', width: '150px' },
       { key: 'metric', label: 'Metric', width: '100px' },
     ],
-    [scopeNameMap, getVisibleScopes]
+    [scopeNameMap, getVisibleScopes, templates, templateStacks, devices]
   );
 
   return (

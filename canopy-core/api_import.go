@@ -170,10 +170,15 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 			dgName, _ := row["device_group"].(string)
 			tsName, _ := row["template_stack"].(string)
 			tmplName, _ := row["template"].(string)
+			vendor, _ := row["vendor"].(string)
 
 			name = strings.TrimSpace(name)
 			serial = strings.TrimSpace(serial)
 			ipAddr = strings.TrimSpace(ipAddr)
+			vendor = strings.TrimSpace(vendor)
+			if vendor == "" {
+				vendor = "paloalto"
+			}
 			if name == "" || serial == "" {
 				continue
 			}
@@ -227,9 +232,9 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 
 			// Insert managed device
 			res, err := tx.Exec(`
-				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
-			`, devUUID, serial, name, ipAddr, dgID, tsID, tmplID)
+				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, vendor, device_group_id, template_stack_id, template_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`, devUUID, serial, name, ipAddr, vendor, dgID, tsID, tmplID)
 			if err != nil {
 				continue
 			}

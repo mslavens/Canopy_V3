@@ -72,6 +72,7 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
 		name TEXT UNIQUE NOT NULL,
+		vendor TEXT NOT NULL DEFAULT 'paloalto',
 		parent_id INTEGER,
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -83,6 +84,7 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
 		name TEXT UNIQUE NOT NULL,
+		vendor TEXT NOT NULL DEFAULT 'paloalto',
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
@@ -92,6 +94,7 @@ var actSchema = `
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
 		name TEXT UNIQUE NOT NULL,
+		vendor TEXT NOT NULL DEFAULT 'paloalto',
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
@@ -485,19 +488,22 @@ var actSchema = `
 		device_group_id INTEGER,
 		template_stack_id INTEGER,
 		template_id INTEGER,
+		vendor TEXT NOT NULL DEFAULT 'paloalto',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (device_group_id) REFERENCES device_groups(id) ON DELETE SET NULL,
 		FOREIGN KEY (template_stack_id) REFERENCES template_stacks(id) ON DELETE SET NULL,
 		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
 	);
-	CREATE VIEW IF NOT EXISTS managed_devices AS
+	DROP VIEW IF EXISTS managed_devices;
+	CREATE VIEW managed_devices AS
 	SELECT 
 		m.id,
 		m.device_uuid,
 		m.serial,
 		m.name,
 		m.ip_address,
+		m.vendor,
 		dg.name AS device_group,
 		COALESCE(ts.name, t.name) AS template_stack,
 		m.created_at
@@ -869,6 +875,10 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	}
 
 	// Dynamic column migrations for Objects module (errors are safely ignored if columns already exist)
+	db.Exec("ALTER TABLE managed_devices_raw ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
+	db.Exec("ALTER TABLE device_groups ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
+	db.Exec("ALTER TABLE templates ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
+	db.Exec("ALTER TABLE template_stacks ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
 	db.Exec("ALTER TABLE address_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE address_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE address_groups ADD COLUMN type TEXT DEFAULT 'static';")

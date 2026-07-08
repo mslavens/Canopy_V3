@@ -43,6 +43,21 @@ import { ObjectDataSources } from '../hooks/useObjectDependencies';
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
 import { useObjectTabCounts } from '../hooks/useObjectTabCounts';
+const renderVendorBadge = (val: string) => {
+  const v = (val || 'paloalto').toLowerCase();
+  let bg = 'var(--bg-sub)';
+  let color = 'var(--text-main)';
+  let text = 'Palo Alto';
+  if (v === 'fortinet') { bg = 'rgba(194, 24, 91, 0.1)'; color = '#c2185b'; text = 'Fortinet'; }
+  else if (v === 'cisco') { bg = 'rgba(21, 101, 192, 0.1)'; color = '#1565c0'; text = 'Cisco'; }
+  else if (v === 'vmware') { bg = 'rgba(46, 125, 50, 0.1)'; color = '#2e7d32'; text = 'VMware'; }
+  else if (v === 'paloalto') { bg = 'rgba(235, 90, 40, 0.1)'; color = '#eb5a28'; text = 'Palo Alto'; }
+  return (
+    <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: color, whiteSpace: 'nowrap' }}>
+      {text}
+    </span>
+  );
+};
 
 interface ObjectsPageProps {
   auth: { url: string; token: string } | null;
@@ -1923,6 +1938,26 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
         }
       },
       {
+        key: 'vendor',
+        label: 'Vendor',
+        width: '100px',
+        renderCell: (val, row) => {
+          let vendor = 'paloalto';
+          const scopeId = row.device_uuid;
+          if (scopeId === 'paloalto-panorama-global') {
+            vendor = 'paloalto';
+          } else if (scopeId && (scopeId.startsWith('fw-') || scopeId.startsWith('paloalto-fw-'))) {
+            const serial = scopeId.replace('paloalto-fw-', '').replace('fw-', '');
+            const fw = firewalls.find(f => f.serial === serial || f.uuid === scopeId);
+            if (fw && fw.vendor) vendor = fw.vendor;
+          } else {
+            const dg = deviceGroups.find(dg => dg.uuid === scopeId);
+            if (dg && dg.vendor) vendor = dg.vendor;
+          }
+          return renderVendorBadge(vendor);
+        }
+      },
+      {
         key: 'device_uuid',
         label: 'Scope Context',
         width: '240px',
@@ -2519,7 +2554,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
     ];
 
     return [...defaultCols, ...subtabCols, ...actionCols];
-  }, [dataViewTab, scopeNameMap, currentScope, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings]);
+  }, [dataViewTab, scopeNameMap, currentScope, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings, deviceGroups, firewalls]);
 
   const isFormDirty = useMemo(() => {
     if (crudMode !== 'edit' || !selectedObject) return true;

@@ -1,0 +1,625 @@
+diff --git a/canopy-core/api_import.go b/canopy-core/api_import.go
+index f2bae20..8a183bf 100644
+--- a/canopy-core/api_import.go
++++ b/canopy-core/api_import.go
+@@ -170,10 +170,15 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
+ 			dgName, _ := row["device_group"].(string)
+ 			tsName, _ := row["template_stack"].(string)
+ 			tmplName, _ := row["template"].(string)
++			vendor, _ := row["vendor"].(string)
+ 
+ 			name = strings.TrimSpace(name)
+ 			serial = strings.TrimSpace(serial)
+ 			ipAddr = strings.TrimSpace(ipAddr)
++			vendor = strings.TrimSpace(vendor)
++			if vendor == "" {
++				vendor = "paloalto"
++			}
+ 			if name == "" || serial == "" {
+ 				continue
+ 			}
+@@ -227,9 +232,9 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
+ 
+ 			// Insert managed device
+ 			res, err := tx.Exec(`
+-				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+-				VALUES (?, ?, ?, ?, ?, ?, ?)
+-			`, devUUID, serial, name, ipAddr, dgID, tsID, tmplID)
++				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, vendor, device_group_id, template_stack_id, template_id)
++				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
++			`, devUUID, serial, name, ipAddr, vendor, dgID, tsID, tmplID)
+ 			if err != nil {
+ 				continue
+ 			}
+@@ -413,7 +418,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
+ 				metricVal = int(m)
+ 			} else if mStr, ok := row["metric"].(string); ok {
+ 				var parsed int
+-				if _, err := json.Unmarshal([]byte(mStr), &parsed); err == nil {
++				if err := json.Unmarshal([]byte(mStr), &parsed); err == nil {
+ 					metricVal = parsed
+ 				}
+ 			}
+diff --git a/canopy-core/bin/canopy-core b/canopy-core/bin/canopy-core
+new file mode 100755
+index 0000000..7ac4f6a
+Binary files /dev/null and b/canopy-core/bin/canopy-core differ
+diff --git a/canopy-core/bin/canopy-core-linux b/canopy-core/bin/canopy-core-linux
+new file mode 100755
+index 0000000..bd89874
+Binary files /dev/null and b/canopy-core/bin/canopy-core-linux differ
+diff --git a/canopy-core/bin/canopy-core.exe b/canopy-core/bin/canopy-core.exe
+new file mode 100755
+index 0000000..971ad44
+Binary files /dev/null and b/canopy-core/bin/canopy-core.exe differ
+diff --git a/canopy-core/handlers_devices.go b/canopy-core/handlers_devices.go
+index 041dc18..6173b4e 100644
+--- a/canopy-core/handlers_devices.go
++++ b/canopy-core/handlers_devices.go
+@@ -24,6 +24,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	var req struct {
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		ParentID    *int   `json:"parent_id"`
+ 		Description string `json:"description"`
+ 	}
+@@ -33,6 +34,10 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 	uuid := "paloalto-dg-" + name
+ 
+ 	vaultMutex.Lock()
+@@ -87,7 +92,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	defer tx.Rollback()
+ 
+-	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, parent_id, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, parentID, req.Description)
++	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?, ?)", uuid, name, vendor, parentID, req.Description)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device group: " + err.Error()})
+@@ -121,6 +126,7 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
+ 	var req struct {
+ 		ID          int    `json:"id"`
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		ParentID    *int   `json:"parent_id"`
+ 		Description string `json:"description"`
+ 	}
+@@ -130,6 +136,10 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 
+ 	vaultMutex.Lock()
+ 	if activeDB == nil {
+@@ -221,7 +231,7 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
+ 	defer tx.Rollback()
+ 
+ 	// Update device group name, parent, and description
+-	_, err = tx.Exec("UPDATE device_groups SET name = ?, parent_id = ?, description = ? WHERE id = ?", name, parentID, req.Description, req.ID)
++	_, err = tx.Exec("UPDATE device_groups SET name = ?, vendor = ?, parent_id = ?, description = ? WHERE id = ?", name, vendor, parentID, req.Description, req.ID)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update device group: " + err.Error()})
+@@ -340,6 +350,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	var req struct {
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		Description string `json:"description"`
+ 	}
+ 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Name) == "" {
+@@ -348,6 +359,10 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 	uuid := "panorama-tmpl-" + name
+ 
+ 	vaultMutex.Lock()
+@@ -377,7 +392,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	defer tx.Rollback()
+ 
+-	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name, description) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, req.Description)
++	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name, vendor, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, vendor, req.Description)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template: " + err.Error()})
+@@ -411,6 +426,7 @@ func handleTemplatesUpdate(w http.ResponseWriter, r *http.Request) {
+ 	var req struct {
+ 		ID          int    `json:"id"`
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		Description string `json:"description"`
+ 	}
+ 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 || strings.TrimSpace(req.Name) == "" {
+@@ -419,6 +435,10 @@ func handleTemplatesUpdate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 
+ 	vaultMutex.Lock()
+ 	if activeDB == nil {
+@@ -457,7 +477,7 @@ func handleTemplatesUpdate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	defer tx.Rollback()
+ 
+-	_, err = tx.Exec("UPDATE templates SET name = ?, description = ? WHERE id = ?", name, req.Description, req.ID)
++	_, err = tx.Exec("UPDATE templates SET name = ?, vendor = ?, description = ? WHERE id = ?", name, vendor, req.Description, req.ID)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update template: " + err.Error()})
+@@ -554,6 +574,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	var req struct {
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		Description string `json:"description"`
+ 		TemplateIDs []int  `json:"template_ids"`
+ 	}
+@@ -563,6 +584,10 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 	uuid := "panorama-stack-" + name
+ 
+ 	vaultMutex.Lock()
+@@ -592,7 +617,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	defer tx.Rollback()
+ 
+-	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name, description) VALUES ('paloalto-panorama-global', ?, ?, ?)", uuid, name, req.Description)
++	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name, vendor, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, vendor, req.Description)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template stack: " + err.Error()})
+@@ -636,6 +661,7 @@ func handleTemplateStacksUpdate(w http.ResponseWriter, r *http.Request) {
+ 	var req struct {
+ 		ID          int    `json:"id"`
+ 		Name        string `json:"name"`
++		Vendor      string `json:"vendor"`
+ 		Description string `json:"description"`
+ 		TemplateIDs []int  `json:"template_ids"`
+ 	}
+@@ -645,6 +671,10 @@ func handleTemplateStacksUpdate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 	name := strings.TrimSpace(req.Name)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 
+ 	vaultMutex.Lock()
+ 	if activeDB == nil {
+@@ -683,7 +713,7 @@ func handleTemplateStacksUpdate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	defer tx.Rollback()
+ 
+-	_, err = tx.Exec("UPDATE template_stacks SET name = ?, description = ? WHERE id = ?", name, req.Description, req.ID)
++	_, err = tx.Exec("UPDATE template_stacks SET name = ?, vendor = ?, description = ? WHERE id = ?", name, vendor, req.Description, req.ID)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update stack: " + err.Error()})
+@@ -799,6 +829,7 @@ func handleDevicesCreate(w http.ResponseWriter, r *http.Request) {
+ 		Name            string `json:"name"`
+ 		Serial          string `json:"serial"`
+ 		IPAddress       string `json:"ip_address"`
++		Vendor          string `json:"vendor"`
+ 		DeviceGroupID   *int   `json:"device_group_id"`
+ 		TemplateStackID *int   `json:"template_stack_id"`
+ 		TemplateID      *int   `json:"template_id"`
+@@ -811,6 +842,10 @@ func handleDevicesCreate(w http.ResponseWriter, r *http.Request) {
+ 	name := strings.TrimSpace(req.Name)
+ 	serial := strings.TrimSpace(req.Serial)
+ 	ipAddress := strings.TrimSpace(req.IPAddress)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 
+ 	vaultMutex.Lock()
+ 	if activeDB == nil {
+@@ -831,24 +866,39 @@ func handleDevicesCreate(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
+-	// Determine parent scope UUID
++	// Determine parent scope UUID and Enforce Vendor Guardrails
+ 	var parentScopeUUID interface{}
+ 	if req.DeviceGroupID != nil && *req.DeviceGroupID > 0 {
+-		var dgUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID)
++		var dgUUID, dgVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID, &dgVendor)
+ 		if err == nil {
++			if dgVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + dgVendor + " device group."})
++				return
++			}
+ 			parentScopeUUID = dgUUID
+ 		}
+ 	} else if req.TemplateStackID != nil && *req.TemplateStackID > 0 {
+-		var stackUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID)
++		var stackUUID, stackVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID, &stackVendor)
+ 		if err == nil {
++			if stackVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + stackVendor + " template stack."})
++				return
++			}
+ 			parentScopeUUID = stackUUID
+ 		}
+ 	} else if req.TemplateID != nil && *req.TemplateID > 0 {
+-		var tmplUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID)
++		var tmplUUID, tmplVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID, &tmplVendor)
+ 		if err == nil {
++			if tmplVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + tmplVendor + " template."})
++				return
++			}
+ 			parentScopeUUID = tmplUUID
+ 		}
+ 	}
+@@ -873,9 +923,9 @@ func handleDevicesCreate(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 
+ 	res, err := tx.Exec(`
+-		INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+-		VALUES (?, ?, ?, ?, ?, ?, ?)
+-	`, deviceUUID, serial, name, ipAddress, req.DeviceGroupID, req.TemplateStackID, req.TemplateID)
++		INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, vendor, device_group_id, template_stack_id, template_id)
++		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
++	`, deviceUUID, serial, name, ipAddress, vendor, req.DeviceGroupID, req.TemplateStackID, req.TemplateID)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device record: " + err.Error()})
+@@ -912,6 +962,7 @@ func handleDevicesUpdate(w http.ResponseWriter, r *http.Request) {
+ 		Name            string `json:"name"`
+ 		Serial          string `json:"serial"`
+ 		IPAddress       string `json:"ip_address"`
++		Vendor          string `json:"vendor"`
+ 		DeviceGroupID   *int   `json:"device_group_id"`
+ 		TemplateStackID *int   `json:"template_stack_id"`
+ 		TemplateID      *int   `json:"template_id"`
+@@ -924,6 +975,10 @@ func handleDevicesUpdate(w http.ResponseWriter, r *http.Request) {
+ 	name := strings.TrimSpace(req.Name)
+ 	serial := strings.TrimSpace(req.Serial)
+ 	ipAddress := strings.TrimSpace(req.IPAddress)
++	vendor := strings.TrimSpace(req.Vendor)
++	if vendor == "" {
++		vendor = "paloalto"
++	}
+ 
+ 	vaultMutex.Lock()
+ 	if activeDB == nil {
+@@ -954,24 +1009,39 @@ func handleDevicesUpdate(w http.ResponseWriter, r *http.Request) {
+ 		}
+ 	}
+ 
+-	// Determine parent scope UUID
++	// Determine parent scope UUID and Enforce Vendor Guardrails
+ 	var parentScopeUUID interface{}
+ 	if req.DeviceGroupID != nil && *req.DeviceGroupID > 0 {
+-		var dgUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID)
++		var dgUUID, dgVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM device_groups WHERE id = ?", *req.DeviceGroupID).Scan(&dgUUID, &dgVendor)
+ 		if err == nil {
++			if dgVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + dgVendor + " device group."})
++				return
++			}
+ 			parentScopeUUID = dgUUID
+ 		}
+ 	} else if req.TemplateStackID != nil && *req.TemplateStackID > 0 {
+-		var stackUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID)
++		var stackUUID, stackVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM template_stacks WHERE id = ?", *req.TemplateStackID).Scan(&stackUUID, &stackVendor)
+ 		if err == nil {
++			if stackVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + stackVendor + " template stack."})
++				return
++			}
+ 			parentScopeUUID = stackUUID
+ 		}
+ 	} else if req.TemplateID != nil && *req.TemplateID > 0 {
+-		var tmplUUID string
+-		err = dbConn.QueryRow("SELECT uuid FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID)
++		var tmplUUID, tmplVendor string
++		err = dbConn.QueryRow("SELECT uuid, vendor FROM templates WHERE id = ?", *req.TemplateID).Scan(&tmplUUID, &tmplVendor)
+ 		if err == nil {
++			if tmplVendor != vendor {
++				w.WriteHeader(http.StatusBadRequest)
++				json.NewEncoder(w).Encode(map[string]string{"error": "Vendor mismatch. Cannot assign a " + vendor + " device to a " + tmplVendor + " template."})
++				return
++			}
+ 			parentScopeUUID = tmplUUID
+ 		}
+ 	}
+@@ -1008,9 +1078,9 @@ func handleDevicesUpdate(w http.ResponseWriter, r *http.Request) {
+ 	// Update managed_devices_raw
+ 	_, err = tx.ExecContext(ctx, `
+ 		UPDATE managed_devices_raw 
+-		SET device_uuid = ?, serial = ?, name = ?, ip_address = ?, device_group_id = ?, template_stack_id = ?, template_id = ?
++		SET device_uuid = ?, serial = ?, name = ?, ip_address = ?, vendor = ?, device_group_id = ?, template_stack_id = ?, template_id = ?
+ 		WHERE id = ?
+-	`, newDeviceUUID, serial, name, ipAddress, req.DeviceGroupID, req.TemplateStackID, req.TemplateID, req.ID)
++	`, newDeviceUUID, serial, name, ipAddress, vendor, req.DeviceGroupID, req.TemplateStackID, req.TemplateID, req.ID)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update device record: " + err.Error()})
+@@ -1443,7 +1513,7 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	vaultMutex.Unlock()
+ 
+ 	// 1. Inventory Devices
+-	invRows, err := dbConn.Query(`SELECT m.id, m.serial, m.name, m.ip_address, m.device_group_id, m.template_stack_id, m.template_id, dg.name AS device_group, COALESCE(ts.name, t.name) AS template_stack FROM managed_devices_raw m LEFT JOIN device_groups dg ON m.device_group_id = dg.id LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id LEFT JOIN templates t ON m.template_id = t.id ORDER BY m.name ASC`)
++	invRows, err := dbConn.Query(`SELECT m.id, m.serial, m.name, m.ip_address, m.vendor, m.device_group_id, m.template_stack_id, m.template_id, dg.name AS device_group, COALESCE(ts.name, t.name) AS template_stack FROM managed_devices_raw m LEFT JOIN device_groups dg ON m.device_group_id = dg.id LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id LEFT JOIN templates t ON m.template_id = t.id ORDER BY m.name ASC`)
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query inventory: " + err.Error()})
+@@ -1454,16 +1524,17 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	var inventory []map[string]interface{}
+ 	for invRows.Next() {
+ 		var id int
+-		var serial, name, ipAddress string
++		var serial, name, ipAddress, vendor string
+ 		var deviceGroupID, templateStackID, templateID *int
+ 		var deviceGroup, templateStack *string
+-		err := invRows.Scan(&id, &serial, &name, &ipAddress, &deviceGroupID, &templateStackID, &templateID, &deviceGroup, &templateStack)
++		err := invRows.Scan(&id, &serial, &name, &ipAddress, &vendor, &deviceGroupID, &templateStackID, &templateID, &deviceGroup, &templateStack)
+ 		if err == nil {
+ 			inventory = append(inventory, map[string]interface{}{
+ 				"id":                id,
+ 				"serial":            serial,
+ 				"name":              name,
+ 				"ip_address":        ipAddress,
++				"vendor":            vendor,
+ 				"device_group_id":   deviceGroupID,
+ 				"template_stack_id": templateStackID,
+ 				"template_id":       templateID,
+@@ -1474,7 +1545,7 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 
+ 	// 2. Device Groups
+-	dgRows, err := dbConn.Query("SELECT dg.id, dg.uuid, dg.name, parent.uuid AS parent_uuid, dg.description FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC")
++	dgRows, err := dbConn.Query("SELECT dg.id, dg.uuid, dg.name, dg.vendor, parent.uuid AS parent_uuid, dg.description FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC")
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query device groups: " + err.Error()})
+@@ -1485,13 +1556,14 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	var deviceGroups []map[string]interface{}
+ 	for dgRows.Next() {
+ 		var id int
+-		var uuid, name string
++		var uuid, name, vendor string
+ 		var parentUUID, description *string
+-		if err := dgRows.Scan(&id, &uuid, &name, &parentUUID, &description); err == nil {
++		if err := dgRows.Scan(&id, &uuid, &name, &vendor, &parentUUID, &description); err == nil {
+ 			deviceGroups = append(deviceGroups, map[string]interface{}{
+ 				"id":          id,
+ 				"uuid":        uuid,
+ 				"name":        name,
++				"vendor":      vendor,
+ 				"parent_uuid": parentUUID,
+ 				"description": description,
+ 			})
+@@ -1499,7 +1571,7 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 
+ 	// 3. Templates
+-	tmplRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, '') FROM templates ORDER BY name ASC")
++	tmplRows, err := dbConn.Query("SELECT id, uuid, name, vendor, COALESCE(description, '') FROM templates ORDER BY name ASC")
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query templates: " + err.Error()})
+@@ -1510,20 +1582,21 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	var templates []map[string]interface{}
+ 	for tmplRows.Next() {
+ 		var id int
+-		var uuid, name, desc string
+-		err := tmplRows.Scan(&id, &uuid, &name, &desc)
++		var uuid, name, vendor, desc string
++		err := tmplRows.Scan(&id, &uuid, &name, &vendor, &desc)
+ 		if err == nil {
+ 			templates = append(templates, map[string]interface{}{
+ 				"id":          id,
+ 				"uuid":        uuid,
+ 				"name":        name,
++				"vendor":      vendor,
+ 				"description": desc,
+ 			})
+ 		}
+ 	}
+ 
+ 	// 4. Template Stacks
+-	stackRows, err := dbConn.Query("SELECT id, uuid, name, COALESCE(description, ''), device_uuid FROM template_stacks ORDER BY name ASC")
++	stackRows, err := dbConn.Query("SELECT id, uuid, name, vendor, COALESCE(description, ''), device_uuid FROM template_stacks ORDER BY name ASC")
+ 	if err != nil {
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to query template stacks: " + err.Error()})
+@@ -1534,13 +1607,14 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
+ 	var templateStacks []map[string]interface{}
+ 	for stackRows.Next() {
+ 		var id int
+-		var uuid, name, desc, deviceUUID string
+-		err := stackRows.Scan(&id, &uuid, &name, &desc, &deviceUUID)
++		var uuid, name, vendor, desc, deviceUUID string
++		err := stackRows.Scan(&id, &uuid, &name, &vendor, &desc, &deviceUUID)
+ 		if err == nil {
+ 			templateStacks = append(templateStacks, map[string]interface{}{
+ 				"id":          id,
+ 				"uuid":        uuid,
+ 				"name":        name,
++				"vendor":      vendor,
+ 				"description": desc,
+ 				"device_uuid": deviceUUID,
+ 			})
+diff --git a/canopy-core/main.go b/canopy-core/main.go
+index fb7ed35..6ae71a1 100644
+--- a/canopy-core/main.go
++++ b/canopy-core/main.go
+@@ -72,6 +72,7 @@ var actSchema = `
+ 		device_uuid TEXT NOT NULL,
+ 		uuid TEXT UNIQUE NOT NULL,
+ 		name TEXT UNIQUE NOT NULL,
++		vendor TEXT NOT NULL DEFAULT 'paloalto',
+ 		parent_id INTEGER,
+ 		description TEXT,
+ 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+@@ -83,6 +84,7 @@ var actSchema = `
+ 		device_uuid TEXT NOT NULL,
+ 		uuid TEXT UNIQUE NOT NULL,
+ 		name TEXT UNIQUE NOT NULL,
++		vendor TEXT NOT NULL DEFAULT 'paloalto',
+ 		description TEXT,
+ 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+ 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+@@ -92,6 +94,7 @@ var actSchema = `
+ 		device_uuid TEXT NOT NULL,
+ 		uuid TEXT UNIQUE NOT NULL,
+ 		name TEXT UNIQUE NOT NULL,
++		vendor TEXT NOT NULL DEFAULT 'paloalto',
+ 		description TEXT,
+ 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+ 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+@@ -485,19 +488,22 @@ var actSchema = `
+ 		device_group_id INTEGER,
+ 		template_stack_id INTEGER,
+ 		template_id INTEGER,
++		vendor TEXT NOT NULL DEFAULT 'paloalto',
+ 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+ 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
+ 		FOREIGN KEY (device_group_id) REFERENCES device_groups(id) ON DELETE SET NULL,
+ 		FOREIGN KEY (template_stack_id) REFERENCES template_stacks(id) ON DELETE SET NULL,
+ 		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+ 	);
+-	CREATE VIEW IF NOT EXISTS managed_devices AS
++	DROP VIEW IF EXISTS managed_devices;
++	CREATE VIEW managed_devices AS
+ 	SELECT 
+ 		m.id,
+ 		m.device_uuid,
+ 		m.serial,
+ 		m.name,
+ 		m.ip_address,
++		m.vendor,
+ 		dg.name AS device_group,
+ 		COALESCE(ts.name, t.name) AS template_stack,
+ 		m.created_at
+@@ -869,6 +875,10 @@ func migrateWorkspaceDatabase(db *sql.DB) {
+ 	}
+ 
+ 	// Dynamic column migrations for Objects module (errors are safely ignored if columns already exist)
++	db.Exec("ALTER TABLE managed_devices_raw ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
++	db.Exec("ALTER TABLE device_groups ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
++	db.Exec("ALTER TABLE templates ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
++	db.Exec("ALTER TABLE template_stacks ADD COLUMN vendor TEXT NOT NULL DEFAULT 'paloalto';")
+ 	db.Exec("ALTER TABLE address_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
+ 	db.Exec("ALTER TABLE address_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
+ 	db.Exec("ALTER TABLE address_groups ADD COLUMN type TEXT DEFAULT 'static';")
+diff --git a/canopy-core/build.sh b/canopy-core/scripts/build.sh
+similarity index 78%
+rename from canopy-core/build.sh
+rename to canopy-core/scripts/build.sh
+index fad8537..f58ec11 100755
+--- a/canopy-core/build.sh
++++ b/canopy-core/scripts/build.sh
+@@ -8,6 +8,11 @@ if [ -z "$1" ]; then
+     exit 1
+ fi
+ 
++# Get the directory of the script and go to the canopy-core root
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++cd "$SCRIPT_DIR/.."
++mkdir -p bin
++
+ TARGET=$1
+ 
+ # Ensure garble is installed and resolving correctly
+@@ -25,14 +30,14 @@ fi
+ build_mac() {
+     echo "🚀 Building Canopy Core (Universal macOS Binary)..."
+     echo "📦 Compiling for Intel (amd64)..."
+-    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-intel .
++    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o bin/canopy-core-intel .
+     echo "📦 Compiling for Apple Silicon (arm64)..."
+-    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-arm64 .
++    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 $GARBLE_CMD build -ldflags="-s -w" -o bin/canopy-core-arm64 .
+     echo "🔗 Merging into Universal Binary using lipo..."
+-    lipo -create -output canopy-core canopy-core-intel canopy-core-arm64
++    lipo -create -output bin/canopy-core bin/canopy-core-intel bin/canopy-core-arm64
+     echo "🧹 Cleaning up intermediate binaries..."
+-    rm canopy-core-intel canopy-core-arm64
+-    echo "✅ Done! Universal macOS binary 'canopy-core' is ready."
++    rm bin/canopy-core-intel bin/canopy-core-arm64
++    echo "✅ Done! Universal macOS binary 'bin/canopy-core' is ready."
+ }
+ 
+ build_win() {
+@@ -42,8 +47,8 @@ build_win() {
+         echo "Please install it via Homebrew: brew install mingw-w64"
+         exit 1
+     fi
+-    CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ GOOS=windows GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core.exe .
+-    echo "✅ Done! Windows binary 'canopy-core.exe' is ready."
++    CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ GOOS=windows GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o bin/canopy-core.exe .
++    echo "✅ Done! Windows binary 'bin/canopy-core.exe' is ready."
+ }
+ 
+ build_linux() {
+@@ -63,8 +68,8 @@ build_linux() {
+         LINUX_CXX="x86_64-linux-musl-g++"
+     fi
+ 
+-    CGO_ENABLED=1 CC=$LINUX_CC CXX=$LINUX_CXX GOOS=linux GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o canopy-core-linux .
+-    echo "✅ Done! Linux binary 'canopy-core-linux' is ready."
++    CGO_ENABLED=1 CC=$LINUX_CC CXX=$LINUX_CXX GOOS=linux GOARCH=amd64 $GARBLE_CMD build -ldflags="-s -w" -o bin/canopy-core-linux .
++    echo "✅ Done! Linux binary 'bin/canopy-core-linux' is ready."
+ }
+ 
+ case $TARGET in
+diff --git a/canopy-core/refactor.js b/canopy-core/scripts/refactor.js
+similarity index 100%
+rename from canopy-core/refactor.js
+rename to canopy-core/scripts/refactor.js
+diff --git a/canopy-core/refactor_devices.py b/canopy-core/scripts/refactor_devices.py
+similarity index 100%
+rename from canopy-core/refactor_devices.py
+rename to canopy-core/scripts/refactor_devices.py
+diff --git a/canopy-core/refactor_workspaces.py b/canopy-core/scripts/refactor_workspaces.py
+similarity index 100%
+rename from canopy-core/refactor_workspaces.py
+rename to canopy-core/scripts/refactor_workspaces.py

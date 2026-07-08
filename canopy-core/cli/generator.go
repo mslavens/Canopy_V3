@@ -58,6 +58,27 @@ func (g *Generator) getScopePrefix(deviceUUID string) string {
 	return fmt.Sprintf("set device-group %s", quoteIfHasSpace(name))
 }
 
+func (g *Generator) getScopeVendor(deviceUUID string) string {
+	if deviceUUID == "paloalto-panorama-global" {
+		return "paloalto"
+	}
+
+	var vendor string
+	err := g.DB.QueryRow("SELECT vendor FROM device_groups WHERE uuid = ?", deviceUUID).Scan(&vendor)
+	if err == nil && vendor != "" { return vendor }
+
+	err = g.DB.QueryRow("SELECT vendor FROM templates WHERE uuid = ?", deviceUUID).Scan(&vendor)
+	if err == nil && vendor != "" { return vendor }
+
+	err = g.DB.QueryRow("SELECT vendor FROM template_stacks WHERE uuid = ?", deviceUUID).Scan(&vendor)
+	if err == nil && vendor != "" { return vendor }
+
+	err = g.DB.QueryRow("SELECT m.vendor FROM scopes s JOIN managed_devices_raw m ON s.uuid = m.device_uuid WHERE s.uuid = ?", deviceUUID).Scan(&vendor)
+	if err == nil && vendor != "" { return vendor }
+
+	return "paloalto"
+}
+
 func (g *Generator) Generate(req CLIRequest) ([]string, error) {
 	var allCommands []string
 	visited := make(map[string]bool)
@@ -135,12 +156,44 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 		}
 		visited[name.String] = true
 		scopePrefix := g.getScopePrefix(devUUID.String)
+		vendor := g.getScopeVendor(devUUID.String)
 
-		tagCmds, tagStr, _ := g.getTags("address_object", id, scopePrefix)
-		cmds = append(cmds, tagCmds...)
-		cmds = append(cmds, fmt.Sprintf("%s address %s %s %s%s", scopePrefix, name.String, addrType.String, value.String, tagStr))
-		if desc.Valid && desc.String != "" {
-			cmds = append(cmds, fmt.Sprintf(`%s address %s description "%s"`, scopePrefix, name.String, desc.String))
+		if vendor == "fortinet" {
+			cmds = append(cmds, "config firewall address", fmt.Sprintf(`    edit "%s"`, name.String))
+			if addrType.String == "ip-netmask" {
+				cmds = append(cmds, "        set type ipmask", fmt.Sprintf("        set subnet %s", value.String))
+			} else if addrType.String == "fqdn" {
+				cmds = append(cmds, "        set type fqdn", fmt.Sprintf("        set fqdn %s", value.String))
+			} else if addrType.String == "ip-range" {
+				cmds = append(cmds, "        set type iprange", fmt.Sprintf("        set start-ip %s", strings.Split(value.String, "-")[0]), fmt.Sprintf("        set end-ip %s", strings.Split(value.String, "-")[1]))
+			}
+			if desc.Valid && desc.String != "" {
+				cmds = append(cmds, fmt.Sprintf(`        set comment "%s"`, desc.String))
+			}
+			cmds = append(cmds, "    next", "end")
+		} else if vendor == "cisco" {
+			cmds = append(cmds, fmt.Sprintf("object network %s", name.String))
+			if addrType.String == "ip-netmask" {
+				// Assuming format x.x.x.x/y for subnet, need to split it
+				parts := strings.Split(value.String, "/")
+				if len(parts) == 2 {
+					cmds = append(cmds, fmt.Sprintf("    subnet %s %s", parts[0], parts[1])) // simplified netmask for PoC
+				} else {
+					cmds = append(cmds, fmt.Sprintf("    host %s", value.String))
+				}
+			} else if addrType.String == "fqdn" {
+				cmds = append(cmds, fmt.Sprintf("    fqdn %s", value.String))
+			}
+			if desc.Valid && desc.String != "" {
+				cmds = append(cmds, fmt.Sprintf(`    description "%s"`, desc.String))
+			}
+		} else {
+			tagCmds, tagStr, _ := g.getTags("address_object", id, scopePrefix)
+			cmds = append(cmds, tagCmds...)
+			cmds = append(cmds, fmt.Sprintf("%s address %s %s %s%s", scopePrefix, name.String, addrType.String, value.String, tagStr))
+			if desc.Valid && desc.String != "" {
+				cmds = append(cmds, fmt.Sprintf(`%s address %s description "%s"`, scopePrefix, name.String, desc.String))
+			}
 		}
 
 	case "Address Groups":
@@ -205,22 +258,47 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 		}
 
 		if grpType.String == "static" {
-			tagCmds, tagStr, _ := g.getTags("address_group", id, scopePrefix)
-			cmds = append(cmds, tagCmds...)
+			var formattedMembers []string
 			for _, m := range members {
-				cmds = append(cmds, fmt.Sprintf("%s address-group %s static %s", scopePrefix, name.String, m))
+				formattedMembers = append(formattedMembers, fmt.Sprintf(`"%s"`, m))
 			}
-			if tagStr != "" {
-				cmds = append(cmds, fmt.Sprintf("%s address-group %s%s", scopePrefix, name.String, tagStr))
+			
+			vendor := g.getScopeVendor(devUUID.String)
+			if vendor == "fortinet" {
+				cmds = append(cmds, "config firewall addrgrp", fmt.Sprintf(`    edit "%s"`, name.String))
+				if len(formattedMembers) > 0 {
+					cmds = append(cmds, fmt.Sprintf(`        set member %s`, strings.Join(formattedMembers, " ")))
+				}
+				if desc.Valid && desc.String != "" {
+					cmds = append(cmds, fmt.Sprintf(`        set comment "%s"`, desc.String))
+				}
+				cmds = append(cmds, "    next", "end")
+			} else if vendor == "cisco" {
+				cmds = append(cmds, fmt.Sprintf("object-group network %s", name.String))
+				if desc.Valid && desc.String != "" {
+					cmds = append(cmds, fmt.Sprintf(`    description "%s"`, desc.String))
+				}
+				for _, m := range members {
+					cmds = append(cmds, fmt.Sprintf("    network-object object %s", m))
+				}
+			} else {
+				tagCmds, tagStr, _ := g.getTags("address_group", id, scopePrefix)
+				cmds = append(cmds, tagCmds...)
+				cmds = append(cmds, fmt.Sprintf("%s address-group %s static [ %s ]%s", scopePrefix, name.String, strings.Join(members, " "), tagStr))
+				if desc.Valid && desc.String != "" {
+					cmds = append(cmds, fmt.Sprintf(`%s address-group %s description "%s"`, scopePrefix, name.String, desc.String))
+				}
 			}
 		} else {
-			tagCmds, tagStr, _ := g.getTags("address_group", id, scopePrefix)
-			cmds = append(cmds, tagCmds...)
-			cmds = append(cmds, fmt.Sprintf(`%s address-group %s dynamic filter "%s"%s`, scopePrefix, name.String, filter.String, tagStr))
-		}
-
-		if desc.Valid && desc.String != "" {
-			cmds = append(cmds, fmt.Sprintf(`%s address-group %s description "%s"`, scopePrefix, name.String, desc.String))
+			vendor := g.getScopeVendor(devUUID.String)
+			if vendor == "paloalto" {
+				tagCmds, tagStr, _ := g.getTags("address_group", id, scopePrefix)
+				cmds = append(cmds, tagCmds...)
+				cmds = append(cmds, fmt.Sprintf(`%s address-group %s dynamic filter "%s"%s`, scopePrefix, name.String, filter.String, tagStr))
+				if desc.Valid && desc.String != "" {
+					cmds = append(cmds, fmt.Sprintf(`%s address-group %s description "%s"`, scopePrefix, name.String, desc.String))
+				}
+			}
 		}
 
 	case "Services":
