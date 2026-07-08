@@ -3242,11 +3242,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
               setIsCrudModalOpen(false);
               if (standaloneEditor) window.close();
             }}>Cancel</button>
-            <button type="submit" className="btn-primary btn-sm" disabled={!isFormDirty}>Save Changes</button>
+            <button type="submit" form="crud-object-form" className="btn-primary btn-sm" disabled={!isFormDirty}>Save Changes</button>
           </>
         }
       >
-        <form onSubmit={handleSaveObject} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form id="crud-object-form" onSubmit={handleSaveObject} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {/* Scope selection */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Scope Location</label>
