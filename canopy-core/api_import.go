@@ -413,7 +413,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				metricVal = int(m)
 			} else if mStr, ok := row["metric"].(string); ok {
 				var parsed int
-				if _, err := json.Unmarshal([]byte(mStr), &parsed); err == nil {
+				if err := json.Unmarshal([]byte(mStr), &parsed); err == nil {
 					metricVal = parsed
 				}
 			}

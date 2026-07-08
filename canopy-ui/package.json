@@ -53,20 +53,20 @@
     "mac": {
       "target": ["dmg", "zip"],
       "extraResources": [{
-        "from": "../canopy-core/canopy-core",
+        "from": "../canopy-core/bin/canopy-core",
         "to": "."
       }]
     },
     "win": {
       "target": ["nsis", "portable"],
       "extraResources": [{
-        "from": "../canopy-core/canopy-core.exe",
+        "from": "../canopy-core/bin/canopy-core.exe",
         "to": "."
       }]
     },
     "linux": {
       "extraResources": [{
-        "from": "../canopy-core/canopy-core-linux",
+        "from": "../canopy-core/bin/canopy-core-linux",
         "to": "."
       }]
     }

@@ -94,7 +94,7 @@ function startBackendCore(userDataPath, port) {
 
     if (!isPackaged) {
         // Local Dev Path: Point straight to your canopy-core backend codebase folder
-        binaryPath = path.join(__dirname, '..', '..', 'canopy-core', 'canopy-core');
+        binaryPath = path.join(__dirname, '..', '..', 'canopy-core', 'bin', 'canopy-core');
         corePath = path.join(__dirname, '..', '..', 'canopy-core');
         // For development, create a temporary data directory to avoid cluttering the source tree
         dataPath = path.join(app.getPath('temp'), 'CanopyDevData');

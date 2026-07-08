@@ -67,3 +67,7 @@
 
 ## Embedded CLI Limitations
 - **Portable Mode Constraint:** The `canopy-core` embedded CLI tool (e.g., `db-query`) relies on persistent OS file paths. It cannot be used when the application is deployed in a single-file Portable format (like Linux `.AppImage` or Windows Portable `.exe`), as those runtimes extract binaries into temporary, hidden directories.
+
+## Multi-Vendor Adaptability & Path Analysis
+- **Multi-Vendor Workspaces:** Workspaces must natively support mixed-vendor firewall estates (e.g., a mix of Palo Alto, Fortinet, and Cisco devices in the same workspace). Shared structures (like address objects, zones, routing tables) must be normalized so that cross-vendor pathing can be resolved.
+- **Heterogeneous Policy Generation:** When the Path Analysis Engine calculates traffic paths that transit multiple firewalls of different vendors, the engine must generate separate, vendor-specific policies for each transit node (e.g., generating PAN-OS CLI rules for the Palo Alto hop, and FortiOS CLI rules for the Fortinet hop).
