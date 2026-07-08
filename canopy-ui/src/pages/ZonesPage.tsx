@@ -392,25 +392,24 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                   </h2>
                 }
                 topRightActions={
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      className="btn-secondary btn-sm"
-                      onClick={() => handleGenerateCli()}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      title="Generate CLI commands for zones"
-                    >
-                      <Code size={14} /> Generate CLI
-                    </button>
-                    <button
-                      onClick={handleOpenAddZoneModal}
-                      className="btn-primary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      disabled={selectedScopeUuid === 'show-all'}
-                      title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add zones" : "Add Zone"}
-                    >
-                      <Plus size={14} /> Add Zone
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleOpenAddZoneModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={selectedScopeUuid === 'show-all'}
+                    title={selectedScopeUuid === 'show-all' ? "Select a specific Template context to add zones" : "Add Zone"}
+                  >
+                    <Plus size={14} /> Add Zone
+                  </button>
+                }
+                exportActions={
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                    onClick={() => handleGenerateCli()}
+                  >
+                    <Code size={13} /> Generate CLI
+                  </button>
                 }
                 bulkActions={
                   selectedRows.length > 0 ? (
@@ -434,16 +433,6 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                       <button
                         className="btn-secondary btn-sm"
                         style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        onClick={() => {
-                          closeMenu();
-                          handleGenerateCli([row]);
-                        }}
-                      >
-                        <Code size={13} /> Generate CLI
-                      </button>
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
                         disabled={isInherited}
                         onClick={() => {
                           closeMenu();
@@ -452,16 +441,32 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, sharedScop
                       >
                         <Edit2 size={13} /> Edit
                       </button>
+
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
                       <button
                         className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--red-500)' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        onClick={() => {
+                          closeMenu();
+                          handleGenerateCli([row]);
+                        }}
+                      >
+                        <Code size={13} /> Generate CLI
+                      </button>
+
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--status-red)' }}
                         disabled={isInherited}
                         onClick={() => {
                           closeMenu();
                           handleDeleteZone(row);
                         }}
                       >
-                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete
+                        <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete
                       </button>
                     </>
                   );

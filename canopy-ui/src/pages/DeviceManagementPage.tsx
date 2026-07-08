@@ -1730,6 +1730,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
                         <button
                           className="context-menu-item"
+                          onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
+                        </button>
+                        <button
+                          className="context-menu-item"
                           onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
@@ -1776,21 +1785,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                         <button
                           className="context-menu-item"
-                          onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
-                        </button>
-                        <button
-                          className="context-menu-item"
                           onClick={() => { handleDeleteDevice(row); closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Device
+                          <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Device
                         </button>
                       </div>
                     )}
@@ -1994,6 +1994,15 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     </div>
                     <button
                       className="context-menu-item"
+                      onClick={() => { handleOpenEditGroupModal(treeContextMenu.group); setTreeContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
+                    </button>
+                    <button
+                      className="context-menu-item"
                       onClick={() => { handleOpenAddGroupModal(treeContextMenu.group.id); setTreeContextMenu(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
@@ -2012,16 +2021,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     </button>
                     <button
                       className="context-menu-item"
-                      onClick={() => { handleGenerateCli('device-group', treeContextMenu.group); setTreeContextMenu(null); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
-                    </button>
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                    <button
-                      className="context-menu-item"
                       onClick={() => { navigator.clipboard.writeText(cleanGroupName(treeContextMenu.group.name)); addToast('Copied Group Name'); setTreeContextMenu(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
@@ -2029,25 +2028,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     >
                       <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Group Name
                     </button>
+
                     <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
                     <button
                       className="context-menu-item"
-                      onClick={() => { handleOpenEditGroupModal(treeContextMenu.group); setTreeContextMenu(null); }}
+                      onClick={() => { handleGenerateCli('device-group', treeContextMenu.group); setTreeContextMenu(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
+                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
                     </button>
+
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
                     {treeContextMenu.group.uuid !== 'paloalto-dg-shared' && (
                       <button
                         className="context-menu-item"
                         onClick={() => { handleDeleteGroup(treeContextMenu.group); setTreeContextMenu(null); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
-                        <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
+                        <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Group
                       </button>
                     )}
                   </div>
@@ -2200,11 +2204,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               <button
                                 className="context-menu-item"
                                 onClick={() => { handleBulkRemoveFromGroup([row]); closeMenu(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               >
-                                <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Group
+                                <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Group
                               </button>
                             </div>
                           )}
@@ -2593,11 +2597,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                 <button
                                   className="context-menu-item"
                                   onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
                                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                  <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Template
+                                  <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Template
                                 </button>
                               </div>
                             )}
@@ -2729,17 +2733,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                        </button>
                                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                                        <button
-                                         className="context-menu-item"
-                                         onClick={() => {
-                                           handleRemoveMemberTemplate(activeStack, row.template_name);
-                                           closeMenu();
-                                         }}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Remove from Stack
-                                       </button>
+                                          className="context-menu-item"
+                                          onClick={() => {
+                                            handleRemoveMemberTemplate(activeStack, row.template_name);
+                                            closeMenu();
+                                          }}
+                                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        >
+                                          <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Stack
+                                        </button>
                                      </>
                                    ) : (
                                      <>
@@ -2843,58 +2847,26 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       {templateContextMenu.type === 'stack' ? templateContextMenu.data.name : cleanTemplateName(templateContextMenu.data.name)}
                     </div>
                     {templateContextMenu.type === 'stack' ? (
-                      <>
-                        <button
-                          className="context-menu-item"
-                          onClick={() => { handleOpenEditStackModal(templateContextMenu.data); setTemplateContextMenu(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Stack
-                        </button>
-                        <button
-                          className="context-menu-item"
-                          onClick={() => { handleDeleteStack(templateContextMenu.data); setTemplateContextMenu(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Stack
-                        </button>
-                      </>
+                      <button
+                        className="context-menu-item"
+                        onClick={() => { handleOpenEditStackModal(templateContextMenu.data); setTemplateContextMenu(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Stack
+                      </button>
                     ) : (
-                      <>
-                        <button
-                          className="context-menu-item"
-                          onClick={() => { handleOpenEditTemplateModal(templateContextMenu.data); setTemplateContextMenu(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Template
-                        </button>
-                        <button
-                          className="context-menu-item"
-                          onClick={() => { handleDeleteTemplate(templateContextMenu.data); setTemplateContextMenu(null); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Template
-                        </button>
-                      </>
+                      <button
+                        className="context-menu-item"
+                        onClick={() => { handleOpenEditTemplateModal(templateContextMenu.data); setTemplateContextMenu(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Template
+                      </button>
                     )}
-                    <button
-                      className="context-menu-item"
-                      onClick={() => { handleGenerateCli(templateContextMenu.type, templateContextMenu.data); setTemplateContextMenu(null); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
-                    </button>
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                     <button
                       className="context-menu-item"
                       onClick={() => { navigator.clipboard.writeText(templateContextMenu.data.name); addToast('Copied context name'); setTemplateContextMenu(null); }}
@@ -2904,6 +2876,42 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     >
                       <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Context Name
                     </button>
+
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                    <button
+                      className="context-menu-item"
+                      onClick={() => { handleGenerateCli(templateContextMenu.type, templateContextMenu.data); setTemplateContextMenu(null); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Code size={13} style={{ color: 'var(--text-muted)' }} /> Generate CLI
+                    </button>
+
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                    {templateContextMenu.type === 'stack' ? (
+                      <button
+                        className="context-menu-item"
+                        onClick={() => { handleDeleteStack(templateContextMenu.data); setTemplateContextMenu(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Stack
+                      </button>
+                    ) : (
+                      <button
+                        className="context-menu-item"
+                        onClick={() => { handleDeleteTemplate(templateContextMenu.data); setTemplateContextMenu(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Template
+                      </button>
+                    )}
                   </div>
                 )}
 
