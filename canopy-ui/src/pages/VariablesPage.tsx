@@ -9,7 +9,8 @@ import { Modal } from '../components/Modal';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { FileCode2, Loader2, Plus, Edit2, Trash2, Code } from 'lucide-react';
+import { DataImportWizard } from '../components/DataImportWizard';
+import { FileCode2, Loader2, Plus, Edit2, Trash2, Code, Download } from 'lucide-react';
 
 interface VariablesPageProps {
   auth: { url: string; token: string } | null;
@@ -41,6 +42,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
   // CLI Generation states
   const [isCliModalOpen, setIsCliModalOpen] = useState(false);
   const [generatedCliCommands, setGeneratedCliCommands] = useState('');
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -411,13 +413,23 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
                   </button>
                 }
                 exportActions={
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
-                    onClick={() => handleGenerateCli()}
-                  >
-                    <Code size={13} /> Generate CLI
-                  </button>
+                  <>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                      onClick={() => handleGenerateCli()}
+                    >
+                      <Code size={13} /> Generate CLI
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                      onClick={() => setImportWizardOpen(true)}
+                    >
+                      <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                    </button>
+                  </>
                 }
                 bulkActions={
                   selectedRows.length > 0 ? (
@@ -586,6 +598,20 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, sh
           </pre>
         </div>
       </Modal>
+
+      <DataImportWizard
+        isOpen={importWizardOpen}
+        onClose={() => setImportWizardOpen(false)}
+        defaultDataType="variables"
+        apiClient={apiClient}
+        deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
+        scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        onSuccess={() => {
+          addToast('Variables imported successfully', 'success');
+          fetchVariables();
+        }}
+        availableDataTypes={[{ value: 'variables', label: 'Template Variables' }]}
+      />
     </div>
   );
 };

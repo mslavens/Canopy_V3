@@ -10,7 +10,8 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
-import { Network, Loader2, Plus, Edit2, Trash2, Code } from 'lucide-react';
+import { DataImportWizard } from '../components/DataImportWizard';
+import { Network, Loader2, Plus, Edit2, Trash2, Code, Download } from 'lucide-react';
 
 interface InterfacesPageProps {
   auth: { url: string; token: string } | null;
@@ -41,6 +42,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
   // CLI Generation states
   const [isCliModalOpen, setIsCliModalOpen] = useState(false);
   const [generatedCliCommands, setGeneratedCliCommands] = useState('');
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -417,13 +419,23 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
                   </button>
                 }
                 exportActions={
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
-                    onClick={() => handleGenerateCli()}
-                  >
-                    <Code size={13} /> Generate CLI
-                  </button>
+                  <>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                      onClick={() => handleGenerateCli()}
+                    >
+                      <Code size={13} /> Generate CLI
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                      onClick={() => setImportWizardOpen(true)}
+                    >
+                      <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                    </button>
+                  </>
                 }
                 bulkActions={
                   selectedRows.length > 0 ? (
@@ -612,6 +624,20 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
           </pre>
         </div>
       </Modal>
+
+      <DataImportWizard
+        isOpen={importWizardOpen}
+        onClose={() => setImportWizardOpen(false)}
+        defaultDataType="interfaces"
+        apiClient={apiClient}
+        deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
+        scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        onSuccess={() => {
+          addToast('Interfaces imported successfully', 'success');
+          fetchInterfaces();
+        }}
+        availableDataTypes={[{ value: 'interfaces', label: 'Interfaces' }]}
+      />
     </div>
   );
 };

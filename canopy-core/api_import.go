@@ -162,6 +162,371 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+	case "devices":
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			serial, _ := row["serial"].(string)
+			ipAddr, _ := row["ip_address"].(string)
+			dgName, _ := row["device_group"].(string)
+			tsName, _ := row["template_stack"].(string)
+			tmplName, _ := row["template"].(string)
+
+			name = strings.TrimSpace(name)
+			serial = strings.TrimSpace(serial)
+			ipAddr = strings.TrimSpace(ipAddr)
+			if name == "" || serial == "" {
+				continue
+			}
+
+			// Check duplicate serial
+			var exists int
+			err := tx.QueryRow("SELECT COUNT(*) FROM managed_devices_raw WHERE serial = ?", serial).Scan(&exists)
+			if err != nil || exists > 0 {
+				continue
+			}
+
+			// Lookup parent ID / UUID
+			var dgID, tsID, tmplID *int64
+			var parentScopeUUID interface{}
+
+			if dgName != "" {
+				var id int64
+				var dgUUID string
+				err = tx.QueryRow("SELECT id, uuid FROM device_groups WHERE name = ?", dgName).Scan(&id, &dgUUID)
+				if err == nil {
+					dgID = &id
+					parentScopeUUID = dgUUID
+				}
+			}
+			if tsName != "" {
+				var id int64
+				var tsUUID string
+				err = tx.QueryRow("SELECT id, uuid FROM template_stacks WHERE name = ?", tsName).Scan(&id, &tsUUID)
+				if err == nil {
+					tsID = &id
+					parentScopeUUID = tsUUID
+				}
+			}
+			if tmplName != "" && tsID == nil {
+				var id int64
+				var tmplUUID string
+				err = tx.QueryRow("SELECT id, uuid FROM templates WHERE name = ?", tmplName).Scan(&id, &tmplUUID)
+				if err == nil {
+					tmplID = &id
+					parentScopeUUID = tmplUUID
+				}
+			}
+
+			devUUID := "paloalto-fw-" + name + "-" + serial
+
+			// Insert scope
+			_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'firewall', NULL, ?, ?)", devUUID, name, parentScopeUUID)
+			if err != nil {
+				continue
+			}
+
+			// Insert managed device
+			res, err := tx.Exec(`
+				INSERT INTO managed_devices_raw (device_uuid, serial, name, ip_address, device_group_id, template_stack_id, template_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, devUUID, serial, name, ipAddr, dgID, tsID, tmplID)
+			if err != nil {
+				continue
+			}
+
+			mdevID, err := res.LastInsertId()
+			if err == nil {
+				// Update scope reference
+				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", mdevID, devUUID)
+				insertedCount++
+			}
+		}
+
+	case "device_groups":
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			desc, _ := row["description"].(string)
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			var exists int
+			tx.QueryRow("SELECT COUNT(*) FROM device_groups WHERE name = ?", name).Scan(&exists)
+			if exists > 0 {
+				continue
+			}
+
+			uuid := "paloalto-dg-" + name
+			res, err := tx.Exec("INSERT INTO device_groups (uuid, name, description) VALUES (?, ?, ?)", uuid, name, desc)
+			if err == nil {
+				id, err := res.LastInsertId()
+				if err == nil {
+					_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'device-group', ?, ?, NULL)", uuid, id, name)
+					if err == nil {
+						insertedCount++
+					}
+				}
+			}
+		}
+
+	case "templates":
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			desc, _ := row["description"].(string)
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			var exists int
+			tx.QueryRow("SELECT COUNT(*) FROM templates WHERE name = ?", name).Scan(&exists)
+			if exists > 0 {
+				continue
+			}
+
+			uuid := "paloalto-tmpl-" + name
+			res, err := tx.Exec("INSERT INTO templates (uuid, name, description) VALUES (?, ?, ?)", uuid, name, desc)
+			if err == nil {
+				id, err := res.LastInsertId()
+				if err == nil {
+					_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template', ?, ?, NULL)", uuid, id, name+" (Panorama)")
+					if err == nil {
+						insertedCount++
+					}
+				}
+			}
+		}
+
+	case "template_stacks":
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			desc, _ := row["description"].(string)
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			var exists int
+			tx.QueryRow("SELECT COUNT(*) FROM template_stacks WHERE name = ?", name).Scan(&exists)
+			if exists > 0 {
+				continue
+			}
+
+			uuid := "paloalto-stack-" + name
+			res, err := tx.Exec("INSERT INTO template_stacks (uuid, name, description) VALUES (?, ?, ?)", uuid, name, desc)
+			if err == nil {
+				id, err := res.LastInsertId()
+				if err == nil {
+					_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template-stack', ?, ?, NULL)", uuid, id, name)
+					if err == nil {
+						insertedCount++
+					}
+				}
+			}
+		}
+
+	case "zones":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO zones (device_uuid, name, type)
+			VALUES (?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			zType, _ := row["type"].(string)
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if zType == "" {
+				zType = "layer3"
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, name, zType)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
+	case "interfaces":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO interfaces (device_uuid, scope, name, type, ip_address, zone, vr_name, description)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			ifaceType, _ := row["type"].(string)
+			ipAddr, _ := row["ip_address"].(string)
+			zone, _ := row["zone"].(string)
+			vrName, _ := row["vr_name"].(string)
+			desc, _ := row["description"].(string)
+
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if ifaceType == "" {
+				ifaceType = "layer3"
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, ifaceType, ipAddr, zone, vrName, desc)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
+	case "static_routes":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO static_routes (device_uuid, vr_name, route_name, destination, nexthop, interface, metric)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			vrName, _ := row["vr_name"].(string)
+			routeName, _ := row["route_name"].(string)
+			dest, _ := row["destination"].(string)
+			nexthop, _ := row["nexthop"].(string)
+			iface, _ := row["interface"].(string)
+			
+			metricVal := 10
+			if m, ok := row["metric"].(float64); ok {
+				metricVal = int(m)
+			} else if mStr, ok := row["metric"].(string); ok {
+				var parsed int
+				if _, err := json.Unmarshal([]byte(mStr), &parsed); err == nil {
+					metricVal = parsed
+				}
+			}
+
+			routeName = strings.TrimSpace(routeName)
+			dest = strings.TrimSpace(dest)
+			if routeName == "" || dest == "" {
+				continue
+			}
+			if vrName == "" {
+				vrName = "default"
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, vrName, routeName, dest, nexthop, iface, metricVal)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
+	case "variables":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO variables (device_uuid, scope, name, type, value, description)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			vType, _ := row["type"].(string)
+			val, _ := row["value"].(string)
+			desc, _ := row["description"].(string)
+
+			name = strings.TrimSpace(name)
+			val = strings.TrimSpace(val)
+			if name == "" || val == "" {
+				continue
+			}
+			if !strings.HasPrefix(name, "$") {
+				name = "$" + name
+			}
+			if vType == "" {
+				vType = "ip-netmask"
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, vType, val, desc)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
+	case "address_groups":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO address_groups (device_uuid, scope, name, type, description)
+			VALUES (?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			agType, _ := row["type"].(string)
+			desc, _ := row["description"].(string)
+
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			if agType == "" {
+				agType = "static"
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, agType, desc)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
+	case "service_groups":
+		currentStmt, err = tx.Prepare(`
+			INSERT INTO service_groups (device_uuid, scope, name, description)
+			VALUES (?, ?, ?, ?)
+		`)
+		if err != nil {
+			tx.Rollback()
+			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
+			return
+		}
+		defer currentStmt.Close()
+
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			desc, _ := row["description"].(string)
+
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, desc)
+			if err == nil {
+				insertedCount++
+			}
+		}
+
 	default:
 		tx.Rollback()
 		http.Error(w, "Unsupported import object type: "+req.Type, http.StatusBadRequest)

@@ -9,7 +9,8 @@ import { Modal } from '../components/Modal';
 import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
-import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X, Code } from 'lucide-react';
+import { DataImportWizard } from '../components/DataImportWizard';
+import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X, Code, Download } from 'lucide-react';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -385,6 +386,8 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [selectedAddableTemplates, setSelectedAddableTemplates] = useState<BaseTemplateNode[]>([]);
   const [assignModalSearchQuery, setAssignModalSearchQuery] = useState('');
   const [addTemplateModalSearchQuery, setAddTemplateModalSearchQuery] = useState('');
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
+  const [importWizardType, setImportWizardType] = useState('devices');
 
   const [templatesLeftSidebarTab, setTemplatesLeftSidebarTab] = useState<'stacks' | 'templates'>('templates');
 
@@ -1808,6 +1811,18 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         <Plus size={14} /> Add Firewall
                       </button>
                     }
+                    exportActions={
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                        onClick={() => {
+                          setImportWizardType('devices');
+                          setImportWizardOpen(true);
+                        }}
+                      >
+                        <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                      </button>
+                    }
                   />
                 </div>
               </div>
@@ -1922,17 +1937,47 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                   <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
                                 </button>
                               )}
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
+                                onClick={() => {
+                                  setImportWizardType('device_groups');
+                                  setImportWizardOpen(true);
+                                  setIsHierarchyDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                              </button>
                             </>
                           ) : (
-                            <button
-                              className="context-menu-item"
-                              onClick={() => { handleOpenAddGroupModal(null); setIsHierarchyDropdownOpen(false); }}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Root Group
-                            </button>
+                            <>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => { handleOpenAddGroupModal(null); setIsHierarchyDropdownOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Root Group
+                              </button>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
+                                onClick={() => {
+                                  setImportWizardType('device_groups');
+                                  setImportWizardOpen(true);
+                                  setIsHierarchyDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
@@ -2299,7 +2344,48 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   </div>
 
                   {/* Actions Menu row */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', height: '28px', margin: '12px 20px 4px 20px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', height: '28px', margin: '12px 20px 4px 20px', flexShrink: 0 }}>
+                    <div style={{ position: 'relative', height: '100%' }} ref={templatesDropdownRef}>
+                      <button
+                        className="btn-secondary btn-sm"
+                        style={{ padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '6px', fontSize: '12px' }}
+                        onClick={() => setIsTemplatesDropdownOpen(!isTemplatesDropdownOpen)}
+                      >
+                        <MoreHorizontal size={14} /> Actions
+                      </button>
+                      {isTemplatesDropdownOpen && (
+                        <div className="dropdown-menu" style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: '100%',
+                          marginTop: '4px',
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-main)',
+                          borderRadius: '6px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                          zIndex: 2000,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                          padding: '4px',
+                          minWidth: '180px'
+                        }}>
+                          <button
+                            className="context-menu-item"
+                            onClick={() => {
+                              setIsTemplatesDropdownOpen(false);
+                              setImportWizardType(templatesLeftSidebarTab === 'stacks' ? 'template_stacks' : 'templates');
+                              setImportWizardOpen(true);
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {templatesLeftSidebarTab === 'stacks' ? (
                       <button
                         className="btn-primary btn-sm"
@@ -3549,6 +3635,25 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           />
         </div>
       </Modal>
+
+      <DataImportWizard
+        isOpen={importWizardOpen}
+        onClose={() => setImportWizardOpen(false)}
+        defaultDataType={importWizardType}
+        apiClient={apiClient}
+        deviceUuid="paloalto-panorama-global"
+        scope="Shared"
+        onSuccess={() => {
+          addToast('Data imported successfully', 'success');
+          fetchData();
+        }}
+        availableDataTypes={[
+          { value: 'devices', label: 'Firewalls' },
+          { value: 'device_groups', label: 'Device Groups' },
+          { value: 'templates', label: 'Base Templates' },
+          { value: 'template_stacks', label: 'Template Stacks' }
+        ]}
+      />
 
     </div>
   );
