@@ -1058,14 +1058,14 @@ func TestParser(t *testing.T) {
 			t.Errorf("expected parent_uuid to be 'paloalto-dg-CorpDG', got %q", parentUUID)
 		}
 
-		// Verify device group CorpDG parent_uuid is set to paloalto-dg-shared
+		// Verify device group CorpDG parent_uuid is set to paloalto-panorama-global
 		var dgParentUUID string
 		err = db.DB().QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = 'paloalto-dg-CorpDG'").Scan(&dgParentUUID)
 		if err != nil {
 			t.Fatalf("failed to query device group CorpDG parent_uuid: %v", err)
 		}
-		if dgParentUUID != "paloalto-dg-shared" {
-			t.Errorf("expected CorpDG parent_uuid to be 'paloalto-dg-shared', got %q", dgParentUUID)
+		if dgParentUUID != "paloalto-panorama-global" {
+			t.Errorf("expected CorpDG parent_uuid to be 'paloalto-panorama-global', got %q", dgParentUUID)
 		}
 
 		// Verify the hostname in managed_devices has been updated to fw-corp-branch

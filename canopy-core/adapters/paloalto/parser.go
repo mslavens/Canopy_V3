@@ -3032,18 +3032,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		// 4. Process Device Groups (Pass 1 - Insert DG and Scopes)
 		progress(2, 55, "Synchronizing Device Group contexts...")
 		// Register default implicit "shared" root device group context
-		clearDeviceTables(tx, "paloalto-dg-shared")
-		resShared, err := dgStmt.Exec(sharedUUID, "paloalto-dg-shared", "shared", nil, "")
-		if err != nil {
-			return 0, 0, fmt.Errorf("failed to register root shared device group: %w", err)
-		}
-		sharedDgID, _ := resShared.LastInsertId()
-		dgNameToID["shared"] = sharedDgID
-
-		if _, err := scopeStmt.Exec("paloalto-dg-shared", "device-group", sharedDgID, "shared", nil); err != nil {
-			return 0, 0, fmt.Errorf("failed to register root shared device group scope: %w", err)
-		}
-
+		// No longer inserting a 'paloalto-dg-shared' device group, using global scope directly.
 		for _, dg := range allDeviceGroups {
 			dgUUID := "paloalto-dg-" + dg.Name
 			clearDeviceTables(tx, dgUUID)
@@ -3120,9 +3109,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		// Device Groups (Pass 2 - Resolve parent relationships)
 		for _, dg := range allDeviceGroups {
 			dgID := dgNameToID[dg.Name]
-			// Default to parent group "shared" if no explicit parent group is configured in the XML
-			var parentID interface{} = sharedDgID
-			var parentScopeUUID interface{} = "paloalto-dg-shared"
+			// Default to global scope if no explicit parent group is configured in the XML
+			var parentID interface{} = nil
+			var parentScopeUUID interface{} = "paloalto-panorama-global"
 
 			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
 				if pid, ok := dgNameToID[parentName]; ok {
@@ -3925,9 +3914,6 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		}
 		dgRows.Close()
 
-		var sharedID int64
-		_ = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
-
 		for _, dg := range missingDGs {
 			cleanName := strings.Replace(dg.Name, " (Device Group)", "", 1)
 			if cleanName == "shared" {
@@ -3936,7 +3922,7 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			res, err := tx.Exec(`
 				INSERT INTO device_groups (device_uuid, uuid, name, parent_id, description)
 				VALUES (?, ?, ?, ?, ?)
-			`, "paloalto-panorama-global", dg.UUID, cleanName, sharedID, "")
+			`, "paloalto-panorama-global", dg.UUID, cleanName, nil, "")
 			if err == nil {
 				newID, _ := res.LastInsertId()
 				tx.Exec("UPDATE scopes SET reference_id = ? WHERE uuid = ?", newID, dg.UUID)

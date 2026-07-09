@@ -28,8 +28,8 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
 
   return (
     <div className="page-container" style={{ padding: '0 24px' }}>
-      <PageHeader 
-        title="Vendor Adapters" 
+      <PageHeader
+        title="Vendor Adapters"
         description="Manage installed vendor plugins and licensing."
       />
 
@@ -40,7 +40,7 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
             Loading adapters...
           </div>
         )}
-        
+
         {error && (
           <div style={{ color: 'var(--status-red)', padding: '16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
             {error}
@@ -50,12 +50,12 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
         {!loading && !error && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
             {adapters.map((adapter) => (
-              <div 
-                key={adapter} 
-                style={{ 
-                  background: 'var(--bg-card)', 
-                  border: '1px solid var(--border-light)', 
-                  borderRadius: '12px', 
+              <div
+                key={adapter}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '12px',
                   padding: '24px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -64,16 +64,16 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ margin: 0, textTransform: 'capitalize', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShieldCheck size={20} style={{ color: 'var(--primary)' }}/>
+                    <ShieldCheck size={20} style={{ color: 'var(--primary)' }} />
                     {adapter}
                   </h3>
-                  <span style={{ 
-                    background: 'rgba(16, 185, 129, 0.1)', 
-                    color: 'var(--status-green)', 
-                    padding: '4px 10px', 
-                    borderRadius: '20px', 
-                    fontSize: '12px', 
-                    fontWeight: 600 
+                  <span style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    color: 'var(--status-green)',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 600
                   }}>
                     Active
                   </span>
@@ -82,11 +82,11 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
                   This adapter allows Canopy to parse, ingest, and generate configuration schemas specific to {adapter.charAt(0).toUpperCase() + adapter.slice(1)}.
                 </p>
                 <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'flex-end' }}>
-                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>License: Included</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>License: Included</span>
                 </div>
               </div>
             ))}
-            
+
             {adapters.length === 0 && (
               <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
                 No vendor adapters currently loaded.

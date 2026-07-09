@@ -19,7 +19,6 @@ const renderVendorBadge = (val: string) => {
   let text = 'Palo Alto';
   if (v === 'fortinet') { bg = 'rgba(194, 24, 91, 0.1)'; color = '#c2185b'; text = 'Fortinet'; }
   else if (v === 'cisco') { bg = 'rgba(21, 101, 192, 0.1)'; color = '#1565c0'; text = 'Cisco'; }
-  else if (v === 'vmware') { bg = 'rgba(46, 125, 50, 0.1)'; color = '#2e7d32'; text = 'VMware'; }
   else if (v === 'paloalto') { bg = 'rgba(235, 90, 40, 0.1)'; color = '#eb5a28'; text = 'Palo Alto'; }
   return (
     <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: color, whiteSpace: 'nowrap' }}>

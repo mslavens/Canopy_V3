@@ -38,7 +38,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 	if vendor == "" {
 		vendor = "paloalto"
 	}
-	uuid := "paloalto-dg-" + name
+	uuid := vendor + "-dg-" + name
 
 	vaultMutex.Lock()
 	if activeDB == nil {
@@ -61,7 +61,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve parent details
 	var parentID interface{}
-	parentUUID := "paloalto-dg-shared"
+	parentUUID := "paloalto-panorama-global"
 
 	if req.ParentID != nil && *req.ParentID > 0 {
 		var pUUID string
@@ -76,7 +76,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Find shared parent ID
 		var sharedID int
-		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
 		if err == nil {
 			parentID = sharedID
 		} else {
@@ -199,7 +199,7 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve new parent Details
 	var parentID interface{}
-	parentUUID := "paloalto-dg-shared"
+	parentUUID := "paloalto-panorama-global"
 
 	if req.ParentID != nil && *req.ParentID > 0 {
 		var pUUID string
@@ -214,7 +214,7 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Find shared parent ID
 		var sharedID int
-		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
 		if err == nil {
 			parentID = sharedID
 		} else {
@@ -291,9 +291,9 @@ func handleDeviceGroupsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if uuid == "paloalto-dg-shared" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete the root 'shared' device group context."})
+	if uuid == "paloalto-panorama-global" {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete the root 'shared' context."})
 		return
 	}
 
@@ -307,10 +307,10 @@ func handleDeviceGroupsDelete(w http.ResponseWriter, r *http.Request) {
 
 	// Manually orphan child groups back to shared root rather than deleting them
 	var sharedID int
-	err = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-dg-shared'").Scan(&sharedID)
+	err = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
 	if err == nil {
 		tx.Exec("UPDATE device_groups SET parent_id = ? WHERE parent_id = ?", sharedID, req.ID)
-		tx.Exec("UPDATE scopes SET parent_uuid = 'paloalto-dg-shared' WHERE parent_uuid = ?", uuid)
+		tx.Exec("UPDATE scopes SET parent_uuid = 'paloalto-panorama-global' WHERE parent_uuid = ?", uuid)
 	} else {
 		tx.Exec("UPDATE device_groups SET parent_id = NULL WHERE parent_id = ?", req.ID)
 		tx.Exec("UPDATE scopes SET parent_uuid = NULL WHERE parent_uuid = ?", uuid)
@@ -363,7 +363,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
 	if vendor == "" {
 		vendor = "paloalto"
 	}
-	uuid := "panorama-tmpl-" + name
+	uuid := vendor + "-tmpl-" + name
 
 	vaultMutex.Lock()
 	if activeDB == nil {
@@ -588,7 +588,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
 	if vendor == "" {
 		vendor = "paloalto"
 	}
-	uuid := "panorama-stack-" + name
+	uuid := vendor + "-stack-" + name
 
 	vaultMutex.Lock()
 	if activeDB == nil {
@@ -903,7 +903,7 @@ func handleDevicesCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	deviceUUID := "paloalto-fw-" + name + "-" + serial
+	deviceUUID := vendor + "-fw-" + name + "-" + serial
 
 	tx, err := dbConn.Begin()
 	if err != nil {
@@ -1073,7 +1073,7 @@ func handleDevicesUpdate(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	// If the name or serial changed, we can update the scope's UUID to reflect the new name & serial
-	newDeviceUUID := "paloalto-fw-" + name + "-" + serial
+	newDeviceUUID := vendor + "-fw-" + name + "-" + serial
 
 	// Update managed_devices_raw
 	_, err = tx.ExecContext(ctx, `

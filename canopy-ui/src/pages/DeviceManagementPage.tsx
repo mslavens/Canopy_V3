@@ -11,6 +11,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
 import { DataImportWizard } from '../components/DataImportWizard';
 import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X, Code, Download } from 'lucide-react';
+import { useEnabledAdapters } from '../hooks/useEnabledAdapters';
 
 interface DeviceManagementPageProps {
   auth: { url: string; token: string } | null;
@@ -77,7 +78,6 @@ const renderVendorBadge = (val: string) => {
   let text = 'Palo Alto';
   if (v === 'fortinet') { bg = 'rgba(194, 24, 91, 0.1)'; color = '#c2185b'; text = 'Fortinet'; }
   else if (v === 'cisco') { bg = 'rgba(21, 101, 192, 0.1)'; color = '#1565c0'; text = 'Cisco'; }
-  else if (v === 'vmware') { bg = 'rgba(46, 125, 50, 0.1)'; color = '#2e7d32'; text = 'VMware'; }
   else if (v === 'paloalto') { bg = 'rgba(235, 90, 40, 0.1)'; color = '#eb5a28'; text = 'Palo Alto'; }
   return (
     <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: color, whiteSpace: 'nowrap' }}>
@@ -359,6 +359,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   standaloneAssign = false,
   standaloneGroupId = null
 }) => {
+  const [draggedItem, setDraggedItem] = useState<{ id: string, type: 'device' | 'group', node?: any } | null>(null);
+
+  const enabledAdapters = useEnabledAdapters(auth);
+
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -735,9 +739,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
   const rootGroups = useMemo(() => {
     return filteredDeviceGroups.filter(g =>
-      !g.parent_uuid || !filteredDeviceGroups.some(p => p.uuid === g.parent_uuid)
+      (!g.parent_uuid || !filteredDeviceGroups.some(p => p.uuid === g.parent_uuid)) &&
+      (g.uuid === 'paloalto-dg-shared' || enabledAdapters.includes((g.vendor || 'paloalto').toLowerCase()))
     );
-  }, [filteredDeviceGroups]);
+  }, [filteredDeviceGroups, enabledAdapters]);
 
   // Device Form Trigger
   const handleOpenAddDeviceModal = (defaultGroupId?: number | null) => {
@@ -894,7 +899,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
     const newIds = [...currentIds, templateId];
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
+      await apiClient.updateTemplateStack(stack.id, stack.name, stack.vendor || 'paloalto', newIds, stack.description || '');
       addToast(`Added template to stack: ${stack.name}`, 'success');
       fetchData();
     } catch (err) {
@@ -915,7 +920,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
     const newIds = currentIds.filter(id => id !== targetBt.id);
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
+      await apiClient.updateTemplateStack(stack.id, stack.name, stack.vendor || 'paloalto', newIds, stack.description || '');
       addToast(`Removed template from stack: ${stack.name}`, 'success');
       fetchData();
     } catch (err) {
@@ -941,7 +946,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     newIds[targetIndex] = temp;
 
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
+      await apiClient.updateTemplateStack(stack.id, stack.name, stack.vendor || 'paloalto', newIds, stack.description || '');
       addToast('Reordered stack templates successfully', 'success');
       fetchData();
     } catch (err) {
@@ -983,7 +988,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     }
 
     try {
-      await apiClient.updateTemplateStack(stack.id, stack.name, newIds, stack.description || '');
+      await apiClient.updateTemplateStack(stack.id, stack.name, stack.vendor || 'paloalto', newIds, stack.description || '');
       addToast('Reordered stack templates successfully', 'success');
       fetchData();
     } catch (err) {
@@ -1006,7 +1011,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     const newIds = currentIds.filter(id => !removeIds.includes(id));
 
     try {
-      await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds, activeStack.description || '');
+      await apiClient.updateTemplateStack(activeStack.id, activeStack.name, activeStack.vendor || 'paloalto', newIds, activeStack.description || '');
       addToast(`Successfully removed ${selectedMemberTemplates.length} templates from stack: ${activeStack.name}`, 'success');
       setSelectedMemberTemplates([]);
       fetchData();
@@ -1057,9 +1062,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const handleOpenAddGroupModal = (defaultParentId?: number | null) => {
     setEditingGroup(null);
     setGroupName('');
-    setGroupVendor('paloalto');
     setGroupDescription('');
     setGroupParentId(defaultParentId || null);
+    
+    if (defaultParentId) {
+      const parentGroup = deviceGroups.find(g => g.id === defaultParentId);
+      setGroupVendor(parentGroup?.vendor || 'paloalto');
+    } else {
+      setGroupVendor('paloalto');
+    }
+    
     setIsGroupModalOpen(true);
   };
 
@@ -1570,7 +1582,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             <option value="paloalto">Palo Alto Networks</option>
             <option value="fortinet">Fortinet</option>
             <option value="cisco">Cisco</option>
-            <option value="vmware">VMware</option>
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -1746,14 +1757,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           </div>
         </div>
 
-        {inventory.length === 0 ? (
-          <EmptyState
-            icon={<Server size={32} />}
-            title="No Devices Registered"
-            description="Import a Panorama or firewall configuration XML file from the XML Import tab to populate the appliance catalog."
-            minHeight="350px"
-          />
-        ) : (
+
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
             {/* 1. Inventory View */}
@@ -3207,7 +3211,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           )}
 
           </div>
-        )}
 
       </div>
       {/* --- MODALS --- */}
@@ -3233,7 +3236,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   const selectedIds = selectedAddableTemplates.map(t => t.id);
                   const newIds = [...currentIds, ...selectedIds];
                   try {
-                    await apiClient.updateTemplateStack(activeStack.id, activeStack.name, newIds, activeStack.description || '');
+                    await apiClient.updateTemplateStack(activeStack.id, activeStack.name, activeStack.vendor || 'paloalto', newIds, activeStack.description || '');
                     addToast(`Added ${selectedAddableTemplates.length} templates to stack: ${activeStack.name}`, 'success');
                     fetchData();
                   } catch (err) {
@@ -3300,20 +3303,21 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               onChange={(e) => setGroupName(e.target.value)}
             />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Vendor</label>
-            <Dropdown
-              value={groupVendor === 'fortinet' ? 'Fortinet' : groupVendor === 'cisco' ? 'Cisco' : groupVendor === 'vmware' ? 'VMware' : 'Palo Alto'}
-              options={['Palo Alto', 'Fortinet', 'Cisco', 'VMware']}
-              onChange={(val) => {
-                if (val === 'Fortinet') setGroupVendor('fortinet');
-                else if (val === 'Cisco') setGroupVendor('cisco');
-                else if (val === 'VMware') setGroupVendor('vmware');
-                else setGroupVendor('paloalto');
-              }}
-              width="100%"
-            />
-          </div>
+          {groupParentId === null && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Vendor</label>
+              <Dropdown
+                value={groupVendor === 'fortinet' ? 'Fortinet' : groupVendor === 'cisco' ? 'Cisco' : 'Palo Alto'}
+                options={['Palo Alto', 'Fortinet', 'Cisco']}
+                onChange={(val) => {
+                  if (val === 'Fortinet') setGroupVendor('fortinet');
+                  else if (val === 'Cisco') setGroupVendor('cisco');
+                  else setGroupVendor('paloalto');
+                }}
+                width="100%"
+              />
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Description (Optional)</label>
             <textarea
@@ -3334,7 +3338,10 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                   setGroupParentId(null);
                 } else {
                   const match = deviceGroups.find(g => cleanGroupName(g.name) === val);
-                  if (match) setGroupParentId(match.id);
+                  if (match) {
+                    setGroupParentId(match.id);
+                    setGroupVendor(match.vendor || 'paloalto');
+                  }
                 }
               }}
               width="100%"
@@ -3371,12 +3378,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Vendor</label>
             <Dropdown
-              value={templateVendor === 'fortinet' ? 'Fortinet' : templateVendor === 'cisco' ? 'Cisco' : templateVendor === 'vmware' ? 'VMware' : 'Palo Alto'}
-              options={['Palo Alto', 'Fortinet', 'Cisco', 'VMware']}
+              value={templateVendor === 'fortinet' ? 'Fortinet' : templateVendor === 'cisco' ? 'Cisco' : 'Palo Alto'}
+              options={['Palo Alto', 'Fortinet', 'Cisco']}
               onChange={(val) => {
                 if (val === 'Fortinet') setTemplateVendor('fortinet');
                 else if (val === 'Cisco') setTemplateVendor('cisco');
-                else if (val === 'VMware') setTemplateVendor('vmware');
                 else setTemplateVendor('paloalto');
               }}
               width="100%"
@@ -3425,12 +3431,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Vendor</label>
             <Dropdown
-              value={stackVendor === 'fortinet' ? 'Fortinet' : stackVendor === 'cisco' ? 'Cisco' : stackVendor === 'vmware' ? 'VMware' : 'Palo Alto'}
-              options={['Palo Alto', 'Fortinet', 'Cisco', 'VMware']}
+              value={stackVendor === 'fortinet' ? 'Fortinet' : stackVendor === 'cisco' ? 'Cisco' : 'Palo Alto'}
+              options={['Palo Alto', 'Fortinet', 'Cisco']}
               onChange={(val) => {
                 if (val === 'Fortinet') setStackVendor('fortinet');
                 else if (val === 'Cisco') setStackVendor('cisco');
-                else if (val === 'VMware') setStackVendor('vmware');
                 else setStackVendor('paloalto');
               }}
               width="100%"

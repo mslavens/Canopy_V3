@@ -17,7 +17,7 @@ func NewGenerator(db *sql.DB) *Generator {
 }
 
 type CLIRequest struct {
-	EntityType string `json:"entityType"`
+	EntityType    string `json:"entityType"`
 	EntityIDs     []int  `json:"entityIds"`
 	ScopeUUID     string `json:"scopeUuid"`
 	IncludeNested bool   `json:"includeNested"`
@@ -67,16 +67,24 @@ func (g *Generator) getScopeVendor(deviceUUID string) string {
 
 	var vendor string
 	err := g.DB.QueryRow("SELECT vendor FROM device_groups WHERE uuid = ?", deviceUUID).Scan(&vendor)
-	if err == nil && vendor != "" { return vendor }
+	if err == nil && vendor != "" {
+		return vendor
+	}
 
 	err = g.DB.QueryRow("SELECT vendor FROM templates WHERE uuid = ?", deviceUUID).Scan(&vendor)
-	if err == nil && vendor != "" { return vendor }
+	if err == nil && vendor != "" {
+		return vendor
+	}
 
 	err = g.DB.QueryRow("SELECT vendor FROM template_stacks WHERE uuid = ?", deviceUUID).Scan(&vendor)
-	if err == nil && vendor != "" { return vendor }
+	if err == nil && vendor != "" {
+		return vendor
+	}
 
 	err = g.DB.QueryRow("SELECT m.vendor FROM scopes s JOIN managed_devices_raw m ON s.uuid = m.device_uuid WHERE s.uuid = ?", deviceUUID).Scan(&vendor)
-	if err == nil && vendor != "" { return vendor }
+	if err == nil && vendor != "" {
+		return vendor
+	}
 
 	return "paloalto"
 }
@@ -169,7 +177,7 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 		} else {
 			// fallback
 		}
-		
+
 	case "Address Groups":
 		var name, devUUID, grpType, filter, desc sql.NullString
 		err := g.DB.QueryRow("SELECT name, device_uuid, type, filter, description FROM address_groups WHERE id = ?", id).Scan(&name, &devUUID, &grpType, &filter, &desc)
@@ -683,7 +691,7 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 		if err != nil {
 			return nil, err
 		}
-		
+
 		key := fmt.Sprintf("route-%s-%s", vrName.String, routeName.String)
 		if visited[key] {
 			return nil, nil

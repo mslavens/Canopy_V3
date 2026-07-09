@@ -26,7 +26,7 @@ export function useScopeHierarchy(
     if (includeShowAll) {
       map['show-all'] = 'Show all';
     }
-    
+
     deviceGroups.forEach(dg => {
       map[dg.uuid] = dg.name;
     });
@@ -39,7 +39,7 @@ export function useScopeHierarchy(
 
   const hierarchyOptions = useMemo(() => {
     const opts: ScopeHierarchyNode[] = [];
-    
+
     if (includeShowAll) {
       opts.push({ label: 'Show all', value: 'show-all', depth: 0, type: 'global' });
     }
@@ -76,7 +76,7 @@ export function useScopeHierarchy(
     };
 
     buildNode(null, 1);
-    
+
     // Add unassigned firewalls at the root level
     const unassignedFirewalls = firewalls.filter(fw => !fw.device_group_id);
     unassignedFirewalls.forEach(fw => {
@@ -87,27 +87,27 @@ export function useScopeHierarchy(
         type: 'firewall'
       });
     });
-    
+
     return opts;
   }, [deviceGroups, firewalls, includeShowAll, firewallValueKey]);
 
   const getVisibleScopes = useCallback((currentScope: string) => {
     if (!currentScope || currentScope === 'show-all') return [];
-    
+
     const scopes: string[] = [];
     scopes.push(currentScope);
     let activeScope = currentScope;
 
     // Check if it's a firewall based on the key strategy
-    const isFirewallScope = firewallValueKey === 'uuid' 
+    const isFirewallScope = firewallValueKey === 'uuid'
       ? firewalls.some(fw => fw.uuid === currentScope)
       : currentScope.startsWith('fw-');
 
     if (isFirewallScope) {
-      const fw = firewallValueKey === 'uuid' 
+      const fw = firewallValueKey === 'uuid'
         ? firewalls.find(f => f.uuid === currentScope)
         : firewalls.find(f => `fw-${f.serial}` === currentScope);
-        
+
       if (fw && fw.device_group_id) {
         const dg = deviceGroups.find(g => g.id === fw.device_group_id);
         if (dg) {
@@ -116,7 +116,7 @@ export function useScopeHierarchy(
         }
       }
     }
-    
+
     let curr = deviceGroups.find(dg => dg.uuid === activeScope);
     while (curr && curr.parent_id) {
       const parent = deviceGroups.find(dg => dg.id === curr.parent_id);
@@ -127,11 +127,11 @@ export function useScopeHierarchy(
         break;
       }
     }
-    
+
     if (!scopes.includes('paloalto-panorama-global')) {
       scopes.push('paloalto-panorama-global');
     }
-    
+
     return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');
   }, [deviceGroups, firewalls, firewallValueKey]);
 
