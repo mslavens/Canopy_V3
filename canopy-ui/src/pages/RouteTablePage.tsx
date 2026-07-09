@@ -31,11 +31,13 @@ const renderVendorBadge = (val: string) => {
 interface RouteTablePageProps {
   auth: { url: string; token: string } | null;
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
-  sharedScopeUuid: string;
-  setSharedScopeUuid: (val: string) => void;
+  globalScopeUuid?: string;
+  setGlobalScopeUuid?: (val: string) => void;
+  globalScopeVendor?: string;
+  setGlobalScopeVendor?: (vendor: string) => void;
 }
 
-export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, sharedScopeUuid, setSharedScopeUuid }) => {
+export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor }) => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [routes, setRoutes] = useState<any[]>([]);
@@ -44,6 +46,11 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
   const [templateStacks, setTemplateStacks] = useState<any[]>([]);
   const [templateStackMembers, setTemplateStackMembers] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
+  const [firewalls, setFirewalls] = useState<any[]>([]);
+  
+  const [localScope, setLocalScope] = useState<string>('show-all');
+  const sharedScopeUuid = globalScopeUuid || localScope;
+  const setSharedScopeUuid = setGlobalScopeUuid || setLocalScope;
   const selectedScopeUuid = sharedScopeUuid;
   const setSelectedScopeUuid = setSharedScopeUuid;
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
@@ -68,6 +75,26 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
   const [formMetric, setFormMetric] = useState(10);
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
+
+  const handleScopeChange = (val: string) => {
+    setSharedScopeUuid(val);
+    if (setGlobalScopeVendor) {
+      if (val === 'show-all') {
+        // Default
+      } else {
+        const fw = firewalls.find(f => f.uuid === val);
+        if (fw && fw.vendor) setGlobalScopeVendor(fw.vendor);
+        else {
+          const t = templates.find(t => t.uuid === val);
+          if (t && t.vendor) setGlobalScopeVendor(t.vendor);
+          else {
+            const ts = templateStacks.find(ts => ts.uuid === val);
+            if (ts && ts.vendor) setGlobalScopeVendor(ts.vendor);
+          }
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -338,7 +365,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                   <SearchableScopeDropdown
                     value={getActiveConfigScope(selectedScopeUuid)}
                     options={hierarchyOptions}
-                    onChange={setSelectedScopeUuid}
+                    onChange={handleScopeChange}
                     scopeNameMap={scopeNameMap}
                     ruleCounts={deviceCounts}
                     hasValuesMap={hasValuesMap}
@@ -355,7 +382,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                             const activeConfig = getActiveConfigScope(selectedScopeUuid);
                             return (
                               <span
-                                onClick={() => setSelectedScopeUuid(activeConfig)}
+                                onClick={() => handleScopeChange(activeConfig)}
                                 style={{
                                   color: 'var(--text-muted)',
                                   cursor: 'pointer',

@@ -62,7 +62,10 @@ const getFirstSubTab = (items: NavItem[]): string => {
 const mainTabs = ['Dashboard', 'Tools', 'XML Import', 'Monitor', 'Analytics', 'Policy Lifecycle', 'Policies', 'Objects', 'Networks', 'Device Management', 'System'];
 const subTabsMap: Record<string, (globalScopeVendor?: string) => NavItem[]> = {
   'Device Management': () => ['Inventory', 'Device Groups', 'Templates'],
-  'Networks': () => ['Zones', 'Interfaces', 'Route Table', 'Template Variables'],
+  'Networks': (globalScopeVendor?: string) => [
+    'Zones', 'Interfaces', 'Route Table',
+    ...(globalScopeVendor === 'paloalto' ? ['Template Variables'] : [])
+  ],
   'Monitor': () => ['Log Import', 'Traffic Logs'],
   'XML Import': () => ['Upload Config'],
   'Analytics': () => ['Traffic Heatmap'],

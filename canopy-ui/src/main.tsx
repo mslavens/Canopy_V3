@@ -61,12 +61,8 @@ const App = () => {
   const [globalScopeUuid, setGlobalScopeUuid] = useState<string>('paloalto-panorama-global');
   const [globalScopeVendor, setGlobalScopeVendor] = useState<string>('paloalto');
 
-  const [networkScopeUuid, setNetworkScopeUuid] = useState<string>('show-all');
   const prevMainTab = React.useRef(activeMainTab);
   useEffect(() => {
-    if (activeMainTab === 'Networks' && prevMainTab.current !== 'Networks') {
-      setNetworkScopeUuid('show-all');
-    }
     prevMainTab.current = activeMainTab;
   }, [activeMainTab]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -277,16 +273,16 @@ const App = () => {
   // Router Switch Logic
   const renderActivePage = () => {
     if (activeMainTab === 'Networks' && activeSubTab === 'Interfaces') {
-      return <InterfacesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
+      return <InterfacesPage auth={auth} addToast={addToast} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Zones') {
-      return <ZonesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
+      return <ZonesPage auth={auth} addToast={addToast} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Route Table') {
-      return <RouteTablePage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
+      return <RouteTablePage auth={auth} addToast={addToast} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'Networks' && activeSubTab === 'Template Variables') {
-      return <VariablesPage auth={auth} addToast={addToast} sharedScopeUuid={networkScopeUuid} setSharedScopeUuid={setNetworkScopeUuid} />;
+      return <VariablesPage auth={auth} addToast={addToast} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'Analytics' && activeSubTab === 'Traffic Heatmap') {
       return <HeatmapPage auth={auth} addToast={addToast} />;
