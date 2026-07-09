@@ -56,6 +56,11 @@ const App = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('subTab') || 'Overview';
   });
+  
+  // Global Scope State
+  const [globalScopeUuid, setGlobalScopeUuid] = useState<string>('paloalto-panorama-global');
+  const [globalScopeVendor, setGlobalScopeVendor] = useState<string>('paloalto');
+
   const [networkScopeUuid, setNetworkScopeUuid] = useState<string>('show-all');
   const prevMainTab = React.useRef(activeMainTab);
   useEffect(() => {
@@ -290,10 +295,10 @@ const App = () => {
       return <DeviceManagementPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
     if (activeMainTab === 'Objects') {
-      return <ObjectsPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} />;
+      return <ObjectsPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'Policies') {
-      return <PoliciesPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
+      return <PoliciesPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} globalScopeUuid={globalScopeUuid} setGlobalScopeUuid={setGlobalScopeUuid} globalScopeVendor={globalScopeVendor} setGlobalScopeVendor={setGlobalScopeVendor} />;
     }
     if (activeMainTab === 'XML Import') {
       return <XMLImportPage auth={auth} addToast={addToast} onNavigate={(m, s) => { setActiveMainTab(m); setActiveSubTab(s); }} />;
@@ -456,6 +461,10 @@ const App = () => {
       isPortable={isPortable}
       port={auth ? new URL(auth.url).port : null}
       onLockApp={handleManualLock}
+      globalScopeUuid={globalScopeUuid}
+      setGlobalScopeUuid={setGlobalScopeUuid}
+      globalScopeVendor={globalScopeVendor}
+      setGlobalScopeVendor={setGlobalScopeVendor}
     >
       {renderActivePage()}
     </AppLayout>

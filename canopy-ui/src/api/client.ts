@@ -9,7 +9,7 @@ export class CanopyApiClient {
     this.token = auth.token;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  public async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers || {});
     headers.set('Authorization', `Bearer ${this.token}`);
     

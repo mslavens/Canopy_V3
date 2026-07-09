@@ -13,13 +13,24 @@ interface PoliciesPageProps {
   addToast: (msg: string, type?: 'info' | 'success' | 'error') => void;
   activeSubTab: string;
   setActiveSubTab?: (tab: string) => void;
+  globalScopeUuid?: string;
+  setGlobalScopeUuid?: (uuid: string) => void;
+  globalScopeVendor?: string;
+  setGlobalScopeVendor?: (vendor: string) => void;
 }
 
-export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, activeSubTab, setActiveSubTab }) => {
+export const PoliciesPage: React.FC<PoliciesPageProps> = ({ 
+  auth, addToast, activeSubTab, setActiveSubTab,
+  globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor 
+}) => {
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
-  const [selectedScopeUuid, setSelectedScopeUuid] = useState<string>('paloalto-panorama-global');
+  
+  const [localScope, setLocalScope] = useState<string>('paloalto-panorama-global');
+  const selectedScopeUuid = globalScopeUuid || localScope;
+  const setSelectedScopeUuid = setGlobalScopeUuid || setLocalScope;
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [rules, setRules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -74,6 +85,22 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
 
   const apiClient = useMemo(() => (auth ? new CanopyApiClient(auth) : null), [auth]);
 
+  const handleScopeChange = (val: string) => {
+    setSelectedScopeUuid(val);
+    if (setGlobalScopeVendor) {
+      if (val === 'show-all') {
+        // Default
+      } else {
+        const fw = devices.find(f => f.uuid === val);
+        if (fw && fw.vendor) setGlobalScopeVendor(fw.vendor);
+        else {
+          const dg = deviceGroups.find(g => g.uuid === val);
+          if (dg && dg.vendor) setGlobalScopeVendor(dg.vendor);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     const loadContext = async () => {
@@ -117,7 +144,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   useEffect(() => {
     let isMounted = true;
     const loadTabCounts = async () => {
-      if (!auth || !policyType || !activeSubTab) return;
+      if (!auth || !apiClient || !policyType || !activeSubTab) return;
       try {
         let url = `${auth.url}/api/system/policies-counts`;
         if (selectedScopeUuid !== 'show-all') {
@@ -143,7 +170,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
   const activeFetchRef = useRef<number>(0);
 
   const loadRules = useCallback(async () => {
-    if (!auth) return;
+    if (!auth || !apiClient) return;
 
     const fetchId = Date.now();
     activeFetchRef.current = fetchId;
@@ -584,7 +611,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                   <SearchableScopeDropdown
                     value={selectedScopeUuid}
                     options={hierarchyOptions}
-                    onChange={setSelectedScopeUuid}
+                    onChange={handleScopeChange}
                     scopeNameMap={scopeNameMap}
                     ruleCounts={ruleCounts}
                   />
@@ -599,7 +626,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({ auth, addToast, acti
                           {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
                             <React.Fragment key={scopeId}>
                               <span
-                                onClick={() => setSelectedScopeUuid(scopeId)}
+                                onClick={() => handleScopeChange(scopeId)}
                                 style={{
                                   color: 'var(--text-muted)',
                                   cursor: 'pointer',

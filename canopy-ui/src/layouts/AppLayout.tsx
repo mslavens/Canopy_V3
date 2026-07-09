@@ -39,6 +39,10 @@ interface AppLayoutProps {
   isPortable?: boolean;
   port?: string | null;
   onLockApp: () => void;
+  globalScopeUuid?: string;
+  setGlobalScopeUuid?: (uuid: string) => void;
+  globalScopeVendor?: string;
+  setGlobalScopeVendor?: (vendor: string) => void;
   children: React.ReactNode;
 }
 
@@ -56,15 +60,15 @@ const getFirstSubTab = (items: NavItem[]): string => {
 };
 
 const mainTabs = ['Dashboard', 'Tools', 'XML Import', 'Monitor', 'Analytics', 'Policy Lifecycle', 'Policies', 'Objects', 'Networks', 'Device Management', 'System'];
-const subTabsMap: Record<string, NavItem[]> = {
-  'Device Management': ['Inventory', 'Device Groups', 'Templates'],
-  'Networks': ['Zones', 'Interfaces', 'Route Table', 'Template Variables'],
-  'Monitor': ['Log Import', 'Traffic Logs'],
-  'XML Import': ['Upload Config'],
-  'Analytics': ['Traffic Heatmap'],
-  'Tools': ['Placeholder'],
-  'Policy Lifecycle': ['Placeholder'],
-  'Policies': [
+const subTabsMap: Record<string, (globalScopeVendor?: string) => NavItem[]> = {
+  'Device Management': () => ['Inventory', 'Device Groups', 'Templates'],
+  'Networks': () => ['Zones', 'Interfaces', 'Route Table', 'Template Variables'],
+  'Monitor': () => ['Log Import', 'Traffic Logs'],
+  'XML Import': () => ['Upload Config'],
+  'Analytics': () => ['Traffic Heatmap'],
+  'Tools': () => ['Placeholder'],
+  'Policy Lifecycle': () => ['Placeholder'],
+  'Policies': (globalScopeVendor?: string) => [
     { group: 'Security', items: [
       { label: 'Pre Rules', value: 'Security - Pre Rules' },
       { label: 'Device Rules', value: 'Security - Device Rules' },
@@ -80,35 +84,40 @@ const subTabsMap: Record<string, NavItem[]> = {
       { label: 'Device Rules', value: 'QoS - Device Rules' },
       { label: 'Post Rules', value: 'QoS - Post Rules' }
     ]},
-    { group: 'Decryption', items: [
+    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Decryption', items: [
       { label: 'Pre Rules', value: 'Decryption - Pre Rules' },
       { label: 'Device Rules', value: 'Decryption - Device Rules' },
       { label: 'Post Rules', value: 'Decryption - Post Rules' }
-    ]},
-    { group: 'Application Override', items: [
+    ]}] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Application Override', items: [
       { label: 'Pre Rules', value: 'Application Override - Pre Rules' },
       { label: 'Device Rules', value: 'Application Override - Device Rules' },
       { label: 'Post Rules', value: 'Application Override - Post Rules' }
-    ]},
-    { group: 'Authentication', items: [
+    ]}] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Authentication', items: [
       { label: 'Pre Rules', value: 'Authentication - Pre Rules' },
       { label: 'Device Rules', value: 'Authentication - Device Rules' },
       { label: 'Post Rules', value: 'Authentication - Post Rules' }
-    ]},
-    { group: 'DoS Protection', items: [
+    ]}] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{ group: 'DoS Protection', items: [
       { label: 'Pre Rules', value: 'DoS Protection - Pre Rules' },
       { label: 'Device Rules', value: 'DoS Protection - Device Rules' },
       { label: 'Post Rules', value: 'DoS Protection - Post Rules' }
-    ]}
+    ]}] : [])
   ],
-  'Objects': [
+  'Objects': (globalScopeVendor?: string) => [
     'Address Objects', 'Address Groups', 'Services', 'Service Groups', 
-    'Applications', 'Application Groups', 'Tags', 'Log Forwarding Profiles', 
-    { group: 'Security Profiles', items: ['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'] }, 
+    'Applications', 'Application Groups', 'Tags', 
+    ...(globalScopeVendor === 'paloalto' ? ['Log Forwarding Profiles'] : []),
+    { group: 'Security Profiles', items: globalScopeVendor === 'paloalto' ? ['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'] : [] }, 
     'Security Profile Groups', 
-    { group: 'Custom Objects', items: ['URL Categories', 'External Dynamic Lists'] }
-  ],
-  'System': ['Workspaces', 'Secrets Vault', 'Settings', 'Vendor Adapters', 'Audit Logs', 'Database Health', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
+    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Custom Objects', items: ['URL Categories', 'External Dynamic Lists'] }] : [])
+  ].filter(item => {
+    // Filter out empty groups
+    if (typeof item === 'object' && item.group && item.items.length === 0) return false;
+    return true;
+  }),
+  'System': () => ['Workspaces', 'Secrets Vault', 'Settings', 'Vendor Adapters', 'Audit Logs', 'Database Health', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
 };
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -127,6 +136,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   isPortable,
   port,
   onLockApp,
+  globalScopeUuid,
+  setGlobalScopeUuid,
+  globalScopeVendor,
+  setGlobalScopeVendor,
   children
 }) => {
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
@@ -138,6 +151,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const searchRef = useRef<HTMLDivElement>(null);
   
   // Tab bar horizontal scroll navigation hooks & states
+  const subTabs = subTabsMap[activeMainTab] ? subTabsMap[activeMainTab](globalScopeVendor) : [];
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [showLeftChevron, setShowLeftChevron] = useState(false);
   const [showRightChevron, setShowRightChevron] = useState(false);
@@ -502,9 +516,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   // Configuration resolution
 
-  const currentSubTabs = subTabsMap[activeMainTab] || ['Overview'];
+  const currentSubTabs = subTabsMap[activeMainTab] ? subTabsMap[activeMainTab](globalScopeVendor) : ['Overview'];
 
-  const visibleSubTabs = currentSubTabs.filter(tab => !(isPortable && tab === 'Upgrade'));
+  const visibleSubTabs = currentSubTabs.filter((tab: NavItem) => !(isPortable && tab === 'Upgrade'));
 
   // Dynamically generate the documentation filename based on the active state (e.g., "network-path-resolution")
   const activeDocId = `${activeMainTab.toLowerCase().replace(/\s+/g, '-')}-${activeSubTab.toLowerCase().replace(/\s+/g, '-')}`;
@@ -570,7 +584,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <button 
                   key={tab}
                   className="nav-tab"
-                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(getFirstSubTab(subTabsMap[tab])); }}
+                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(getFirstSubTab(subTabsMap[tab] ? subTabsMap[tab](globalScopeVendor) : ['Overview'])); }}
                   style={{ 
                     background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
                     color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
@@ -716,7 +730,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               </div>
               <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '5px 10px 15px 10px', flexShrink: 0 }} />
               <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginBottom: '8px' }}>{activeMainTab} Elements</div>
-              {visibleSubTabs.map((subTab) => {
+              {visibleSubTabs.map((subTab: NavItem) => {
                 if (typeof subTab === 'string') {
                   let label = subTab;
                   if (tabCounts[subTab] !== undefined) {
@@ -743,7 +757,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{subTab.group}</span>
                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
-                      {isExpanded && subTab.items.map(item => {
+                      {isExpanded && subTab.items.map((item: string | NavItemObj) => {
                         const isObj = typeof item !== 'string';
                         const value = isObj ? (item as NavItemObj).value : item as string;
                         let label = isObj ? (item as NavItemObj).label : item as string;

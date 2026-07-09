@@ -65,9 +65,16 @@ interface ObjectsPageProps {
   standaloneEditor?: boolean;
   standaloneId?: string;
   standaloneMode?: string;
+  globalScopeUuid?: string;
+  setGlobalScopeUuid?: (uuid: string) => void;
+  globalScopeVendor?: string;
+  setGlobalScopeVendor?: (vendor: string) => void;
 }
 
-export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, activeSubTab, standaloneEditor, standaloneId, standaloneMode }) => {
+export const ObjectsPage: React.FC<ObjectsPageProps> = ({ 
+  auth, addToast, activeSubTab, standaloneEditor, standaloneId, standaloneMode,
+  globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor
+}) => {
   const [dataViewTab, setDataViewTab] = useState(activeSubTab);
   const apiClient = useMemo(() => auth ? new CanopyApiClient(auth) : null, [auth]);
   const confirm = useConfirm();
@@ -77,7 +84,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
   // Scopes states
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [firewalls, setFirewalls] = useState<any[]>([]);
-  const [currentScope, setCurrentScope] = useState<string>('paloalto-panorama-global');
+  
+  // Use global scope if provided, otherwise fallback to local state (for standalone mode)
+  const [localScope, setLocalScope] = useState<string>('paloalto-panorama-global');
+  const currentScope = globalScopeUuid || localScope;
+  const setCurrentScope = setGlobalScopeUuid || setLocalScope;
 
   // Data Loading States
   const [tableData, setTableData] = useState<any[]>([]);
@@ -1084,6 +1095,18 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({ auth, addToast, active
 
   const handleScopeChange = (val: string) => {
     setCurrentScope(val);
+    if (setGlobalScopeVendor) {
+      if (val === 'show-all') {
+        // Leave vendor as is, or default to paloalto
+      } else {
+        const fw = firewalls.find(f => f.uuid === val);
+        if (fw && fw.vendor) setGlobalScopeVendor(fw.vendor);
+        else {
+          const dg = deviceGroups.find(g => g.uuid === val);
+          if (dg && dg.vendor) setGlobalScopeVendor(dg.vendor);
+        }
+      }
+    }
   };
 
   // Legacy JS recursive group resolvers removed in favor of SQLite Recursive CTEs!
