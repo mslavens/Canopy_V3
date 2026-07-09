@@ -2,6 +2,17 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.26.0 - Structured Global Search
+**Date:** 2026-07-09
+
+### Added
+- **Structured Global Search**: Redesigned the global search omnibox to use a structured, tabular layout grouped by object/policy type (matching Panorama's UX). Features collapsible group headers and preserved keyboard navigation.
+- **Vendor Column Inference**: Search results now parse object scope UUIDs to dynamically infer and display their origin Vendor in the global search UI.
+
+### Changed
+- **Optimized Search Payload**: Refactored the backend search payload mapping to decouple the raw object name from the scope context, ensuring clean columns in the UI.
+- **Search Context De-prefixing**: Fixed a backend bug where global search mapped database UUIDs rather than human-readable names. Database-level `paloalto-dg-` prefixes are now cleanly resolved to their display names.
+
 ## v0.25.0 - Vendor License Simulation & Scope Refactor
 **Date:** 2026-07-08
 

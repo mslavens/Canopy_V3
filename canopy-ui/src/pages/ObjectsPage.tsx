@@ -33,6 +33,7 @@ import { Modal } from '../components/Modal';
 import { useConfirm } from '../components/ConfirmProvider';
 import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
+import { ExpandableBadgeList } from '../components/ExpandableBadgeList';
 import { Dropdown } from '../components/Dropdown';
 import { Tooltip } from '../components/Tooltip';
 import { EmptyState } from '../components/EmptyState';
@@ -2108,10 +2109,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 color16: '#059669',
               };
               return (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {mappings.map(m => {
+                <ExpandableBadgeList
+                  items={mappings}
+                  limit={5}
+                  renderItem={(m: any) => {
                     const tagObj = allTags.find(t => t.id === m.tag_id);
-                    if (!tagObj) return null;
+                    if (!tagObj) return <React.Fragment key={m.tag_id} />;
                     const hex = colorMap[tagObj.color] || 'var(--text-muted)';
                     return (
                       <span
@@ -2126,15 +2129,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           fontWeight: 600,
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '4px',
+                          wordBreak: 'break-all'
                         }}
                       >
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
                         <HighlightedText text={tagObj.name} highlight={query || ''} />
                       </span>
                     );
-                  })}
-                </div>
+                  }}
+                />
               );
             }
           }
@@ -2166,8 +2170,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               return (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {filterBlock}
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px', overflow: 'hidden' }}>
-                    {list.slice(0, 3).map((m: string) => (
+                  <ExpandableBadgeList
+                    items={list}
+                    limit={5}
+                    renderItem={(m: string) => (
                       <span
                         key={m}
                         title={m}
@@ -2178,21 +2184,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           backgroundColor: 'var(--bg-app)',
                           border: '1px solid var(--border-main)',
                           color: 'var(--text-main)',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
-                          whiteSpace: 'nowrap',
-                          maxWidth: '90px'
+                          wordBreak: 'break-all'
                         }}
                       >
                         <HighlightedText text={m} highlight={query || ''} />
                       </span>
-                    ))}
-                    {list.length > 3 && (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                        +{list.length - 3} more
-                      </span>
                     )}
-                  </div>
+                  />
                 </div>
               );
             }
@@ -2230,10 +2228,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 color16: '#059669',
               };
               return (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                  {mappings.map(m => {
+                <ExpandableBadgeList
+                  items={mappings}
+                  limit={5}
+                  renderItem={(m: any) => {
                     const tagObj = allTags.find(t => t.id === m.tag_id);
-                    if (!tagObj) return null;
+                    if (!tagObj) return <React.Fragment key={m.tag_id} />;
                     const hex = colorMap[tagObj.color] || 'var(--text-muted)';
                     return (
                       <span
@@ -2248,15 +2248,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           fontWeight: 600,
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px'
+                          gap: '4px',
+                          wordBreak: 'break-all'
                         }}
                       >
                         <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
                         <HighlightedText text={tagObj.name} highlight={query || ''} />
                       </span>
                     );
-                  })}
-                </div>
+                  }}
+                />
               );
             }
           }
@@ -2286,8 +2287,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               const list = val ? val.split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
               return (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
-                  {list.slice(0, 3).map((m: string) => (
+                <ExpandableBadgeList
+                  items={list}
+                  limit={5}
+                  renderItem={(m: string) => (
                     <span
                       key={m}
                       title={m}
@@ -2297,21 +2300,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         borderRadius: '3px',
                         backgroundColor: 'var(--bg-app)',
                         border: '1px solid var(--border-main)',
-                        textOverflow: 'ellipsis',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '90px'
+                        color: 'var(--text-main)',
+                        wordBreak: 'break-all'
                       }}
                     >
                       <HighlightedText text={m} highlight={query || ''} />
                     </span>
-                  ))}
-                  {list.length > 3 && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                      +{list.length - 3} more
-                    </span>
                   )}
-                </div>
+                />
               );
             }
           }
@@ -2367,8 +2363,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               const list = val ? val.split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
               return (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
-                  {list.slice(0, 3).map((m: string) => (
+                <ExpandableBadgeList
+                  items={list}
+                  limit={5}
+                  renderItem={(m: string) => (
                     <span
                       key={m}
                       title={m}
@@ -2378,21 +2376,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         borderRadius: '3px',
                         backgroundColor: 'var(--bg-app)',
                         border: '1px solid var(--border-main)',
-                        textOverflow: 'ellipsis',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '90px'
+                        color: 'var(--text-main)',
+                        wordBreak: 'break-all'
                       }}
                     >
                       <HighlightedText text={m} highlight={query || ''} />
                     </span>
-                  ))}
-                  {list.length > 3 && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                      +{list.length - 3} more
-                    </span>
                   )}
-                </div>
+                />
               );
             }
           }
@@ -2513,14 +2504,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               const list = val ? String(val).split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No URLs</span>;
               return (
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
-                  {list.slice(0, 3).map((u: string) => (
-                    <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                <ExpandableBadgeList
+                  items={list}
+                  limit={5}
+                  renderItem={(u: string) => (
+                    <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', wordBreak: 'break-all' }}>
                       <HighlightedText text={u} highlight={query || ''} />
                     </span>
-                  ))}
-                  {list.length > 3 && <span style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)' }}>+{list.length - 3}</span>}
-                </div>
+                  )}
+                />
               );
             }
           }

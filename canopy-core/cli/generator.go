@@ -45,6 +45,10 @@ func (g *Generator) getScopePrefix(deviceUUID string) string {
 		return "set device-group Unknown"
 	}
 	name = strings.TrimSuffix(name, " (Panorama)")
+	name = strings.TrimSuffix(name, " (Device Group)")
+	name = strings.TrimSuffix(name, " (Template)")
+	name = strings.TrimSuffix(name, " (Template Stack)")
+	name = strings.TrimSuffix(name, " (Firewall)")
 	switch sType {
 	case "shared":
 		return "set shared"

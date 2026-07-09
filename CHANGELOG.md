@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0] - 2026-07-09
+### Added
+- **Structured Global Search**: Redesigned the global search omnibox to use a structured, tabular layout grouped by object/policy type (matching Panorama's UX). Features collapsible group headers and preserved keyboard navigation.
+- **Vendor Column Inference**: Search results now parse object scope UUIDs to dynamically infer and display their origin Vendor in the global search UI.
+
+### Changed
+- **Optimized Search Payload**: Refactored the backend search payload mapping to decouple the raw object name from the scope context, ensuring clean columns in the UI.
+- **Search Context De-prefixing**: Fixed a backend bug where global search mapped database UUIDs rather than human-readable names. Database-level `paloalto-dg-` prefixes are now cleanly resolved to their display names.
+
 ## [0.25.0] - 2026-07-08
 ### Added
 - **Vendor License Simulation**: Enabled the ability to simulate licensed and unlicensed states for vendor adapters directly from the **Adapters** configuration page. Toggling an adapter immediately propagates a `canopy_adapter_toggled` event, updating the UI context globally via LocalStorage without requiring backend restarts.

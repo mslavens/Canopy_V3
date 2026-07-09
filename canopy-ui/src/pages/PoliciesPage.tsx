@@ -7,6 +7,7 @@ import { SearchBar } from '../components/SearchBar';
 import { HighlightedText } from '../components/HighlightedText';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
 import { Shield, Loader2, Plus } from 'lucide-react';
+import { ExpandableBadgeList } from '../components/ExpandableBadgeList';
 
 interface PoliciesPageProps {
   auth: { url: string; token: string } | null;
@@ -256,10 +257,11 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
   }, [loadRules]);
 
   const renderObjectRefs = useCallback((refs: any[]) => {
-    if (!refs || refs.length === 0) return <span style={{ color: 'var(--text-muted)' }}>any</span>;
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-        {refs.map((r, i) => {
+      <ExpandableBadgeList
+        items={refs || []}
+        limit={5}
+        renderItem={(r: any, i: number) => {
           const isPredefined = r.object_type === 'predefined' || r.object_type === 'predefined_app';
           const isAdHoc = r.object_type === 'ad_hoc';
           const bgColor = isAdHoc ? 'rgba(255, 165, 0, 0.1)' : isPredefined ? 'transparent' : 'var(--bg-app)';
@@ -279,7 +281,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
                 cursor: r.id ? 'pointer' : 'default',
                 display: 'inline-flex',
                 alignItems: 'center',
-                whiteSpace: 'nowrap'
+                wordBreak: 'break-all'
               }}
               title={r.object_type ? r.object_type.replace('_', ' ') : ''}
               onClick={(e) => {
@@ -292,8 +294,21 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
               {r.name}
             </span>
           );
-        })}
-      </div>
+        }}
+      />
+    );
+  }, []);
+
+  const renderStringList = useCallback((list: string[], emptyText = 'any') => {
+    if (!list || list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>{emptyText}</span>;
+    return (
+      <ExpandableBadgeList
+        items={list}
+        limit={5}
+        renderItem={(item: string, idx: number) => (
+          <span key={idx} style={{ fontSize: '11px', wordBreak: 'break-all' }}>{item}</span>
+        )}
+      />
     );
   }, []);
 
@@ -315,7 +330,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         label: 'Information',
         width: '160px',
         renderCell: (val: any, row: any) => (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
             {row._isInherited && (
               <span
                 style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'inline-flex', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)' }}
@@ -435,11 +450,13 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         label: 'Tags',
         width: '180px',
         renderCell: (val: any, row: any) => (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {(row.tags || []).map((t: string) => (
-              <span key={t} style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)' }}>{t}</span>
-            ))}
-          </div>
+          <ExpandableBadgeList
+            items={row.tags || []}
+            limit={5}
+            renderItem={(t: string) => (
+              <span key={t} style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)', wordBreak: 'break-all' }}>{t}</span>
+            )}
+          />
         ),
         getFilterValues: (r: any) => r.tags && r.tags.length > 0 ? r.tags : ['']
       }
@@ -481,9 +498,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (policyType === 'qos') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.source_zone, 'any'), getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
         { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.destination_zone, 'any'), getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
         { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         { key: 'qosClass', label: 'QoS Class', width: '160px', renderCell: (v: any, r: any) => r.qos_class || 'none', getFilterValues: (r: any) => r.qos_class || 'none' },
         { key: 'dscpTos', label: 'DSCP/ToS', width: '160px', renderCell: (v: any, r: any) => r.dscp_tos_marking || 'none', getFilterValues: (r: any) => r.dscp_tos_marking || 'none' },
@@ -493,7 +510,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (policyType === 'pbf') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.source_zone, 'any'), getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
         { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
         { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         actionCol,
@@ -505,9 +522,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (policyType === 'decryption') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.source_zone, 'any'), getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
         { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.destination_zone, 'any'), getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
         { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         actionCol,
         { key: 'decryptionType', label: 'Decryption Type', width: '180px', renderCell: (v: any, r: any) => r.decryption_type || 'none', getFilterValues: (r: any) => r.decryption_type || 'none' },
@@ -518,9 +535,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (policyType === 'application_override') {
       return [
         ...commonStart,
-        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+        { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.source_zone, 'any'), getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
         { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
-        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+        { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.destination_zone, 'any'), getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
         { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
         { key: 'protocol', label: 'Protocol', width: '160px', renderCell: (v: any, r: any) => r.protocol || 'any', getFilterValues: (r: any) => r.protocol || 'any' },
         { key: 'port', label: 'Port', width: '160px', renderCell: (v: any, r: any) => r.port || 'any', getFilterValues: (r: any) => r.port || 'any' },
@@ -566,17 +583,17 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     // Default: security
     return [
       ...commonStart,
-      { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => (r.source_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
+      { key: 'sourceZone', label: 'Source Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.source_zone, 'any'), getFilterValues: (r: any) => r.source_zone && r.source_zone.length > 0 ? r.source_zone : ['any'] },
       { key: 'sourceAddress', label: 'Source Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.source_address), getFilterValues: (r: any) => getObjFilterVals(r.source_address) },
-      { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => (r.destination_zone || []).join(', ') || 'any', getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
+      { key: 'destinationZone', label: 'Destination Zone', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.destination_zone, 'any'), getFilterValues: (r: any) => r.destination_zone && r.destination_zone.length > 0 ? r.destination_zone : ['any'] },
       { key: 'destinationAddress', label: 'Destination Address', width: '260px', renderCell: (v: any, r: any) => renderObjectRefs(r.destination_address), getFilterValues: (r: any) => getObjFilterVals(r.destination_address) },
       { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
       { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
-      { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => (r.category || []).join(', ') || 'any', getFilterValues: (r: any) => r.category && r.category.length > 0 ? r.category : ['any'] },
+      { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => renderStringList(r.category, 'any'), getFilterValues: (r: any) => r.category && r.category.length > 0 ? r.category : ['any'] },
       {
         key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => {
           if (r.profile_type === 'group') return r.profile_group || 'none';
-          if (r.profile_type === 'profiles') return (r.profiles || []).join(', ') || 'none';
+          if (r.profile_type === 'profiles') return renderStringList(r.profiles, 'none');
           return 'none';
         }, getFilterValues: (r: any) => {
           if (r.profile_type === 'group') return r.profile_group || 'none';
