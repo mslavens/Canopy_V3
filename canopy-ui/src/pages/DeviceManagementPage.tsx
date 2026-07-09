@@ -365,6 +365,29 @@ const TemplateStackItem: React.FC<TemplateStackItemProps> = ({
 };
 
 // 3. Main Page Component
+
+const exportCSV = (data: any[], filename: string) => {
+  if (!data || data.length === 0) return;
+  const keys = Object.keys(data[0]);
+  const header = keys.join(',');
+  const rows = data.map(row => keys.map(k => {
+    let val = row[k];
+    if (val === null || val === undefined) val = '';
+    else if (typeof val === 'string') val = `"${val.replace(/"/g, '""')}"`;
+    return val;
+  }).join(','));
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.setAttribute('hidden', '');
+  a.setAttribute('href', url);
+  a.setAttribute('download', filename);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
 export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({ 
   auth, 
   addToast, 
@@ -405,11 +428,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const [assignModalWindow, setAssignModalWindow] = useState<Window | null>(null);
   const [selectedAssignDevices, setSelectedAssignDevices] = useState<ManagedDevice[]>([]);
   const hierarchyDropdownRef = React.useRef<HTMLDivElement>(null);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(380);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(480);
   const isDragging = useRef(false);
 
   // Templates Panel layout states
-  const [leftTemplatesPanelWidth, setLeftTemplatesPanelWidth] = useState(380);
+  const [leftTemplatesPanelWidth, setLeftTemplatesPanelWidth] = useState(480);
   const [templatesSearchQuery, setTemplatesSearchQuery] = useState('');
   const [templateMemberSearchQuery, setTemplateMemberSearchQuery] = useState('');
   const [stackMemberSearchQuery, setStackMemberSearchQuery] = useState('');
@@ -1504,18 +1527,45 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     setSelectedTemplateName(name);
   };
 
+  const exportDeviceGroupsCSV = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `device_groups_${timestamp}.csv`;
+    const mappedData = deviceGroups.map(g => {
+      const associatedFirewalls = inventory.filter(d => d.device_group_id === g.id || d.device_group === g.name);
+      const firewallsDetails = associatedFirewalls.map(d => `${d.name} (${d.serial})`).join(' | ');
+      return { Vendor: g.vendor || 'paloalto', Name: g.name, Description: g.description || '', 'Firewalls Details': firewallsDetails };
+    });
+    exportCSV(mappedData, filename);
+  };
+
+  const exportTemplatesCSV = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = templatesLeftSidebarTab === 'stacks' ? `template_stacks_${timestamp}.csv` : `base_templates_${timestamp}.csv`;
+    const targetData = templatesLeftSidebarTab === 'stacks' ? templateStacks : baseTemplates;
+    const mappedData = targetData.map(t => {
+      const associatedFirewalls = inventory.filter(d => d.template_stack_id === t.id || d.template_stack === t.name || (d.template_id === t.id && templatesLeftSidebarTab === 'templates'));
+      const firewallsDetails = associatedFirewalls.map(d => `${d.name} (${d.serial})`).join(' | ');
+      return { Vendor: t.vendor || 'paloalto', Name: t.name, Description: t.description || '', 'Firewalls Details': firewallsDetails };
+    });
+    exportCSV(mappedData, filename);
+  };
+
+
   // --- Mappings for Dropdown elements ---
   // 1. Device Group Assignment Dropdown
-  const groupOptions = ['Unassigned', ...deviceGroups.map(g => cleanGroupName(g.name))];
+  const vendorFilteredDeviceGroups = deviceGroups.filter(g => (g.vendor || 'paloalto').toLowerCase() === deviceVendor.toLowerCase());
+  const groupOptions = ['Unassigned', ...vendorFilteredDeviceGroups.map(g => cleanGroupName(g.name))];
   const activeGroupLabel = deviceGroupId
     ? cleanGroupName(deviceGroups.find(g => g.id === deviceGroupId)?.name || '')
     : 'Unassigned';
 
   // 2. Parent Config Assignment Dropdown (Templates & Stacks)
+  const filteredTemplateStacksForDevice = templateStacks.filter(s => (s.vendor || 'paloalto').toLowerCase() === deviceVendor.toLowerCase());
+  const filteredBaseTemplatesForDevice = baseTemplates.filter(t => (t.vendor || 'paloalto').toLowerCase() === deviceVendor.toLowerCase());
   const parentOptions = [
     'None',
-    ...templateStacks.map(s => `Stack: ${s.name}`),
-    ...baseTemplates.map(t => `Template: ${cleanTemplateName(t.name)}`)
+    ...filteredTemplateStacksForDevice.map(s => `Stack: ${s.name}`),
+    ...filteredBaseTemplatesForDevice.map(t => `Template: ${cleanTemplateName(t.name)}`)
   ];
   let activeParentLabel = 'None';
   if (deviceParentConfigVal.startsWith('stack-')) {
@@ -1537,7 +1587,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     : rootName;
 
   // 4. Member Templates Dropdown for Stack Modal
-  const availableTemplates = baseTemplates.filter(t => !stackTemplateIds.includes(t.id));
+  const availableTemplates = baseTemplates.filter(t => !stackTemplateIds.includes(t.id) && (t.vendor || 'paloalto').toLowerCase() === stackVendor.toLowerCase());
   const memberOptions = ['-- Select template to append --', ...availableTemplates.map(t => cleanTemplateName(t.name))];
 
   if (initialLoading) {
@@ -2043,19 +2093,21 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               >
                                 <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
                               </button>
-                            </>
-                          ) : (
-                            <>
                               <button
                                 className="context-menu-item"
-                                onClick={() => { handleOpenAddGroupModal(null); setIsHierarchyDropdownOpen(false); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onClick={() => {
+                                  exportDeviceGroupsCSV();
+                                  setIsHierarchyDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               >
-                                <Plus size={13} style={{ color: 'var(--text-muted)' }} /> Add Root Group
+                                <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} /> Export CSV
                               </button>
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                            </>
+                          ) : (
+                            <>
                               <button
                                 className="context-menu-item"
                                 onClick={() => {
@@ -2068,6 +2120,18 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                               >
                                 <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
+                              </button>
+                              <button
+                                className="context-menu-item"
+                                onClick={() => {
+                                  exportDeviceGroupsCSV();
+                                  setIsHierarchyDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} /> Export CSV
                               </button>
                             </>
                           )}
@@ -2475,6 +2539,18 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           >
                             <Download size={13} style={{ color: 'var(--text-muted)' }} /> Import CSV...
                           </button>
+                          <button
+                            className="context-menu-item"
+                            onClick={() => {
+                              setIsTemplatesDropdownOpen(false);
+                              exportTemplatesCSV();
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} /> Export CSV
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2564,6 +2640,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                     ({count})
                                   </span>
                                 )}
+                                {tmpl.vendor && <div style={{ marginLeft: '10px', display: 'flex', alignItems: 'center' }}>{renderVendorBadge(tmpl.vendor)}</div>}
                               </div>
                             );
                           })
