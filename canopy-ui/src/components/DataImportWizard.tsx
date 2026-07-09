@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface DataImportWizardProps {
   isOpen: boolean;
@@ -77,9 +78,14 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   onSuccess,
   availableDataTypes
 }) => {
-  const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Upload, 2: Map, 3: Review
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Upload, 2: Select Sheet, 3: Map, 4: Review
   const [dataType, setDataType] = useState(defaultDataType);
   const [file, setFile] = useState<File | null>(null);
+  
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+
   const [parsedHeaders, setParsedHeaders] = useState<string[]>([]);
   const [parsedData, setParsedData] = useState<Record<string, string>[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -113,64 +119,131 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
 
   if (!isOpen) return null;
 
+  const parseCSVText = (text: string) => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(line => line !== '');
+    if (lines.length > 0) {
+      const parseCSVLine = (line: string) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const headers = parseCSVLine(lines[0]);
+      setParsedHeaders(headers);
+
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const rowObj: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          rowObj[header] = values[index] || '';
+        });
+        rows.push(rowObj);
+      }
+      setParsedData(rows);
+    } else {
+      setErrorMessage('The file appears to be empty.');
+    }
+  };
+
+  const parseExcelSheet = (wb: XLSX.WorkBook, sheetName: string) => {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) {
+      setErrorMessage('Could not load sheet data.');
+      return;
+    }
+    const json: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    if (json.length > 0) {
+      const headers = Object.keys(json[0]);
+      setParsedHeaders(headers);
+      
+      const rows: Record<string, string>[] = json.map(row => {
+        const rowObj: Record<string, string> = {};
+        headers.forEach(h => {
+          rowObj[h] = String(row[h]);
+        });
+        return rowObj;
+      });
+      setParsedData(rows);
+    } else {
+      setErrorMessage('The selected sheet appears to be empty.');
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMessage('');
     if (e.target.files && e.target.files.length > 0) {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
       
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (!text) return;
-
-        // Clean up simple CSV parsing
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(line => line !== '');
-        if (lines.length > 0) {
-          const parseCSVLine = (line: string) => {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-              const char = line[i];
-              if (char === '"') {
-                inQuotes = !inQuotes;
-              } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-              } else {
-                current += char;
-              }
+      const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+      
+      if (ext === 'csv') {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          if (!text) return;
+          parseCSVText(text);
+          setWorkbook(null);
+          setSheetNames([]);
+        };
+        reader.readAsText(selectedFile);
+      } else if (ext === 'xls' || ext === 'xlsx') {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const wb = XLSX.read(data, { type: 'array' });
+            setWorkbook(wb);
+            setSheetNames(wb.SheetNames);
+            if (wb.SheetNames.length === 1) {
+              setSelectedSheet(wb.SheetNames[0]);
+              parseExcelSheet(wb, wb.SheetNames[0]);
+            } else {
+              setSelectedSheet('');
             }
-            result.push(current.trim());
-            return result;
-          };
-
-          const headers = parseCSVLine(lines[0]);
-          setParsedHeaders(headers);
-
-          const rows: Record<string, string>[] = [];
-          for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            const rowObj: Record<string, string> = {};
-            headers.forEach((header, index) => {
-              rowObj[header] = values[index] || '';
-            });
-            rows.push(rowObj);
+          } catch (err: any) {
+            setErrorMessage('Failed to parse Excel file: ' + err.message);
           }
-          setParsedData(rows);
-        } else {
-          setErrorMessage('The CSV file appears to be empty.');
-        }
-      };
-      reader.readAsText(selectedFile);
+        };
+        reader.readAsArrayBuffer(selectedFile);
+      } else {
+        setErrorMessage('Unsupported file format. Please upload a .csv, .xls, or .xlsx file.');
+        setFile(null);
+      }
     }
   };
 
   const nextStep = () => {
     if (step === 1 && file) {
-      setStep(2);
+      if (sheetNames.length > 1 && !selectedSheet) {
+        setStep(2);
+      } else {
+        setStep(3);
+      }
     } else if (step === 2) {
+      if (!selectedSheet) {
+        setErrorMessage('Please select a sheet');
+        return;
+      }
+      if (workbook) {
+        parseExcelSheet(workbook, selectedSheet);
+        setStep(3);
+      }
+    } else if (step === 3) {
       // Validate that all required fields have a mapping selected
       const missing = requiredFields.filter(f => !mappings[f]);
       if (missing.length > 0) {
@@ -178,7 +251,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
         return;
       }
       setErrorMessage('');
-      setStep(3);
+      setStep(4);
     }
   };
 
@@ -199,7 +272,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
     });
 
     try {
-      const response = await apiClient.fetchApi('/api/objects/import', {
+      const resData = await apiClient.request('/api/objects/import', {
         method: 'POST',
         body: JSON.stringify({
           device_uuid: deviceUuid,
@@ -209,7 +282,6 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
         })
       });
       
-      const resData = await response.json();
       if (resData.success) {
         setIsProcessing(false);
         onSuccess();
@@ -217,6 +289,9 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
         // Reset state
         setStep(1);
         setFile(null);
+        setWorkbook(null);
+        setSheetNames([]);
+        setSelectedSheet('');
         setParsedHeaders([]);
         setParsedData([]);
         setMappings({});
@@ -255,7 +330,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           Data Import Manager
         </h2>
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '24px' }}>
-          Step {step} of 3: {step === 1 ? 'Upload File' : step === 2 ? 'Map Columns' : 'Confirm Import'}
+          Step {step === 1 ? 1 : step === 2 ? 1.5 : step === 3 ? 2 : 3} of 3: {step === 1 ? 'Upload File' : step === 2 ? 'Select Sheet' : step === 3 ? 'Map Columns' : 'Confirm Import'}
         </div>
 
         {errorMessage && (
@@ -285,14 +360,36 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
               padding: '40px 20px', textAlign: 'center', backgroundColor: 'var(--bg-app)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px'
             }}>
-              <input type="file" accept=".csv" onChange={handleFileChange} style={{ fontSize: '13px', cursor: 'pointer' }} />
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Only CSV format is currently supported.</p>
+              <input type="file" accept=".csv,.xls,.xlsx" onChange={handleFileChange} style={{ fontSize: '13px', cursor: 'pointer' }} />
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Supported formats: .csv, .xls, .xlsx</p>
               {file && <p style={{ fontSize: '13px', color: '#34d399', fontWeight: 500, marginTop: '8px' }}>Selected file: {file.name}</p>}
             </div>
           </div>
         )}
 
         {step === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+              This workbook contains multiple sheets. Please select the one you'd like to import.
+            </p>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>Worksheet</label>
+              <select 
+                className="input-text" 
+                value={selectedSheet}
+                onChange={(e) => setSelectedSheet(e.target.value)}
+                style={{ width: '100%', padding: '10px' }}
+              >
+                <option value="">-- Select Sheet --</option>
+                {sheetNames.map(sheet => (
+                  <option key={sheet} value={sheet}>{sheet}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
               Map your spreadsheet columns to the Canopy database fields. Auto-matched columns are preselected.
@@ -323,7 +420,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
               Review the summary before executing the import transaction.
@@ -332,6 +429,11 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
               <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
                 <strong>File:</strong> {file?.name}
               </div>
+              {selectedSheet && (
+                <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
+                  <strong>Sheet:</strong> {selectedSheet}
+                </div>
+              )}
               <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
                 <strong>Type:</strong> {typesToRender.find(t => t.value === dataType)?.label || dataType}
               </div>
@@ -353,7 +455,10 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           
           {step > 1 && (
             <button 
-              onClick={() => setStep(step - 1 as 1 | 2)}
+              onClick={() => {
+                if (step === 3 && sheetNames.length <= 1) setStep(1);
+                else setStep(step - 1 as any);
+              }}
               className="btn-secondary btn-md"
               disabled={isProcessing}
             >
@@ -361,10 +466,10 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
             </button>
           )}
 
-          {step < 3 ? (
+          {step < 4 ? (
             <button 
               onClick={nextStep}
-              disabled={!file}
+              disabled={!file || (step === 2 && !selectedSheet)}
               className="btn-primary btn-md"
               style={{ minWidth: '100px' }}
             >

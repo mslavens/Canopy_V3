@@ -2042,6 +2042,16 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               </div>
                               <button
                                 className="context-menu-item"
+                                onClick={() => { handleOpenEditGroupModal(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
+                              </button>
+                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              <button
+                                className="context-menu-item"
                                 onClick={() => { handleOpenAddGroupModal(selectedGroupDetails.id); setIsHierarchyDropdownOpen(false); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
@@ -2058,27 +2068,6 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               >
                                 <Server size={13} style={{ color: 'var(--text-muted)' }} /> Assign Firewalls
                               </button>
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                              <button
-                                className="context-menu-item"
-                                onClick={() => { handleOpenEditGroupModal(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
-                              </button>
-                              {!VENDOR_ROOT_UUIDS.includes(selectedGroupDetails.uuid) && (
-                                <button
-                                  className="context-menu-item"
-                                  onClick={() => { handleDeleteGroup(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--red-500)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--red-500-10)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <Trash2 size={13} style={{ color: 'var(--red-500)' }} /> Delete Group
-                                </button>
-                              )}
                               <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
                               <button
                                 className="context-menu-item"
@@ -2105,6 +2094,20 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               >
                                 <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} /> Export CSV
                               </button>
+                              {!VENDOR_ROOT_UUIDS.includes(selectedGroupDetails.uuid) && (
+                                <>
+                                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                  <button
+                                    className="context-menu-item"
+                                    onClick={() => { handleDeleteGroup(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--status-red) 10%, transparent)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                  >
+                                    <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Group
+                                  </button>
+                                </>
+                              )}
                             </>
                           ) : (
                             <>
@@ -2526,6 +2529,46 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           padding: '4px',
                           minWidth: '180px'
                         }}>
+                          {templatesLeftSidebarTab === 'templates' && selectedTemplateId && baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId) && (() => {
+                            const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId)!;
+                            return (
+                              <>
+                                <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                                  {cleanTemplateName(tmpl.name)}
+                                </div>
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleOpenEditTemplateModal(tmpl); setIsTemplatesDropdownOpen(false); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Template
+                                </button>
+                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              </>
+                            );
+                          })()}
+                          {templatesLeftSidebarTab === 'stacks' && selectedTemplateId && templateStacks.find(s => `stack-${s.id}` === selectedTemplateId) && (() => {
+                            const stack = templateStacks.find(s => `stack-${s.id}` === selectedTemplateId)!;
+                            return (
+                              <>
+                                <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
+                                  {cleanTemplateName(stack.name)}
+                                </div>
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleOpenEditStackModal(stack); setIsTemplatesDropdownOpen(false); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Stack
+                                </button>
+                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                              </>
+                            );
+                          })()}
                           <button
                             className="context-menu-item"
                             onClick={() => {
@@ -2551,6 +2594,40 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           >
                             <ExternalLink size={13} style={{ color: 'var(--text-muted)' }} /> Export CSV
                           </button>
+                          {templatesLeftSidebarTab === 'templates' && selectedTemplateId && baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId) && (() => {
+                            const tmpl = baseTemplates.find(t => `tmpl-${t.name}` === selectedTemplateId)!;
+                            return (
+                              <>
+                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleDeleteTemplate(tmpl); setIsTemplatesDropdownOpen(false); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--status-red) 10%, transparent)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Template
+                                </button>
+                              </>
+                            );
+                          })()}
+                          {templatesLeftSidebarTab === 'stacks' && selectedTemplateId && templateStacks.find(s => `stack-${s.id}` === selectedTemplateId) && (() => {
+                            const stack = templateStacks.find(s => `stack-${s.id}` === selectedTemplateId)!;
+                            return (
+                              <>
+                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                                <button
+                                  className="context-menu-item"
+                                  onClick={() => { handleDeleteStack(stack); setIsTemplatesDropdownOpen(false); }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--status-red) 10%, transparent)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                  <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Stack
+                                </button>
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
