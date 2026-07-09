@@ -404,21 +404,21 @@ func handleGetGroupMembers(w http.ResponseWriter, r *http.Request) {
 		switch objType {
 		case "Address Groups":
 			query = `
-				SELECT m.id, m.member_address_id, ao.name AS object_name, m.member_group_id, ag.name AS group_name, m.member_name 
+				SELECT m.member_address_id, ao.name AS object_name, m.member_group_id, ag.name AS group_name, m.member_name 
 				FROM address_group_members m 
 				LEFT JOIN address_objects ao ON m.member_address_id = ao.id 
 				LEFT JOIN address_groups ag ON m.member_group_id = ag.id 
 				WHERE m.group_id = ?`
 		case "Service Groups":
 			query = `
-				SELECT m.id, m.member_service_id, so.name AS object_name, m.member_group_id, sg.name AS group_name, m.member_name 
+				SELECT m.member_service_id, so.name AS object_name, m.member_group_id, sg.name AS group_name, m.member_name 
 				FROM service_group_members m 
 				LEFT JOIN service_objects so ON m.member_service_id = so.id 
 				LEFT JOIN service_groups sg ON m.member_group_id = sg.id 
 				WHERE m.group_id = ?`
 		case "Application Groups":
 			query = `
-				SELECT m.id, m.member_application_id, app.name AS object_name, m.member_group_id, ag.name AS group_name, m.member_name 
+				SELECT m.member_application_id, app.name AS object_name, m.member_group_id, ag.name AS group_name, m.member_name 
 				FROM application_group_members m 
 				LEFT JOIN application_objects app ON m.member_application_id = app.id 
 				LEFT JOIN application_groups ag ON m.member_group_id = ag.id 

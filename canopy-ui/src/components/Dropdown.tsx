@@ -20,7 +20,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   width = '200px', 
   direction = 'down', 
   renderOption,
-  searchable = false,
+  searchable = true,
   variant = 'default'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -80,6 +80,17 @@ export const Dropdown: React.FC<DropdownProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        const input = document.querySelector('.portal-dropdown-menu input') as HTMLInputElement;
+        if (input) {
+          input.focus();
+        }
+      }, 50);
+    }
+  }, [isOpen, coords.ready]);
+
+  useEffect(() => {
     if (isOpen && coords.ready) {
       setTimeout(() => {
         const menu = document.querySelector('.portal-dropdown-menu');
@@ -133,6 +144,46 @@ export const Dropdown: React.FC<DropdownProps> = ({
         flexDirection: 'column'
       }}
     >
+      {searchable && (
+        <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 1 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const firstOption = document.querySelector('.portal-dropdown-menu .dropdown-option') as HTMLElement;
+                if (firstOption) firstOption.focus();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setIsOpen(false);
+                containerRef.current?.querySelector('div')?.focus();
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (filteredOptions.length > 0) {
+                  onChange(filteredOptions[0]);
+                  setIsOpen(false);
+                  containerRef.current?.querySelector('div')?.focus();
+                }
+              }
+            }}
+            placeholder="Search..."
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              fontSize: '12px',
+              border: '1px solid var(--border-main)',
+              borderRadius: '4px',
+              backgroundColor: 'var(--bg-base)',
+              color: 'var(--text-main)',
+              outline: 'none'
+            }}
+          />
+        </div>
+      )}
 
       <div style={{ overflowY: 'auto', flex: 1, padding: '4px 0' }}>
         {filteredOptions.length === 0 ? (
@@ -167,7 +218,12 @@ export const Dropdown: React.FC<DropdownProps> = ({
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
                   const prev = e.currentTarget.previousElementSibling as HTMLElement;
-                  if (prev) prev.focus();
+                  if (prev) {
+                    prev.focus();
+                  } else {
+                    const input = document.querySelector('.portal-dropdown-menu input') as HTMLInputElement;
+                    if (input) input.focus();
+                  }
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   setIsOpen(false);

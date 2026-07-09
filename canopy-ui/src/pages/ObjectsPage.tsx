@@ -1370,7 +1370,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     if (!inspectorSearch.trim()) return resolvedMembers;
     const q = inspectorSearch.toLowerCase();
     return resolvedMembers.filter(m => {
-      const title = (m.member_name || m.address_name || m.service_name || m.app_name || m.nested_group_name || '').toLowerCase();
+      const title = (m.member_name || m.object_name || m.group_name || m.address_name || m.service_name || m.app_name || m.nested_group_name || '').toLowerCase();
       const details = `${m.address_value || ''} ${m.service_port || ''} ${m.app_category || ''} ${m.address_type || ''} ${m.service_protocol || ''}`.toLowerCase();
       return title.includes(q) || details.includes(q);
     });
@@ -1410,10 +1410,24 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         const aggregated: Record<string, any> = {};
         (flatMembers || []).forEach((item: any) => {
           if (!aggregated[item.name]) {
+            let localDetails = item.details;
+            if (!localDetails) {
+              if (activeSubTab === 'Address Groups') {
+                const foundObj = allAddresses.find(a => a.name === item.name);
+                if (foundObj) localDetails = foundObj.value;
+              } else if (activeSubTab === 'Service Groups') {
+                const foundObj = allServices.find(s => s.name === item.name);
+                if (foundObj) localDetails = foundObj.port;
+              } else if (activeSubTab === 'Application Groups') {
+                const foundObj = allApplications.find(a => a.name === item.name);
+                if (foundObj) localDetails = foundObj.category;
+              }
+            }
+
             aggregated[item.name] = {
               name: item.name,
-              type: item.type || item.obj_type,
-              details: item.details,
+              type: item.type || item.obj_type || (activeSubTab === 'Address Groups' ? 'Address Object' : activeSubTab === 'Service Groups' ? 'Service Object' : 'Application Object'),
+              details: localDetails || '',
               paths: []
             };
           }
@@ -1426,9 +1440,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         setFlattenedMembers([]);
       }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to resolve group members details', e);
-      addToast('Failed to fetch group member details.', 'error');
+      addToast(`Failed to fetch group member details: ${e.message}`, 'error');
     } finally {
       setSlideOverLoading(false);
     }
@@ -1663,6 +1677,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       );
       setIsCrudModalOpen(false);
       fetchRecords();
+      loadReferenceData();
       if (standaloneEditor) {
         window.close();
       }
@@ -2035,6 +2050,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'tags',
             label: 'Tags',
             width: '180px',
+            getFilterValues: (row) => {
+              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_object');
+              return mappings.map(m => {
+                const tagObj = allTags.find(t => t.id === m.tag_id);
+                return tagObj ? tagObj.name : null;
+              }).filter(Boolean) as string[];
+            },
             renderCell: (val, row, query) => {
               const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_object');
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
@@ -2106,12 +2128,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             label: 'Members / Dynamic Filter',
             width: '320px',
             renderCell: (val, row, query) => {
-              if (row.type === 'dynamic') {
-                return <code style={{ color: 'var(--accent-blue)', fontSize: '11px' }}><HighlightedText text={row.filter || 'No Filter'} highlight={query || ''} /></code>;
-              }
               const list = val ? val.split(',') : [];
-              if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
+              let filterBlock = null;
+              if (row.type === 'dynamic') {
+                filterBlock = <code style={{ color: 'var(--accent-blue)', fontSize: '11px', display: 'block', marginBottom: list.length > 0 ? '4px' : '0' }}><HighlightedText text={row.filter || 'No Filter'} highlight={query || ''} /></code>;
+              }
+              if (list.length === 0) return <div>{filterBlock}<span style={{ color: 'var(--text-muted)' }}>No members</span></div>;
               return (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {filterBlock}
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px', overflow: 'hidden' }}>
                   {list.slice(0, 3).map((m: string) => (
                     <span
@@ -2138,6 +2163,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                       +{list.length - 3} more
                     </span>
                   )}
+                  </div>
                 </div>
               );
             }
@@ -2146,6 +2172,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'tags',
             label: 'Tags',
             width: '180px',
+            getFilterValues: (row) => {
+              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_group');
+              return mappings.map(m => {
+                const tagObj = allTags.find(t => t.id === m.tag_id);
+                return tagObj ? tagObj.name : null;
+              }).filter(Boolean) as string[];
+            },
             renderCell: (val, row, query) => {
               const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_group');
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
@@ -3105,26 +3138,29 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         let displayType = 'Member';
                         let displayDetails = subtitle;
 
-                        if (member.address_name) {
-                          title = member.address_name;
-                          cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
-                          displayType = `Address Object (${member.address_type})`;
-                          displayDetails = member.address_value;
-                        } else if (member.service_name) {
-                          title = member.service_name;
-                          cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
-                          displayType = `Port Service (${String(member.service_protocol).toUpperCase()})`;
-                          displayDetails = member.service_port;
-                        } else if (member.app_name) {
-                          title = member.app_name;
-                          cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
-                          displayType = `App-ID`;
-                          displayDetails = member.app_category;
-                        } else if (member.nested_group_name) {
-                          title = member.nested_group_name;
+                        if (member.object_name) {
+                          title = member.object_name;
+                          if (activeSubTab === 'Address Groups') {
+                            const foundObj = allAddresses.find(a => a.name === member.object_name);
+                            cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
+                            displayType = foundObj ? `Address Object (${foundObj.type})` : 'Address Object';
+                            displayDetails = foundObj ? foundObj.value : 'Unresolved details';
+                          } else if (activeSubTab === 'Service Groups') {
+                            const foundObj = allServices.find(s => s.name === member.object_name);
+                            cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
+                            displayType = foundObj ? `Port Service (${String(foundObj.protocol).toUpperCase()})` : 'Port Service';
+                            displayDetails = foundObj ? foundObj.port : 'Unresolved details';
+                          } else if (activeSubTab === 'Application Groups') {
+                            const foundObj = allApplications.find(a => a.name === member.object_name);
+                            cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
+                            displayType = `App-ID`;
+                            displayDetails = foundObj ? foundObj.category : 'Unresolved details';
+                          }
+                        } else if (member.group_name) {
+                          title = member.group_name;
                           cardIcon = <Layers size={14} style={{ color: '#a855f7' }} />;
                           displayType = 'Nested Group';
-                          displayDetails = 'Address Group';
+                          displayDetails = activeSubTab.replace(' Groups', ' Group');
                         }
 
                         return (
@@ -3172,11 +3208,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {filteredFlattenedMembers.map((member, idx) => {
                         let cardIcon = <Tag size={14} className="text-accent" />;
-                        if (member.type.includes('Address')) {
+                        if ((member.type || '').includes('Address')) {
                           cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
-                        } else if (member.type.includes('Port') || member.type.includes('Service')) {
+                        } else if ((member.type || '').includes('Port') || (member.type || '').includes('Service')) {
                           cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
-                        } else if (member.type.includes('Application') || member.type.includes('Signature')) {
+                        } else if ((member.type || '').includes('Application') || (member.type || '').includes('Signature')) {
                           cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
                         }
 
@@ -3203,9 +3239,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                                   <HighlightedText text={member.name} highlight={inspectorSearch} />
                                 </span>
                               </Tooltip>
-                              <Tooltip content={`${member.type} • ${member.details}`} position="top" align="right">
+                              <Tooltip content={member.details ? `${member.type} • ${member.details}` : member.type} position="top" align="right">
                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  <HighlightedText text={`${member.type} • ${member.details}`} highlight={inspectorSearch} />
+                                  <HighlightedText text={member.details ? `${member.type} • ${member.details}` : member.type} highlight={inspectorSearch} />
                                 </span>
                               </Tooltip>
                               {member.paths && member.paths.length > 0 && (
