@@ -592,8 +592,6 @@ export const useObjectMove = (
                       } else {
                           if (existingInTarget && resolution === 'copy') {
                               shell.name = `${shell.name}_copy`;
-                          } else {
-                              shell.description = (shell.description || '') + ' (Imported Dependency)';
                           }
                           ops.push({ type: 'create', refType: depRefType, data: shell });
                           summary.creating.push({ name: shell.name, type: depRefType });
