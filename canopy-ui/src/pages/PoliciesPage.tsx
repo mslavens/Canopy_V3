@@ -19,14 +19,14 @@ interface PoliciesPageProps {
   setGlobalScopeVendor?: (vendor: string) => void;
 }
 
-export const PoliciesPage: React.FC<PoliciesPageProps> = ({ 
+export const PoliciesPage: React.FC<PoliciesPageProps> = ({
   auth, addToast, activeSubTab, setActiveSubTab,
-  globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor 
+  globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor
 }) => {
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
   const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
-  
+
   const [localScope, setLocalScope] = useState<string>('paloalto-panorama-global');
   const selectedScopeUuid = globalScopeUuid || localScope;
   const setSelectedScopeUuid = setGlobalScopeUuid || setLocalScope;
@@ -44,6 +44,35 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (activeSubTab.endsWith('Device Rules')) return 'device';
     return null;
   }, [activeSubTab]);
+
+  useEffect(() => {
+    const handlePayload = (payloadStr: string | null) => {
+      if (!payloadStr) return;
+      try {
+        const payload = JSON.parse(payloadStr);
+        setSearchQuery(payload.query);
+        if (payload.scope && setSelectedScopeUuid) {
+          setSelectedScopeUuid(payload.scope);
+        }
+      } catch (e) {
+        setSearchQuery(payloadStr);
+      }
+    };
+
+    // Check session storage on mount
+    const injectedSearch = sessionStorage.getItem('canopy-local-search-injection');
+    if (injectedSearch) {
+      handlePayload(injectedSearch);
+      sessionStorage.removeItem('canopy-local-search-injection');
+    }
+
+    // Listen for live injection events (when already mounted and tab doesn't change)
+    const handleInject = (e: any) => {
+      handlePayload(e.detail);
+    };
+    window.addEventListener('canopy-inject-search', handleInject);
+    return () => window.removeEventListener('canopy-inject-search', handleInject);
+  }, [activeSubTab, setSelectedScopeUuid]);
 
   const policyType = useMemo(() => {
     if (activeSubTab.startsWith('Security')) return 'security';
@@ -75,7 +104,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
           return;
         }
       }
-      
+
       // If empty (e.g., they were on 'show-all' or hadn't picked a device), default to shared
       if (!selectedScopeUuid) {
         setSelectedScopeUuid('paloalto-panorama-global');
@@ -111,7 +140,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         if (!validTables.includes(tableName)) tableName = 'security_rules';
 
         const data = await apiClient.getPoliciesContext(tableName, rulebase || '');
-        
+
         if (isMounted) {
           setDeviceGroups(data.device_groups || []);
           setDevices(data.devices || []);
@@ -153,9 +182,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
             url += `?scopes=${encodeURIComponent(scopesStr)}`;
           }
         }
-        
+
         const payload = await apiClient.request<any>(url.replace(apiClient.auth.url, ''));
-        
+
         if (isMounted) {
           window.dispatchEvent(new CustomEvent('update-tab-counts', { detail: payload }));
         }
@@ -179,7 +208,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
     if (currentLoadedType !== policyType) {
       setRules([]); // Only clear rules when switching policy types to prevent column mismatch. For scope/rulebase switches, keep data so isFetching can dim smoothly.
     }
-    
+
     setIsFetching(true);
 
     if (!selectedScopeUuid) {
@@ -202,7 +231,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
 
     try {
       const data = await apiClient.getPolicies(policyType, selectedScopeUuid, rulebase || '');
-      
+
       // Ignore stale responses if a newer fetch was initiated
       if (activeFetchRef.current !== fetchId) return;
 
@@ -236,7 +265,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
           const bgColor = isAdHoc ? 'rgba(255, 165, 0, 0.1)' : isPredefined ? 'transparent' : 'var(--bg-app)';
           const textColor = isAdHoc ? '#e8a123' : isPredefined ? 'var(--text-muted)' : 'var(--text-main)';
           const borderColor = isAdHoc ? 'rgba(255, 165, 0, 0.3)' : isPredefined ? 'transparent' : 'var(--border-main)';
-          
+
           return (
             <span
               key={i}
@@ -288,7 +317,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         renderCell: (val: any, row: any) => (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             {row._isInherited && (
-              <span 
+              <span
                 style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'inline-flex', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)' }}
                 title={`Inherited from ${scopeNameMap[row.device_uuid] || 'Unknown Scope'}`}
               >
@@ -319,12 +348,12 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedScopeUuid(scopeId);
-                        
+
                         if (rulebase === 'device' && setActiveSubTab) {
                           const isPre = (row?.scope || '').endsWith(':pre');
                           const isPost = (row?.scope || '').endsWith(':post');
                           const prefix = activeSubTab.split('-')[0]?.trim() || 'Security';
-                          
+
                           if (isPre) {
                             setActiveSubTab(`${prefix} - Pre Rules`);
                           } else if (isPost) {
@@ -374,9 +403,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
           else if (t.includes('Pre')) t = 'Pre';
           else if (t.includes('Post')) t = 'Post';
           else t = t.replace(' Rules', '');
-          
+
           return (
-            <span style={{ 
+            <span style={{
               display: 'inline-flex', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
               backgroundColor: t === 'Local' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-app)',
               color: t === 'Local' ? 'var(--accent-blue)' : 'var(--text-muted)'
@@ -424,8 +453,8 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         const action = row.action || 'allow';
         const isAllow = action.toLowerCase() === 'allow';
         return (
-          <span style={{ 
-            display: 'inline-flex', alignItems: 'center', gap: '6px', 
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
             color: isAllow ? 'var(--status-green)' : 'var(--status-red)',
             fontSize: '12px', fontWeight: 500
           }}>
@@ -544,15 +573,17 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
       { key: 'application', label: 'Application', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.application), getFilterValues: (r: any) => getObjFilterVals(r.application) },
       { key: 'service', label: 'Service', width: '200px', renderCell: (v: any, r: any) => renderObjectRefs(r.service), getFilterValues: (r: any) => getObjFilterVals(r.service) },
       { key: 'category', label: 'URL Category', width: '200px', renderCell: (v: any, r: any) => (r.category || []).join(', ') || 'any', getFilterValues: (r: any) => r.category && r.category.length > 0 ? r.category : ['any'] },
-      { key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => {
-        if (r.profile_type === 'group') return r.profile_group || 'none';
-        if (r.profile_type === 'profiles') return (r.profiles || []).join(', ') || 'none';
-        return 'none';
-      }, getFilterValues: (r: any) => {
-        if (r.profile_type === 'group') return r.profile_group || 'none';
-        if (r.profile_type === 'profiles') return r.profiles && r.profiles.length > 0 ? r.profiles : ['none'];
-        return 'none';
-      }},
+      {
+        key: 'profiles', label: 'Profiles', width: '200px', renderCell: (v: any, r: any) => {
+          if (r.profile_type === 'group') return r.profile_group || 'none';
+          if (r.profile_type === 'profiles') return (r.profiles || []).join(', ') || 'none';
+          return 'none';
+        }, getFilterValues: (r: any) => {
+          if (r.profile_type === 'group') return r.profile_group || 'none';
+          if (r.profile_type === 'profiles') return r.profiles && r.profiles.length > 0 ? r.profiles : ['none'];
+          return 'none';
+        }
+      },
       { key: 'logSetting', label: 'Log Profile', width: '200px', renderCell: (v: any, r: any) => r.log_setting || 'none', getFilterValues: (r: any) => r.log_setting || 'none' },
       actionCol
     ];
@@ -683,73 +714,73 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         </div>
 
         <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-        {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
-            <Loader2 size={24} className="animate-spin" />
-            <span style={{ marginLeft: '12px' }}>Loading Rules...</span>
-          </div>
-        ) : (
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <DataTable 
-              key={selectedScopeUuid}
-              toolbarTitle={
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  {activeSubTab.split('-')[1]?.trim() || activeSubTab} ({rules.length})
-                </h2>
-              }
-              topRightActions={
-                <button
-                  className="btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Plus size={14} /> Add Rule
-                </button>
-              }
-              columns={columns}
-              data={rules}
-              searchQuery={searchQuery}
-              exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
-              pagination={true}
-              selectable={true}
-              isFetching={isFetching}
-              allowScrollPastEnd={true}
-              groupByField={getGroupVal}
-              groupByRender={(val) => {
-                const count = groupCounts[val] || 0;
-                if (rulebase === 'device') {
-                  if (selectedScopeUuid === 'show-all') {
-                    const [deviceUuid, stack] = val.split('::');
-                    const scopeName = scopeNameMap[deviceUuid] || deviceUuid;
-                    let label = stack || 'Rules';
-                    if (label === 'Device Rules') label = 'Local Rules';
-                    else if (!label.includes('Rules')) label = label + ' Rules';
-                    
-                    return (
-                      <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
-                        {label} ({count}) <span style={{ color: 'var(--text-muted)', margin: '0 8px' }}>•</span> {scopeName}
-                      </span>
-                    );
-                  } else {
-                    let label = val || 'Rules';
-                    if (label === 'Device Rules') label = 'Local Rules';
-                    return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{label} ({count})</span>;
-                  }
-                } else {
-                  // pre or post rulebase
-                  const scopeName = scopeNameMap[val] || val;
-                  return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{scopeName} ({count})</span>;
+          {isLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
+              <Loader2 size={24} className="animate-spin" />
+              <span style={{ marginLeft: '12px' }}>Loading Rules...</span>
+            </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <DataTable
+                key={selectedScopeUuid}
+                toolbarTitle={
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {activeSubTab.split('-')[1]?.trim() || activeSubTab} ({rules.length})
+                  </h2>
                 }
-              }}
-              rowStyle={(row: any) => {
-                if (row.disabled === 1) return { opacity: 0.6 };
-                if (row._isInherited) return { backgroundColor: 'var(--bg-app)', opacity: 0.9 };
-                return {};
-              }}
-            />
-          </div>
-        )}
+                topRightActions={
+                  <button
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Plus size={14} /> Add Rule
+                  </button>
+                }
+                columns={columns}
+                data={rules}
+                searchQuery={searchQuery}
+                exportFilename={`security_rules_${rulebase}_${selectedScopeUuid}`}
+                pagination={true}
+                selectable={true}
+                isFetching={isFetching}
+                allowScrollPastEnd={true}
+                groupByField={getGroupVal}
+                groupByRender={(val) => {
+                  const count = groupCounts[val] || 0;
+                  if (rulebase === 'device') {
+                    if (selectedScopeUuid === 'show-all') {
+                      const [deviceUuid, stack] = val.split('::');
+                      const scopeName = scopeNameMap[deviceUuid] || deviceUuid;
+                      let label = stack || 'Rules';
+                      if (label === 'Device Rules') label = 'Local Rules';
+                      else if (!label.includes('Rules')) label = label + ' Rules';
+
+                      return (
+                        <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
+                          {label} ({count}) <span style={{ color: 'var(--text-muted)', margin: '0 8px' }}>•</span> {scopeName}
+                        </span>
+                      );
+                    } else {
+                      let label = val || 'Rules';
+                      if (label === 'Device Rules') label = 'Local Rules';
+                      return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{label} ({count})</span>;
+                    }
+                  } else {
+                    // pre or post rulebase
+                    const scopeName = scopeNameMap[val] || val;
+                    return <span style={{ textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>{scopeName} ({count})</span>;
+                  }
+                }}
+                rowStyle={(row: any) => {
+                  if (row.disabled === 1) return { opacity: 0.6 };
+                  if (row._isInherited) return { backgroundColor: 'var(--bg-app)', opacity: 0.9 };
+                  return {};
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </div>
   );
 };

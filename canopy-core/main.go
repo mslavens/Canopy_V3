@@ -1513,6 +1513,7 @@ func main() {
 			Label     string `json:"label"`
 			Module    string `json:"module"`
 			Submodule string `json:"submodule"`
+			Scope     string `json:"scope,omitempty"`
 		}
 
 		// Explicitly initialize to an empty slice so it encodes to [] instead of null
@@ -1626,6 +1627,94 @@ func main() {
 			} else if err != nil && !os.IsNotExist(err) {
 				slog.Error("Failed to read changelog file", slog.String("path", changelogPath), slog.String("error", err.Error()))
 			}
+		}
+
+		// Load Scope Contexts
+		vaultMutex.RLock()
+		sysDB := systemDB
+		vaultMutex.RUnlock()
+		
+		scopeMap := make(map[string]string)
+		scopeMap["paloalto-panorama-global"] = "Shared"
+		if sysDB != nil {
+			dr, err := sysDB.DB().Query("SELECT uuid, name FROM device_groups UNION SELECT uuid, name FROM devices")
+			if err == nil {
+				for dr.Next() {
+					var u, n string
+					if err := dr.Scan(&u, &n); err == nil {
+						scopeMap[u] = n
+					}
+				}
+				dr.Close()
+			}
+		}
+
+		// 5. Search Objects & Policies
+		var objQueries = []struct {
+			query     string
+			args      []interface{}
+			resType   string
+			module    string
+			submodule string
+			labelFmt  string
+		}{
+			{"SELECT id, name, value, device_uuid FROM address_objects WHERE name LIKE ? OR value LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Address Objects", "%s (Address: %s)"},
+			{"SELECT id, name, type, device_uuid FROM address_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Address Groups", "%s (Address Group: %s)"},
+			{"SELECT id, name, destination_port, device_uuid FROM service_objects WHERE name LIKE ? OR destination_port LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Services", "%s (Service: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM service_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Service Groups", "%s (Service Group)"},
+			{"SELECT id, name, category, device_uuid FROM application_objects WHERE name LIKE ? OR category LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Applications", "%s (App: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM application_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Application Groups", "%s (App Group)"},
+			{"SELECT id, name, 'tag', device_uuid FROM tags WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Tags", "%s (Tag)"},
+			{"SELECT id, rule_name, action, device_uuid FROM security_rules WHERE rule_name LIKE ? LIMIT 5", []interface{}{searchTerm}, "policy", "Policies", "Security - Device Rules", "%s (Security Rule: %s)"},
+			{"SELECT id, rule_name, 'nat', device_uuid FROM nat_rules WHERE rule_name LIKE ? LIMIT 5", []interface{}{searchTerm}, "policy", "Policies", "NAT - Device Rules", "%s (NAT Rule)"},
+		}
+
+		for _, oq := range objQueries {
+			rows, err := dbConn.Query(oq.query, oq.args...)
+			if err != nil {
+				slog.Error("Search query failed", slog.String("query", oq.query), slog.String("error", err.Error()))
+				continue
+			}
+			for rows.Next() {
+				var id int
+				var name string
+				var extra sql.NullString
+				var deviceUUID sql.NullString
+				if err := rows.Scan(&id, &name, &extra, &deviceUUID); err == nil {
+					label := name
+					if strings.Contains(oq.labelFmt, "%s") && strings.Count(oq.labelFmt, "%s") == 2 {
+						e := ""
+						if extra.Valid {
+							e = extra.String
+						}
+						label = fmt.Sprintf(oq.labelFmt, name, e)
+					} else if strings.Count(oq.labelFmt, "%s") == 1 {
+						label = fmt.Sprintf(oq.labelFmt, name)
+					}
+					
+					scopeContext := "Unknown Scope"
+					if deviceUUID.Valid {
+						if val, ok := scopeMap[deviceUUID.String]; ok {
+							scopeContext = val
+						} else {
+							scopeContext = deviceUUID.String
+						}
+						label = fmt.Sprintf("%s [%s]", label, scopeContext)
+					}
+
+					results = append(results, SearchResult{
+						ID:        fmt.Sprintf("%s|%d", oq.submodule, id),
+						Type:      oq.resType,
+						Label:     label,
+						Module:    oq.module,
+						Submodule: oq.submodule,
+						Scope:     deviceUUID.String,
+					})
+				} else {
+					slog.Error("Search row scan failed", slog.String("query", oq.query), slog.String("error", err.Error()))
+				}
+			}
+			rows.Close()
 		}
 
 		slog.Info("Global search completed", slog.Int("results_found", len(results)))

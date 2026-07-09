@@ -21,6 +21,7 @@ interface SearchResult {
   label: string;
   module: string;
   submodule: string;
+  scope?: string;
 }
 
 interface AppLayoutProps {
@@ -72,48 +73,62 @@ const subTabsMap: Record<string, (globalScopeVendor?: string) => NavItem[]> = {
   'Tools': () => ['Placeholder'],
   'Policy Lifecycle': () => ['Placeholder'],
   'Policies': (globalScopeVendor?: string) => [
-    { group: 'Security', items: [
-      { label: 'Pre Rules', value: 'Security - Pre Rules' },
-      { label: 'Device Rules', value: 'Security - Device Rules' },
-      { label: 'Post Rules', value: 'Security - Post Rules' }
-    ]},
-    { group: 'NAT', items: [
-      { label: 'Pre Rules', value: 'NAT - Pre Rules' },
-      { label: 'Device Rules', value: 'NAT - Device Rules' },
-      { label: 'Post Rules', value: 'NAT - Post Rules' }
-    ]},
-    { group: 'QoS', items: [
-      { label: 'Pre Rules', value: 'QoS - Pre Rules' },
-      { label: 'Device Rules', value: 'QoS - Device Rules' },
-      { label: 'Post Rules', value: 'QoS - Post Rules' }
-    ]},
-    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Decryption', items: [
-      { label: 'Pre Rules', value: 'Decryption - Pre Rules' },
-      { label: 'Device Rules', value: 'Decryption - Device Rules' },
-      { label: 'Post Rules', value: 'Decryption - Post Rules' }
-    ]}] : []),
-    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Application Override', items: [
-      { label: 'Pre Rules', value: 'Application Override - Pre Rules' },
-      { label: 'Device Rules', value: 'Application Override - Device Rules' },
-      { label: 'Post Rules', value: 'Application Override - Post Rules' }
-    ]}] : []),
-    ...(globalScopeVendor === 'paloalto' ? [{ group: 'Authentication', items: [
-      { label: 'Pre Rules', value: 'Authentication - Pre Rules' },
-      { label: 'Device Rules', value: 'Authentication - Device Rules' },
-      { label: 'Post Rules', value: 'Authentication - Post Rules' }
-    ]}] : []),
-    ...(globalScopeVendor === 'paloalto' ? [{ group: 'DoS Protection', items: [
-      { label: 'Pre Rules', value: 'DoS Protection - Pre Rules' },
-      { label: 'Device Rules', value: 'DoS Protection - Device Rules' },
-      { label: 'Post Rules', value: 'DoS Protection - Post Rules' }
-    ]}] : [])
+    {
+      group: 'Security', items: [
+        { label: 'Pre Rules', value: 'Security - Pre Rules' },
+        { label: 'Device Rules', value: 'Security - Device Rules' },
+        { label: 'Post Rules', value: 'Security - Post Rules' }
+      ]
+    },
+    {
+      group: 'NAT', items: [
+        { label: 'Pre Rules', value: 'NAT - Pre Rules' },
+        { label: 'Device Rules', value: 'NAT - Device Rules' },
+        { label: 'Post Rules', value: 'NAT - Post Rules' }
+      ]
+    },
+    {
+      group: 'QoS', items: [
+        { label: 'Pre Rules', value: 'QoS - Pre Rules' },
+        { label: 'Device Rules', value: 'QoS - Device Rules' },
+        { label: 'Post Rules', value: 'QoS - Post Rules' }
+      ]
+    },
+    ...(globalScopeVendor === 'paloalto' ? [{
+      group: 'Decryption', items: [
+        { label: 'Pre Rules', value: 'Decryption - Pre Rules' },
+        { label: 'Device Rules', value: 'Decryption - Device Rules' },
+        { label: 'Post Rules', value: 'Decryption - Post Rules' }
+      ]
+    }] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{
+      group: 'Application Override', items: [
+        { label: 'Pre Rules', value: 'Application Override - Pre Rules' },
+        { label: 'Device Rules', value: 'Application Override - Device Rules' },
+        { label: 'Post Rules', value: 'Application Override - Post Rules' }
+      ]
+    }] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{
+      group: 'Authentication', items: [
+        { label: 'Pre Rules', value: 'Authentication - Pre Rules' },
+        { label: 'Device Rules', value: 'Authentication - Device Rules' },
+        { label: 'Post Rules', value: 'Authentication - Post Rules' }
+      ]
+    }] : []),
+    ...(globalScopeVendor === 'paloalto' ? [{
+      group: 'DoS Protection', items: [
+        { label: 'Pre Rules', value: 'DoS Protection - Pre Rules' },
+        { label: 'Device Rules', value: 'DoS Protection - Device Rules' },
+        { label: 'Post Rules', value: 'DoS Protection - Post Rules' }
+      ]
+    }] : [])
   ],
   'Objects': (globalScopeVendor?: string) => [
-    'Address Objects', 'Address Groups', 'Services', 'Service Groups', 
-    'Applications', 'Application Groups', 'Tags', 
+    'Address Objects', 'Address Groups', 'Services', 'Service Groups',
+    'Applications', 'Application Groups', 'Tags',
     ...(globalScopeVendor === 'paloalto' ? ['Log Forwarding Profiles'] : []),
-    { group: 'Security Profiles', items: globalScopeVendor === 'paloalto' ? ['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'] : [] }, 
-    'Security Profile Groups', 
+    { group: 'Security Profiles', items: globalScopeVendor === 'paloalto' ? ['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'] : [] },
+    'Security Profile Groups',
     ...(globalScopeVendor === 'paloalto' ? [{ group: 'Custom Objects', items: ['URL Categories', 'External Dynamic Lists'] }] : [])
   ].filter(item => {
     // Filter out empty groups
@@ -152,7 +167,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ 'Security Profiles': true, 'Custom Objects': true });
   const searchRef = useRef<HTMLDivElement>(null);
-  
+
   // Tab bar horizontal scroll navigation hooks & states
   const subTabs = subTabsMap[activeMainTab] ? subTabsMap[activeMainTab](globalScopeVendor) : [];
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -175,7 +190,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState<boolean>(false);
   const [helpInitialQuery, setHelpInitialQuery] = useState<string>('');
-  
+
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [activeWorkspaceName, setActiveWorkspaceName] = useState<string>(() => localStorage.getItem('canopy-active-workspace') || 'Default Workspace');
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState<boolean>(false);
@@ -220,7 +235,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     el.addEventListener('wheel', handleWheel, { passive: false });
     el.addEventListener('scroll', checkOverflow);
     window.addEventListener('resize', checkOverflow);
-    
+
     // Initial run
     const timer = setTimeout(checkOverflow, 100);
 
@@ -325,6 +340,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }, [searchResults, showDropdown]);
 
   const executeSearchSelection = (res: SearchResult) => {
+    // Inject the raw object/policy name and its scope into sessionStorage for the destination page to pick up (if it needs to mount)
+    const rawName = res.label.split(' (')[0].trim();
+    const payload = JSON.stringify({ query: rawName, scope: res.scope || 'paloalto-panorama-global' });
+    sessionStorage.setItem('canopy-local-search-injection', payload);
+    
+    // Also dispatch a live event for components that are already mounted (e.g. staying on the same tab)
+    window.dispatchEvent(new CustomEvent('canopy-inject-search', { detail: payload }));
+
     setActiveMainTab(res.module);
     setActiveSubTab(res.submodule);
     if (res.type === 'documentation') {
@@ -412,7 +435,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             setActiveWorkspaceName(target.name);
             localStorage.setItem('canopy-active-workspace', target.name);
             localStorage.setItem('canopy-active-workspace-color', target.color || 'var(--accent-blue)');
-            
+
             if (isInitialFetch) {
               isInitialFetch = false;
               // Ensure backend is strictly synced with the loaded UI state on mount
@@ -425,14 +448,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       }
     };
     fetchWorkspaces();
-    
+
     const handleWorkspacesUpdated = () => {
       if (isMounted) fetchWorkspaces();
     };
     window.addEventListener('workspaces-updated', handleWorkspacesUpdated);
-    
-    return () => { 
-      isMounted = false; 
+
+    return () => {
+      isMounted = false;
       window.removeEventListener('workspaces-updated', handleWorkspacesUpdated);
     };
   }, []);
@@ -450,7 +473,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         const creds = await window.electron.getBackendAuth();
         const apiClient = new CanopyApiClient(creds);
         await apiClient.switchWorkspace(target.id);
-        
+
         localStorage.setItem('canopy-active-workspace', target.name);
         localStorage.setItem('canopy-active-workspace-color', target.color || 'var(--accent-blue)');
         sessionStorage.setItem('canopy-is-switching', 'true');
@@ -468,7 +491,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       const creds = await window.electron.getBackendAuth();
       const apiClient = new CanopyApiClient(creds);
       await apiClient.createWorkspace(newWorkspaceName, newWorkspaceColor);
-      
+
       addToast('Workspace created successfully', 'success');
       window.dispatchEvent(new Event('workspaces-updated'));
       setIsCreateWorkspaceOpen(false);
@@ -530,9 +553,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const activeWorkspaceColor = (activeWorkspace?.color && activeWorkspace.color.trim() !== '') ? activeWorkspace.color : 'var(--accent-blue)';
 
   return (
-    <div style={{ 
-      color: 'var(--text-main)', 
-      backgroundColor: 'var(--bg-app)', 
+    <div style={{
+      color: 'var(--text-main)',
+      backgroundColor: 'var(--bg-app)',
       width: '100vw',
       height: '100vh',
       boxSizing: 'border-box',
@@ -542,7 +565,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     }}>
       {/* --- TOP NAVIGATION BAR --- */}
       <header style={{ position: 'relative', zIndex: 2000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '50px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', padding: '0 20px', gap: '20px' }}>
-        
+
         {/* Decouple the logo from the sidebar width for a perfectly rigid top header */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Tooltip content={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"} position="bottom" align="left">
@@ -550,14 +573,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <PanelLeft size={18} />
             </button>
           </Tooltip>
-          <h1 style={{ color: activeWorkspaceColor, margin: 0, fontSize: '18px', fontWeight: 600, whiteSpace: 'nowrap' }}>Canopy <span style={{color: 'var(--text-muted)', fontSize: '14px', fontWeight: 'normal'}}>by Layered Blue</span></h1>
+          <h1 style={{ color: activeWorkspaceColor, margin: 0, fontSize: '18px', fontWeight: 600, whiteSpace: 'nowrap' }}>Canopy <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 'normal' }}>by Layered Blue</span></h1>
         </div>
 
         {/* Hide scrollbar for a cleaner look while allowing horizontal scrolling on narrow screens */}
         <style>{`.nav-scroll::-webkit-scrollbar { display: none; }`}</style>
         <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, position: 'relative', height: '100%', overflow: 'hidden' }}>
           {showLeftChevron && (
-            <button 
+            <button
               onClick={() => scrollNav('left')}
               style={{
                 position: 'absolute',
@@ -583,24 +606,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           )}
 
           <nav ref={navScrollRef} className="nav-scroll" style={{ display: 'flex', height: '100%', flex: 1, overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', padding: '0 20px' }}>
-              {mainTabs.map(tab => (
-                <button 
-                  key={tab}
-                  className="nav-tab"
-                  onClick={() => { setActiveMainTab(tab); setActiveSubTab(getFirstSubTab(subTabsMap[tab] ? subTabsMap[tab](globalScopeVendor) : ['Overview'])); }}
-                  style={{ 
-                    background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
-                    color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
-                    flexShrink: 0 // Prevent text from squishing
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
+            {mainTabs.map(tab => (
+              <button
+                key={tab}
+                className="nav-tab"
+                onClick={() => { setActiveMainTab(tab); setActiveSubTab(getFirstSubTab(subTabsMap[tab] ? subTabsMap[tab](globalScopeVendor) : ['Overview'])); }}
+                style={{
+                  background: 'none', border: 'none', borderBottom: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
+                  color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'pointer', padding: '0 15px', fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '14px', height: '100%',
+                  flexShrink: 0 // Prevent text from squishing
+                }}
+              >
+                {tab}
+              </button>
+            ))}
           </nav>
 
           {showRightChevron && (
-            <button 
+            <button
               onClick={() => scrollNav('right')}
               style={{
                 position: 'absolute',
@@ -630,7 +653,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
           <div ref={searchRef} style={{ position: 'relative' }} onKeyDown={handleSearchKeyDown}>
             <SearchBar value={typeof globalSearchQuery === 'string' ? globalSearchQuery : ''} onChange={(val: any) => setGlobalSearchQuery(val?.target?.value !== undefined ? val.target.value : val)} placeholder="Search (Cmd+K)" variant="global" />
-            
+
             {/* Floating Categorized Omnibox */}
             {showDropdown && (
               <div style={{
@@ -650,7 +673,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         key={res.id}
                         onClick={() => executeSearchSelection(res)}
                         onMouseEnter={() => setSelectedIndex(idx)}
-                        style={{ 
+                        style={{
                           padding: '10px 15px', cursor: 'pointer', borderBottom: '1px solid var(--border-main)',
                           backgroundColor: selectedIndex === idx ? 'var(--bg-element)' : 'transparent'
                         }}
@@ -664,7 +687,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               </div>
             )}
           </div>
-          
+
           <Tooltip content="Message Center" align="right">
             <button onClick={() => setShowMessageCenter(true)} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <MessageSquare size={18} />
@@ -678,12 +701,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </Tooltip>
 
           <Tooltip content="Open in New Window" align="right">
-            <button 
+            <button
               onClick={() => {
                 if (window.electron && window.electron.spawnWindow) {
                   window.electron.spawnWindow(`mainTab=${encodeURIComponent(activeMainTab)}&subTab=${encodeURIComponent(activeSubTab)}`);
                 }
-              }} 
+              }}
               style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
             >
               <ExternalLink size={18} />
@@ -713,7 +736,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, paddingLeft: '10px', marginBottom: '8px' }}>
                   Active Workspace
                 </div>
-                <Dropdown 
+                <Dropdown
                   options={[...workspaces.map(w => w.name), '+ Create New Workspace']}
                   value={activeWorkspaceName}
                   onChange={handleWorkspaceSwitch}
@@ -749,9 +772,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   const isExpanded = expandedGroups[subTab.group] !== false;
                   return (
                     <div key={subTab.group} style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '4px 0' }}>
-                      <button 
+                      <button
                         onClick={() => setExpandedGroups(prev => ({ ...prev, [subTab.group]: !prev[subTab.group] }))}
-                        style={{ 
+                        style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           background: 'transparent', border: 'none', padding: '6px 10px',
                           cursor: 'pointer', color: 'var(--text-muted)', width: '100%'
@@ -764,11 +787,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         const isObj = typeof item !== 'string';
                         const value = isObj ? (item as NavItemObj).value : item as string;
                         let label = isObj ? (item as NavItemObj).label : item as string;
-                        
+
                         if (tabCounts[value] !== undefined) {
                           label = `${label} (${tabCounts[value]})`;
                         }
-                        
+
                         return (
                           <button key={value} onClick={() => handleNavigation(() => setActiveSubTab(value))} style={{ textAlign: 'left', background: activeSubTab === value ? 'var(--bg-element)' : 'transparent', border: 'none', borderLeft: activeSubTab === value ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent', padding: '6px 10px 6px 20px', borderRadius: '4px', color: activeSubTab === value ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activeSubTab === value ? 500 : 400, cursor: 'pointer', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             {label}
@@ -781,10 +804,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 }
               })}
             </aside>
-            <div 
+            <div
               onMouseDown={handleResizeMouseDown}
               title="Drag to resize sidebar"
-              style={{ 
+              style={{
                 width: '4px', cursor: 'col-resize', flexShrink: 0,
                 backgroundColor: 'var(--border-main)',
                 transition: 'background-color 0.2s ease'
@@ -814,7 +837,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             </button>
           </Tooltip>
           <span style={{ color: 'var(--border-main)' }}>|</span>
-          <span style={{ color: 'var(--text-muted)' }}>Engine Status: <strong style={{color: systemError ? 'var(--status-red)' : 'var(--status-green)'}}>{systemError ? 'Degraded' : 'Operational'}</strong></span>
+          <span style={{ color: 'var(--text-muted)' }}>Engine Status: <strong style={{ color: systemError ? 'var(--status-red)' : 'var(--status-green)' }}>{systemError ? 'Degraded' : 'Operational'}</strong></span>
           {port && (
             <>
               <span style={{ color: 'var(--border-main)' }}>|</span>
@@ -859,11 +882,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5 }}>Provision a new, fully isolated SQLite database matrix for a client or project.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Workspace Name</label>
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="e.g., Acme Corp" 
-              value={newWorkspaceName} 
+            <input
+              type="text"
+              className="input-text"
+              placeholder="e.g., Acme Corp"
+              value={newWorkspaceName}
               onChange={(e) => setNewWorkspaceName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreateWorkspace()}
               disabled={isCreatingWorkspace}
@@ -898,13 +921,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-main)', gap: '20px' }}>
-            <button 
+            <button
               onClick={() => setActiveMessageTab('whats-new')}
               style={{ background: 'none', border: 'none', borderBottom: activeMessageTab === 'whats-new' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: activeMessageTab === 'whats-new' ? 'var(--text-main)' : 'var(--text-muted)', padding: '0 0 10px 0', cursor: 'pointer', fontSize: '13px', fontWeight: activeMessageTab === 'whats-new' ? 600 : 400 }}
             >
               What's New
             </button>
-            <button 
+            <button
               onClick={() => setActiveMessageTab('alerts')}
               style={{ background: 'none', border: 'none', borderBottom: activeMessageTab === 'alerts' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: activeMessageTab === 'alerts' ? 'var(--text-main)' : 'var(--text-muted)', padding: '0 0 10px 0', cursor: 'pointer', fontSize: '13px', fontWeight: activeMessageTab === 'alerts' ? 600 : 400 }}
             >

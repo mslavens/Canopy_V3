@@ -71,7 +71,7 @@ interface ObjectsPageProps {
   setGlobalScopeVendor?: (vendor: string) => void;
 }
 
-export const ObjectsPage: React.FC<ObjectsPageProps> = ({ 
+export const ObjectsPage: React.FC<ObjectsPageProps> = ({
   auth, addToast, activeSubTab, standaloneEditor, standaloneId, standaloneMode,
   globalScopeUuid, setGlobalScopeUuid, globalScopeVendor, setGlobalScopeVendor
 }) => {
@@ -84,7 +84,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
   // Scopes states
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [firewalls, setFirewalls] = useState<any[]>([]);
-  
+
   // Use global scope if provided, otherwise fallback to local state (for standalone mode)
   const [localScope, setLocalScope] = useState<string>('paloalto-panorama-global');
   const currentScope = globalScopeUuid || localScope;
@@ -113,6 +113,34 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    const handlePayload = (payloadStr: string | null) => {
+      if (!payloadStr) return;
+      try {
+        const payload = JSON.parse(payloadStr);
+        setSearchQuery(payload.query);
+        if (payload.scope && setCurrentScope) {
+          setCurrentScope(payload.scope);
+        }
+      } catch (e) {
+        // Fallback for older raw string injections
+        setSearchQuery(payloadStr);
+      }
+    };
+
+    const injectedSearch = sessionStorage.getItem('canopy-local-search-injection');
+    if (injectedSearch) {
+      handlePayload(injectedSearch);
+      sessionStorage.removeItem('canopy-local-search-injection');
+    }
+
+    const handleInject = (e: any) => {
+      handlePayload(e.detail);
+    };
+    window.addEventListener('canopy-inject-search', handleInject);
+    return () => window.removeEventListener('canopy-inject-search', handleInject);
+  }, [activeSubTab, setCurrentScope]);
   const [isSelectorModalOpen, setIsSelectorModalOpen] = useState<boolean>(false);
   const [selectorType, setSelectorType] = useState<'members' | 'tags'>('members');
   const [selectorSearchQuery, setSelectorSearchQuery] = useState<string>('');
@@ -1037,6 +1065,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
 
   // Load basic configurations on mount
+
   useEffect(() => {
     let isMounted = true;
     const loadScopes = async () => {
@@ -1238,7 +1267,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
         queryType = 'Security Profiles';
       }
-      
+
       const scopesStr = !isShowAll ? visibleScopes.join(',') : undefined;
       const data = await apiClient.getObjects(queryType, scopesStr);
       setTableData(data || []);
@@ -2137,32 +2166,32 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               return (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {filterBlock}
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px', overflow: 'hidden' }}>
-                  {list.slice(0, 3).map((m: string) => (
-                    <span
-                      key={m}
-                      title={m}
-                      style={{
-                        fontSize: '11px',
-                        padding: '1px 6px',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--bg-app)',
-                        border: '1px solid var(--border-main)',
-                        color: 'var(--text-main)',
-                        textOverflow: 'ellipsis',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '90px'
-                      }}
-                    >
-                      <HighlightedText text={m} highlight={query || ''} />
-                    </span>
-                  ))}
-                  {list.length > 3 && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
-                      +{list.length - 3} more
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px', overflow: 'hidden' }}>
+                    {list.slice(0, 3).map((m: string) => (
+                      <span
+                        key={m}
+                        title={m}
+                        style={{
+                          fontSize: '11px',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          backgroundColor: 'var(--bg-app)',
+                          border: '1px solid var(--border-main)',
+                          color: 'var(--text-main)',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '90px'
+                        }}
+                      >
+                        <HighlightedText text={m} highlight={query || ''} />
+                      </span>
+                    ))}
+                    {list.length > 3 && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+                        +{list.length - 3} more
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -2683,587 +2712,587 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
   return (
     <>
       <div style={{ display: standaloneEditor ? 'none' : 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
-      {/* 2. Main content canvas */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        {/* Scope context summary top header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexShrink: 0
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-            {/* Top Row: Device Group Dropdown, Lineage, and Search */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span style={{ width: '95px', display: 'inline-block', fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
-                  <SearchableScopeDropdown
-                    value={currentScope}
-                    options={hierarchyOptions}
-                    onChange={handleScopeChange}
-                    scopeNameMap={scopeNameMap}
-                    ruleCounts={objectCounts}
-                  />
-                </div>
+        {/* 2. Main content canvas */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+          {/* Scope context summary top header */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+              {/* Top Row: Device Group Dropdown, Lineage, and Search */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <span style={{ width: '95px', display: 'inline-block', fontSize: '12px', fontWeight: 500, color: 'var(--text-main)' }}>Device Group:</span>
+                    <SearchableScopeDropdown
+                      value={currentScope}
+                      options={hierarchyOptions}
+                      onChange={handleScopeChange}
+                      scopeNameMap={scopeNameMap}
+                      ruleCounts={objectCounts}
+                    />
+                  </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, minHeight: '20px' }}>
-                    {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        Scope Context:
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
-                          {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
-                            <React.Fragment key={scopeId}>
-                              <span
-                                onClick={() => handleScopeChange(scopeId)}
-                                style={{
-                                  color: 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                  fontWeight: 400,
-                                  transition: 'color 0.15s ease',
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
-                                title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
-                              >
-                                {scopeNameMap[scopeId] || scopeId}
-                              </span>
-                              {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
-                            </React.Fragment>
-                          ))}
-                          <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
-                          <span style={{
-                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                            color: 'var(--accent-blue)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(59, 130, 246, 0.25)',
-                            fontWeight: 600,
-                            fontSize: '11px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {scopeNameMap[currentScope] || currentScope}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, minHeight: '20px' }}>
+                      {currentScope !== 'show-all' && currentScope !== 'paloalto-panorama-global' && visibleScopes.length > 1 ? (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Scope Context:
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '4px', whiteSpace: 'nowrap' }}>
+                            {[...visibleScopes.slice(1)].reverse().map((scopeId, idx, arr) => (
+                              <React.Fragment key={scopeId}>
+                                <span
+                                  onClick={() => handleScopeChange(scopeId)}
+                                  style={{
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    fontWeight: 400,
+                                    transition: 'color 0.15s ease',
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.textDecoration = 'underline'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.textDecoration = 'none'; }}
+                                  title={`Switch active scope to ${scopeNameMap[scopeId] || scopeId}`}
+                                >
+                                  {scopeNameMap[scopeId] || scopeId}
+                                </span>
+                                {idx < arr.length - 1 && <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>}
+                              </React.Fragment>
+                            ))}
+                            <span style={{ color: 'var(--text-muted)', margin: '0 4px' }}>➔</span>
+                            <span style={{
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              color: 'var(--accent-blue)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(59, 130, 246, 0.25)',
+                              fontWeight: 600,
+                              fontSize: '11px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {scopeNameMap[currentScope] || currentScope}
+                            </span>
                           </span>
                         </span>
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
-                      </span>
-                    )}
+                      ) : (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          {currentScope === 'paloalto-panorama-global' ? 'Viewing global configuration objects (Shared).' : 'Viewing combined objects across all configured administrative scopes.'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ width: '300px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder={`Search ${activeSubTab.toLowerCase()}...`}
+                    width="100%"
+                    variant="local"
+                  />
+                </div>
+              </div>
+              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
+            </div>
+          </div>
+
+          {/* Ingest Pack drop-zone (Only for Custom Applications list) */}
+          {activeSubTab === 'Applications' && currentScope !== 'show-all' && (
+            <div
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDropCSV}
+              style={{
+                margin: '15px 20px 0 20px',
+                padding: '20px',
+                border: `2px dashed ${dragActive ? 'var(--accent-blue)' : 'var(--border-main)'}`,
+                borderRadius: '6px',
+                backgroundColor: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-surface)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-blue)'
+                }}>
+                  {csvUploading ? <Loader2 className="spin-animation" size={20} /> : <FileUp size={20} />}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-main)' }}>Import Apps Package (CSV)</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Drop a Palo Alto standard App-ID package spreadsheet to bulk-ingest signatures. Duplicates are upserted.
                   </div>
                 </div>
               </div>
-              <div style={{ width: '300px', flexShrink: 0 }}>
-                <SearchBar
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder={`Search ${activeSubTab.toLowerCase()}...`}
-                  width="100%"
-                  variant="local"
-                />
+              <div>
+                <label
+                  className={`btn-secondary btn-sm ${csvUploading ? 'disabled' : ''}`}
+                  style={{ cursor: csvUploading ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    disabled={csvUploading}
+                    style={{ display: 'none' }}
+                  />
+                  Browse File
+                </label>
               </div>
             </div>
-            <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
+          )}
+
+          {/* Sub-tabs segment selector row (Removed) */}
+
+          {/* The data table area - Stretch to edge-to-edge */}
+          <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <DataTable
+                key={dataViewTab}
+                loading={loading}
+                toolbarTitle={
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    {activeSubTab} ({displayedTableData.length})
+                  </h2>
+                }
+                topRightActions={
+                  <button
+                    onClick={openCreateModal}
+                    className="btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    disabled={currentScope === 'show-all'}
+                    title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
+                  >
+                    <Plus size={14} /> Add Object
+                  </button>
+                }
+                columns={columns}
+                data={displayedTableData}
+                searchQuery={searchQuery}
+                selectable={true}
+                pagination={true}
+                onSelectionChange={setSelectedRows}
+                rowContextMenuActions={(row, closeMenu) => (
+                  <>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const isShowAll = currentScope === 'show-all';
+                        const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                        if (!isInherited && !isShowAll) {
+                          openEditModal(row);
+                        } else {
+                          addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
+                        }
+                      }}
+                    >
+                      <Edit2 size={13} /> Edit
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        setInspectRow(row);
+                      }}
+                    >
+                      <Eye size={13} /> Inspect
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        handleClone();
+                      }}
+                    >
+                      <Copy size={13} /> Clone
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        handleCloneToGroup();
+                      }}
+                    >
+                      <Copy size={13} /> Clone to Group...
+                    </button>
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        handleMoveToGroup();
+                      }}
+                    >
+                      <ArrowRight size={13} /> Move to Group...
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        handleGenerateCli(targetRows);
+                      }}
+                    >
+                      <Code size={13} /> Generate CLI
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      className="btn-danger btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        handleBulkDelete();
+                      }}
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </>
+                )}
+                exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
+                rowStyle={(row) => {
+                  const isShowAll = currentScope === 'show-all';
+                  const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                  return isInherited ? { opacity: 0.55 } : {};
+                }}
+                exportActions={
+                  <>
+                    {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
+                      <>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', padding: '6px 16px' }} onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={exportIncludeChildren}
+                            onChange={(e) => setExportIncludeChildren(e.target.checked)}
+                          />
+                          Include nested dependencies
+                        </label>
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                      </>
+                    )}
+                    {selectedRows.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => { setShowActionsMenu(false); handleClone(); }}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          disabled={selectedRows.length > 50}
+                          title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
+                        >
+                          <Copy size={13} /> Clone
+                        </button>
+
+                        <button
+                          onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          disabled={selectedRows.length > 50}
+                          title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
+                        >
+                          <Copy size={13} /> Clone to Group...
+                        </button>
+
+                        <button
+                          onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          disabled={selectedRows.length > 50}
+                          title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
+                        >
+                          <ArrowRight size={13} /> Move to Group...
+                        </button>
+
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                        <button
+                          onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
+                          className="btn-danger btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          title="Bulk delete selected objects"
+                        >
+                          <Trash2 size={13} /> Bulk Delete
+                        </button>
+
+                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                      </>
+                    )}
+
+                    <button
+                      onClick={() => { setShowActionsMenu(false); setImportWizardOpen(true); }}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+                      title="Import data from CSV or Excel"
+                    >
+                      <Download size={13} /> Import CSV / Excel
+                    </button>
+                    <button
+                      onClick={() => { setShowActionsMenu(false); handleGenerateCli(); }}
+                      className="btn-secondary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
+                      disabled={displayedTableData.length === 0}
+                      title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
+                    >
+                      <Code size={13} /> Generate CLI
+                    </button>
+                  </>
+                }
+              />
+            </div>
+
+            {/* Centralized Data Import Manager Modal */}
+            <DataImportWizard
+              isOpen={importWizardOpen}
+              onClose={() => setImportWizardOpen(false)}
+              defaultDataType={
+                activeSubTab === 'Address Objects' ? 'address_objects' :
+                  activeSubTab === 'Address Groups' ? 'address_groups' :
+                    activeSubTab === 'Service Objects' ? 'service_objects' :
+                      'address_objects'
+              }
+              apiClient={apiClient}
+              deviceUuid={currentScope}
+              scope={currentScope === 'shared' ? 'shared' : 'local'}
+              onSuccess={(result: any) => {
+                fetchRecords();
+                loadReferenceData();
+                if (result?.auto_created_scopes && result.auto_created_scopes.length > 0) {
+                  const names = result.auto_created_scopes.join(', ');
+                  addToast(`Data imported successfully! Auto-created missing device groups: ${names}`, 'success');
+                } else {
+                  addToast('Data imported successfully!', 'success');
+                }
+              }}
+            />
           </div>
         </div>
 
-        {/* Ingest Pack drop-zone (Only for Custom Applications list) */}
-        {activeSubTab === 'Applications' && currentScope !== 'show-all' && (
+        {/* 3. Group members detailed slide-over panel */}
+        {isSlideOverOpen && (
           <div
-            onDragEnter={handleDrag}
-            onDragOver={handleDrag}
-            onDragLeave={handleDrag}
-            onDrop={handleDropCSV}
             style={{
-              margin: '15px 20px 0 20px',
-              padding: '20px',
-              border: `2px dashed ${dragActive ? 'var(--accent-blue)' : 'var(--border-main)'}`,
-              borderRadius: '6px',
-              backgroundColor: dragActive ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-surface)',
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '400px',
+              backgroundColor: 'var(--bg-surface)',
+              borderLeft: '1px solid var(--border-main)',
+              boxShadow: '-10px 0 30px rgba(0,0,0,0.4)',
+              zIndex: 9999,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              transition: 'all 0.2s ease',
-              flexShrink: 0
+              flexDirection: 'column',
+              animation: 'slideIn 0.2s ease-out'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-blue)'
-              }}>
-                {csvUploading ? <Loader2 className="spin-animation" size={20} /> : <FileUp size={20} />}
-              </div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-main)' }}>Import Apps Package (CSV)</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Drop a Palo Alto standard App-ID package spreadsheet to bulk-ingest signatures. Duplicates are upserted.
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Group Detail Inspector</div>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)', marginTop: '4px' }}>
+                    {selectedGroupDetails?.name}
+                  </div>
                 </div>
+                <button
+                  onClick={() => setIsSlideOverOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+                >
+                  <X size={18} />
+                </button>
               </div>
+
+              {/* Search filter in inspector */}
+              <SearchBar
+                value={inspectorSearch}
+                onChange={setInspectorSearch}
+                placeholder="Search group members..."
+                width="100%"
+                variant="local"
+              />
             </div>
-            <div>
-              <label
-                className={`btn-secondary btn-sm ${csvUploading ? 'disabled' : ''}`}
-                style={{ cursor: csvUploading ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  disabled={csvUploading}
-                  style={{ display: 'none' }}
-                />
-                Browse File
-              </label>
+
+            <div style={{ flex: 1, padding: '20px 20px 100px 20px', overflowY: 'auto' }}>
+              {slideOverLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '150px', color: 'var(--text-muted)', gap: '10px' }}>
+                  <Loader2 className="spin-animation" size={16} /> Resolving group memberships...
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* 1. Configured Members (Direct) */}
+                  <div>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
+                      Configured Members ({filteredResolvedMembers.length})
+                    </h4>
+                    {filteredResolvedMembers.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', backgroundColor: 'var(--bg-app)' }}>
+                        No static members configured.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {filteredResolvedMembers.map((member, idx) => {
+                          let title = member.member_name || '';
+                          let subtitle = 'Unresolved/External';
+
+                          let cardIcon = <Tag size={14} className="text-accent" />;
+                          let displayType = 'Member';
+                          let displayDetails = subtitle;
+
+                          if (member.object_name) {
+                            title = member.object_name;
+                            if (activeSubTab === 'Address Groups') {
+                              const foundObj = allAddresses.find(a => a.name === member.object_name);
+                              cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
+                              displayType = foundObj ? `Address Object (${foundObj.type})` : 'Address Object';
+                              displayDetails = foundObj ? foundObj.value : 'Unresolved details';
+                            } else if (activeSubTab === 'Service Groups') {
+                              const foundObj = allServices.find(s => s.name === member.object_name);
+                              cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
+                              displayType = foundObj ? `Port Service (${String(foundObj.protocol).toUpperCase()})` : 'Port Service';
+                              displayDetails = foundObj ? foundObj.port : 'Unresolved details';
+                            } else if (activeSubTab === 'Application Groups') {
+                              const foundObj = allApplications.find(a => a.name === member.object_name);
+                              cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
+                              displayType = `App-ID`;
+                              displayDetails = foundObj ? foundObj.category : 'Unresolved details';
+                            }
+                          } else if (member.group_name) {
+                            title = member.group_name;
+                            cardIcon = <Layers size={14} style={{ color: '#a855f7' }} />;
+                            displayType = 'Nested Group';
+                            displayDetails = activeSubTab.replace(' Groups', ' Group');
+                          }
+
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                padding: '10px 12px',
+                                border: '1px solid var(--border-main)',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--bg-app)',
+                                display: 'flex',
+                                gap: '10px',
+                                alignItems: 'flex-start',
+                                minWidth: 0
+                              }}
+                            >
+                              <div style={{ marginTop: '3px', flexShrink: 0 }}>
+                                {cardIcon}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                                <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={title}>
+                                  <HighlightedText text={title} highlight={inspectorSearch} />
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${displayType} • ${displayDetails}`}>
+                                  <HighlightedText text={`${displayType} • ${displayDetails}`} highlight={inspectorSearch} />
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Flattened Total View (Recursive) */}
+                  <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '20px' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Globe size={12} style={{ color: 'var(--accent-blue)' }} /> Resolved Members (Flattened Total View) ({filteredFlattenedMembers.length})
+                    </h4>
+                    {filteredFlattenedMembers.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', backgroundColor: 'var(--bg-app)' }}>
+                        No resolved elements found.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {filteredFlattenedMembers.map((member, idx) => {
+                          let cardIcon = <Tag size={14} className="text-accent" />;
+                          if ((member.type || '').includes('Address')) {
+                            cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
+                          } else if ((member.type || '').includes('Port') || (member.type || '').includes('Service')) {
+                            cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
+                          } else if ((member.type || '').includes('Application') || (member.type || '').includes('Signature')) {
+                            cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
+                          }
+
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                padding: '10px 12px',
+                                border: '1px solid var(--border-main)',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--bg-app)',
+                                display: 'flex',
+                                gap: '10px',
+                                alignItems: 'flex-start',
+                                minWidth: 0
+                              }}
+                            >
+                              <div style={{ marginTop: '3px', flexShrink: 0 }}>
+                                {cardIcon}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                                <Tooltip content={member.name} position="top" align="right">
+                                  <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <HighlightedText text={member.name} highlight={inspectorSearch} />
+                                  </span>
+                                </Tooltip>
+                                <Tooltip content={member.details ? `${member.type} • ${member.details}` : member.type} position="top" align="right">
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <HighlightedText text={member.details ? `${member.type} • ${member.details}` : member.type} highlight={inspectorSearch} />
+                                  </span>
+                                </Tooltip>
+                                {member.paths && member.paths.length > 0 && (
+                                  <Tooltip content={`via ${member.paths.join(', ')}`} position="top" align="right">
+                                    <span style={{ fontSize: '10px', color: 'var(--accent-purple)', marginTop: '2px', display: 'block' }}>
+                                      via: <HighlightedText text={member.paths.join(', ')} highlight={inspectorSearch} />
+                                    </span>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
-
-        {/* Sub-tabs segment selector row (Removed) */}
-
-        {/* The data table area - Stretch to edge-to-edge */}
-        <div style={{ flex: 1, padding: '0', margin: '0 -30px -30px -30px', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <DataTable
-              key={dataViewTab}
-              loading={loading}
-              toolbarTitle={
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  {activeSubTab} ({displayedTableData.length})
-                </h2>
-              }
-              topRightActions={
-                <button
-                  onClick={openCreateModal}
-                  className="btn-primary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                  disabled={currentScope === 'show-all'}
-                  title={currentScope === 'show-all' ? "Select a specific Device Group or Firewall to add objects" : "Create new object"}
-                >
-                  <Plus size={14} /> Add Object
-                </button>
-              }
-              columns={columns}
-              data={displayedTableData}
-              searchQuery={searchQuery}
-              selectable={true}
-              pagination={true}
-              onSelectionChange={setSelectedRows}
-              rowContextMenuActions={(row, closeMenu) => (
-                <>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const isShowAll = currentScope === 'show-all';
-                      const isInherited = !isShowAll && row.device_uuid !== currentScope;
-                      if (!isInherited && !isShowAll) {
-                        openEditModal(row);
-                      } else {
-                        addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
-                      }
-                    }}
-                  >
-                    <Edit2 size={13} /> Edit
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      setInspectRow(row);
-                    }}
-                  >
-                    <Eye size={13} /> Inspect
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                      handleClone();
-                    }}
-                  >
-                    <Copy size={13} /> Clone
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                      handleCloneToGroup();
-                    }}
-                  >
-                    <Copy size={13} /> Clone to Group...
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                      handleMoveToGroup();
-                    }}
-                  >
-                    <ArrowRight size={13} /> Move to Group...
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                      handleGenerateCli(targetRows);
-                    }}
-                  >
-                    <Code size={13} /> Generate CLI
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                  <button
-                    className="btn-danger btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                    onClick={() => {
-                      closeMenu();
-                      const targetRows = selectedRows.includes(row) ? selectedRows : [row];
-                      if (!selectedRows.includes(row)) setSelectedRows(targetRows);
-                      handleBulkDelete();
-                    }}
-                  >
-                    <Trash2 size={13} /> Delete
-                  </button>
-                </>
-              )}
-              exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
-              rowStyle={(row) => {
-                const isShowAll = currentScope === 'show-all';
-                const isInherited = !isShowAll && row.device_uuid !== currentScope;
-                return isInherited ? { opacity: 0.55 } : {};
-              }}
-              exportActions={
-                <>
-                  {['Address Groups', 'Service Groups', 'Application Groups'].includes(activeSubTab) && (
-                    <>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', padding: '6px 16px' }} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={exportIncludeChildren}
-                          onChange={(e) => setExportIncludeChildren(e.target.checked)}
-                        />
-                        Include nested dependencies
-                      </label>
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                    </>
-                  )}
-                  {selectedRows.length > 0 && (
-                    <>
-                      <button
-                        onClick={() => { setShowActionsMenu(false); handleClone(); }}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        disabled={selectedRows.length > 50}
-                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone selected objects"}
-                      >
-                        <Copy size={13} /> Clone
-                      </button>
-
-                      <button
-                        onClick={() => { setShowActionsMenu(false); handleCloneToGroup(); }}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        disabled={selectedRows.length > 50}
-                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Clone objects to another group"}
-                      >
-                        <Copy size={13} /> Clone to Group...
-                      </button>
-
-                      <button
-                        onClick={() => { setShowActionsMenu(false); handleMoveToGroup(); }}
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        disabled={selectedRows.length > 50}
-                        title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
-                      >
-                        <ArrowRight size={13} /> Move to Group...
-                      </button>
-
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-
-                      <button
-                        onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
-                        className="btn-danger btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        title="Bulk delete selected objects"
-                      >
-                        <Trash2 size={13} /> Bulk Delete
-                      </button>
-
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => { setShowActionsMenu(false); setImportWizardOpen(true); }}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
-                    title="Import data from CSV or Excel"
-                  >
-                    <Download size={13} /> Import CSV / Excel
-                  </button>
-                  <button
-                    onClick={() => { setShowActionsMenu(false); handleGenerateCli(); }}
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', border: 'none' }}
-                    disabled={displayedTableData.length === 0}
-                    title={selectedRows.length > 0 ? `Generate CLI for ${selectedRows.length} selected objects` : "Generate CLI for all displayed objects"}
-                  >
-                    <Code size={13} /> Generate CLI
-                  </button>
-                </>
-              }
-            />
-          </div>
-
-          {/* Centralized Data Import Manager Modal */}
-          <DataImportWizard
-            isOpen={importWizardOpen}
-            onClose={() => setImportWizardOpen(false)}
-            defaultDataType={
-              activeSubTab === 'Address Objects' ? 'address_objects' :
-                activeSubTab === 'Address Groups' ? 'address_groups' :
-                  activeSubTab === 'Service Objects' ? 'service_objects' :
-                    'address_objects'
-            }
-            apiClient={apiClient}
-            deviceUuid={currentScope}
-            scope={currentScope === 'shared' ? 'shared' : 'local'}
-            onSuccess={(result: any) => {
-              fetchRecords();
-              loadReferenceData();
-              if (result?.auto_created_scopes && result.auto_created_scopes.length > 0) {
-                const names = result.auto_created_scopes.join(', ');
-                addToast(`Data imported successfully! Auto-created missing device groups: ${names}`, 'success');
-              } else {
-                addToast('Data imported successfully!', 'success');
-              }
-            }}
-          />
-        </div>
       </div>
-
-      {/* 3. Group members detailed slide-over panel */}
-      {isSlideOverOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: '400px',
-            backgroundColor: 'var(--bg-surface)',
-            borderLeft: '1px solid var(--border-main)',
-            boxShadow: '-10px 0 30px rgba(0,0,0,0.4)',
-            zIndex: 9999,
-            display: 'flex',
-            flexDirection: 'column',
-            animation: 'slideIn 0.2s ease-out'
-          }}
-        >
-          <div style={{ padding: '20px', borderBottom: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>Group Detail Inspector</div>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)', marginTop: '4px' }}>
-                  {selectedGroupDetails?.name}
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSlideOverOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Search filter in inspector */}
-            <SearchBar
-              value={inspectorSearch}
-              onChange={setInspectorSearch}
-              placeholder="Search group members..."
-              width="100%"
-              variant="local"
-            />
-          </div>
-
-          <div style={{ flex: 1, padding: '20px 20px 100px 20px', overflowY: 'auto' }}>
-            {slideOverLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '150px', color: 'var(--text-muted)', gap: '10px' }}>
-                <Loader2 className="spin-animation" size={16} /> Resolving group memberships...
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* 1. Configured Members (Direct) */}
-                <div>
-                  <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px' }}>
-                    Configured Members ({filteredResolvedMembers.length})
-                  </h4>
-                  {filteredResolvedMembers.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', backgroundColor: 'var(--bg-app)' }}>
-                      No static members configured.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {filteredResolvedMembers.map((member, idx) => {
-                        let title = member.member_name || '';
-                        let subtitle = 'Unresolved/External';
-
-                        let cardIcon = <Tag size={14} className="text-accent" />;
-                        let displayType = 'Member';
-                        let displayDetails = subtitle;
-
-                        if (member.object_name) {
-                          title = member.object_name;
-                          if (activeSubTab === 'Address Groups') {
-                            const foundObj = allAddresses.find(a => a.name === member.object_name);
-                            cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
-                            displayType = foundObj ? `Address Object (${foundObj.type})` : 'Address Object';
-                            displayDetails = foundObj ? foundObj.value : 'Unresolved details';
-                          } else if (activeSubTab === 'Service Groups') {
-                            const foundObj = allServices.find(s => s.name === member.object_name);
-                            cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
-                            displayType = foundObj ? `Port Service (${String(foundObj.protocol).toUpperCase()})` : 'Port Service';
-                            displayDetails = foundObj ? foundObj.port : 'Unresolved details';
-                          } else if (activeSubTab === 'Application Groups') {
-                            const foundObj = allApplications.find(a => a.name === member.object_name);
-                            cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
-                            displayType = `App-ID`;
-                            displayDetails = foundObj ? foundObj.category : 'Unresolved details';
-                          }
-                        } else if (member.group_name) {
-                          title = member.group_name;
-                          cardIcon = <Layers size={14} style={{ color: '#a855f7' }} />;
-                          displayType = 'Nested Group';
-                          displayDetails = activeSubTab.replace(' Groups', ' Group');
-                        }
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '10px 12px',
-                              border: '1px solid var(--border-main)',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--bg-app)',
-                              display: 'flex',
-                              gap: '10px',
-                              alignItems: 'flex-start',
-                              minWidth: 0
-                            }}
-                          >
-                            <div style={{ marginTop: '3px', flexShrink: 0 }}>
-                              {cardIcon}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                              <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={title}>
-                                <HighlightedText text={title} highlight={inspectorSearch} />
-                              </span>
-                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${displayType} • ${displayDetails}`}>
-                                <HighlightedText text={`${displayType} • ${displayDetails}`} highlight={inspectorSearch} />
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Flattened Total View (Recursive) */}
-                <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '20px' }}>
-                  <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Globe size={12} style={{ color: 'var(--accent-blue)' }} /> Resolved Members (Flattened Total View) ({filteredFlattenedMembers.length})
-                  </h4>
-                  {filteredFlattenedMembers.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', backgroundColor: 'var(--bg-app)' }}>
-                      No resolved elements found.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {filteredFlattenedMembers.map((member, idx) => {
-                        let cardIcon = <Tag size={14} className="text-accent" />;
-                        if ((member.type || '').includes('Address')) {
-                          cardIcon = <Globe size={14} style={{ color: 'var(--accent-blue)' }} />;
-                        } else if ((member.type || '').includes('Port') || (member.type || '').includes('Service')) {
-                          cardIcon = <Network size={14} style={{ color: '#10b981' }} />;
-                        } else if ((member.type || '').includes('Application') || (member.type || '').includes('Signature')) {
-                          cardIcon = <ShieldAlert size={14} style={{ color: '#f59e0b' }} />;
-                        }
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '10px 12px',
-                              border: '1px solid var(--border-main)',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--bg-app)',
-                              display: 'flex',
-                              gap: '10px',
-                              alignItems: 'flex-start',
-                              minWidth: 0
-                            }}
-                          >
-                            <div style={{ marginTop: '3px', flexShrink: 0 }}>
-                              {cardIcon}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                              <Tooltip content={member.name} position="top" align="right">
-                                <span style={{ fontWeight: 500, color: 'var(--text-main)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  <HighlightedText text={member.name} highlight={inspectorSearch} />
-                                </span>
-                              </Tooltip>
-                              <Tooltip content={member.details ? `${member.type} • ${member.details}` : member.type} position="top" align="right">
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  <HighlightedText text={member.details ? `${member.type} • ${member.details}` : member.type} highlight={inspectorSearch} />
-                                </span>
-                              </Tooltip>
-                              {member.paths && member.paths.length > 0 && (
-                                <Tooltip content={`via ${member.paths.join(', ')}`} position="top" align="right">
-                                  <span style={{ fontSize: '10px', color: 'var(--accent-purple)', marginTop: '2px', display: 'block' }}>
-                                    via: <HighlightedText text={member.paths.join(', ')} highlight={inspectorSearch} />
-                                  </span>
-                                </Tooltip>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
 
       {/* 4. CRUD Modals */}
       <Modal
