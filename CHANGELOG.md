@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2026-07-08
+### Added
+- **Vendor License Simulation**: Enabled the ability to simulate licensed and unlicensed states for vendor adapters directly from the **Adapters** configuration page. Toggling an adapter immediately propagates a `canopy_adapter_toggled` event, updating the UI context globally via LocalStorage without requiring backend restarts.
+- **Read-Only Graceful Degradation**: Implemented a read-only UI pattern across the platform. Creating, editing, and assigning configurations (Firewalls, Device Groups, Templates, Stacks) for unlicensed vendors is now blocked with helpful UI warnings, while still retaining read-access to existing configurations.
+
+### Changed
+- **Global Scope Refactor**: Refactored the core engine's Palo Alto scope hierarchy. The legacy `paloalto-dg-shared` device group has been removed in favor of linking root contexts directly to the new `paloalto-panorama-global` scope.
+
+### Fixed
+- **Foreign Key Constraint Error**: Resolved an issue where attempting to create a top-level device group would fail with a SQL constraint error because it was attempting to link to a deprecated parent scope.
+- **Empty State Display**: Fixed an issue in the Device Management page where action buttons and Add options were completely hidden when no data was imported, preventing new users from adding items.
+
 ## [0.24.0] - 2026-07-05
 ### Added
 - **Native Description Storage**: Added full SQLite database persistence for Base Template and Template Stack descriptions.
