@@ -691,6 +691,24 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
     return '';
   }, [activeSubTab, selectedGroupDetails, selectedTemplateName]);
 
+  const assignTargetVendor = useMemo(() => {
+    if (activeSubTab === 'Device Groups') {
+      return selectedGroupDetails?.vendor || 'paloalto';
+    } else if (activeSubTab === 'Templates') {
+      if (!selectedTemplateId) return 'paloalto';
+      if (selectedTemplateId.startsWith('stack-')) {
+        const stackId = parseInt(selectedTemplateId.replace('stack-', ''), 10);
+        const stack = templateStacks.find(s => s.id === stackId);
+        return stack?.vendor || 'paloalto';
+      } else if (selectedTemplateId.startsWith('tmpl-')) {
+        const tmplName = selectedTemplateId.replace('tmpl-', '');
+        const tmpl = baseTemplates.find(t => t.name === tmplName);
+        return tmpl?.vendor || 'paloalto';
+      }
+    }
+    return 'paloalto';
+  }, [activeSubTab, selectedGroupDetails, selectedTemplateId, templateStacks, baseTemplates]);
+
   const assignAvailableDevices = useMemo(() => {
     if (activeSubTab === 'Device Groups') {
       return inventory.filter(d => d.device_group_id !== (selectedGroupDetails?.id || -1));
@@ -1525,7 +1543,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
       footer={
         <>
           <button className="btn-secondary btn-sm" onClick={() => setIsDeviceModalOpen(false)}>Cancel</button>
-          <button className="btn-primary btn-sm" onClick={handleSaveDevice}>
+          <button className="btn-primary btn-sm" onClick={handleSaveDevice} disabled={!enabledAdapters.includes(deviceVendor)}>
             {editingDevice ? 'Save Changes' : 'Register Firewall'}
           </button>
         </>
@@ -1583,6 +1601,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
             <option value="fortinet">Fortinet</option>
             <option value="cisco">Cisco</option>
           </select>
+          {!enabledAdapters.includes(deviceVendor) && (
+            <div style={{ color: 'var(--status-red)', fontSize: '12px', marginTop: '4px' }}>
+              A valid license is required to create or edit {deviceVendor} firewalls.
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Management IP Address</label>
@@ -3286,7 +3309,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         footer={
           <>
             <button className="btn-secondary btn-sm" onClick={() => setIsGroupModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveGroup}>
+            <button className="btn-primary btn-sm" onClick={handleSaveGroup} disabled={!enabledAdapters.includes(groupVendor)}>
               {editingGroup ? 'Save Changes' : 'Create Group'}
             </button>
           </>
@@ -3347,6 +3370,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               width="100%"
             />
           </div>
+          {!enabledAdapters.includes(groupVendor) && (
+            <div style={{ color: 'var(--status-red)', fontSize: '12px', marginTop: '4px' }}>
+              A valid license is required to create or edit {groupVendor} device groups.
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -3358,7 +3386,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         footer={
           <>
             <button className="btn-secondary btn-sm" onClick={() => setIsTemplateModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveTemplate}>
+            <button className="btn-primary btn-sm" onClick={handleSaveTemplate} disabled={!enabledAdapters.includes(templateVendor)}>
               {editingTemplate ? 'Save Changes' : 'Create Template'}
             </button>
           </>
@@ -3399,6 +3427,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               style={{ resize: 'vertical' }}
             />
           </div>
+          {!enabledAdapters.includes(templateVendor) && (
+            <div style={{ color: 'var(--status-red)', fontSize: '12px', marginTop: '4px' }}>
+              A valid license is required to create or edit {templateVendor} templates.
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -3411,7 +3444,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         footer={
           <>
             <button className="btn-secondary btn-sm" onClick={() => setIsStackModalOpen(false)}>Cancel</button>
-            <button className="btn-primary btn-sm" onClick={handleSaveStack}>
+            <button className="btn-primary btn-sm" onClick={handleSaveStack} disabled={!enabledAdapters.includes(stackVendor)}>
               {editingStack ? 'Save Changes' : 'Create Stack'}
             </button>
           </>
@@ -3546,6 +3579,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               </div>
             )}
           </div>
+          {!enabledAdapters.includes(stackVendor) && (
+            <div style={{ color: 'var(--status-red)', fontSize: '12px', marginTop: '4px' }}>
+              A valid license is required to create or edit {stackVendor} template stacks.
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -3610,7 +3648,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               <button
                 className="btn-primary btn-sm"
                 onClick={handleAssignFirewalls}
-                disabled={selectedAssignDevices.length === 0}
+                disabled={selectedAssignDevices.length === 0 || !enabledAdapters.includes(assignTargetVendor)}
               >
                 Assign Selected ({selectedAssignDevices.length})
               </button>
@@ -3637,6 +3675,11 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onSelectionChange={setSelectedAssignDevices}
               />
             </div>
+            {!enabledAdapters.includes(assignTargetVendor) && (
+              <div style={{ color: 'var(--status-red)', fontSize: '12px', marginTop: '-10px' }}>
+                A valid license is required to assign firewalls to {assignTargetVendor} contexts.
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -3674,12 +3717,17 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                 onSelectionChange={setSelectedAssignDevices}
               />
             </div>
+            {!enabledAdapters.includes(assignTargetVendor) && (
+              <div style={{ color: 'var(--status-red)', fontSize: '12px', marginBottom: '10px' }}>
+                A valid license is required to assign firewalls to {assignTargetVendor} contexts.
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="btn-secondary btn-sm" onClick={() => { setIsAssignFirewallsModalOpen(false); setSelectedAssignDevices([]); setIsAssignModalPoppedOut(false); }}>Cancel</button>
               <button
                 className="btn-primary btn-sm"
                 onClick={handleAssignFirewalls}
-                disabled={selectedAssignDevices.length === 0}
+                disabled={selectedAssignDevices.length === 0 || !enabledAdapters.includes(assignTargetVendor)}
               >
                 Assign Selected ({selectedAssignDevices.length})
               </button>
