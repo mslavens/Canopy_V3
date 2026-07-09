@@ -47,7 +47,7 @@ export const AdaptersPage: React.FC<{ auth: { url: string; token: string } | nul
   }, []);
 
   return (
-    <div className="page-container" style={{ padding: '0 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <PageHeader
         title="Vendor Adapters"
         description="Manage installed vendor plugins and licensing."

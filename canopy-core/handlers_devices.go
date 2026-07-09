@@ -17,6 +17,17 @@ import (
 	"canopy-core/storage"
 )
 
+func getRootScopeForVendor(vendor string) string {
+	switch strings.ToLower(vendor) {
+	case "fortinet":
+		return "fortinet-global-adom"
+	case "cisco":
+		return "cisco-global-domain"
+	default:
+		return "paloalto-panorama-global"
+	}
+}
+
 func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -61,7 +72,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve parent details
 	var parentID interface{}
-	parentUUID := "paloalto-panorama-global"
+	parentUUID := getRootScopeForVendor(vendor)
 
 	if req.ParentID != nil && *req.ParentID > 0 {
 		var pUUID string
@@ -74,11 +85,11 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 		parentID = *req.ParentID
 		parentUUID = pUUID
 	} else {
-		// Find shared parent ID
-		var sharedID int
-		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
+		// Find vendor root parent ID
+		var rootID int
+		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = ?", parentUUID).Scan(&rootID)
 		if err == nil {
-			parentID = sharedID
+			parentID = rootID
 		} else {
 			parentID = nil
 		}
@@ -92,7 +103,7 @@ func handleDeviceGroupsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?, ?)", uuid, name, vendor, parentID, req.Description)
+	res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES (?, ?, ?, ?, ?, ?)", getRootScopeForVendor(vendor), uuid, name, vendor, parentID, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert device group: " + err.Error()})
@@ -199,7 +210,7 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve new parent Details
 	var parentID interface{}
-	parentUUID := "paloalto-panorama-global"
+	parentUUID := getRootScopeForVendor(vendor)
 
 	if req.ParentID != nil && *req.ParentID > 0 {
 		var pUUID string
@@ -212,11 +223,11 @@ func handleDeviceGroupsUpdate(w http.ResponseWriter, r *http.Request) {
 		parentID = *req.ParentID
 		parentUUID = pUUID
 	} else {
-		// Find shared parent ID
-		var sharedID int
-		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
+		// Find vendor root parent ID
+		var rootID int
+		err := dbConn.QueryRow("SELECT id FROM device_groups WHERE uuid = ?", parentUUID).Scan(&rootID)
 		if err == nil {
-			parentID = sharedID
+			parentID = rootID
 		} else {
 			parentID = nil
 		}
@@ -282,8 +293,8 @@ func handleDeviceGroupsDelete(w http.ResponseWriter, r *http.Request) {
 	vaultMutex.Unlock()
 
 	// Get current group details
-	var uuid, name string
-	err := dbConn.QueryRow("SELECT uuid, name FROM device_groups WHERE id = ?", req.ID).Scan(&uuid, &name)
+	var uuid, name, vendor string
+	err := dbConn.QueryRow("SELECT uuid, name, vendor FROM device_groups WHERE id = ?", req.ID).Scan(&uuid, &name, &vendor)
 	if err != nil {
 		// Idempotent success
 		w.Header().Set("Content-Type", "application/json")
@@ -291,9 +302,9 @@ func handleDeviceGroupsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if uuid == "paloalto-panorama-global" {
+	if uuid == "paloalto-panorama-global" || uuid == "fortinet-global-adom" || uuid == "cisco-global-domain" {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete the root 'shared' context."})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot delete a root global context."})
 		return
 	}
 
@@ -305,12 +316,13 @@ func handleDeviceGroupsDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Manually orphan child groups back to shared root rather than deleting them
-	var sharedID int
-	err = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = 'paloalto-panorama-global'").Scan(&sharedID)
+	// Manually orphan child groups back to the vendor's root rather than deleting them
+	var rootID int
+	vendorRootUUID := getRootScopeForVendor(vendor)
+	err = tx.QueryRow("SELECT id FROM device_groups WHERE uuid = ?", vendorRootUUID).Scan(&rootID)
 	if err == nil {
-		tx.Exec("UPDATE device_groups SET parent_id = ? WHERE parent_id = ?", sharedID, req.ID)
-		tx.Exec("UPDATE scopes SET parent_uuid = 'paloalto-panorama-global' WHERE parent_uuid = ?", uuid)
+		tx.Exec("UPDATE device_groups SET parent_id = ? WHERE parent_id = ?", rootID, req.ID)
+		tx.Exec("UPDATE scopes SET parent_uuid = ? WHERE parent_uuid = ?", vendorRootUUID, uuid)
 	} else {
 		tx.Exec("UPDATE device_groups SET parent_id = NULL WHERE parent_id = ?", req.ID)
 		tx.Exec("UPDATE scopes SET parent_uuid = NULL WHERE parent_uuid = ?", uuid)
@@ -392,7 +404,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name, vendor, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, vendor, req.Description)
+	res, err := tx.Exec("INSERT INTO templates (device_uuid, uuid, name, vendor, description) VALUES (?, ?, ?, ?, ?)", getRootScopeForVendor(vendor), uuid, name, vendor, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template: " + err.Error()})
@@ -400,7 +412,7 @@ func handleTemplatesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	tmplID, _ := res.LastInsertId()
 
-	_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template', ?, ?, NULL)", uuid, tmplID, name+" (Panorama)")
+	_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'template', ?, ?, NULL)", uuid, tmplID, name+" (Template)")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to register scope: " + err.Error()})
@@ -617,7 +629,7 @@ func handleTemplateStacksCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name, vendor, description) VALUES ('paloalto-panorama-global', ?, ?, ?, ?)", uuid, name, vendor, req.Description)
+	res, err := tx.Exec("INSERT INTO template_stacks (device_uuid, uuid, name, vendor, description) VALUES (?, ?, ?, ?, ?)", getRootScopeForVendor(vendor), uuid, name, vendor, req.Description)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to insert template stack: " + err.Error()})

@@ -86,6 +86,20 @@ const renderVendorBadge = (val: string) => {
   );
 };
 
+const VENDOR_ROOT_UUIDS = ['paloalto-panorama-global', 'fortinet-global-adom', 'cisco-global-domain'];
+
+const getVendorRootName = (uuid: string) => {
+  if (uuid === 'fortinet-global-adom') return 'Global ADOM';
+  if (uuid === 'cisco-global-domain') return 'Global Domain';
+  return 'Panorama Shared';
+};
+
+const getVendorRootUuid = (vendor: string) => {
+  const v = (vendor || 'paloalto').toLowerCase();
+  if (v === 'fortinet') return 'fortinet-global-adom';
+  if (v === 'cisco') return 'cisco-global-domain';
+  return 'paloalto-panorama-global';
+};
 // 1. Recursive Tree Node for Device Groups
 interface GroupTreeItemProps {
   group: DeviceGroupNode;
@@ -166,16 +180,16 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
             <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--text-sub)' }} />
           )}
         </span>
-        {group.uuid === 'paloalto-dg-shared' ? (
+        {VENDOR_ROOT_UUIDS.includes(group.uuid) ? (
           <Globe size={14} style={{ marginRight: '8px', color: 'var(--accent-blue)', flexShrink: 0 }} />
         ) : (
           <Layers size={14} style={{ marginRight: '8px', color: isSelected ? 'var(--accent-purple)' : 'var(--text-sub)', flexShrink: 0 }} />
         )}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-            {group.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(group.name)}
+            {VENDOR_ROOT_UUIDS.includes(group.uuid) ? getVendorRootName(group.uuid) : cleanGroupName(group.name)}
           </span>
-          {group.uuid !== 'paloalto-dg-shared' && group.vendor && renderVendorBadge(group.vendor)}
+          {!VENDOR_ROOT_UUIDS.includes(group.uuid) && group.vendor && renderVendorBadge(group.vendor)}
           {count !== undefined && count > 0 && (
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.5px' }}>
               ({count})
@@ -758,7 +772,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   const rootGroups = useMemo(() => {
     return filteredDeviceGroups.filter(g =>
       (!g.parent_uuid || !filteredDeviceGroups.some(p => p.uuid === g.parent_uuid)) &&
-      (g.uuid === 'paloalto-dg-shared' || enabledAdapters.includes((g.vendor || 'paloalto').toLowerCase()))
+      (VENDOR_ROOT_UUIDS.includes(g.uuid) || enabledAdapters.includes((g.vendor || 'paloalto').toLowerCase()))
     );
   }, [filteredDeviceGroups, enabledAdapters]);
 
@@ -1515,11 +1529,12 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
   }
 
   // 3. Parent Device Group Dropdown
-  const parentGroupList = deviceGroups.filter(g => g.uuid !== 'paloalto-dg-shared' && (!editingGroup || g.id !== editingGroup.id));
-  const parentGroupOptions = ['Shared', ...parentGroupList.map(g => cleanGroupName(g.name))];
+  const parentGroupList = deviceGroups.filter(g => !VENDOR_ROOT_UUIDS.includes(g.uuid) && (!editingGroup || g.id !== editingGroup.id) && (g.vendor || 'paloalto').toLowerCase() === groupVendor);
+  const rootName = getVendorRootName(getVendorRootUuid(groupVendor));
+  const parentGroupOptions = [rootName, ...parentGroupList.map(g => cleanGroupName(g.name))];
   const activeParentGroupLabel = groupParentId
     ? cleanGroupName(deviceGroups.find(g => g.id === groupParentId)?.name || '')
-    : 'Shared';
+    : rootName;
 
   // 4. Member Templates Dropdown for Stack Modal
   const availableTemplates = baseTemplates.filter(t => !stackTemplateIds.includes(t.id));
@@ -2003,7 +2018,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               >
                                 <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Group
                               </button>
-                              {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
+                              {!VENDOR_ROOT_UUIDS.includes(selectedGroupDetails.uuid) && (
                                 <button
                                   className="context-menu-item"
                                   onClick={() => { handleDeleteGroup(selectedGroupDetails); setIsHierarchyDropdownOpen(false); }}
@@ -2165,7 +2180,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
 
                     <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
 
-                    {treeContextMenu.group.uuid !== 'paloalto-dg-shared' && (
+                    {!VENDOR_ROOT_UUIDS.includes(treeContextMenu.group.uuid) && (
                       <button
                         className="context-menu-item"
                         onClick={() => { handleDeleteGroup(treeContextMenu.group); setTreeContextMenu(null); }}
@@ -2238,9 +2253,9 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <h4 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
-                                {selectedGroupDetails.uuid === 'paloalto-dg-shared' ? 'Shared' : cleanGroupName(selectedGroupDetails.name)}
+                                {VENDOR_ROOT_UUIDS.includes(selectedGroupDetails.uuid) ? getVendorRootName(selectedGroupDetails.uuid) : cleanGroupName(selectedGroupDetails.name)}
                               </h4>
-                              {selectedGroupDetails.uuid !== 'paloalto-dg-shared' && (
+                              {!VENDOR_ROOT_UUIDS.includes(selectedGroupDetails.uuid) && (
                                 <button
                                   className="btn-secondary btn-sm"
                                   style={{ padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', height: '22px' }}

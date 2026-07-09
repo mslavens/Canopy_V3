@@ -70,7 +70,9 @@ var actSchema = `
 		UNIQUE(type, reference_id),
 		FOREIGN KEY (parent_uuid) REFERENCES scopes(uuid) ON DELETE SET NULL
 	);
-	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Shared (Panorama)');
+	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Panorama Shared');
+	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('fortinet-global-adom', 'shared', 'Global ADOM');
+	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('cisco-global-domain', 'shared', 'Global Domain');
 	CREATE TABLE IF NOT EXISTS device_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
@@ -856,7 +858,14 @@ func cleanupPatchArtifacts() {
 
 func migrateWorkspaceDatabase(db *sql.DB) {
 	// Ensure the global shared scope exists in all workspaces
-	db.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Shared (Panorama)')")
+	db.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('paloalto-panorama-global', 'shared', 'Panorama Shared')")
+	db.Exec("INSERT OR IGNORE INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES ('paloalto-panorama-global', 'paloalto-panorama-global', 'Panorama Shared', 'paloalto', NULL, 'Global Configuration Scope')")
+	
+	db.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('fortinet-global-adom', 'shared', 'Global ADOM')")
+	db.Exec("INSERT OR IGNORE INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES ('fortinet-global-adom', 'fortinet-global-adom', 'Global ADOM', 'fortinet', NULL, 'Fortinet Global Context')")
+
+	db.Exec("INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('cisco-global-domain', 'shared', 'Global Domain')")
+	db.Exec("INSERT OR IGNORE INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES ('cisco-global-domain', 'cisco-global-domain', 'Global Domain', 'cisco', NULL, 'Cisco Global Context')")
 
 	// Check if framework_metadata table exists
 	var exists int

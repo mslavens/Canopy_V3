@@ -20,7 +20,9 @@ export function useScopeHierarchy(
 
   const scopeNameMap = useMemo(() => {
     const map: Record<string, string> = {
-      'paloalto-panorama-global': 'Shared',
+      'paloalto-panorama-global': 'Panorama Shared',
+      'fortinet-global-adom': 'Global ADOM',
+      'cisco-global-domain': 'Global Domain',
       'paloalto-dg-shared': 'Shared'
     };
     if (includeShowAll) {
@@ -43,7 +45,11 @@ export function useScopeHierarchy(
     if (includeShowAll) {
       opts.push({ label: 'Show all', value: 'show-all', depth: 0, type: 'global' });
     }
-    opts.push({ label: 'Shared', value: 'paloalto-panorama-global', depth: 0, type: 'shared' });
+    const vendorRoots = [
+      { label: 'Panorama Shared', value: 'paloalto-panorama-global' },
+      { label: 'Global ADOM', value: 'fortinet-global-adom' },
+      { label: 'Global Domain', value: 'cisco-global-domain' }
+    ];
 
     const buildNode = (parentId: number | null, depth: number) => {
       const levelGroups = deviceGroups.filter(g => g.parent_id === parentId);
@@ -52,6 +58,14 @@ export function useScopeHierarchy(
           buildNode(dg.id, depth);
           return;
         }
+        
+        // Skip root scopes from being added as regular groups
+        if (['paloalto-panorama-global', 'fortinet-global-adom', 'cisco-global-domain'].includes(dg.uuid)) {
+           // We already manually add them at depth 0, but we need to build their children
+           buildNode(dg.id, depth);
+           return;
+        }
+
         opts.push({
           label: dg.name,
           value: dg.uuid,
@@ -75,7 +89,43 @@ export function useScopeHierarchy(
       });
     };
 
-    buildNode(null, 1);
+    // Find physical root nodes (those with parent_id = null)
+    // We only care about pushing the roots that actually exist in the DB (or just pushing them all).
+    // Wait, the DB device_groups table contains them.
+    const rootDGs = deviceGroups.filter(g => g.parent_id === null);
+    
+    // Sort roots for consistent display
+    const orderedRoots = rootDGs.filter(g => ['paloalto-panorama-global', 'fortinet-global-adom', 'cisco-global-domain'].includes(g.uuid)).sort((a, b) => {
+       const order = ['paloalto-panorama-global', 'fortinet-global-adom', 'cisco-global-domain'];
+       return order.indexOf(a.uuid) - order.indexOf(b.uuid);
+    });
+
+    orderedRoots.forEach(root => {
+       opts.push({ label: root.name, value: root.uuid, depth: 0, type: 'shared' });
+       buildNode(root.id, 1);
+    });
+
+
+    // Simpler logic for strays:
+    const strayRoots = rootDGs.filter(g => !['paloalto-panorama-global', 'fortinet-global-adom', 'cisco-global-domain'].includes(g.uuid));
+    strayRoots.forEach(stray => {
+        opts.push({
+          label: stray.name,
+          value: stray.uuid,
+          depth: 0,
+          type: 'device-group'
+        });
+        const groupFirewalls = firewalls.filter(fw => fw.device_group_id === stray.id);
+        groupFirewalls.forEach(fw => {
+          opts.push({
+            label: fw.name || fw.serial,
+            value: firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`,
+            depth: 1,
+            type: 'firewall'
+          });
+        });
+        buildNode(stray.id, 1);
+    });
 
     // Add unassigned firewalls at the root level
     const unassignedFirewalls = firewalls.filter(fw => !fw.device_group_id);
@@ -128,8 +178,24 @@ export function useScopeHierarchy(
       }
     }
 
-    if (!scopes.includes('paloalto-panorama-global')) {
-      scopes.push('paloalto-panorama-global');
+    // Find the vendor of the top-most group or the item itself
+    let vendor = 'paloalto';
+    if (curr && curr.vendor) {
+      vendor = curr.vendor.toLowerCase();
+    } else if (isFirewallScope) {
+      const fw = firewallValueKey === 'uuid'
+        ? firewalls.find(f => f.uuid === currentScope)
+        : firewalls.find(f => `fw-${f.serial}` === currentScope);
+      if (fw && fw.vendor) vendor = fw.vendor.toLowerCase();
+    }
+
+    // Only push the root scope for the specific vendor if we haven't already included it
+    if (vendor === 'fortinet') {
+      if (!scopes.includes('fortinet-global-adom')) scopes.push('fortinet-global-adom');
+    } else if (vendor === 'cisco') {
+      if (!scopes.includes('cisco-global-domain')) scopes.push('cisco-global-domain');
+    } else {
+      if (!scopes.includes('paloalto-panorama-global')) scopes.push('paloalto-panorama-global');
     }
 
     return scopes.filter(uuid => uuid !== 'paloalto-dg-shared');

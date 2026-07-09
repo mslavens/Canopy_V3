@@ -2851,6 +2851,11 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 		if _, err := scopeStmt.Exec(sharedUUID, "shared", nil, "Shared", nil); err != nil {
 			return 0, 0, fmt.Errorf("failed to register shared panorama global scope: %w", err)
 		}
+		
+		// Recreate the global device group for Panorama Shared so children can link to it
+		if _, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES (?, ?, 'Panorama Shared', 'paloalto', NULL, 'Global Configuration Scope')", sharedUUID, sharedUUID); err != nil {
+			return 0, 0, fmt.Errorf("failed to register shared panorama device group: %w", err)
+		}
 		devicesImported++
 
 		// 1. Process templates (network only)
@@ -3112,6 +3117,13 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			// Default to global scope if no explicit parent group is configured in the XML
 			var parentID interface{} = nil
 			var parentScopeUUID interface{} = "paloalto-panorama-global"
+			
+			// Get the ID of Panorama Shared to act as the parent for root device groups
+			var globalRootID int
+			err := tx.QueryRow("SELECT id FROM device_groups WHERE uuid = ?", parentScopeUUID).Scan(&globalRootID)
+			if err == nil {
+				parentID = globalRootID
+			}
 
 			if parentName, ok := dgParentMap[dg.Name]; ok && parentName != "" {
 				if pid, ok := dgNameToID[parentName]; ok {
