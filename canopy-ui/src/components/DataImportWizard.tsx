@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { Dropdown } from './Dropdown';
 
 interface DataImportWizardProps {
   isOpen: boolean;
@@ -15,12 +16,12 @@ interface DataImportWizardProps {
 
 const dbFieldsMap: Record<string, string[]> = {
   address_objects: ['name', 'value', 'description', 'tags'],
-  address_groups: ['name', 'type', 'description'],
+  address_groups: ['name', 'type', 'filter', 'members', 'description', 'tags'],
   service_objects: ['name', 'protocol', 'destination_port', 'description'],
   service_groups: ['name', 'description'],
   tags: ['name', 'color', 'comments'],
   devices: ['name', 'serial', 'ip_address', 'device_group', 'template_stack', 'template'],
-  device_groups: ['name', 'description'],
+  device_groups: ['name', 'vendor', 'parent_group', 'description'],
   templates: ['name', 'description'],
   template_stacks: ['name', 'description'],
   zones: ['name', 'type'],
@@ -37,6 +38,8 @@ const fieldLabelsMap: Record<string, string> = {
   serial: 'Serial Number',
   ip_address: 'IP Address / CIDR',
   device_group: 'Device Group',
+  vendor: 'Vendor',
+  parent_group: 'Parent Group',
   template_stack: 'Template Stack',
   template: 'Template',
   type: 'Type',
@@ -44,6 +47,8 @@ const fieldLabelsMap: Record<string, string> = {
   destination_port: 'Destination Port',
   color: 'Color Name',
   comments: 'Comments',
+  filter: 'Dynamic Filter',
+  members: 'Members (comma separated)',
   vr_name: 'Virtual Router',
   route_name: 'Route Name',
   destination: 'Destination Network (CIDR)',
@@ -93,8 +98,21 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    setDataType(defaultDataType);
-  }, [defaultDataType]);
+    if (isOpen) {
+      setDataType(defaultDataType);
+    } else {
+      setStep(1);
+      setFile(null);
+      setWorkbook(null);
+      setSheetNames([]);
+      setSelectedSheet('');
+      setParsedHeaders([]);
+      setParsedData([]);
+      setMappings({});
+      setErrorMessage('');
+      setIsProcessing(false);
+    }
+  }, [isOpen, defaultDataType]);
 
   const targetFields = dbFieldsMap[dataType] || ['name', 'value', 'description'];
   const requiredFields = requiredFieldsMap[dataType] || ['name'];
@@ -343,16 +361,13 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>Target Data Type</label>
-              <select 
-                className="input-text" 
+              <Dropdown 
                 value={dataType}
-                onChange={(e) => setDataType(e.target.value)}
-                style={{ width: '100%', padding: '10px' }}
-              >
-                {typesToRender.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+                onChange={(val) => setDataType(val)}
+                options={typesToRender.map(t => t.value)}
+                renderOption={(val) => typesToRender.find(t => t.value === val)?.label || val}
+                width="100%"
+              />
             </div>
 
             <div style={{
@@ -374,17 +389,13 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
             </p>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>Worksheet</label>
-              <select 
-                className="input-text" 
+              <Dropdown 
                 value={selectedSheet}
-                onChange={(e) => setSelectedSheet(e.target.value)}
-                style={{ width: '100%', padding: '10px' }}
-              >
-                <option value="">-- Select Sheet --</option>
-                {sheetNames.map(sheet => (
-                  <option key={sheet} value={sheet}>{sheet}</option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedSheet(val)}
+                options={['', ...sheetNames]}
+                renderOption={(val) => val === '' ? '-- Select Sheet --' : val}
+                width="100%"
+              />
             </div>
           </div>
         )}
@@ -403,15 +414,13 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
                       {fieldLabelsMap[dbField] || dbField} {isRequired && <span style={{ color: 'var(--status-red)' }}>*</span>}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <select 
-                        className="input-text" 
-                        style={{ width: '100%', padding: '8px' }}
+                      <Dropdown 
                         value={mappings[dbField] || ''}
-                        onChange={e => setMappings({...mappings, [dbField]: e.target.value})}
-                      >
-                        <option value="">-- Select Column --</option>
-                        {parsedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
+                        onChange={val => setMappings({...mappings, [dbField]: val})}
+                        options={['', ...parsedHeaders]}
+                        renderOption={(val) => val === '' ? '-- Select Column --' : val}
+                        width="100%"
+                      />
                     </div>
                   </div>
                 );

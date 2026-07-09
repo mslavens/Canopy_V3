@@ -251,10 +251,18 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			desc, _ := row["description"].(string)
+			vendor, _ := row["vendor"].(string)
+			parentStr, _ := row["parent_group"].(string)
+
 			name = strings.TrimSpace(name)
 			if name == "" {
 				continue
 			}
+			vendor = strings.TrimSpace(vendor)
+			if vendor == "" {
+				vendor = "paloalto"
+			}
+			parentStr = strings.TrimSpace(parentStr)
 
 			var exists int
 			tx.QueryRow("SELECT COUNT(*) FROM device_groups WHERE name = ?", name).Scan(&exists)
@@ -262,12 +270,33 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			uuid := "paloalto-dg-" + name
-			res, err := tx.Exec("INSERT INTO device_groups (uuid, name, description) VALUES (?, ?, ?)", uuid, name, desc)
+			var parentID interface{}
+			parentUUID := getRootScopeForVendor(vendor)
+
+			if parentStr != "" {
+				var pID int
+				var pUUID string
+				err := tx.QueryRow("SELECT id, uuid FROM device_groups WHERE name = ?", parentStr).Scan(&pID, &pUUID)
+				if err == nil {
+					parentID = pID
+					parentUUID = pUUID
+				}
+			} else {
+				var rootID int
+				err := tx.QueryRow("SELECT id FROM device_groups WHERE uuid = ?", parentUUID).Scan(&rootID)
+				if err == nil {
+					parentID = rootID
+				} else {
+					parentID = nil
+				}
+			}
+
+			uuid := vendor + "-dg-" + name
+			res, err := tx.Exec("INSERT INTO device_groups (device_uuid, uuid, name, vendor, parent_id, description) VALUES (?, ?, ?, ?, ?, ?)", getRootScopeForVendor(vendor), uuid, name, vendor, parentID, desc)
 			if err == nil {
 				id, err := res.LastInsertId()
 				if err == nil {
-					_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'device-group', ?, ?, NULL)", uuid, id, name)
+					_, err = tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'device-group', ?, ?, ?)", uuid, id, name+" (Device Group)", parentUUID)
 					if err == nil {
 						insertedCount++
 					}
@@ -475,21 +504,13 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "address_groups":
-		currentStmt, err = tx.Prepare(`
-			INSERT INTO address_groups (device_uuid, scope, name, type, description)
-			VALUES (?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
-			return
-		}
-		defer currentStmt.Close()
-
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			agType, _ := row["type"].(string)
+			filter, _ := row["filter"].(string)
+			membersStr, _ := row["members"].(string)
 			desc, _ := row["description"].(string)
+			tagsStr, _ := row["tags"].(string)
 
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -499,8 +520,44 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				agType = "static"
 			}
 
-			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, agType, desc)
+			res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description) VALUES (?, ?, ?, ?, ?, ?)", req.DeviceUUID, req.Scope, name, agType, filter, desc)
 			if err == nil {
+				groupID, _ := res.LastInsertId()
+				
+				if agType == "static" && membersStr != "" {
+					members := strings.Split(membersStr, ",")
+					for _, member := range members {
+						member = strings.TrimSpace(member)
+						if member == "" {
+							continue
+						}
+						
+						var addrID sql.NullInt64
+						tx.QueryRow("SELECT id FROM address_objects WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&addrID)
+
+						var grpID sql.NullInt64
+						tx.QueryRow("SELECT id FROM address_groups WHERE name = ? AND (device_uuid = ? OR device_uuid = 'paloalto-panorama-global') LIMIT 1", member, req.DeviceUUID).Scan(&grpID)
+
+						if addrID.Valid {
+							tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", groupID, addrID.Int64)
+						} else if grpID.Valid {
+							tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, ?, NULL)", groupID, grpID.Int64)
+						} else {
+							tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, NULL, NULL, ?)", groupID, member)
+						}
+					}
+				}
+
+				if tagsStr != "" {
+					tags := []string{}
+					for _, t := range strings.Split(tagsStr, ",") {
+						t = strings.TrimSpace(t)
+						if t != "" {
+							tags = append(tags, t)
+						}
+					}
+					saveEntityTags(tx, "address_group", groupID, req.DeviceUUID, tags)
+				}
 				insertedCount++
 			}
 		}

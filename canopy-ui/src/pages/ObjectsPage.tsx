@@ -2093,7 +2093,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         subtabCols = [
           {
             key: 'type',
-            label: 'Mode',
+            label: 'Type',
             width: '120px',
             renderCell: (val) => (
               <span className={`badge ${val === 'dynamic' ? 'badge-warning' : 'badge-neutral'}`}>
@@ -3349,7 +3349,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
           {activeSubTab === 'Address Groups' && (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Group Mode</label>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Type</label>
                 <Dropdown
                   width="100%"
                   value={formType}
