@@ -3957,8 +3957,13 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
         apiClient={apiClient}
         deviceUuid="paloalto-panorama-global"
         scope="Shared"
-        onSuccess={() => {
-          addToast('Data imported successfully', 'success');
+        onSuccess={(result: any) => {
+          if (result?.auto_created_scopes && result.auto_created_scopes.length > 0) {
+            const names = result.auto_created_scopes.join(', ');
+            addToast(`Data imported successfully! Auto-created missing device groups: ${names}`, 'success');
+          } else {
+            addToast('Data imported successfully!', 'success');
+          }
           fetchData();
         }}
         availableDataTypes={[

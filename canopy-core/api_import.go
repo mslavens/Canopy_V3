@@ -12,6 +12,54 @@ import (
 // Centralized Data Import API
 // -----------------------------------------------------------------------------
 
+func resolveRowScope(tx *sql.Tx, vendor string, scopeContext string, defaultDeviceUUID string, defaultScope string) (string, string, string) {
+	vendor = strings.TrimSpace(vendor)
+	scopeContext = strings.TrimSpace(scopeContext)
+
+	if vendor == "" && scopeContext == "" {
+		return defaultDeviceUUID, defaultScope, ""
+	}
+	if vendor == "" {
+		vendor = "paloalto"
+	}
+	if scopeContext == "" {
+		return defaultDeviceUUID, defaultScope, ""
+	}
+
+	if strings.ToLower(scopeContext) == "shared" {
+		if vendor == "paloalto" {
+			return "paloalto-panorama-global", "Shared", ""
+		}
+	}
+
+	var uuid sql.NullString
+	err := tx.QueryRow("SELECT uuid FROM device_groups WHERE name = ? AND vendor = ? LIMIT 1", scopeContext, vendor).Scan(&uuid)
+	if err == nil && uuid.Valid {
+		return uuid.String, scopeContext, ""
+	}
+
+	err = tx.QueryRow("SELECT uuid FROM templates WHERE name = ? AND vendor = ? LIMIT 1", scopeContext, vendor).Scan(&uuid)
+	if err == nil && uuid.Valid {
+		return uuid.String, scopeContext, ""
+	}
+
+	err = tx.QueryRow("SELECT uuid FROM managed_devices WHERE name = ? AND vendor = ? LIMIT 1", scopeContext, vendor).Scan(&uuid)
+	if err == nil && uuid.Valid {
+		return uuid.String, scopeContext, ""
+	}
+
+	newUUID := vendor + "-dg-" + strings.ReplaceAll(scopeContext, " ", "-")
+	
+	res, err := tx.Exec("INSERT INTO device_groups (uuid, name, vendor, parent_uuid, dirty) VALUES (?, ?, ?, NULL, 1)", newUUID, scopeContext, vendor)
+	if err == nil {
+		id, _ := res.LastInsertId()
+		tx.Exec("INSERT INTO scopes (uuid, type, reference_id, name, parent_uuid) VALUES (?, 'device-group', ?, ?, ?)", newUUID, id, scopeContext+" (Device Group)", getRootScopeForVendor(vendor))
+		return newUUID, scopeContext, scopeContext
+	}
+
+	return defaultDeviceUUID, defaultScope, ""
+}
+
 func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -50,27 +98,21 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	insertedCount := 0
+	var autoCreatedScopes []string
+	autoCreatedMap := make(map[string]bool)
+
 	var currentStmt *sql.Stmt
 
 	switch req.Type {
 	case "address_objects":
-		currentStmt, err = tx.Prepare(`
-			INSERT INTO address_objects (device_uuid, scope, name, type, value, description)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
-			return
-		}
-		defer currentStmt.Close()
-
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			addrType, _ := row["type"].(string)
 			value, _ := row["value"].(string)
 			desc, _ := row["description"].(string)
 			tagsStr, _ := row["tags"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
 
 			if name == "" || value == "" {
 				continue // Skip invalid rows
@@ -79,7 +121,13 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				addrType = "ip-netmask"
 			}
 
-			res, err := currentStmt.Exec(req.DeviceUUID, req.Scope, name, addrType, value, desc)
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			res, err := tx.Exec("INSERT INTO address_objects (device_uuid, scope, name, type, value, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, addrType, value, desc)
 			if err == nil {
 				insertedCount++
 
@@ -98,7 +146,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 
 						if len(parsedTags) > 0 {
 							// Using saveEntityTags handles removing old tags and mapping the new ones.
-							if err := saveEntityTags(tx, "address_object", id, req.DeviceUUID, parsedTags); err != nil {
+							if err := saveEntityTags(tx, "address_object", id, rowDevUUID, parsedTags); err != nil {
 								slog.Error("Failed to save entity tags during bulk import", slog.String("error", err.Error()), slog.Int64("entity_id", id))
 							}
 						}
@@ -108,55 +156,49 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "service_objects":
-		currentStmt, err = tx.Prepare(`
-			INSERT INTO service_objects (device_uuid, scope, name, protocol, destination_port, description)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
-			return
-		}
-		defer currentStmt.Close()
-
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			protocol, _ := row["protocol"].(string)
 			port, _ := row["destination_port"].(string)
 			desc, _ := row["description"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
 
 			if name == "" || protocol == "" || port == "" {
 				continue
 			}
 
-			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, protocol, port, desc)
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			_, err = tx.Exec("INSERT INTO service_objects (device_uuid, scope, name, protocol, destination_port, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, protocol, port, desc)
 			if err == nil {
 				insertedCount++
 			}
 		}
 
 	case "tags":
-		currentStmt, err = tx.Prepare(`
-			INSERT INTO tags (device_uuid, scope, name, color, comments)
-			VALUES (?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
-			return
-		}
-		defer currentStmt.Close()
-
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			color, _ := row["color"].(string)
-			desc, _ := row["comments"].(string)
+			comments, _ := row["comments"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
 
 			if name == "" {
 				continue
 			}
 
-			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, color, desc)
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			_, err = tx.Exec("INSERT INTO tags (device_uuid, scope, name, color, comments) VALUES (?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, color, comments)
 			if err == nil {
 				insertedCount++
 			}
@@ -511,6 +553,8 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 			membersStr, _ := row["members"].(string)
 			desc, _ := row["description"].(string)
 			tagsStr, _ := row["tags"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
 
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -520,7 +564,13 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				agType = "static"
 			}
 
-			res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description) VALUES (?, ?, ?, ?, ?, ?)", req.DeviceUUID, req.Scope, name, agType, filter, desc)
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, agType, filter, desc)
 			if err == nil {
 				groupID, _ := res.LastInsertId()
 				
@@ -556,34 +606,31 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 							tags = append(tags, t)
 						}
 					}
-					saveEntityTags(tx, "address_group", groupID, req.DeviceUUID, tags)
+					saveEntityTags(tx, "address_group", groupID, rowDevUUID, tags)
 				}
 				insertedCount++
 			}
 		}
 
 	case "service_groups":
-		currentStmt, err = tx.Prepare(`
-			INSERT INTO service_groups (device_uuid, scope, name, description)
-			VALUES (?, ?, ?, ?)
-		`)
-		if err != nil {
-			tx.Rollback()
-			http.Error(w, "Failed to prepare statement", http.StatusInternalServerError)
-			return
-		}
-		defer currentStmt.Close()
-
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)
 			desc, _ := row["description"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
 
 			name = strings.TrimSpace(name)
 			if name == "" {
 				continue
 			}
 
-			_, err = currentStmt.Exec(req.DeviceUUID, req.Scope, name, desc)
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			_, err = tx.Exec("INSERT INTO service_groups (device_uuid, scope, name, description) VALUES (?, ?, ?, ?)", rowDevUUID, rowScope, name, desc)
 			if err == nil {
 				insertedCount++
 			}
@@ -608,9 +655,10 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":        true,
-		"inserted_count": insertedCount,
-		"total_count":    len(req.Data),
+		"success":             true,
+		"inserted":            insertedCount,
+		"auto_created_scopes": autoCreatedScopes,
 	})
 }

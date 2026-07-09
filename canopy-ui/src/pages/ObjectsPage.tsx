@@ -3021,10 +3021,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             apiClient={apiClient}
             deviceUuid={currentScope}
             scope={currentScope === 'shared' ? 'shared' : 'local'}
-            onSuccess={() => {
+            onSuccess={(result: any) => {
               fetchRecords();
               loadReferenceData();
-              addToast('Data imported successfully!', 'success');
+              if (result?.auto_created_scopes && result.auto_created_scopes.length > 0) {
+                const names = result.auto_created_scopes.join(', ');
+                addToast(`Data imported successfully! Auto-created missing device groups: ${names}`, 'success');
+              } else {
+                addToast('Data imported successfully!', 'success');
+              }
             }}
           />
         </div>

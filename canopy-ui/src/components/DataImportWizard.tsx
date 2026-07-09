@@ -10,18 +10,19 @@ interface DataImportWizardProps {
   apiClient: any;
   deviceUuid: string;
   scope: string;
-  onSuccess: () => void;
+  onSuccess: (result?: any) => void;
   availableDataTypes?: { value: string; label: string }[];
 }
 
 const dbFieldsMap: Record<string, string[]> = {
-  address_objects: ['name', 'value', 'description', 'tags'],
-  address_groups: ['name', 'type', 'filter', 'members', 'description', 'tags'],
-  service_objects: ['name', 'protocol', 'destination_port', 'description'],
-  service_groups: ['name', 'description'],
-  tags: ['name', 'color', 'comments'],
-  devices: ['name', 'serial', 'ip_address', 'device_group', 'template_stack', 'template'],
-  device_groups: ['name', 'vendor', 'parent_group', 'description'],
+
+  address_objects: ['vendor', 'scope_context', 'name', 'value', 'description', 'tags'],
+  address_groups: ['vendor', 'scope_context', 'name', 'type', 'filter', 'members', 'description', 'tags'],
+  service_objects: ['vendor', 'scope_context', 'name', 'protocol', 'destination_port', 'description'],
+  service_groups: ['vendor', 'scope_context', 'name', 'description'],
+  tags: ['vendor', 'scope_context', 'name', 'color', 'comments'],
+  devices: ['vendor', 'device_group', 'template_stack', 'template', 'name', 'serial', 'ip_address'],
+  device_groups: ['vendor', 'parent_group', 'name', 'description'],
   templates: ['name', 'description'],
   template_stacks: ['name', 'description'],
   zones: ['name', 'type'],
@@ -54,7 +55,8 @@ const fieldLabelsMap: Record<string, string> = {
   destination: 'Destination Network (CIDR)',
   nexthop: 'Next Hop IP',
   interface: 'Interface Name',
-  metric: 'Metric (Numeric)'
+  metric: 'Metric (Numeric)',
+  scope_context: 'Scope Context / Device Group'
 };
 
 const requiredFieldsMap: Record<string, string[]> = {
@@ -302,7 +304,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
       
       if (resData.success) {
         setIsProcessing(false);
-        onSuccess();
+        onSuccess(resData);
         onClose();
         // Reset state
         setStep(1);
