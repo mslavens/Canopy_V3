@@ -19,6 +19,9 @@ interface SearchResult {
   id: string;
   type: string;
   label: string;
+  extraName?: string;
+  scopeName?: string;
+  vendor?: string;
   module: string;
   submodule: string;
   scope?: string;
@@ -165,6 +168,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [expandedSearchGroups, setExpandedSearchGroups] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ 'Security Profiles': true, 'Custom Objects': true });
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -337,12 +341,31 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   // Reset selected index when results change
   useEffect(() => {
     setSelectedIndex(-1);
+    setExpandedSearchGroups(new Set());
   }, [searchResults, showDropdown]);
+
+  const groupedResults = React.useMemo(() => {
+    return searchResults.reduce((acc, res) => {
+      const group = res.submodule || 'Other';
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(res);
+      return acc;
+    }, {} as Record<string, SearchResult[]>);
+  }, [searchResults]);
+
+  const visibleResults = React.useMemo(() => {
+    const visible: SearchResult[] = [];
+    Object.entries(groupedResults).forEach(([group, items]) => {
+      if (expandedSearchGroups.has(group)) {
+        visible.push(...items);
+      }
+    });
+    return visible;
+  }, [groupedResults, expandedSearchGroups]);
 
   const executeSearchSelection = (res: SearchResult) => {
     // Inject the raw object/policy name and its scope into sessionStorage for the destination page to pick up (if it needs to mount)
-    const rawName = res.label.split(' (')[0].trim();
-    const payload = JSON.stringify({ query: rawName, scope: res.scope || 'paloalto-panorama-global' });
+    const payload = JSON.stringify({ query: res.label, scope: res.scope || 'paloalto-panorama-global' });
     sessionStorage.setItem('canopy-local-search-injection', payload);
     
     // Also dispatch a live event for components that are already mounted (e.g. staying on the same tab)
@@ -369,16 +392,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (!showDropdown || searchResults.length === 0) return;
+    if (!showDropdown || visibleResults.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+      setSelectedIndex(prev => (prev < visibleResults.length - 1 ? prev + 1 : prev));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+    } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < visibleResults.length) {
       e.preventDefault();
-      executeSearchSelection(searchResults[selectedIndex]);
+      executeSearchSelection(visibleResults[selectedIndex]);
     }
   };
 
@@ -657,32 +680,88 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Floating Categorized Omnibox */}
             {showDropdown && (
               <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: '8px', width: '350px',
+                position: 'absolute', top: '100%', right: 0, marginTop: '8px', width: '800px',
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)',
                 borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000,
-                maxHeight: '400px', overflowY: 'auto'
+                maxHeight: '500px', overflowY: 'auto'
               }}>
                 {isSearching ? (
                   <div style={{ padding: '15px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>Searching...</div>
                 ) : searchResults.length === 0 ? (
                   <div style={{ padding: '15px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>No results found.</div>
                 ) : (
-                  <div style={{ padding: '8px 0' }}>
-                    {searchResults.map((res, idx) => (
-                      <div
-                        key={res.id}
-                        onClick={() => executeSearchSelection(res)}
-                        onMouseEnter={() => setSelectedIndex(idx)}
-                        style={{
-                          padding: '10px 15px', cursor: 'pointer', borderBottom: '1px solid var(--border-main)',
-                          backgroundColor: selectedIndex === idx ? 'var(--bg-element)' : 'transparent'
-                        }}
-                      >
-                        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)' }}>{res.label}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{res.module} &rarr; {res.submodule}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', color: 'var(--text-muted)', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 15px', fontWeight: 'inherit', width: '35%' }}>NAME</th>
+                        <th style={{ padding: '10px 15px', fontWeight: 'inherit', width: '20%' }}>VENDOR</th>
+                        <th style={{ padding: '10px 15px', fontWeight: 'inherit', width: '20%' }}>LOCATION TYPE</th>
+                        <th style={{ padding: '10px 15px', fontWeight: 'inherit', width: '25%' }}>LOCATION</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                    {(() => {
+                      let currentIndex = 0;
+                      return Object.entries(groupedResults).map(([group, items]) => {
+                        const isExpanded = expandedSearchGroups.has(group);
+                        return (
+                          <React.Fragment key={group}>
+                            {/* Group Header */}
+                            <tr 
+                              style={{ backgroundColor: 'var(--bg-app)', cursor: 'pointer', userSelect: 'none' }}
+                              onClick={() => {
+                                setExpandedSearchGroups(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(group)) next.delete(group);
+                                  else next.add(group);
+                                  return next;
+                                });
+                              }}
+                            >
+                              <td style={{ padding: '6px 15px', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontWeight: 500 }} colSpan={4}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  {group} ({items.length})
+                                </div>
+                              </td>
+                            </tr>
+                            
+                            {/* Group Items */}
+                            {isExpanded && items.map((res) => {
+                              const idx = currentIndex++;
+                              const isSelected = selectedIndex === idx;
+                              
+                              let locType = "Device Groups";
+                              if (res.scope === 'paloalto-panorama-global') locType = "Shared";
+                              else if (res.type === 'documentation') locType = "System";
+
+                              return (
+                                <tr
+                                  key={res.id}
+                                  onClick={() => executeSearchSelection(res)}
+                                  onMouseEnter={() => setSelectedIndex(idx)}
+                                  style={{
+                                    cursor: 'pointer', 
+                                    borderBottom: '1px solid var(--border-subtle)',
+                                    backgroundColor: isSelected ? 'var(--bg-element)' : 'transparent'
+                                  }}
+                                >
+                                  <td style={{ padding: '10px 15px', color: 'var(--text-main)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {res.label}
+                                    {res.extraName && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>({res.extraName})</span>}
+                                  </td>
+                                  <td style={{ padding: '10px 15px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.vendor}</td>
+                                  <td style={{ padding: '10px 15px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{locType}</td>
+                                  <td style={{ padding: '10px 15px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.scopeName || res.scope || res.submodule}</td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                    </tbody>
+                  </table>
                 )}
               </div>
             )}

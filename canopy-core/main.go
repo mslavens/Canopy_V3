@@ -1511,6 +1511,9 @@ func main() {
 			ID        string `json:"id"`
 			Type      string `json:"type"`
 			Label     string `json:"label"`
+			ExtraName string `json:"extraName,omitempty"`
+			ScopeName string `json:"scopeName,omitempty"`
+			Vendor    string `json:"vendor,omitempty"`
 			Module    string `json:"module"`
 			Submodule string `json:"submodule"`
 			Scope     string `json:"scope,omitempty"`
@@ -1630,14 +1633,11 @@ func main() {
 		}
 
 		// Load Scope Contexts
-		vaultMutex.RLock()
-		sysDB := systemDB
-		vaultMutex.RUnlock()
 		
 		scopeMap := make(map[string]string)
 		scopeMap["paloalto-panorama-global"] = "Shared"
-		if sysDB != nil {
-			dr, err := sysDB.DB().Query("SELECT uuid, name FROM device_groups UNION SELECT uuid, name FROM devices")
+		if dbConn != nil {
+			dr, err := dbConn.Query("SELECT uuid, name FROM device_groups UNION SELECT uuid, name FROM devices")
 			if err == nil {
 				for dr.Next() {
 					var u, n string
@@ -1681,17 +1681,6 @@ func main() {
 				var extra sql.NullString
 				var deviceUUID sql.NullString
 				if err := rows.Scan(&id, &name, &extra, &deviceUUID); err == nil {
-					label := name
-					if strings.Contains(oq.labelFmt, "%s") && strings.Count(oq.labelFmt, "%s") == 2 {
-						e := ""
-						if extra.Valid {
-							e = extra.String
-						}
-						label = fmt.Sprintf(oq.labelFmt, name, e)
-					} else if strings.Count(oq.labelFmt, "%s") == 1 {
-						label = fmt.Sprintf(oq.labelFmt, name)
-					}
-					
 					scopeContext := "Unknown Scope"
 					if deviceUUID.Valid {
 						if val, ok := scopeMap[deviceUUID.String]; ok {
@@ -1699,13 +1688,30 @@ func main() {
 						} else {
 							scopeContext = deviceUUID.String
 						}
-						label = fmt.Sprintf("%s [%s]", label, scopeContext)
+						
+						if strings.HasPrefix(scopeContext, "paloalto-dg-") {
+							scopeContext = strings.TrimPrefix(scopeContext, "paloalto-dg-")
+						} else if strings.HasPrefix(scopeContext, "paloalto-") && scopeContext != "paloalto-panorama-global" {
+							scopeContext = strings.TrimPrefix(scopeContext, "paloalto-")
+						}
+					}
+
+					vendor := "System"
+					if deviceUUID.Valid {
+						if strings.HasPrefix(deviceUUID.String, "paloalto-") {
+							vendor = "Palo Alto Networks"
+						} else if strings.HasPrefix(deviceUUID.String, "fortinet-") {
+							vendor = "Fortinet"
+						}
 					}
 
 					results = append(results, SearchResult{
 						ID:        fmt.Sprintf("%s|%d", oq.submodule, id),
 						Type:      oq.resType,
-						Label:     label,
+						Label:     name,
+						ExtraName: extra.String,
+						ScopeName: scopeContext,
+						Vendor:    vendor,
 						Module:    oq.module,
 						Submodule: oq.submodule,
 						Scope:     deviceUUID.String,
