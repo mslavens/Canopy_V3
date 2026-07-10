@@ -199,6 +199,7 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
             ]}
             data={filteredChanges}
             expandableRowRender={renderDiffDetails}
+            pagination={true}
           />
         </div>
 

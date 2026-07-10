@@ -289,6 +289,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
             ]}
             data={filteredChanges}
             expandableRowRender={renderDiffDetails}
+            pagination={true}
           />
         </div>
 
