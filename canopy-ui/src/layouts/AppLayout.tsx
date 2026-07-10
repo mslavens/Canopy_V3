@@ -768,6 +768,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             )}
           </div>
 
+          <CommitDropdown addToast={addToast} />
+
           <Tooltip content="Message Center" align="right">
             <button onClick={() => setShowMessageCenter(true)} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <MessageSquare size={18} />
@@ -792,8 +794,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <ExternalLink size={18} />
             </button>
           </Tooltip>
-
-          <CommitDropdown addToast={addToast} />
 
           <Tooltip content="Lock Workspace" align="right">
             <button onClick={onLockApp} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>

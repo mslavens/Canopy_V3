@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GitCommit, CheckCircle, Download, History, RotateCcw, Save, List } from 'lucide-react';
+import { GitCommit, CheckCircle, Download, History, RotateCcw, Save, List, ChevronDown } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { PendingChangesModal as CommitDetailsModal } from './PendingChangesModal';
 
@@ -53,7 +53,6 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
       addToast("Successfully committed changes", "success");
       setIsOpen(false);
       fetchDiff();
-      window.dispatchEvent(new CustomEvent('update-tab-counts'));
     } catch (err: any) {
       addToast(`Commit failed: ${err.message}`, "error");
     } finally {
@@ -94,7 +93,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
           background: isOpen ? 'var(--bg-hover)' : 'transparent',
           border: '1px solid var(--border-main)',
           padding: '4px 12px',
-          borderRadius: '20px',
+          borderRadius: '6px',
           color: 'var(--text-main)',
           cursor: 'pointer',
           fontSize: '13px',
@@ -115,12 +114,12 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '11px',
-            fontWeight: 'bold',
             marginLeft: '4px'
           }}>
             {diffCount}
           </span>
         )}
+        <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
       </button>
 
       {isOpen && (
@@ -138,7 +137,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
           padding: '4px'
         }}>
           <DropdownItem icon={<List size={14} />} label="View Details" onClick={() => { setIsOpen(false); setIsModalOpen(true); }} disabled={diffCount === 0} />
-          <DropdownItem icon={<CheckCircle size={14} />} label="Validate" onClick={handleValidate} />
+          <DropdownItem icon={<CheckCircle size={14} />} label="Validate" onClick={handleValidate} disabled={diffCount === 0} />
           <DropdownItem icon={<Download size={14} />} label="Export Package" disabled />
           <DropdownItem icon={<History size={14} />} label="History" disabled />
           

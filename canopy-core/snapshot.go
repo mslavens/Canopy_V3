@@ -73,39 +73,41 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 	}
 
 	// Load Tags
-	tagRows, err := tx.Query("SELECT scope, name, COALESCE(color, ''), COALESCE(comments, '') FROM tags")
+	tagRows, err := tx.Query("SELECT id, scope, name, COALESCE(color, ''), COALESCE(comments, '') FROM tags")
 	if err == nil {
 		defer tagRows.Close()
 		for tagRows.Next() {
+			var id string
 			var t TagSnapshot
-			if err := tagRows.Scan(&t.Scope, &t.Name, &t.Color, &t.Comments); err == nil {
-				state.Tags[t.Name] = t
+			if err := tagRows.Scan(&id, &t.Scope, &t.Name, &t.Color, &t.Comments); err == nil {
+				state.Tags[id] = t
 			}
 		}
 	}
 
 	// Load Address Objects
 	aoRows, err := tx.Query(`
-		SELECT a.scope, a.name, a.type, COALESCE(a.value, ''), COALESCE(a.description, ''),
+		SELECT a.id, a.scope, a.name, a.type, COALESCE(a.value, ''), COALESCE(a.description, ''),
 		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_object' AND e.entity_id = a.id)
 		FROM address_objects a`)
 	if err == nil {
 		defer aoRows.Close()
 		for aoRows.Next() {
+			var id string
 			var ao AddressObjectSnapshot
 			var tagsStr sql.NullString
-			if err := aoRows.Scan(&ao.Scope, &ao.Name, &ao.Type, &ao.Value, &ao.Description, &tagsStr); err == nil {
+			if err := aoRows.Scan(&id, &ao.Scope, &ao.Name, &ao.Type, &ao.Value, &ao.Description, &tagsStr); err == nil {
 				if tagsStr.Valid && tagsStr.String != "" {
 					ao.Tags = strings.Split(tagsStr.String, ",")
 				}
-				state.AddressObjects[ao.Name] = ao
+				state.AddressObjects[id] = ao
 			}
 		}
 	}
 
 	// Load Address Groups
 	agRows, err := tx.Query(`
-		SELECT g.scope, g.name, g.type, COALESCE(g.filter, ''), COALESCE(g.description, ''),
+		SELECT g.id, g.scope, g.name, g.type, COALESCE(g.filter, ''), COALESCE(g.description, ''),
 		       (SELECT GROUP_CONCAT(COALESCE(ao.name, nested.name, m.member_name)) 
 		        FROM address_group_members m 
 		        LEFT JOIN address_objects ao ON m.member_address_id = ao.id 
@@ -116,35 +118,37 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 	if err == nil {
 		defer agRows.Close()
 		for agRows.Next() {
+			var id string
 			var ag AddressGroupSnapshot
 			var membersStr, tagsStr sql.NullString
-			if err := agRows.Scan(&ag.Scope, &ag.Name, &ag.Type, &ag.Filter, &ag.Description, &membersStr, &tagsStr); err == nil {
+			if err := agRows.Scan(&id, &ag.Scope, &ag.Name, &ag.Type, &ag.Filter, &ag.Description, &membersStr, &tagsStr); err == nil {
 				if membersStr.Valid && membersStr.String != "" {
 					ag.Members = strings.Split(membersStr.String, ",")
 				}
 				if tagsStr.Valid && tagsStr.String != "" {
 					ag.Tags = strings.Split(tagsStr.String, ",")
 				}
-				state.AddressGroups[ag.Name] = ag
+				state.AddressGroups[id] = ag
 			}
 		}
 	}
 
 	// Load Services
 	svcRows, err := tx.Query(`
-		SELECT s.scope, s.name, s.protocol, COALESCE(s.port, ''), COALESCE(s.description, ''),
+		SELECT s.id, s.scope, s.name, s.protocol, COALESCE(s.port, ''), COALESCE(s.description, ''),
 		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'service_object' AND e.entity_id = s.id)
 		FROM service_objects s`)
 	if err == nil {
 		defer svcRows.Close()
 		for svcRows.Next() {
+			var id string
 			var svc ServiceSnapshot
 			var tagsStr sql.NullString
-			if err := svcRows.Scan(&svc.Scope, &svc.Name, &svc.Protocol, &svc.Port, &svc.Description, &tagsStr); err == nil {
+			if err := svcRows.Scan(&id, &svc.Scope, &svc.Name, &svc.Protocol, &svc.Port, &svc.Description, &tagsStr); err == nil {
 				if tagsStr.Valid && tagsStr.String != "" {
 					svc.Tags = strings.Split(tagsStr.String, ",")
 				}
-				state.Services[svc.Name] = svc
+				state.Services[id] = svc
 			}
 		}
 	}
@@ -215,7 +219,11 @@ func diffGenericMap(oldMap, newMap interface{}) ObjectDiff {
 		} else {
 			// Compare old and new
 			isDiff := false
-			changes := map[string]interface{}{"name": key}
+			objName := key
+			if nameVal, ok := newVal["name"]; ok && nameVal != nil {
+				objName = fmt.Sprintf("%v", nameVal)
+			}
+			changes := map[string]interface{}{"name": objName}
 			for k, v := range newVal {
 				if fmt.Sprintf("%v", v) != fmt.Sprintf("%v", oldVal[k]) {
 					isDiff = true

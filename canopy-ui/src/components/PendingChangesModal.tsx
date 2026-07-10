@@ -12,42 +12,50 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
 
   // Flatten diffData into a list of changes
   const changes: any[] = [];
-  
+  const getDisplayName = (item: any) => {
+    if (!item || !item.name) return 'Unknown Object';
+    if (typeof item.name === 'string') return item.name;
+    return item.name.new || item.name.old || 'Unknown Object';
+  };
+
   const processCategory = (categoryName: string, categoryData: any) => {
     if (!categoryData) return;
     
     // Added
     (categoryData.added || []).forEach((item: any) => {
+      const dName = getDisplayName(item);
       changes.push({
-        id: `add_${categoryName}_${item.name}`,
+        id: `add_${categoryName}_${dName}`,
         type: 'ADD',
         table: categoryName,
-        name: item.name,
-        description: `Added ${item.name} to ${categoryName}`,
+        name: dName,
+        description: `Added ${dName} to ${categoryName}`,
         details: item
       });
     });
 
     // Modified
     (categoryData.modified || []).forEach((item: any) => {
+      const dName = getDisplayName(item);
       changes.push({
-        id: `mod_${categoryName}_${item.name}`,
+        id: `mod_${categoryName}_${dName}`,
         type: 'UPDATE',
         table: categoryName,
-        name: item.name,
-        description: `Updated ${item.name} in ${categoryName}`,
+        name: dName,
+        description: `Updated ${dName} in ${categoryName}`,
         details: item
       });
     });
 
     // Deleted
     (categoryData.deleted || []).forEach((item: any) => {
+      const dName = getDisplayName(item);
       changes.push({
-        id: `del_${categoryName}_${item.name}`,
+        id: `del_${categoryName}_${dName}`,
         type: 'DELETE',
         table: categoryName,
-        name: item.name,
-        description: `Deleted ${item.name} from ${categoryName}`,
+        name: dName,
+        description: `Deleted ${dName} from ${categoryName}`,
         details: item
       });
     });
@@ -59,8 +67,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
   processCategory('tags', diffData.tags);
 
   const filteredChanges = changes.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.table.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (c.table || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleRow = (id: string) => {
@@ -110,7 +118,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       return (
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto' }}>
           {Object.entries(change.details).map(([key, val]: any) => {
-            if (key === 'name') return null; // skip name
+            if (key === 'id') return null; // skip internal id
             return (
               <div key={key} style={{ fontFamily: 'monospace' }}>
                 <div style={{ color: '#ef4444' }}>- {key}: {JSON.stringify(val.old)}</div>

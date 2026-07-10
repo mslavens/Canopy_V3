@@ -1619,7 +1619,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     }
 
     // Prepare data
-    const activeScopeName = scopeNameMap[formScopeUuid] || 'Shared';
+    let activeScopeName = scopeNameMap[formScopeUuid] || 'Shared';
+    if (formScopeUuid === 'paloalto-panorama-global' || activeScopeName === 'Panorama Shared') {
+      activeScopeName = 'shared';
+    }
     const payload: Record<string, any> = {
       device_uuid: formScopeUuid,
       scope: activeScopeName,
