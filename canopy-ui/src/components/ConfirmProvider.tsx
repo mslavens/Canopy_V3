@@ -3,7 +3,7 @@ import { Modal } from './Modal';
 
 export interface ConfirmOptions {
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmText?: string;
   isDestructive?: boolean;
   onConfirm: () => void;
@@ -44,7 +44,7 @@ export const ConfirmProvider: React.FC<{ children: ReactNode }> = ({ children })
           <button className="btn-secondary btn-sm" onClick={handleClose}>Cancel</button>
           <button className={options?.isDestructive ? "btn-danger btn-sm" : "btn-primary btn-sm"} onClick={handleConfirm}>{options?.confirmText || 'Confirm'}</button>
         </>
-      }><p style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-muted)' }}>{options?.message}</p></Modal>
+      }><div style={{ margin: 0, color: 'var(--text-main)', fontSize: '14px' }}>{options?.message}</div></Modal>
     </ConfirmContext.Provider>
   );
 };

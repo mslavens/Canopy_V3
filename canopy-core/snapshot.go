@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -249,6 +250,24 @@ func diffGenericMap(oldMap, newMap interface{}) ObjectDiff {
 			diff.Deleted = append(diff.Deleted, oldVal)
 		}
 	}
+
+	// Sort slices to ensure stable ordering across map iterations
+	sortSlice := func(slice []map[string]interface{}) {
+		sort.Slice(slice, func(i, j int) bool {
+			nameI, _ := slice[i]["name"].(string)
+			nameJ, _ := slice[j]["name"].(string)
+			if nameI == nameJ {
+				idI, _ := slice[i]["id"].(string)
+				idJ, _ := slice[j]["id"].(string)
+				return idI < idJ
+			}
+			return nameI < nameJ
+		})
+	}
+
+	sortSlice(diff.Added)
+	sortSlice(diff.Modified)
+	sortSlice(diff.Deleted)
 
 	return diff
 }

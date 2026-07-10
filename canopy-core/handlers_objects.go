@@ -512,8 +512,10 @@ func handleGetObjectDependencies(w http.ResponseWriter, r *http.Request) {
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'source' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
           UNION
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'destination' AND (ram.address_id = ? OR ram.ad_hoc_value = ?)
+          UNION
+          SELECT DISTINCT ag.name AS name, 'Address Group' AS typeLabel FROM address_group_members agm JOIN address_groups ag ON agm.group_id = ag.id WHERE agm.member_address_id = ?
         `
-		args = []interface{}{objID, objName, objID, objName, objID, objName, objID, objName}
+		args = []interface{}{objID, objName, objID, objName, objID, objName, objID, objName, objID}
 	case "addressGroup":
 		query = `
           SELECT DISTINCT sr.rule_name AS name, 'Security Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.direction = 'source' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
@@ -523,22 +525,28 @@ func handleGetObjectDependencies(w http.ResponseWriter, r *http.Request) {
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Source)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'source' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
           UNION
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule (Destination)' AS typeLabel FROM rule_address_mappings ram JOIN nat_rules nr ON ram.rule_id = nr.id AND ram.rule_type = 'nat' WHERE ram.direction = 'destination' AND (ram.group_id = ? OR ram.ad_hoc_value = ?)
+          UNION
+          SELECT DISTINCT ag.name AS name, 'Address Group' AS typeLabel FROM address_group_members agm JOIN address_groups ag ON agm.group_id = ag.id WHERE agm.member_group_id = ?
         `
-		args = []interface{}{objID, objName, objID, objName, objID, objName, objID, objName}
+		args = []interface{}{objID, objName, objID, objName, objID, objName, objID, objName, objID}
 	case "service":
 		query = `
           SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_service_mappings rsm JOIN security_rules sr ON rsm.rule_id = sr.id AND rsm.rule_type = 'security' WHERE rsm.service_id = ? OR rsm.ad_hoc_value = ?
           UNION
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule' AS typeLabel FROM rule_service_mappings rsm JOIN nat_rules nr ON rsm.rule_id = nr.id AND rsm.rule_type = 'nat' WHERE rsm.service_id = ? OR rsm.ad_hoc_value = ?
+          UNION
+          SELECT DISTINCT sg.name AS name, 'Service Group' AS typeLabel FROM service_group_members sgm JOIN service_groups sg ON sgm.group_id = sg.id WHERE sgm.member_service_id = ?
         `
-		args = []interface{}{objID, objName, objID, objName}
+		args = []interface{}{objID, objName, objID, objName, objID}
 	case "serviceGroup":
 		query = `
           SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_service_mappings rsm JOIN security_rules sr ON rsm.rule_id = sr.id AND rsm.rule_type = 'security' WHERE rsm.group_id = ? OR rsm.ad_hoc_value = ?
           UNION
           SELECT DISTINCT nr.rule_name AS name, 'NAT Rule' AS typeLabel FROM rule_service_mappings rsm JOIN nat_rules nr ON rsm.rule_id = nr.id AND rsm.rule_type = 'nat' WHERE rsm.group_id = ? OR rsm.ad_hoc_value = ?
+          UNION
+          SELECT DISTINCT sg.name AS name, 'Service Group' AS typeLabel FROM service_group_members sgm JOIN service_groups sg ON sgm.group_id = sg.id WHERE sgm.member_group_id = ?
         `
-		args = []interface{}{objID, objName, objID, objName}
+		args = []interface{}{objID, objName, objID, objName, objID}
 	case "application":
 		query = `
           SELECT DISTINCT sr.rule_name AS name, 'Security Rule' AS typeLabel FROM rule_application_mappings ram JOIN security_rules sr ON ram.rule_id = sr.id AND ram.rule_type = 'security' WHERE ram.custom_app_id = ? OR ram.predefined_app_name = ?

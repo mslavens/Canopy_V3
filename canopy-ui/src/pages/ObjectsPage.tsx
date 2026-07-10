@@ -1767,12 +1767,54 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     }
   };
 
-  const handleDeleteObject = (obj: any) => {
+  const handleDeleteObject = async (obj: any) => {
     if (!apiClient) return;
+
+    let depType = '';
+    if (activeSubTab === 'Address Objects') depType = 'address';
+    else if (activeSubTab === 'Address Groups') depType = 'addressGroup';
+    else if (activeSubTab === 'Services') depType = 'service';
+    else if (activeSubTab === 'Service Groups') depType = 'serviceGroup';
+    else if (activeSubTab === 'Applications') depType = 'application';
+    else if (activeSubTab === 'Application Groups') depType = 'applicationGroup';
+
+    let usages: any[] = [];
+    if (depType) {
+      try {
+        usages = await apiClient.getObjectDependencies(depType, obj.id, obj.name);
+      } catch (err) {
+        console.error('Failed to fetch dependencies', err);
+      }
+    }
+
+    let title = 'Delete Object';
+    let confirmText = 'Delete';
+    let message: React.ReactNode = `Are you sure you want to delete "${obj.name}"?`;
+
+    if (usages && usages.length > 0) {
+      title = 'Object in Use';
+      confirmText = 'Remove & Delete';
+      message = (
+        <div>
+          <p style={{ margin: '0 0 12px 0' }}>The object <strong>{obj.name}</strong> is currently used in {usages.length} place(s):</p>
+          <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-main)', maxHeight: '200px', overflowY: 'auto' }}>
+            <ul style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-muted)' }}>
+              {usages.map((u, i) => (
+                <li key={i} style={{ marginBottom: i === usages.length - 1 ? 0 : '4px' }}>
+                  <strong style={{ color: 'var(--text-main)' }}>{u.name}</strong> ({u.typeLabel})
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p style={{ margin: '12px 0 0 0', color: 'var(--text-muted)' }}>Deleting it will remove it from these places.</p>
+        </div>
+      );
+    }
+
     confirm({
-      title: 'Delete Object',
-      message: `Are you sure you want to delete "${obj.name}"?`,
-      confirmText: 'Delete',
+      title,
+      message,
+      confirmText,
       isDestructive: true,
       onConfirm: async () => {
         try {
