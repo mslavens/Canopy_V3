@@ -190,7 +190,7 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
               {
                 key: 'type',
                 label: 'Type',
-                width: '100px',
+                width: '130px',
                 renderCell: (val: any) => renderBadge(val)
               },
               { key: 'table', label: 'Table', width: '150px' },

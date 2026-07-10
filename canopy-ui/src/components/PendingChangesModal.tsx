@@ -238,10 +238,10 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
               {
                 key: 'type',
                 label: 'Type',
-                width: '100px',
+                width: '130px',
                 renderCell: (val: any) => renderBadge(val)
               },
-              { key: 'vendor', label: 'Vendor', width: '100px' },
+              { key: 'vendor', label: 'Vendor', width: '130px' },
               { key: 'table', label: 'Table', width: '150px' },
               { key: 'scope', label: 'Scope', width: '150px' },
               { key: 'name', label: 'Name', width: '200px' },
