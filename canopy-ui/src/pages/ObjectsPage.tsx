@@ -1560,7 +1560,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     // Resolve active tag mappings
     const tags: string[] = [];
     const mappings = allTagMappings.filter(m =>
-      m.entity_id === obj.id &&
+      String(m.entity_id) === String(obj.id) &&
       m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
     );
     mappings.forEach(m => {
@@ -1727,7 +1727,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             const oldTags: string[] = [];
             const entityType = activeSubTab === 'Address Objects' ? 'address_object' : 
                                activeSubTab === 'Address Groups' ? 'address_group' : 'unknown';
-            const mappings = allTagMappings.filter(m => m.entity_id === selectedObject.id && m.entity_type === entityType);
+            const mappings = allTagMappings.filter(m => String(m.entity_id) === String(selectedObject.id) && m.entity_type === entityType);
             mappings.forEach(m => {
               const tagObj = allTags.find(t => t.id === m.tag_id);
               if (tagObj) oldTags.push(tagObj.name);
@@ -2173,14 +2173,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             label: 'Tags',
             width: '180px',
             getFilterValues: (row) => {
-              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_object');
+              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_object');
               return mappings.map(m => {
                 const tagObj = allTags.find(t => t.id === m.tag_id);
                 return tagObj ? tagObj.name : null;
               }).filter(Boolean) as string[];
             },
             renderCell: (val, row, query) => {
-              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_object');
+              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_object');
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
               const colorMap: Record<string, string> = {
                 color1: '#ef4444',
@@ -2292,14 +2292,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             label: 'Tags',
             width: '180px',
             getFilterValues: (row) => {
-              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_group');
+              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_group');
               return mappings.map(m => {
                 const tagObj = allTags.find(t => t.id === m.tag_id);
                 return tagObj ? tagObj.name : null;
               }).filter(Boolean) as string[];
             },
             renderCell: (val, row, query) => {
-              const mappings = allTagMappings.filter(m => m.entity_id === row.id && m.entity_type === 'address_group');
+              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_group');
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
               const colorMap: Record<string, string> = {
                 color1: '#ef4444',
@@ -2774,7 +2774,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     // Verify tag mappings
     const originalTags: string[] = [];
     const mappings = allTagMappings.filter(m =>
-      m.entity_id === selectedObject.id &&
+      String(m.entity_id) === String(selectedObject.id) &&
       m.entity_type === (activeSubTab === 'Address Objects' ? 'address_object' : 'address_group')
     );
     mappings.forEach(m => {

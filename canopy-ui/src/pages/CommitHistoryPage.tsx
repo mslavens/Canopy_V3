@@ -111,10 +111,14 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
           };
 
           if (diff) {
-            countCategory(diff.address_objects);
-            countCategory(diff.address_groups);
-            countCategory(diff.services);
-            countCategory(diff.tags);
+            if (diff.tables) {
+              Object.values(diff.tables).forEach(countCategory);
+            } else {
+              countCategory(diff.address_objects);
+              countCategory(diff.address_groups);
+              countCategory(diff.services);
+              countCategory(diff.tags);
+            }
           }
           
           setCommitCounts(prev => ({
@@ -323,10 +327,16 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
       });
     };
 
-    processCategory('addressObjects', diffData.address_objects);
-    processCategory('addressGroups', diffData.address_groups);
-    processCategory('services', diffData.services);
-    processCategory('tags', diffData.tags);
+    if (diffData.tables) {
+      Object.keys(diffData.tables).forEach(tableName => {
+        processCategory(tableName, diffData.tables[tableName]);
+      });
+    } else {
+      if (diffData.address_objects) processCategory('addressObjects', diffData.address_objects);
+      if (diffData.address_groups) processCategory('addressGroups', diffData.address_groups);
+      if (diffData.services) processCategory('services', diffData.services);
+      if (diffData.tags) processCategory('tags', diffData.tags);
+    }
 
     return list;
   }, [diffData, globalScopeVendor]);

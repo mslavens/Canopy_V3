@@ -600,7 +600,7 @@ func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("DIFF DEBUG: oldLen=%d, newLen=%d, added=%d, modified=%d\n", len(oldJSON), len(newJSON), len(diff.AddressObjects.Added), len(diff.AddressObjects.Modified))
+	fmt.Printf("DIFF DEBUG: oldLen=%d, newLen=%d, tablesDiffed=%d\n", len(oldJSON), len(newJSON), len(diff.Tables))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(diff)
@@ -837,7 +837,7 @@ func handleWorkspacesRevert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.WriteHeader(http.StatusOK)
+
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
@@ -884,60 +884,37 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intID, _ := strconv.Atoi(req.ID)
+	// Legacy mapping for UI that still passes addressObjects
+	tableName := req.Category
+	if tableName == "addressObjects" { tableName = "address_objects" }
+	if tableName == "addressGroups" { tableName = "address_groups" }
+	if tableName == "services" { tableName = "service_objects" }
+	if tableName == "tags" { tableName = "tags" }
 
-	switch req.Category {
-	case "addressObjects":
-		tx.Exec("DELETE FROM address_objects WHERE id = ?", intID)
-		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'address_object'", intID)
-		
-		if obj, exists := state.AddressObjects[req.ID]; exists {
-			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
-			tx.Exec("INSERT INTO address_objects (id, device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Value, obj.Description)
-			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, ?)", intID, tag.ID)
-			}
-		}
-	case "addressGroups":
-		tx.Exec("DELETE FROM address_groups WHERE id = ?", intID)
-		tx.Exec("DELETE FROM address_group_members WHERE group_id = ?", intID)
-		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'address_group'", intID)
-		
-		if obj, exists := state.AddressGroups[req.ID]; exists {
-			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
-			tx.Exec("INSERT INTO address_groups (id, device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Filter, obj.Description)
-			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, ?)", intID, tag.ID)
-			}
-			var missingMembers []string
-			for _, m := range obj.Members {
-				if m.ID > 0 {
-					switch m.Type {
-					case "address_object":
-						tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", intID, m.ID)
-					case "address_group":
-						tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", intID, m.ID)
-					}
-				} else {
-					missingMembers = append(missingMembers, m.Name)
+	intID, err := strconv.Atoi(req.ID)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Invalid ID format or composite keys not supported for single revert", http.StatusBadRequest)
+		return
+	}
+
+	tx.Exec("PRAGMA defer_foreign_keys = ON")
+	tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName), intID)
+
+	if rows, ok := state.Tables[tableName]; ok {
+		for _, row := range rows {
+			if fmt.Sprintf("%v", row["id"]) == req.ID || fmt.Sprintf("%v", row["id"]) == fmt.Sprintf("%d", intID) {
+				var cols []string
+				var placeholders []string
+				var vals []interface{}
+				for k, v := range row {
+					cols = append(cols, k)
+					placeholders = append(placeholders, "?")
+					vals = append(vals, v)
 				}
-			}
-			
-			if len(missingMembers) > 0 {
-				tx.Rollback()
-				http.Error(w, "Cannot fully revert Address Group. The following dependent members were not found (you must revert them first): " + strings.Join(missingMembers, ", "), http.StatusBadRequest)
-				return
-			}
-		}
-	case "services":
-		tx.Exec("DELETE FROM service_objects WHERE id = ?", intID)
-		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'service_object'", intID)
-		
-		if obj, exists := state.Services[req.ID]; exists {
-			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
-			tx.Exec("INSERT INTO service_objects (id, device_uuid, scope, name, protocol, port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Protocol, obj.Port, obj.Description)
-			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, ?)", intID, tag.ID)
+				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
+				tx.Exec(query, vals...)
+				break
 			}
 		}
 	}

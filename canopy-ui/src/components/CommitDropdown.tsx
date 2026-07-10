@@ -27,13 +27,21 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
       const data = await apiClient.request<any>('/api/workspaces/diff');
       
       let count = 0;
-      ['tags', 'address_objects', 'address_groups', 'services'].forEach(key => {
-        if (data[key]) {
-          count += (data[key].added?.length || 0);
-          count += (data[key].modified?.length || 0);
-          count += (data[key].deleted?.length || 0);
-        }
-      });
+      if (data.tables) {
+        Object.values(data.tables).forEach((tableDiff: any) => {
+          count += (tableDiff.added?.length || 0);
+          count += (tableDiff.modified?.length || 0);
+          count += (tableDiff.deleted?.length || 0);
+        });
+      } else {
+        ['tags', 'address_objects', 'address_groups', 'services'].forEach(key => {
+          if (data[key]) {
+            count += (data[key].added?.length || 0);
+            count += (data[key].modified?.length || 0);
+            count += (data[key].deleted?.length || 0);
+          }
+        });
+      }
       setDiffCount(count);
       setDiffData(data);
     } catch (err) {
