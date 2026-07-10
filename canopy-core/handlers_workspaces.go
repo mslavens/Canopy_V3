@@ -660,6 +660,69 @@ func handleWorkspacesCommitDiff(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(diff)
 }
 
+// handleWorkspacesCompareCommits compares two arbitrary commits
+func handleWorkspacesCompareCommits(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	baseIDStr := r.URL.Query().Get("base")
+	targetIDStr := r.URL.Query().Get("target")
+	if baseIDStr == "" || targetIDStr == "" {
+		http.Error(w, "Missing base or target parameter", http.StatusBadRequest)
+		return
+	}
+
+	baseID, err := strconv.Atoi(baseIDStr)
+	if err != nil {
+		http.Error(w, "Invalid base parameter", http.StatusBadRequest)
+		return
+	}
+
+	targetID, err := strconv.Atoi(targetIDStr)
+	if err != nil {
+		http.Error(w, "Invalid target parameter", http.StatusBadRequest)
+		return
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	var baseJSON []byte
+	err = db.DB().QueryRow("SELECT snapshot_json FROM commit_history WHERE id = ?", baseID).Scan(&baseJSON)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, "Failed to fetch base commit", http.StatusInternalServerError)
+		return
+	}
+
+	var targetJSON []byte
+	err = db.DB().QueryRow("SELECT snapshot_json FROM commit_history WHERE id = ?", targetID).Scan(&targetJSON)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Target commit not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to fetch target commit", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	diff, err := CompareSnapshots(baseJSON, targetJSON)
+	if err != nil {
+		http.Error(w, "Failed to diff snapshots", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(diff)
+}
+
 // handleWorkspacesHistory returns the commit log
 func handleWorkspacesHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

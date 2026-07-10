@@ -1310,7 +1310,9 @@ func main() {
 	// Commit endpoints
 	mux.HandleFunc("/api/workspaces/commit", handleWorkspacesCommit)
 	mux.HandleFunc("/api/workspaces/diff", handleWorkspacesDiff)
+	mux.HandleFunc("/api/workspaces/commit-history", handleWorkspacesHistory)
 	mux.HandleFunc("/api/workspaces/commit-diff", handleWorkspacesCommitDiff)
+	mux.HandleFunc("/api/workspaces/compare-commits", handleWorkspacesCompareCommits)
 	mux.HandleFunc("/api/workspaces/history", handleWorkspacesHistory)
 	mux.HandleFunc("/api/workspaces/revert", handleWorkspacesRevert)
 	mux.HandleFunc("/api/workspaces/revert-single", handleWorkspacesRevertSingle)
