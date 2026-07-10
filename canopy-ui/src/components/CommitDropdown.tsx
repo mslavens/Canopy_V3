@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { GitCommit, CheckCircle, Download, History, RotateCcw, Save, List, ChevronDown } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { PendingChangesModal as CommitDetailsModal } from './PendingChangesModal';
+import { CommitHistoryModal } from './CommitHistoryModal';
 import { Modal } from './Modal';
 
 interface CommitDropdownProps {
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   globalScopeVendor?: string;
+  navigateToHistory: () => void;
 }
 
-export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, globalScopeVendor }) => {
+export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, globalScopeVendor, navigateToHistory }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [diffCount, setDiffCount] = useState(0);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -177,7 +179,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
           <DropdownItem icon={<List size={14} />} label="View Details" onClick={() => { setIsOpen(false); setIsModalOpen(true); }} disabled={diffCount === 0} />
           <DropdownItem icon={<CheckCircle size={14} />} label="Validate" onClick={handleValidate} disabled={diffCount === 0} />
           <DropdownItem icon={<Download size={14} />} label="Export Package" disabled />
-          <DropdownItem icon={<History size={14} />} label="History" disabled />
+          <DropdownItem icon={<History size={14} />} label="History" onClick={() => { setIsOpen(false); navigateToHistory(); }} />
           
           <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
           

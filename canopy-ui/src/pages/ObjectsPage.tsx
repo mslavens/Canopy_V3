@@ -3439,7 +3439,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 width="100%"
                 value={formScopeUuid}
                 onChange={setFormScopeUuid}
-                options={['paloalto-panorama-global', ...deviceGroups.map(dg => dg.uuid)]}
+                options={Array.from(new Set(['paloalto-panorama-global', ...deviceGroups.map(dg => dg.uuid)]))}
                 renderOption={(opt) => opt === 'paloalto-panorama-global' ? 'Shared (Global Root)' : (scopeNameMap[opt] || opt)}
               />
             )}

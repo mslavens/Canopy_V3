@@ -601,6 +601,65 @@ func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(diff)
 }
 
+// handleWorkspacesCommitDiff compares a specific commit with its predecessor
+func handleWorkspacesCommitDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "Missing id parameter", http.StatusBadRequest)
+		return
+	}
+
+	commitID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid id parameter", http.StatusBadRequest)
+		return
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	// Get target commit JSON
+	var targetJSON []byte
+	err = db.DB().QueryRow("SELECT snapshot_json FROM commit_history WHERE id = ?", commitID).Scan(&targetJSON)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Commit not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to fetch commit", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get previous commit JSON
+	var prevJSON []byte
+	err = db.DB().QueryRow("SELECT snapshot_json FROM commit_history WHERE id < ? ORDER BY id DESC LIMIT 1", commitID).Scan(&prevJSON)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, "Failed to fetch previous commit", http.StatusInternalServerError)
+		return
+	}
+
+	// If there's no previous commit, we diff against an empty state (or the oldJSON is just null/empty)
+	diff, err := CompareSnapshots(prevJSON, targetJSON)
+	if err != nil {
+		http.Error(w, "Failed to diff snapshots", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(diff)
+}
+
 // handleWorkspacesHistory returns the commit log
 func handleWorkspacesHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

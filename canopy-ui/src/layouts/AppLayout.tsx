@@ -139,7 +139,7 @@ const subTabsMap: Record<string, (globalScopeVendor?: string) => NavItem[]> = {
     if (typeof item === 'object' && item.group && item.items.length === 0) return false;
     return true;
   }),
-  'System': () => ['Workspaces', 'Secrets Vault', 'Settings', 'Vendor Adapters', 'Audit Logs', 'Database Health', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
+  'System': () => ['Workspaces', 'Commit History', 'Secrets Vault', 'Settings', 'Vendor Adapters', 'Audit Logs', 'Database Health', 'Snapshots', 'Upgrade', 'Support', 'Database Browser', 'Changelog', 'Design System'],
 };
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -768,7 +768,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             )}
           </div>
 
-          <CommitDropdown addToast={addToast} globalScopeVendor={globalScopeVendor} />
+          <CommitDropdown 
+            addToast={addToast} 
+            globalScopeVendor={globalScopeVendor} 
+            navigateToHistory={() => {
+              setActiveMainTab('System');
+              setActiveSubTab('Commit History');
+            }}
+          />
 
           <Tooltip content="Message Center" align="right">
             <button onClick={() => setShowMessageCenter(true)} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>

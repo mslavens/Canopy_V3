@@ -27,6 +27,7 @@ import { GlobalErrorBoundary } from './components/ErrorBoundary';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
 import { AdaptersPage } from './pages/AdaptersPage';
+import { CommitHistoryPage } from './pages/CommitHistoryPage';
 import { SecretsVaultPage } from './pages/SecretsVaultPage';
 import { SnapshotsPage } from './pages/SnapshotsPage';
 import { DatabaseHealthPage } from './pages/DatabaseHealthPage';
@@ -318,6 +319,9 @@ const App = () => {
     }
     if (activeMainTab === 'System' && activeSubTab === 'Workspaces') {
       return <WorkspacesPage auth={auth} addToast={addToast} />;
+    }
+    if (activeMainTab === 'System' && activeSubTab === 'Commit History') {
+      return <CommitHistoryPage addToast={addToast} globalScopeVendor={globalScopeVendor} />;
     }
     if (activeMainTab === 'System' && activeSubTab === 'Vendor Adapters') {
       return <AdaptersPage auth={auth} />;
