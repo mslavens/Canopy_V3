@@ -1704,10 +1704,46 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         else result = await apiClient.updateExternalDynamicList(payload);
       }
 
-      addToast(
-        `Object successfully ${crudMode === 'create' ? 'created' : 'updated'}. Row flagged as edited.`,
-        'success'
-      );
+      let changedSummary = '';
+      if (crudMode === 'edit' && selectedObject) {
+        const changedFields: string[] = [];
+        Object.keys(payload).forEach(key => {
+          if (['id', 'device_uuid'].includes(key)) return;
+          let oldVal = selectedObject[key];
+          let newVal = payload[key];
+          
+          if (key === 'tags') {
+            const oldTags: string[] = [];
+            const entityType = activeSubTab === 'Address Objects' ? 'address_object' : 
+                               activeSubTab === 'Address Groups' ? 'address_group' : 'unknown';
+            const mappings = allTagMappings.filter(m => m.entity_id === selectedObject.id && m.entity_type === entityType);
+            mappings.forEach(m => {
+              const tagObj = allTags.find(t => t.id === m.tag_id);
+              if (tagObj) oldTags.push(tagObj.name);
+            });
+            oldVal = [...oldTags].sort();
+            newVal = [...(newVal || [])].sort();
+          } else if (key === 'members') {
+            oldVal = selectedObject.member_list ? selectedObject.member_list.split(',') : [];
+            oldVal = [...oldVal].sort();
+            newVal = [...(newVal || [])].sort();
+          }
+
+          if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+            changedFields.push(key);
+          }
+        });
+        if (changedFields.length > 0) {
+          changedSummary = ` Changed: ${changedFields.join(', ')}`;
+        }
+      }
+
+      const singularTab = activeSubTab.endsWith('ies') ? activeSubTab.replace(/ies$/, 'y') : activeSubTab.replace(/s$/, '');
+      const successMsg = crudMode === 'create' 
+        ? `${singularTab} created successfully.`
+        : `${singularTab} updated.${changedSummary}`;
+
+      addToast(successMsg, 'success');
       setIsCrudModalOpen(false);
       fetchRecords();
       loadReferenceData();
