@@ -38,7 +38,18 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
   useEffect(() => {
     fetchDiff();
     const interval = setInterval(fetchDiff, 5000);
-    return () => clearInterval(interval);
+    
+    const handleMutation = () => fetchDiff();
+    window.addEventListener('canopy:mutation', handleMutation);
+    
+    if (window.electron && window.electron.onMutationDetected) {
+      window.electron.onMutationDetected(handleMutation);
+    }
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('canopy:mutation', handleMutation);
+    };
   }, []);
 
   const handleCommit = async () => {
@@ -90,36 +101,22 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          background: isOpen ? 'var(--bg-hover)' : 'transparent',
-          border: '1px solid var(--border-main)',
+          background: diffCount > 0 
+            ? (isOpen ? '#d97706' : '#f59e0b') 
+            : (isOpen ? 'var(--bg-hover)' : 'transparent'),
+          border: diffCount > 0 ? '1px solid #d97706' : '1px solid var(--border-main)',
           padding: '4px 12px',
           borderRadius: '6px',
-          color: 'var(--text-main)',
+          color: diffCount > 0 ? '#fff' : 'var(--text-main)',
           cursor: 'pointer',
           fontSize: '13px',
           fontWeight: 500,
           transition: 'all 0.2s ease'
         }}
       >
-        <GitCommit size={14} style={{ color: 'var(--text-muted)' }} />
-        Pending Changes
-        {diffCount > 0 && (
-          <span style={{
-            background: '#f59e0b',
-            color: '#fff',
-            borderRadius: '50%',
-            width: '18px',
-            height: '18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '11px',
-            marginLeft: '4px'
-          }}>
-            {diffCount}
-          </span>
-        )}
-        <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+        <GitCommit size={14} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
+        Pending Changes {diffCount > 0 && `(${diffCount})`}
+        <ChevronDown size={14} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
       </button>
 
       {isOpen && (

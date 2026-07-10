@@ -47,8 +47,11 @@ export class CanopyApiClient {
     if (response.status === 204) {
       if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase())) {
         if (!endpoint.includes('/api/db/query') && !endpoint.includes('/api/vault') && !endpoint.includes('/api/system')) {
-          if (window.electron && window.electron.broadcastMutation) {
-            window.electron.broadcastMutation();
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('canopy:mutation'));
+            if (window.electron && window.electron.broadcastMutation) {
+              window.electron.broadcastMutation();
+            }
           }
         }
       }
@@ -60,8 +63,11 @@ export class CanopyApiClient {
     // Broadcast mutation after successfully parsing the JSON response
     if (options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase())) {
       if (!endpoint.includes('/api/db/query') && !endpoint.includes('/api/vault') && !endpoint.includes('/api/system')) {
-        if (window.electron && window.electron.broadcastMutation) {
-          window.electron.broadcastMutation();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('canopy:mutation'));
+          if (window.electron && window.electron.broadcastMutation) {
+            window.electron.broadcastMutation();
+          }
         }
       }
     }

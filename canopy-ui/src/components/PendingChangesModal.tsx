@@ -119,6 +119,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto' }}>
           {Object.entries(change.details).map(([key, val]: any) => {
             if (key === 'id') return null; // skip internal id
+            if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return null;
             return (
               <div key={key} style={{ fontFamily: 'monospace' }}>
                 <div style={{ color: '#ef4444' }}>- {key}: {JSON.stringify(val.old)}</div>
