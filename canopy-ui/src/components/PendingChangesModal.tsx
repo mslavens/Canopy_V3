@@ -6,9 +6,11 @@ interface CommitDetailsModalProps {
   onClose: () => void;
   diffData: any; // The JSON response from /api/workspaces/diff
   onRevert?: (category: string, id: string) => Promise<void>;
+  onCommit?: () => void;
+  globalScopeVendor?: string;
 }
 
-export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert }) => {
+export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert, onCommit, globalScopeVendor }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -20,16 +22,31 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     return item.name.new || item.name.old || 'Unknown Object';
   };
 
+  const getVendorName = (item: any) => {
+    const uuid = item?.device_uuid || item?.deviceUuid || item?.scope;
+    let vendor = globalScopeVendor || 'Unknown';
+    if (uuid) {
+      if (uuid.includes('paloalto-')) vendor = 'Palo Alto';
+      else if (uuid.includes('fortinet-')) vendor = 'Fortinet';
+      else if (uuid.includes('cisco-')) vendor = 'Cisco';
+      else if (uuid.includes('checkpoint-')) vendor = 'Check Point';
+      else if (uuid.includes('juniper-')) vendor = 'Juniper';
+    }
+    return vendor;
+  };
+
   const processCategory = (categoryName: string, categoryData: any) => {
     if (!categoryData) return;
     
     // Added
     (categoryData.added || []).forEach((item: any) => {
       const dName = getDisplayName(item);
+      const vendor = getVendorName(item);
       changes.push({
         id: `add_${categoryName}_${dName}`,
         type: 'ADD',
         table: categoryName,
+        vendor: vendor,
         name: dName,
         description: `Added ${dName} to ${categoryName}`,
         details: item,
@@ -40,10 +57,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     // Modified
     (categoryData.modified || []).forEach((item: any) => {
       const dName = getDisplayName(item);
+      const vendor = getVendorName(item.new || item);
       changes.push({
         id: `mod_${categoryName}_${dName}`,
         type: 'UPDATE',
         table: categoryName,
+        vendor: vendor,
         name: dName,
         description: `Updated ${dName} in ${categoryName}`,
         details: item,
@@ -54,10 +73,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     // Deleted
     (categoryData.deleted || []).forEach((item: any) => {
       const dName = getDisplayName(item);
+      const vendor = getVendorName(item);
       changes.push({
         id: `del_${categoryName}_${dName}`,
         type: 'DELETE',
         table: categoryName,
+        vendor: vendor,
         name: dName,
         description: `Deleted ${dName} from ${categoryName}`,
         details: item,
@@ -192,9 +213,10 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         </div>
 
         {/* Table Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 150px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 100px 150px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
           <div></div>
           <div>Type</div>
+          <div>Vendor</div>
           <div>Table</div>
           <div>Name</div>
           <div>Description</div>
@@ -214,7 +236,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                   onClick={() => toggleRow(change.id)}
                   style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: '40px 100px 150px 1fr 1fr 40px', 
+                    gridTemplateColumns: '40px 100px 100px 150px 1fr 1fr 40px', 
                     padding: '12px 20px', 
                     borderBottom: '1px solid var(--border-main)',
                     alignItems: 'center',
@@ -229,6 +251,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                     {expandedRows.has(change.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </div>
                   <div>{renderBadge(change.type)}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>{change.vendor}</div>
                   <div style={{ color: 'var(--text-muted)' }}>{change.table}</div>
                   <div style={{ fontWeight: 500 }}>{change.name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{change.description}</div>
@@ -278,21 +301,21 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button 
             onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: 'var(--bg-hover)',
-              border: '1px solid var(--border-main)',
-              borderRadius: '6px',
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
+            className="btn-secondary"
           >
             Close
           </button>
+          {onCommit && changes.length > 0 && (
+            <button
+              onClick={onCommit}
+              className="btn-primary"
+            >
+              Commit Changes
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -768,7 +768,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             )}
           </div>
 
-          <CommitDropdown addToast={addToast} />
+          <CommitDropdown addToast={addToast} globalScopeVendor={globalScopeVendor} />
 
           <Tooltip content="Message Center" align="right">
             <button onClick={() => setShowMessageCenter(true)} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>

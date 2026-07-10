@@ -2,16 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { GitCommit, CheckCircle, Download, History, RotateCcw, Save, List, ChevronDown } from 'lucide-react';
 import { CanopyApiClient } from '../api/client';
 import { PendingChangesModal as CommitDetailsModal } from './PendingChangesModal';
+import { Modal } from './Modal';
 
 interface CommitDropdownProps {
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
+  globalScopeVendor?: string;
 }
 
-export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
+export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, globalScopeVendor }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [diffCount, setDiffCount] = useState(0);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
+  const [commitMessage, setCommitMessage] = useState('');
   const [diffData, setDiffData] = useState<any>(null);
 
   const fetchDiff = async () => {
@@ -52,17 +56,29 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
     };
   }, []);
 
-  const handleCommit = async () => {
+  const handleCommitClick = () => {
+    setCommitMessage('');
+    setIsCommitModalOpen(true);
+    setIsOpen(false);
+    setIsModalOpen(false);
+  };
+
+  const submitCommit = async () => {
+    if (!commitMessage.trim()) {
+      addToast("Please enter a commit message", "error");
+      return;
+    }
+    
     setIsCommitting(true);
     try {
       const creds = await window.electron.getBackendAuth();
       const apiClient = new CanopyApiClient(creds);
       await apiClient.request('/api/workspaces/commit', {
         method: 'POST',
-        body: JSON.stringify({ message: "Manual Commit via UI" })
+        body: JSON.stringify({ message: commitMessage.trim() })
       });
       addToast("Successfully committed changes", "success");
-      setIsOpen(false);
+      setIsCommitModalOpen(false);
       fetchDiff();
     } catch (err: any) {
       addToast(`Commit failed: ${err.message}`, "error");
@@ -174,8 +190,8 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
           />
           <DropdownItem 
             icon={<Save size={14} />} 
-            label={isCommitting ? "Committing..." : "Commit"} 
-            onClick={handleCommit} 
+            label="Commit" 
+            onClick={handleCommitClick} 
             color="#10b981" 
             disabled={diffCount === 0 || isCommitting}
           />
@@ -187,7 +203,64 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
           onClose={() => setIsModalOpen(false)} 
           diffData={diffData} 
           onRevert={handleRevertSingle}
+          onCommit={handleCommitClick}
+          globalScopeVendor={globalScopeVendor}
         />
+      )}
+
+      {isCommitModalOpen && (
+        <Modal
+          isOpen={isCommitModalOpen}
+          onClose={() => !isCommitting && setIsCommitModalOpen(false)}
+          title="Commit Changes"
+          size="md"
+        >
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <p style={{ margin: 0, color: 'var(--text-muted)' }}>
+              Enter a description for this commit. This message will be saved in the workspace history.
+            </p>
+            <textarea
+              autoFocus
+              value={commitMessage}
+              onChange={(e) => setCommitMessage(e.target.value)}
+              placeholder="e.g. Added new DMZ security rules for web servers..."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-main)',
+                backgroundColor: 'var(--bg-app)',
+                color: 'var(--text-main)',
+                fontFamily: 'inherit',
+                fontSize: '13px',
+                resize: 'vertical'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submitCommit();
+                }
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '5px' }}>
+              <button 
+                className="btn-secondary" 
+                onClick={() => setIsCommitModalOpen(false)}
+                disabled={isCommitting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={submitCommit}
+                disabled={isCommitting || !commitMessage.trim()}
+              >
+                {isCommitting ? 'Committing...' : 'Commit Changes'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );
