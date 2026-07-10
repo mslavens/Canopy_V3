@@ -196,7 +196,7 @@ export const Modal: React.FC<ModalProps> = ({
           {children}
         </div>
         {footer && (
-          <div style={{ padding: '15px 20px', backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+          <div style={{ padding: '15px 30px 15px 20px', backgroundColor: 'var(--bg-surface)', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
             {footer}
           </div>
         )}

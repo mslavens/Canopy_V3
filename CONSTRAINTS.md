@@ -62,6 +62,7 @@
 
 ## Accessibility & Focus Management
 - **Focus Trapping:** All floating overlays (Modals and sliding Drawers) must implement a `Tab` and `Shift+Tab` focus trap using native DOM queries to prevent keyboard users from dropping focus back into the background application.
+- **Resizable Modals:** All standard modals/pop-ups that do not run full-screen MUST be explicitly resizable by the user to accommodate varying screen sizes and data densities.
 - **The `inert` Attribute:** Any DOM element that is visually hidden off-screen (like a closed sliding drawer) must be given the HTML5 `inert` attribute so the browser's accessibility engine doesn't attempt to tab to invisible buttons.
 - **Focus Rings:** To bypass jarring native Chromium yellow/black focus rings, apply `*:focus:not(:focus-visible) { outline: none; }` globally, and strictly style `*:focus-visible` to match the application's semantic accent color.
 

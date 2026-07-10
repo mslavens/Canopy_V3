@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, ChevronDown, ChevronRight, Search, Undo2 } from 'lucide-react';
+import { DataTable, ColumnDef } from './DataTable';
 
 
 interface CommitDetailsModalProps {
@@ -12,7 +13,6 @@ interface CommitDetailsModalProps {
 
 export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert, onCommit, globalScopeVendor }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Flatten diffData into a list of changes
   const changes: any[] = [];
@@ -109,12 +109,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     (c.table || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleRow = (id: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(id)) newExpanded.delete(id);
-    else newExpanded.add(id);
-    setExpandedRows(newExpanded);
-  };
+
 
   const renderBadge = (type: string) => {
     let bg = 'rgba(255,255,255,0.1)';
@@ -199,7 +194,10 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        resize: 'both',
+        minWidth: '600px',
+        minHeight: '400px'
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-surface)' }}>
@@ -233,98 +231,69 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
           </div>
         </div>
 
-        {/* Table Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 100px 130px 120px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
-          <div></div>
-          <div>Type</div>
-          <div>Vendor</div>
-          <div>Table</div>
-          <div>Scope</div>
-          <div>Name</div>
-          <div>Description</div>
-          <div></div>
-        </div>
-
         {/* Table Body */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filteredChanges.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              No pending changes found.
-            </div>
-          ) : (
-            filteredChanges.map(change => (
-              <React.Fragment key={change.id}>
-                <div 
-                  onClick={() => toggleRow(change.id)}
-                  style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '40px 100px 100px 130px 120px 1fr 1fr 40px', 
-                    padding: '12px 20px', 
-                    borderBottom: '1px solid var(--border-main)',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: expandedRows.has(change.id) ? 'rgba(255,255,255,0.02)' : 'transparent',
-                    fontSize: '14px'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = expandedRows.has(change.id) ? 'rgba(255,255,255,0.02)' : 'transparent'}
-                >
-                  <div style={{ color: 'var(--text-muted)' }}>
-                    {expandedRows.has(change.id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </div>
-                  <div>{renderBadge(change.type)}</div>
-                  <div style={{ color: 'var(--text-muted)' }}>{change.vendor}</div>
-                  <div style={{ color: 'var(--text-muted)' }}>{change.table}</div>
-                  <div style={{ color: 'var(--text-muted)' }}>{change.scope}</div>
-                  <div style={{ fontWeight: 500 }}>{change.name}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{change.description}</div>
-                  <div>
-                    {change.dbId && (
-                      <button 
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (onRevert) {
-                            await onRevert(change.table, String(change.dbId));
-                          }
-                        }}
-                        title="Undo this change"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '4px',
-                          borderRadius: '4px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                          e.currentTarget.style.color = 'var(--text-main)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.color = 'var(--text-muted)';
-                        }}
-                      >
-                        <Undo2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {expandedRows.has(change.id) && (
-                  <div style={{ borderBottom: '1px solid var(--border-main)' }}>
-                    {renderDiffDetails(change)}
-                  </div>
-                )}
-              </React.Fragment>
-            ))
-          )}
+          <DataTable
+            columns={[
+              {
+                key: 'type',
+                label: 'Type',
+                width: '100px',
+                renderCell: (val: any) => renderBadge(val)
+              },
+              { key: 'vendor', label: 'Vendor', width: '100px' },
+              { key: 'table', label: 'Table', width: '150px' },
+              { key: 'scope', label: 'Scope', width: '150px' },
+              { key: 'name', label: 'Name', width: '200px' },
+              { key: 'description', label: 'Description', allowOverflow: true },
+              {
+                key: 'actions',
+                label: '',
+                width: '40px',
+                renderCell: (_: any, row: any) => {
+                  if (!row.dbId) return null;
+                  return (
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (onRevert) {
+                          await onRevert(row.table, String(row.dbId));
+                        }
+                      }}
+                      title="Undo this change"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                        borderRadius: '4px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        e.currentTarget.style.color = 'var(--text-main)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-muted)';
+                      }}
+                    >
+                      <Undo2 size={16} />
+                    </button>
+                  );
+                }
+              }
+            ]}
+            data={filteredChanges}
+            expandableRowRender={renderDiffDetails}
+          />
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+        <div style={{ padding: '16px 30px 16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '10px', backgroundColor: 'var(--bg-surface)' }}>
           <button 
             onClick={onClose}
             className="btn-secondary"

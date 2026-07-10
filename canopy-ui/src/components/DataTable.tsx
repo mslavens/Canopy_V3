@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp, ChevronDown, Upload, Search, Columns, CheckSquare, X, MoreHorizontal, Filter } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, Upload, Search, Columns, CheckSquare, X, MoreHorizontal, Filter } from 'lucide-react';
 import { Dropdown } from './Dropdown';
 import { HighlightedText } from './HighlightedText';
 import { EmptyState } from './EmptyState';
@@ -41,11 +41,13 @@ interface DataTableProps {
   groupByField?: string | ((row: any) => string);
   groupByRender?: (groupVal: any) => React.ReactNode;
   allowScrollPastEnd?: boolean;
+  expandableRowRender?: (row: any) => React.ReactNode;
+  rowKeyField?: string | ((row: any) => string);
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, isFetching = false, rowContextMenuActions,
-  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender, allowScrollPastEnd = false
+  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender, allowScrollPastEnd = false, expandableRowRender, rowKeyField
 }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
@@ -55,6 +57,14 @@ export const DataTable: React.FC<DataTableProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const [actualLastGroupHeight, setActualLastGroupHeight] = useState(0);
+  const [expandedRows, setExpandedRows] = useState<Set<any>>(new Set());
+
+  const getRowKey = (row: any) => {
+    if (rowKeyField) {
+      return typeof rowKeyField === 'function' ? rowKeyField(row) : row[rowKeyField];
+    }
+    return row.id !== undefined ? row.id : (row.dbId !== undefined ? row.dbId : row);
+  };
 
   useEffect(() => {
     if (!scrollContainerRef.current) return;
@@ -609,6 +619,10 @@ export const DataTable: React.FC<DataTableProps> = ({
         <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
+              {expandableRowRender && (
+                <th style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: '10px 10px', borderBottom: '2px solid var(--bg-app)', borderRight: '1px solid var(--border-main)', width: '32px' }}>
+                </th>
+              )}
               {selectable && (
                 <th style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: '10px 15px 10px 20px', borderBottom: '2px solid var(--bg-app)', borderRight: '1px solid var(--border-main)', width: '40px' }}>
                   <input type="checkbox" checked={selectedRows.size === processedRows.length && processedRows.length > 0} onChange={handleSelectAll} style={{ cursor: 'pointer' }} />
@@ -877,7 +891,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                     </tr>
                   )}
               <tr 
-                className={`${selectedRows.has(row) || isHighlighted ? 'table-row-active' : 'table-row'} ${isLastGroup ? 'last-group-row' : ''}`} 
+                className={`${selectedRows.has(row) || (Array.from(selectedRows).some(r => getRowKey(r) === getRowKey(row))) || isHighlighted ? 'table-row-active' : 'table-row'} ${isLastGroup && !expandedRows.has(getRowKey(row)) ? 'last-group-row' : ''}`} 
                 style={customStyle}
                 onContextMenu={(e) => {
                   if (rowContextMenuActions && !visibleColumnKeys.length) {
@@ -886,9 +900,20 @@ export const DataTable: React.FC<DataTableProps> = ({
                   }
                 }}
               >
+                {expandableRowRender && (
+                  <td style={{ padding: '10px 10px', width: '32px', borderBottom: '1px solid var(--border-main)', cursor: 'pointer' }} onClick={() => {
+                    const rowKey = getRowKey(row);
+                    const next = new Set(expandedRows);
+                    if (next.has(rowKey)) next.delete(rowKey);
+                    else next.add(rowKey);
+                    setExpandedRows(next);
+                  }}>
+                    {expandedRows.has(getRowKey(row)) ? <ChevronDown size={14} style={{color: 'var(--text-muted)'}} /> : <ChevronRight size={14} style={{color: 'var(--text-muted)'}} />}
+                  </td>
+                )}
                 {selectable && (
                   <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)' }}>
-                    <input type="checkbox" checked={selectedRows.has(row)} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />
+                    <input type="checkbox" checked={selectedRows.has(row) || Array.from(selectedRows).some(r => getRowKey(r) === getRowKey(row))} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />
                   </td>
                 )}
                 {visibleColumnKeys.map((colKey, cIdx) => {
@@ -910,6 +935,13 @@ export const DataTable: React.FC<DataTableProps> = ({
                   );
                 })}
               </tr>
+              {expandableRowRender && expandedRows.has(getRowKey(row)) && (
+                <tr style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
+                  <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0) + (expandableRowRender ? 1 : 0)} style={{ padding: 0, borderBottom: '1px solid var(--border-main)' }}>
+                    {expandableRowRender(row)}
+                  </td>
+                </tr>
+              )}
               </React.Fragment>
               );
             })}

@@ -43,7 +43,12 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
         });
       }
       setDiffCount(count);
-      setDiffData(data);
+      setDiffData((prev: any) => {
+        if (JSON.stringify(prev) === JSON.stringify(data)) {
+          return prev;
+        }
+        return data;
+      });
     } catch (err) {
       console.error("Failed to fetch diff:", err);
     }

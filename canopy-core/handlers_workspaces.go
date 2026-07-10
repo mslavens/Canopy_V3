@@ -600,8 +600,6 @@ func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("DIFF DEBUG: oldLen=%d, newLen=%d, tablesDiffed=%d\n", len(oldJSON), len(newJSON), len(diff.Tables))
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(diff)
 }

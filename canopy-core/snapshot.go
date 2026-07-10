@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sort"
 )
 
 type SnapshotState struct {
@@ -183,7 +184,14 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 			Deleted:  make([]map[string]interface{}, 0),
 		}
 		
-		for key, newVal := range newDict {
+		var newKeys []string
+		for key := range newDict {
+			newKeys = append(newKeys, key)
+		}
+		sort.Strings(newKeys)
+
+		for _, key := range newKeys {
+			newVal := newDict[key]
 			oldVal, exists := oldDict[key]
 			if !exists {
 				tableDiff.Added = append(tableDiff.Added, newVal)
@@ -207,7 +215,14 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 			}
 		}
 		
-		for key, oldVal := range oldDict {
+		var oldKeys []string
+		for key := range oldDict {
+			oldKeys = append(oldKeys, key)
+		}
+		sort.Strings(oldKeys)
+		
+		for _, key := range oldKeys {
+			oldVal := oldDict[key]
 			if _, exists := newDict[key]; !exists {
 				tableDiff.Deleted = append(tableDiff.Deleted, oldVal)
 			}
