@@ -162,6 +162,7 @@ export class CanopyApiClient {
   public deleteWorkspace = (id: number) => this.request<any>('/api/workspaces/delete', { method: 'POST', body: JSON.stringify({ id }) });
   public importWorkspace = (formData: FormData) => this.request<any>('/api/workspaces/import', { method: 'POST', body: formData });
   public healWorkspace = () => this.request<any>('/api/workspaces/heal', { method: 'POST' });
+  public revertSingleChange = (category: string, id: string) => this.request<any>('/api/workspaces/revert-single', { method: 'POST', body: JSON.stringify({ category, id }) });
   public downloadWorkspace = (id: number, archive_password: string) => this.streamRequest('/api/workspaces/export', { method: 'POST', body: JSON.stringify({ id, archive_password }) });
   
   public search = (query: string) => this.request<any[]>(`/api/search?q=${encodeURIComponent(query)}`);

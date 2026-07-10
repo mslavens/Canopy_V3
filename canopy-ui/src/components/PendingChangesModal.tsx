@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Search, Undo2 } from 'lucide-react';
+
 
 interface CommitDetailsModalProps {
   onClose: () => void;
   diffData: any; // The JSON response from /api/workspaces/diff
+  onRevert?: (category: string, id: string) => Promise<void>;
 }
 
-export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData }) => {
+export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -30,7 +32,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         table: categoryName,
         name: dName,
         description: `Added ${dName} to ${categoryName}`,
-        details: item
+        details: item,
+        dbId: item.id
       });
     });
 
@@ -43,7 +46,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         table: categoryName,
         name: dName,
         description: `Updated ${dName} in ${categoryName}`,
-        details: item
+        details: item,
+        dbId: item.id
       });
     });
 
@@ -56,7 +60,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         table: categoryName,
         name: dName,
         description: `Deleted ${dName} from ${categoryName}`,
-        details: item
+        details: item,
+        dbId: item.id
       });
     });
   };
@@ -187,12 +192,13 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         </div>
 
         {/* Table Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 150px 1fr 1fr', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 150px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
           <div></div>
           <div>Type</div>
           <div>Table</div>
           <div>Name</div>
           <div>Description</div>
+          <div></div>
         </div>
 
         {/* Table Body */}
@@ -208,7 +214,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                   onClick={() => toggleRow(change.id)}
                   style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: '40px 100px 150px 1fr 1fr', 
+                    gridTemplateColumns: '40px 100px 150px 1fr 1fr 40px', 
                     padding: '12px 20px', 
                     borderBottom: '1px solid var(--border-main)',
                     alignItems: 'center',
@@ -226,6 +232,40 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                   <div style={{ color: 'var(--text-muted)' }}>{change.table}</div>
                   <div style={{ fontWeight: 500 }}>{change.name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{change.description}</div>
+                  <div>
+                    {change.dbId && (
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (onRevert) {
+                            await onRevert(change.table, String(change.dbId));
+                          }
+                        }}
+                        title="Undo this change"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '4px',
+                          borderRadius: '4px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                          e.currentTarget.style.color = 'var(--text-main)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = 'var(--text-muted)';
+                        }}
+                      >
+                        <Undo2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {expandedRows.has(change.id) && (
                   <div style={{ borderBottom: '1px solid var(--border-main)' }}>

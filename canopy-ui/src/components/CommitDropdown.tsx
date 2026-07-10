@@ -93,6 +93,18 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
     setIsOpen(false);
   };
 
+  const handleRevertSingle = async (category: string, id: string) => {
+    try {
+      const creds = await window.electron.getBackendAuth();
+      const apiClient = new CanopyApiClient(creds);
+      await apiClient.revertSingleChange(category, id);
+      addToast('Change reverted successfully', 'success');
+      fetchDiff();
+    } catch (err: any) {
+      addToast(err.message || 'Failed to revert change', 'error');
+    }
+  };
+
   return (
     <div style={{ position: 'relative' }}>
       <button
@@ -161,6 +173,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast }) => {
         <CommitDetailsModal 
           onClose={() => setIsModalOpen(false)} 
           diffData={diffData} 
+          onRevert={handleRevertSingle}
         />
       )}
     </div>

@@ -1312,19 +1312,30 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
   const [syncTrigger, setSyncTrigger] = useState(0);
 
-  // Sync Data Across Windows
+  // Sync Data Across Windows and Locally
   useEffect(() => {
     if (window.electron && window.electron.onMutationDetected) {
       window.electron.onMutationDetected(() => {
         setSyncTrigger(prev => prev + 1);
       });
     }
+    
+    // Listen for mutations from this window (e.g. from the client.ts wrapper or specific UI interactions)
+    const handleLocalMutation = () => {
+      setSyncTrigger(prev => prev + 1);
+    };
+    window.addEventListener('canopy:mutation', handleLocalMutation);
+    
+    return () => {
+      window.removeEventListener('canopy:mutation', handleLocalMutation);
+    };
   }, []);
 
   useEffect(() => {
     if (syncTrigger > 0) {
       fetchRecords();
       loadReferenceData();
+      setSelectedRows([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncTrigger]);

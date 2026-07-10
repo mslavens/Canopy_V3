@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -701,6 +702,106 @@ func handleWorkspacesRevert(w http.ResponseWriter, r *http.Request) {
 		tx.Rollback()
 		http.Error(w, "Failed to save revert commit", http.StatusInternalServerError)
 		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handleWorkspacesRevertSingle reverts a single object to its state in the last commit
+func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Category string `json:"category"`
+		ID       string `json:"id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	tx, err := db.DB().Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+
+	var snapshotJSON []byte
+	err = tx.QueryRow("SELECT snapshot_json FROM commit_history ORDER BY id DESC LIMIT 1").Scan(&snapshotJSON)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to find snapshot", http.StatusNotFound)
+		return
+	}
+
+	var state SnapshotState
+	if err := json.Unmarshal(snapshotJSON, &state); err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to parse snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	intID, _ := strconv.Atoi(req.ID)
+
+	switch req.Category {
+	case "addressObjects":
+		tx.Exec("DELETE FROM address_objects WHERE id = ?", intID)
+		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'address_object'", intID)
+		
+		if obj, exists := state.AddressObjects[req.ID]; exists {
+			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
+			tx.Exec("INSERT INTO address_objects (id, device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Value, obj.Description)
+			for _, tag := range obj.Tags {
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+			}
+		}
+	case "addressGroups":
+		tx.Exec("DELETE FROM address_groups WHERE id = ?", intID)
+		tx.Exec("DELETE FROM address_group_members WHERE group_id = ?", intID)
+		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'address_group'", intID)
+		
+		if obj, exists := state.AddressGroups[req.ID]; exists {
+			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
+			tx.Exec("INSERT INTO address_groups (id, device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Filter, obj.Description)
+			for _, tag := range obj.Tags {
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+			}
+			for _, m := range obj.Members {
+				var objID int64
+				if err := tx.QueryRow("SELECT id FROM address_objects WHERE name = ?", m).Scan(&objID); err == nil {
+					tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", intID, objID)
+				} else if err := tx.QueryRow("SELECT id FROM address_groups WHERE name = ?", m).Scan(&objID); err == nil {
+					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", intID, objID)
+				}
+			}
+		}
+	case "services":
+		tx.Exec("DELETE FROM service_objects WHERE id = ?", intID)
+		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ? AND entity_type = 'service_object'", intID)
+		
+		if obj, exists := state.Services[req.ID]; exists {
+			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
+			tx.Exec("INSERT INTO service_objects (id, device_uuid, scope, name, protocol, port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Protocol, obj.Port, obj.Description)
+			for _, tag := range obj.Tags {
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+			}
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

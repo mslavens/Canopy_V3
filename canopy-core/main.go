@@ -1312,6 +1312,7 @@ func main() {
 	mux.HandleFunc("/api/workspaces/diff", handleWorkspacesDiff)
 	mux.HandleFunc("/api/workspaces/history", handleWorkspacesHistory)
 	mux.HandleFunc("/api/workspaces/revert", handleWorkspacesRevert)
+	mux.HandleFunc("/api/workspaces/revert-single", handleWorkspacesRevertSingle)
 
 	// Secrets Vault: List
 	mux.HandleFunc("/api/secrets", handleSecretsList)
