@@ -123,6 +123,7 @@ func handleWorkspacesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 	newSpoke.WriteUnlock()
+	EnsureBaselineCommit(newSpoke.DB())
 	newSpoke.Close()
 
 	logAuditSafe("Workspace Created", "System", "Provisioned new client workspace: "+req.Name)
@@ -188,6 +189,8 @@ func handleWorkspacesSwitch(w http.ResponseWriter, r *http.Request) {
 	}
 	newSpoke.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 	newSpoke.WriteUnlock()
+
+	EnsureBaselineCommit(newSpoke.DB())
 
 	activeDB = newSpoke
 	logAuditSafe("Workspace Switched", "System", "Switched active workspace to: "+name)

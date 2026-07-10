@@ -1076,6 +1076,8 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 	activeDB.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 	activeDB.WriteUnlock()
 
+	EnsureBaselineCommit(activeDB.DB())
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

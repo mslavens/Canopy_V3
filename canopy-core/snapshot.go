@@ -75,6 +75,20 @@ type ObjectDiff struct {
 	Deleted  []map[string]interface{} `json:"deleted"`
 }
 
+func EnsureBaselineCommit(db *sql.DB) {
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM commit_history").Scan(&count)
+	if count == 0 {
+		tx, err := db.Begin()
+		if err == nil {
+			state, _ := GenerateSnapshot(tx)
+			jsonBytes, _ := json.Marshal(state)
+			tx.Exec("INSERT INTO commit_history (message, snapshot_json) VALUES (?, ?)", "Initial Baseline", jsonBytes)
+			tx.Commit()
+		}
+	}
+}
+
 // GenerateSnapshot builds a complete memory state of the core configuration objects
 func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 	state := &SnapshotState{
