@@ -386,7 +386,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Custom Header Block mimicking Objects/Policies/DeviceManagement */}
       <div style={{ flexShrink: 0 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
