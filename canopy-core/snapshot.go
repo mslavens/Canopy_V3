@@ -16,6 +16,12 @@ type SnapshotState struct {
 	Services       map[string]ServiceSnapshot       `json:"services"`
 }
 
+type EntityRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"`
+}
+
 type TagSnapshot struct {
 	DeviceUUID string `json:"device_uuid"`
 	Scope      string `json:"scope"`
@@ -30,8 +36,8 @@ type AddressObjectSnapshot struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"`
 	Value       string   `json:"value"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
+	Description string      `json:"description"`
+	Tags        []EntityRef `json:"tags"`
 }
 
 type AddressGroupSnapshot struct {
@@ -40,9 +46,9 @@ type AddressGroupSnapshot struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"`
 	Filter      string   `json:"filter"`
-	Description string   `json:"description"`
-	Members     []string `json:"members"`
-	Tags        []string `json:"tags"`
+	Description string      `json:"description"`
+	Members     []EntityRef `json:"members"`
+	Tags        []EntityRef `json:"tags"`
 }
 
 type ServiceSnapshot struct {
@@ -51,8 +57,8 @@ type ServiceSnapshot struct {
 	Name        string   `json:"name"`
 	Protocol    string   `json:"protocol"`
 	Port        string   `json:"port"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
+	Description string      `json:"description"`
+	Tags        []EntityRef `json:"tags"`
 }
 
 // DiffResult holds the structured differences between two snapshots
@@ -79,82 +85,144 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 	}
 
 	// Load Tags
-	tagRows, err := tx.Query("SELECT id, device_uuid, scope, name, COALESCE(color, ''), COALESCE(comments, '') FROM tags")
+	tagRows, err := tx.Query("SELECT CAST(id AS TEXT), device_uuid, scope, name, COALESCE(color, ''), COALESCE(comments, '') FROM tags")
 	if err == nil {
 		defer tagRows.Close()
 		for tagRows.Next() {
-			var id string
-			var t TagSnapshot
-			if err := tagRows.Scan(&id, &t.DeviceUUID, &t.Scope, &t.Name, &t.Color, &t.Comments); err == nil {
-				state.Tags[id] = t
+			var id, du, sc, nm, cl, cm sql.NullString
+			if err := tagRows.Scan(&id, &du, &sc, &nm, &cl, &cm); err == nil {
+				var t TagSnapshot
+				t.DeviceUUID = du.String
+				t.Scope = sc.String
+				t.Name = nm.String
+				t.Color = cl.String
+				t.Comments = cm.String
+				state.Tags[id.String] = t
+			} else {
+				fmt.Printf("tagRows.Scan error: %v\n", err)
 			}
 		}
 	}
 
 	// Load Address Objects
 	aoRows, err := tx.Query(`
-		SELECT a.id, a.device_uuid, a.scope, a.name, a.type, COALESCE(a.value, ''), COALESCE(a.description, ''),
-		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_object' AND e.entity_id = a.id)
+		SELECT CAST(a.id AS TEXT), a.device_uuid, a.scope, a.name, a.type, COALESCE(a.value, ''), COALESCE(a.description, ''),
+		       (SELECT GROUP_CONCAT(t.id || '::' || t.name, '||') FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_object' AND e.entity_id = a.id)
 		FROM address_objects a`)
-	if err == nil {
+	if err != nil {
+		fmt.Printf("SQL_ERROR_AO: %v\n", err)
+	} else {
 		defer aoRows.Close()
 		for aoRows.Next() {
-			var id string
-			var ao AddressObjectSnapshot
-			var tagsStr sql.NullString
-			if err := aoRows.Scan(&id, &ao.DeviceUUID, &ao.Scope, &ao.Name, &ao.Type, &ao.Value, &ao.Description, &tagsStr); err == nil {
-				if tagsStr.Valid && tagsStr.String != "" {
-					ao.Tags = strings.Split(tagsStr.String, ",")
+			var id, du, sc, nm, ty, vl, ds, tg sql.NullString
+			if err := aoRows.Scan(&id, &du, &sc, &nm, &ty, &vl, &ds, &tg); err == nil {
+				var ao AddressObjectSnapshot
+				ao.DeviceUUID = du.String
+				ao.Scope = sc.String
+				ao.Name = nm.String
+				ao.Type = ty.String
+				ao.Value = vl.String
+				ao.Description = ds.String
+				ao.Tags = []EntityRef{}
+				if tg.Valid && tg.String != "" {
+					parts := strings.Split(tg.String, "||")
+					for _, p := range parts {
+						kv := strings.SplitN(p, "::", 2)
+						if len(kv) == 2 {
+							tid, _ := strconv.ParseInt(kv[0], 10, 64)
+							ao.Tags = append(ao.Tags, EntityRef{ID: tid, Name: kv[1]})
+						}
+					}
 				}
-				state.AddressObjects[id] = ao
+				state.AddressObjects[id.String] = ao
+			} else {
+				fmt.Printf("SCAN_ERROR_AO: %v\n", err)
 			}
 		}
 	}
 
 	// Load Address Groups
 	agRows, err := tx.Query(`
-		SELECT g.id, g.device_uuid, g.scope, g.name, g.type, COALESCE(g.filter, ''), COALESCE(g.description, ''),
-		       (SELECT GROUP_CONCAT(COALESCE(ao.name, nested.name, m.member_name)) 
+		SELECT CAST(g.id AS TEXT), g.device_uuid, g.scope, g.name, g.type, COALESCE(g.filter, ''), COALESCE(g.description, ''),
+		       (SELECT GROUP_CONCAT(COALESCE(ao.id, nested.id, 0) || '::' || COALESCE(ao.name, nested.name, m.member_name) || '::' || CASE WHEN ao.id IS NOT NULL THEN 'address_object' WHEN nested.id IS NOT NULL THEN 'address_group' ELSE '' END, '||') 
 		        FROM address_group_members m 
 		        LEFT JOIN address_objects ao ON m.member_address_id = ao.id 
 		        LEFT JOIN address_groups nested ON m.member_group_id = nested.id 
 		        WHERE m.group_id = g.id),
-		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_group' AND e.entity_id = g.id)
+		       (SELECT GROUP_CONCAT(t.id || '::' || t.name, '||') FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_group' AND e.entity_id = g.id)
 		FROM address_groups g`)
 	if err == nil {
 		defer agRows.Close()
 		for agRows.Next() {
-			var id string
-			var ag AddressGroupSnapshot
-			var membersStr, tagsStr sql.NullString
-			if err := agRows.Scan(&id, &ag.DeviceUUID, &ag.Scope, &ag.Name, &ag.Type, &ag.Filter, &ag.Description, &membersStr, &tagsStr); err == nil {
-				if membersStr.Valid && membersStr.String != "" {
-					ag.Members = strings.Split(membersStr.String, ",")
+			var id, du, sc, nm, ty, fl, ds, mb, tg sql.NullString
+			if err := agRows.Scan(&id, &du, &sc, &nm, &ty, &fl, &ds, &mb, &tg); err == nil {
+				var ag AddressGroupSnapshot
+				ag.DeviceUUID = du.String
+				ag.Scope = sc.String
+				ag.Name = nm.String
+				ag.Type = ty.String
+				ag.Filter = fl.String
+				ag.Description = ds.String
+				ag.Members = []EntityRef{}
+				ag.Tags = []EntityRef{}
+				if mb.Valid && mb.String != "" {
+					parts := strings.Split(mb.String, "||")
+					for _, p := range parts {
+						kv := strings.SplitN(p, "::", 3)
+						if len(kv) == 3 {
+							mid, _ := strconv.ParseInt(kv[0], 10, 64)
+							ag.Members = append(ag.Members, EntityRef{ID: mid, Name: kv[1], Type: kv[2]})
+						}
+					}
 				}
-				if tagsStr.Valid && tagsStr.String != "" {
-					ag.Tags = strings.Split(tagsStr.String, ",")
+				if tg.Valid && tg.String != "" {
+					parts := strings.Split(tg.String, "||")
+					for _, p := range parts {
+						kv := strings.SplitN(p, "::", 2)
+						if len(kv) == 2 {
+							tid, _ := strconv.ParseInt(kv[0], 10, 64)
+							ag.Tags = append(ag.Tags, EntityRef{ID: tid, Name: kv[1]})
+						}
+					}
 				}
-				state.AddressGroups[id] = ag
+				state.AddressGroups[id.String] = ag
+			} else {
+				fmt.Printf("agRows.Scan error: %v\n", err)
 			}
 		}
 	}
 
 	// Load Services
 	svcRows, err := tx.Query(`
-		SELECT s.id, s.device_uuid, s.scope, s.name, s.protocol, COALESCE(s.port, ''), COALESCE(s.description, ''),
-		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'service_object' AND e.entity_id = s.id)
+		SELECT CAST(s.id AS TEXT), s.device_uuid, s.scope, s.name, s.protocol, COALESCE(s.port, ''), COALESCE(s.description, ''),
+		       (SELECT GROUP_CONCAT(t.id || '::' || t.name, '||') FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'service_object' AND e.entity_id = s.id)
 		FROM service_objects s`)
 	if err == nil {
 		defer svcRows.Close()
 		for svcRows.Next() {
-			var id string
-			var svc ServiceSnapshot
-			var tagsStr sql.NullString
-			if err := svcRows.Scan(&id, &svc.DeviceUUID, &svc.Scope, &svc.Name, &svc.Protocol, &svc.Port, &svc.Description, &tagsStr); err == nil {
-				if tagsStr.Valid && tagsStr.String != "" {
-					svc.Tags = strings.Split(tagsStr.String, ",")
+			var id, du, sc, nm, pr, po, ds, tg sql.NullString
+			if err := svcRows.Scan(&id, &du, &sc, &nm, &pr, &po, &ds, &tg); err == nil {
+				var svc ServiceSnapshot
+				svc.DeviceUUID = du.String
+				svc.Scope = sc.String
+				svc.Name = nm.String
+				svc.Protocol = pr.String
+				svc.Port = po.String
+				svc.Description = ds.String
+				svc.Tags = []EntityRef{}
+				if tg.Valid && tg.String != "" {
+					parts := strings.Split(tg.String, "||")
+					for _, p := range parts {
+						kv := strings.SplitN(p, "::", 2)
+						if len(kv) == 2 {
+							tid, _ := strconv.ParseInt(kv[0], 10, 64)
+							svc.Tags = append(svc.Tags, EntityRef{ID: tid, Name: kv[1]})
+						}
+					}
 				}
-				state.Services[id] = svc
+				state.Services[id.String] = svc
+			} else {
+				fmt.Printf("svcRows.Scan error: %v\n", err)
 			}
 		}
 	}
@@ -331,7 +399,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 
 		// Tags
 		for _, tag := range ao.Tags {
-			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, ?)", id, tag.ID)
 		}
 	}
 
@@ -345,21 +413,20 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 
 		// Tags
 		for _, tag := range ag.Tags {
-			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, ?)", id, tag.ID)
 		}
 
-		// Members (Static only for now in restore)
+		// Members
 		for _, m := range ag.Members {
-			// Try to find if it's an object or group
-			var objID int64
-			err := tx.QueryRow("SELECT id FROM address_objects WHERE name = ?", m).Scan(&objID)
-			if err == nil {
-				tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", id, objID)
-			} else {
-				err = tx.QueryRow("SELECT id FROM address_groups WHERE name = ?", m).Scan(&objID)
-				if err == nil {
-					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", id, objID)
+			if m.ID > 0 {
+				switch m.Type {
+				case "address_object":
+					tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", id, m.ID)
+				case "address_group":
+					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", id, m.ID)
 				}
+			} else {
+				tx.Exec("INSERT INTO address_group_members (group_id, member_name) VALUES (?, ?)", id, m.Name)
 			}
 		}
 	}
@@ -373,7 +440,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 		}
 
 		for _, tag := range svc.Tags {
-			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, ?)", id, tag.ID)
 		}
 	}
 

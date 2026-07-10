@@ -1497,6 +1497,24 @@ func handleDevicesImport(w http.ResponseWriter, r *http.Request) {
 
 	logAuditSafe("Device XML Imported", "Network", fmt.Sprintf("Imported %d devices/templates and %d interface topology routes.", totalDevCount, totalTopoCount))
 
+	// Ensure an initial snapshot exists if the commit history is empty
+	vaultMutex.RLock()
+	if activeDB != nil {
+		var commitCount int
+		activeDB.DB().QueryRow("SELECT COUNT(*) FROM commit_history").Scan(&commitCount)
+		if commitCount == 0 {
+			if tx, err := activeDB.DB().Begin(); err == nil {
+				if initialState, err := GenerateSnapshot(tx); err == nil {
+					if snapshotJSON, err := json.Marshal(initialState); err == nil {
+						tx.Exec("INSERT INTO commit_history (message, snapshot_json) VALUES (?, ?)", "Initial Configuration Import", snapshotJSON)
+					}
+				}
+				tx.Commit()
+			}
+		}
+	}
+	vaultMutex.RUnlock()
+
 	// Write final response
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":             true,

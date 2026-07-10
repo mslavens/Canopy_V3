@@ -597,6 +597,8 @@ func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("DIFF DEBUG: oldLen=%d, newLen=%d, added=%d, modified=%d\n", len(oldJSON), len(newJSON), len(diff.AddressObjects.Added), len(diff.AddressObjects.Modified))
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(diff)
 }
@@ -890,7 +892,7 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
 			tx.Exec("INSERT INTO address_objects (id, device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Value, obj.Description)
 			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, ?)", intID, tag.ID)
 			}
 		}
 	case "addressGroups":
@@ -902,17 +904,19 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
 			tx.Exec("INSERT INTO address_groups (id, device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Type, obj.Filter, obj.Description)
 			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, ?)", intID, tag.ID)
 			}
 			var missingMembers []string
 			for _, m := range obj.Members {
-				var objID int64
-				if err := tx.QueryRow("SELECT id FROM address_objects WHERE name = ?", m).Scan(&objID); err == nil {
-					tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", intID, objID)
-				} else if err := tx.QueryRow("SELECT id FROM address_groups WHERE name = ?", m).Scan(&objID); err == nil {
-					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", intID, objID)
+				if m.ID > 0 {
+					switch m.Type {
+					case "address_object":
+						tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", intID, m.ID)
+					case "address_group":
+						tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", intID, m.ID)
+					}
 				} else {
-					missingMembers = append(missingMembers, m)
+					missingMembers = append(missingMembers, m.Name)
 				}
 			}
 			
@@ -930,7 +934,7 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 			devUUID := getSnapshotDeviceUUID(tx, obj.DeviceUUID, obj.Scope)
 			tx.Exec("INSERT INTO service_objects (id, device_uuid, scope, name, protocol, port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", intID, devUUID, obj.Scope, obj.Name, obj.Protocol, obj.Port, obj.Description)
 			for _, tag := range obj.Tags {
-				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
+				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, ?)", intID, tag.ID)
 			}
 		}
 	}

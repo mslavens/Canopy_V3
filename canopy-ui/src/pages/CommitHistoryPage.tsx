@@ -372,6 +372,13 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
       );
     }
     
+    const renderDiffValue = (val: any) => {
+      if (Array.isArray(val)) {
+        return `[${val.map(v => typeof v === 'object' && v !== null && 'name' in v ? v.name : (typeof v === 'string' ? `"${v}"` : JSON.stringify(v))).join(', ')}]`;
+      }
+      return JSON.stringify(val);
+    };
+
     if (operation === 'edit') {
       // The backend returns a flat object with property keys mapping to {old: ..., new: ...}
       const changedKeys = Object.keys(details).filter(k => k !== 'id' && typeof details[k] === 'object' && details[k] !== null && ('old' in details[k] || 'new' in details[k]));
@@ -394,8 +401,8 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
             return (
               <div key={key} style={{ fontFamily: 'monospace', fontSize: '13px', backgroundColor: 'var(--bg-app)', padding: '10px', borderRadius: '4px', border: '1px solid var(--border-main)' }}>
                 <div style={{ fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px', borderBottom: '1px solid var(--border-main)', paddingBottom: '4px' }}>Property: {key}</div>
-                <div style={{ color: '#ef4444', marginBottom: '4px' }}>- {JSON.stringify(oldVal)}</div>
-                <div style={{ color: '#10b981' }}>+ {JSON.stringify(newVal)}</div>
+                <div style={{ color: '#ef4444', marginBottom: '4px' }}>- {renderDiffValue(oldVal)}</div>
+                <div style={{ color: '#10b981' }}>+ {renderDiffValue(newVal)}</div>
               </div>
             );
           })}

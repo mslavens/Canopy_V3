@@ -131,6 +131,13 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     );
   };
 
+  const renderDiffValue = (val: any) => {
+    if (Array.isArray(val)) {
+      return `[${val.map(v => typeof v === 'object' && v !== null && 'name' in v ? v.name : (typeof v === 'string' ? `"${v}"` : JSON.stringify(v))).join(', ')}]`;
+    }
+    return JSON.stringify(val);
+  };
+
   const renderDiffDetails = (change: any) => {
     if (change.type === 'ADD') {
       return (
@@ -154,8 +161,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
             if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return null;
             return (
               <div key={key} style={{ fontFamily: 'monospace' }}>
-                <div style={{ color: '#ef4444' }}>- {key}: {JSON.stringify(val.old)}</div>
-                <div style={{ color: '#10b981' }}>+ {key}: {JSON.stringify(val.new)}</div>
+                <div style={{ color: '#ef4444' }}>- {key}: {renderDiffValue(val.old)}</div>
+                <div style={{ color: '#10b981' }}>+ {key}: {renderDiffValue(val.new)}</div>
               </div>
             );
           })}
