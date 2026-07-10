@@ -315,8 +315,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 	// Insert Tags
 	for idStr, t := range state.Tags {
 		id, _ := strconv.Atoi(idStr)
-		devUUID := getSnapshotDeviceUUID(tx, t.DeviceUUID, t.Scope)
-		_, err := tx.Exec("INSERT INTO tags (id, device_uuid, scope, name, color, comments) VALUES (?, ?, ?, ?, ?, ?)", id, devUUID, t.Scope, t.Name, t.Color, t.Comments)
+		_, err := tx.Exec("INSERT INTO tags (id, device_uuid, scope, name, color, comments) VALUES (?, ?, ?, ?, ?, ?)", id, t.DeviceUUID, t.Scope, t.Name, t.Color, t.Comments)
 		if err != nil {
 			return err
 		}
@@ -325,8 +324,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 	// Insert Address Objects
 	for idStr, ao := range state.AddressObjects {
 		id, _ := strconv.Atoi(idStr)
-		devUUID := getSnapshotDeviceUUID(tx, ao.DeviceUUID, ao.Scope)
-		_, err := tx.Exec("INSERT INTO address_objects (id, device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, devUUID, ao.Scope, ao.Name, ao.Type, ao.Value, ao.Description)
+		_, err := tx.Exec("INSERT INTO address_objects (id, device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, ao.DeviceUUID, ao.Scope, ao.Name, ao.Type, ao.Value, ao.Description)
 		if err != nil {
 			return err
 		}
@@ -340,8 +338,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 	// Insert Address Groups
 	for idStr, ag := range state.AddressGroups {
 		id, _ := strconv.Atoi(idStr)
-		devUUID := getSnapshotDeviceUUID(tx, ag.DeviceUUID, ag.Scope)
-		_, err := tx.Exec("INSERT INTO address_groups (id, device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, devUUID, ag.Scope, ag.Name, ag.Type, ag.Filter, ag.Description)
+		_, err := tx.Exec("INSERT INTO address_groups (id, device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, ag.DeviceUUID, ag.Scope, ag.Name, ag.Type, ag.Filter, ag.Description)
 		if err != nil {
 			return err
 		}
@@ -370,8 +367,7 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 	// Insert Services
 	for idStr, svc := range state.Services {
 		id, _ := strconv.Atoi(idStr)
-		devUUID := getSnapshotDeviceUUID(tx, svc.DeviceUUID, svc.Scope)
-		_, err := tx.Exec("INSERT INTO service_objects (id, device_uuid, scope, name, protocol, port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, devUUID, svc.Scope, svc.Name, svc.Protocol, svc.Port, svc.Description)
+		_, err := tx.Exec("INSERT INTO service_objects (id, device_uuid, scope, name, protocol, port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", id, svc.DeviceUUID, svc.Scope, svc.Name, svc.Protocol, svc.Port, svc.Description)
 		if err != nil {
 			return err
 		}

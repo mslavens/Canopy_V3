@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CanopyApiClient } from '../api/client';
-import { History, Clock, GitCommit, RotateCcw, FileJson, ArrowRight, CornerUpLeft, PlusCircle, MinusCircle, Edit2, Play, ChevronLeft, Code, Upload } from 'lucide-react';
+import { History, Clock, GitCommit, RotateCcw, FileJson, ArrowRight, CornerUpLeft, PlusCircle, MinusCircle, Edit2, Play, ChevronLeft, Code, Upload, Search } from 'lucide-react';
 import { useConfirm } from '../components/ConfirmProvider';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
+import { SearchBar } from '../components/SearchBar';
 
 interface CommitHistoryPageProps {
   globalScopeVendor?: string;
@@ -40,6 +41,10 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
   const [diffData, setDiffData] = useState<any>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+  
+  // Search states
+  const [historySearch, setHistorySearch] = useState('');
+  const [compareSearch, setCompareSearch] = useState('');
   const [selectedChangeRow, setSelectedChangeRow] = useState<any>(null);
 
   const confirm = useConfirm();
@@ -407,28 +412,50 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '24px', minHeight: '64px' }}>
             {viewMode === 'history' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Config Audit &amp; Commit History</h2>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                  Review the timeline of changes made to your active workspace, inspect diffs, and revert to previous states if necessary.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                <button 
-                  className="btn-secondary btn-sm" 
-                  onClick={handleExitCompareMode}
-                  style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <ChevronLeft size={16} /> Back
-                </button>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Compare Versions</h2>
+              <React.Fragment>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Config Audit &amp; Commit History</h2>
                   <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                    Viewing changes {selectedCommits.length === 1 ? `for Commit #${selectedCommits[0].id}` : `between Commit #${selectedCommits[0].id} and #${selectedCommits[1].id}`}
+                    Review the timeline of changes made to your active workspace, inspect diffs, and revert to previous states if necessary.
                   </p>
                 </div>
-              </div>
+                <div style={{ width: '250px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={historySearch}
+                    onChange={setHistorySearch}
+                    placeholder="Search commits..."
+                    width="100%"
+                    variant="local"
+                  />
+                </div>
+              </React.Fragment>
+            ) : (
+              <React.Fragment>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                  <button 
+                    className="btn-secondary btn-sm" 
+                    onClick={handleExitCompareMode}
+                    style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <ChevronLeft size={16} /> Back
+                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Compare Versions</h2>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Viewing changes {selectedCommits.length === 1 ? `for Commit #${selectedCommits[0].id}` : `between Commit #${selectedCommits[0].id} and #${selectedCommits[1].id}`}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ width: '250px', flexShrink: 0 }}>
+                  <SearchBar
+                    value={compareSearch}
+                    onChange={setCompareSearch}
+                    placeholder="Search changes..."
+                    width="100%"
+                    variant="local"
+                  />
+                </div>
+              </React.Fragment>
             )}
           </div>
           <div style={{ height: '1px', backgroundColor: 'var(--border-main)', width: '100%' }} />
@@ -460,6 +487,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                 ) : null
               }
               toolbarTitle={<span style={{ fontWeight: 600, fontSize: '15px' }}>Commit History</span>}
+              searchQuery={historySearch}
               exportActions={
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <button 
@@ -482,9 +510,10 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                 </div>
               }
               topRightActions={
-                <button 
-                  className="btn-danger btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button 
+                    className="btn-danger btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
                   onClick={() => {
                     const commit = selectedHistoryRows[0];
                     confirm({
@@ -513,6 +542,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                 >
                   <RotateCcw size={14} /> Revert Version
                 </button>
+                </div>
               }
             />
           </div>
@@ -528,7 +558,8 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                 pagination={true}
                 selectable={true}
                 onSelectionChange={handleChangeSelectionChange}
-                exportActions={
+              searchQuery={compareSearch}
+              exportActions={
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <button 
                       disabled 
