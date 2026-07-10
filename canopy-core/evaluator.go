@@ -208,9 +208,21 @@ func (p *parser) parsePrimary() Expr {
 	return nil
 }
 
-// EvaluateFilter evaluates a boolean expression against a list of assigned tags.
-func EvaluateFilter(filter string, tags []string) bool {
+// ParseFilter parses a boolean filter expression string into an AST.
+func ParseFilter(filter string) Expr {
 	if strings.TrimSpace(filter) == "" {
+		return nil
+	}
+
+	p := newParser(filter)
+	ast := p.Parse()
+	return ast
+}
+
+// EvaluateFilter evaluates an AST against a list of assigned tags.
+// Note: for bulk operations, it is much faster to build the tagMap once and call ast.Eval() directly.
+func EvaluateFilter(ast Expr, tags []string) bool {
+	if ast == nil {
 		return false
 	}
 
@@ -219,10 +231,5 @@ func EvaluateFilter(filter string, tags []string) bool {
 		tagMap[strings.ToLower(strings.TrimSpace(t))] = true
 	}
 
-	p := newParser(filter)
-	ast := p.Parse()
-	if ast == nil {
-		return false
-	}
 	return ast.Eval(tagMap)
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // MaterializeDynamicGroups re-evaluates all dynamic groups in the given scope
@@ -46,11 +47,15 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 		id     int64
 		filter string
 		scope  string
+		ast    Expr
 	}
 	var groups []dynGroup
 	for rows.Next() {
 		var g dynGroup
 		if err := rows.Scan(&g.id, &g.filter, &g.scope); err == nil {
+			if g.filter != "" {
+				g.ast = ParseFilter(g.filter)
+			}
 			groups = append(groups, g)
 		}
 	}
@@ -123,9 +128,23 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 		agRows.Close()
 	}
 
+	// 4.5 Pre-build lowercase tag maps for all candidates to avoid O(N*M) string allocations
+	candidateTagMaps := make(map[string]map[int64]map[string]bool)
+	candidateTagMaps["address_object"] = make(map[int64]map[string]bool)
+	candidateTagMaps["address_group"] = make(map[int64]map[string]bool)
+
+	for _, c := range candidates {
+		tags := tagMap[c.eType][c.id]
+		tmap := make(map[string]bool)
+		for _, t := range tags {
+			tmap[strings.ToLower(strings.TrimSpace(t))] = true
+		}
+		candidateTagMaps[c.eType][c.id] = tmap
+	}
+
 	// 5. Evaluate and Insert
 	for _, g := range groups {
-		if g.filter == "" {
+		if g.filter == "" || g.ast == nil {
 			continue
 		}
 
@@ -142,11 +161,12 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			}
 
 			tags := tagMap[c.eType][c.id]
+			cMap := candidateTagMaps[c.eType][c.id]
 
-			slog.Info("Evaluating candidate for dynamic group", slog.Int64("candidate_id", c.id), slog.String("eType", c.eType), slog.Int64("group_id", g.id), slog.String("filter", g.filter), slog.Any("tags", tags))
+			slog.Debug("Evaluating candidate for dynamic group", slog.Int64("candidate_id", c.id), slog.String("eType", c.eType), slog.Int64("group_id", g.id), slog.String("filter", g.filter), slog.Any("tags", tags))
 
-			if EvaluateFilter(g.filter, tags) {
-				slog.Info("Candidate MATCHED filter!", slog.Int64("candidate_id", c.id), slog.Int64("group_id", g.id))
+			if g.ast.Eval(cMap) {
+				slog.Debug("Candidate MATCHED filter!", slog.Int64("candidate_id", c.id), slog.Int64("group_id", g.id))
 				if c.eType == "address_object" {
 					_, err := tx.Exec("INSERT INTO address_group_members (group_id, member_address_id, member_group_id, member_name) VALUES (?, ?, NULL, NULL)", g.id, c.id)
 					if err != nil {
