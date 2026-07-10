@@ -231,6 +231,12 @@ func diffGenericMap(oldMap, newMap interface{}) ObjectDiff {
 				objName = fmt.Sprintf("%v", nameVal)
 			}
 			changes := map[string]interface{}{"id": key, "name": objName}
+			if devUUID, ok := newVal["device_uuid"]; ok {
+				changes["device_uuid"] = devUUID
+			}
+			if scope, ok := newVal["scope"]; ok {
+				changes["scope"] = scope
+			}
 			for k, v := range newVal {
 				if fmt.Sprintf("%v", v) != fmt.Sprintf("%v", oldVal[k]) {
 					isDiff = true

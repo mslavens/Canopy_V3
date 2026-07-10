@@ -277,11 +277,13 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
       
       (categoryData.added || []).forEach((item: any) => {
         const dName = getDisplayName(item);
+        const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
         list.push({
-          id: `add_${categoryName}_${dName}`,
+          id: `add_${categoryName}_${dName}_${scopeUUID}`,
           operation: 'add',
           table: categoryName,
           vendor: getVendorName(item),
+          scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
           name: dName,
           details: item
         });
@@ -289,11 +291,13 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
 
       (categoryData.modified || []).forEach((item: any) => {
         const dName = getDisplayName(item);
+        const scopeUUID = (item.new || item)?.device_uuid || (item.new || item)?.deviceUuid || (item.new || item)?.scope || 'global';
         list.push({
-          id: `mod_${categoryName}_${dName}`,
+          id: `mod_${categoryName}_${dName}_${scopeUUID}`,
           operation: 'edit',
           table: categoryName,
           vendor: getVendorName(item.new || item),
+          scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
           name: dName,
           details: item
         });
@@ -301,11 +305,13 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
 
       (categoryData.deleted || []).forEach((item: any) => {
         const dName = getDisplayName(item);
+        const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
         list.push({
-          id: `del_${categoryName}_${dName}`,
+          id: `del_${categoryName}_${dName}_${scopeUUID}`,
           operation: 'delete',
           table: categoryName,
           vendor: getVendorName(item),
+          scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
           name: dName,
           details: item
         });
@@ -327,8 +333,9 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
       width: '100%',
       renderCell: (val, _, searchQuery) => <HighlightedText text={val} highlight={searchQuery || ''} />
     },
-    { key: 'table', label: 'Object Type', width: '220px' },
-    { key: 'vendor', label: 'Vendor Location', width: '200px' },
+    { key: 'table', label: 'Object Type', width: '180px' },
+    { key: 'vendor', label: 'Vendor Location', width: '160px' },
+    { key: 'scope', label: 'Scope', width: '200px' },
     {
       key: 'operation',
       label: 'Operation',
@@ -362,7 +369,15 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
     
     if (operation === 'edit') {
       // The backend returns a flat object with property keys mapping to {old: ..., new: ...}
-      const changedKeys = Object.keys(details).filter(k => k !== 'id' && k !== 'name' && details[k] && details[k].old !== undefined);
+      const changedKeys = Object.keys(details).filter(k => k !== 'id' && typeof details[k] === 'object' && details[k] !== null && ('old' in details[k] || 'new' in details[k]));
+
+      if (changedKeys.length === 0) {
+        return (
+          <pre style={{ margin: 0, padding: '16px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#f59e0b', fontFamily: 'monospace', fontSize: '13px', height: '100%', overflowY: 'auto' }}>
+            {JSON.stringify(details, null, 2)}
+          </pre>
+        );
+      }
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px', height: '100%', overflowY: 'auto' }}>

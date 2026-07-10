@@ -42,11 +42,13 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     (categoryData.added || []).forEach((item: any) => {
       const dName = getDisplayName(item);
       const vendor = getVendorName(item);
+      const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
       changes.push({
-        id: `add_${categoryName}_${dName}`,
+        id: `add_${categoryName}_${dName}_${scopeUUID}`,
         type: 'ADD',
         table: categoryName,
         vendor: vendor,
+        scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
         name: dName,
         description: `Added ${dName} to ${categoryName}`,
         details: item,
@@ -58,11 +60,13 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     (categoryData.modified || []).forEach((item: any) => {
       const dName = getDisplayName(item);
       const vendor = getVendorName(item.new || item);
+      const scopeUUID = (item.new || item)?.device_uuid || (item.new || item)?.deviceUuid || (item.new || item)?.scope || 'global';
       changes.push({
-        id: `mod_${categoryName}_${dName}`,
+        id: `mod_${categoryName}_${dName}_${scopeUUID}`,
         type: 'UPDATE',
         table: categoryName,
         vendor: vendor,
+        scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
         name: dName,
         description: `Updated ${dName} in ${categoryName}`,
         details: item,
@@ -74,11 +78,13 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     (categoryData.deleted || []).forEach((item: any) => {
       const dName = getDisplayName(item);
       const vendor = getVendorName(item);
+      const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
       changes.push({
-        id: `del_${categoryName}_${dName}`,
+        id: `del_${categoryName}_${dName}_${scopeUUID}`,
         type: 'DELETE',
         table: categoryName,
         vendor: vendor,
+        scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
         name: dName,
         description: `Deleted ${dName} from ${categoryName}`,
         details: item,
@@ -213,11 +219,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         </div>
 
         {/* Table Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 100px 150px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '40px 100px 100px 130px 120px 1fr 1fr 40px', padding: '12px 20px', borderBottom: '1px solid var(--border-main)', fontWeight: 600, color: 'var(--text-muted)', fontSize: '13px' }}>
           <div></div>
           <div>Type</div>
           <div>Vendor</div>
           <div>Table</div>
+          <div>Scope</div>
           <div>Name</div>
           <div>Description</div>
           <div></div>
@@ -236,7 +243,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                   onClick={() => toggleRow(change.id)}
                   style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: '40px 100px 100px 150px 1fr 1fr 40px', 
+                    gridTemplateColumns: '40px 100px 100px 130px 120px 1fr 1fr 40px', 
                     padding: '12px 20px', 
                     borderBottom: '1px solid var(--border-main)',
                     alignItems: 'center',
@@ -253,6 +260,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                   <div>{renderBadge(change.type)}</div>
                   <div style={{ color: 'var(--text-muted)' }}>{change.vendor}</div>
                   <div style={{ color: 'var(--text-muted)' }}>{change.table}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>{change.scope}</div>
                   <div style={{ fontWeight: 500 }}>{change.name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{change.description}</div>
                   <div>
