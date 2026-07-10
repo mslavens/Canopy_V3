@@ -220,7 +220,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
     {
       key: 'changes',
       label: 'Object Changes',
-      width: '240px',
+      width: '300px',
       renderCell: (_, row) => {
         const counts = commitCounts[row.id];
         if (!counts) {
@@ -228,12 +228,12 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
         }
         return (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' }}>
-            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', width: '55px' }} title="Added"><PlusCircle size={14}/> {counts.added}</span>
-            <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', width: '55px' }} title="Deleted"><MinusCircle size={14}/> {counts.deleted}</span>
-            <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', width: '55px' }} title="Modified"><Edit2 size={14}/> {counts.modified}</span>
+            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', width: '60px', minWidth: '60px', flexShrink: 0 }} title="Added"><PlusCircle size={14}/> {counts.added}</span>
+            <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', width: '60px', minWidth: '60px', flexShrink: 0 }} title="Deleted"><MinusCircle size={14}/> {counts.deleted}</span>
+            <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', width: '60px', minWidth: '60px', flexShrink: 0 }} title="Modified"><Edit2 size={14}/> {counts.modified}</span>
             <button 
               onClick={(e) => { e.stopPropagation(); handleEnterCompareMode([row]); }} 
-              style={{ color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500, marginLeft: '4px' }}
+              style={{ color: 'var(--accent-blue)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500, marginLeft: '4px', minWidth: '60px', justifyContent: 'flex-start' }}
             >
               <FileJson size={13} /> {counts.total}
             </button>
