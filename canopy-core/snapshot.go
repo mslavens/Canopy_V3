@@ -1,0 +1,327 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+type SnapshotState struct {
+	Tags           map[string]TagSnapshot           `json:"tags"`
+	AddressObjects map[string]AddressObjectSnapshot `json:"address_objects"`
+	AddressGroups  map[string]AddressGroupSnapshot  `json:"address_groups"`
+	Services       map[string]ServiceSnapshot       `json:"services"`
+}
+
+type TagSnapshot struct {
+	Scope    string `json:"scope"`
+	Name     string `json:"name"`
+	Color    string `json:"color"`
+	Comments string `json:"comments"`
+}
+
+type AddressObjectSnapshot struct {
+	Scope       string   `json:"scope"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Value       string   `json:"value"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+}
+
+type AddressGroupSnapshot struct {
+	Scope       string   `json:"scope"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Filter      string   `json:"filter"`
+	Description string   `json:"description"`
+	Members     []string `json:"members"`
+	Tags        []string `json:"tags"`
+}
+
+type ServiceSnapshot struct {
+	Scope       string   `json:"scope"`
+	Name        string   `json:"name"`
+	Protocol    string   `json:"protocol"`
+	Port        string   `json:"port"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+}
+
+// DiffResult holds the structured differences between two snapshots
+type DiffResult struct {
+	Tags           ObjectDiff `json:"tags"`
+	AddressObjects ObjectDiff `json:"address_objects"`
+	AddressGroups  ObjectDiff `json:"address_groups"`
+	Services       ObjectDiff `json:"services"`
+}
+
+type ObjectDiff struct {
+	Added    []map[string]interface{} `json:"added"`
+	Modified []map[string]interface{} `json:"modified"`
+	Deleted  []map[string]interface{} `json:"deleted"`
+}
+
+// GenerateSnapshot builds a complete memory state of the core configuration objects
+func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
+	state := &SnapshotState{
+		Tags:           make(map[string]TagSnapshot),
+		AddressObjects: make(map[string]AddressObjectSnapshot),
+		AddressGroups:  make(map[string]AddressGroupSnapshot),
+		Services:       make(map[string]ServiceSnapshot),
+	}
+
+	// Load Tags
+	tagRows, err := tx.Query("SELECT scope, name, COALESCE(color, ''), COALESCE(comments, '') FROM tags")
+	if err == nil {
+		defer tagRows.Close()
+		for tagRows.Next() {
+			var t TagSnapshot
+			if err := tagRows.Scan(&t.Scope, &t.Name, &t.Color, &t.Comments); err == nil {
+				state.Tags[t.Name] = t
+			}
+		}
+	}
+
+	// Load Address Objects
+	aoRows, err := tx.Query(`
+		SELECT a.scope, a.name, a.type, COALESCE(a.value, ''), COALESCE(a.description, ''),
+		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_object' AND e.entity_id = a.id)
+		FROM address_objects a`)
+	if err == nil {
+		defer aoRows.Close()
+		for aoRows.Next() {
+			var ao AddressObjectSnapshot
+			var tagsStr sql.NullString
+			if err := aoRows.Scan(&ao.Scope, &ao.Name, &ao.Type, &ao.Value, &ao.Description, &tagsStr); err == nil {
+				if tagsStr.Valid && tagsStr.String != "" {
+					ao.Tags = strings.Split(tagsStr.String, ",")
+				}
+				state.AddressObjects[ao.Name] = ao
+			}
+		}
+	}
+
+	// Load Address Groups
+	agRows, err := tx.Query(`
+		SELECT g.scope, g.name, g.type, COALESCE(g.filter, ''), COALESCE(g.description, ''),
+		       (SELECT GROUP_CONCAT(COALESCE(ao.name, nested.name, m.member_name)) 
+		        FROM address_group_members m 
+		        LEFT JOIN address_objects ao ON m.member_address_id = ao.id 
+		        LEFT JOIN address_groups nested ON m.member_group_id = nested.id 
+		        WHERE m.group_id = g.id),
+		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'address_group' AND e.entity_id = g.id)
+		FROM address_groups g`)
+	if err == nil {
+		defer agRows.Close()
+		for agRows.Next() {
+			var ag AddressGroupSnapshot
+			var membersStr, tagsStr sql.NullString
+			if err := agRows.Scan(&ag.Scope, &ag.Name, &ag.Type, &ag.Filter, &ag.Description, &membersStr, &tagsStr); err == nil {
+				if membersStr.Valid && membersStr.String != "" {
+					ag.Members = strings.Split(membersStr.String, ",")
+				}
+				if tagsStr.Valid && tagsStr.String != "" {
+					ag.Tags = strings.Split(tagsStr.String, ",")
+				}
+				state.AddressGroups[ag.Name] = ag
+			}
+		}
+	}
+
+	// Load Services
+	svcRows, err := tx.Query(`
+		SELECT s.scope, s.name, s.protocol, COALESCE(s.port, ''), COALESCE(s.description, ''),
+		       (SELECT GROUP_CONCAT(t.name) FROM entity_tag_mappings e JOIN tags t ON e.tag_id = t.id WHERE e.entity_type = 'service_object' AND e.entity_id = s.id)
+		FROM service_objects s`)
+	if err == nil {
+		defer svcRows.Close()
+		for svcRows.Next() {
+			var svc ServiceSnapshot
+			var tagsStr sql.NullString
+			if err := svcRows.Scan(&svc.Scope, &svc.Name, &svc.Protocol, &svc.Port, &svc.Description, &tagsStr); err == nil {
+				if tagsStr.Valid && tagsStr.String != "" {
+					svc.Tags = strings.Split(tagsStr.String, ",")
+				}
+				state.Services[svc.Name] = svc
+			}
+		}
+	}
+
+	return state, nil
+}
+
+// CompareSnapshots diffs an old JSON state against a new one.
+func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
+	var oldState, newState SnapshotState
+	
+	if len(oldJSON) > 0 {
+		if err := json.Unmarshal(oldJSON, &oldState); err != nil {
+			return nil, err
+		}
+	} else {
+		oldState = SnapshotState{
+			Tags:           make(map[string]TagSnapshot),
+			AddressObjects: make(map[string]AddressObjectSnapshot),
+			AddressGroups:  make(map[string]AddressGroupSnapshot),
+			Services:       make(map[string]ServiceSnapshot),
+		}
+	}
+
+	if len(newJSON) > 0 {
+		if err := json.Unmarshal(newJSON, &newState); err != nil {
+			return nil, err
+		}
+	}
+
+	diff := &DiffResult{}
+
+	// Diff Tags
+	diff.Tags = diffGenericMap(oldState.Tags, newState.Tags)
+	// Diff Address Objects
+	diff.AddressObjects = diffGenericMap(oldState.AddressObjects, newState.AddressObjects)
+	// Diff Address Groups
+	diff.AddressGroups = diffGenericMap(oldState.AddressGroups, newState.AddressGroups)
+	// Diff Services
+	diff.Services = diffGenericMap(oldState.Services, newState.Services)
+
+	return diff, nil
+}
+
+// diffGenericMap is a quick helper to diff two maps of structs.
+// For robust usage in production, reflection is usually used, but we convert through JSON here for simplicity.
+func diffGenericMap(oldMap, newMap interface{}) ObjectDiff {
+	oldBytes, _ := json.Marshal(oldMap)
+	newBytes, _ := json.Marshal(newMap)
+
+	var oldDict map[string]map[string]interface{}
+	var newDict map[string]map[string]interface{}
+	
+	json.Unmarshal(oldBytes, &oldDict)
+	json.Unmarshal(newBytes, &newDict)
+
+	diff := ObjectDiff{
+		Added:    make([]map[string]interface{}, 0),
+		Modified: make([]map[string]interface{}, 0),
+		Deleted:  make([]map[string]interface{}, 0),
+	}
+
+	// Find Added and Modified
+	for key, newVal := range newDict {
+		oldVal, exists := oldDict[key]
+		if !exists {
+			diff.Added = append(diff.Added, newVal)
+		} else {
+			// Compare old and new
+			isDiff := false
+			changes := map[string]interface{}{"name": key}
+			for k, v := range newVal {
+				if fmt.Sprintf("%v", v) != fmt.Sprintf("%v", oldVal[k]) {
+					isDiff = true
+					changes[k] = map[string]interface{}{"old": oldVal[k], "new": v}
+				}
+			}
+			if isDiff {
+				diff.Modified = append(diff.Modified, changes)
+			}
+		}
+	}
+
+	// Find Deleted
+	for key, oldVal := range oldDict {
+		if _, exists := newDict[key]; !exists {
+			diff.Deleted = append(diff.Deleted, oldVal)
+		}
+	}
+
+	return diff
+}
+
+// RestoreSnapshot wipes current config and inserts state from JSON
+func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
+	var state SnapshotState
+	if err := json.Unmarshal(snapshotJSON, &state); err != nil {
+		return err
+	}
+
+	// For v1, we wipe the core tables
+	tables := []string{
+		"address_group_members", "address_groups", "address_objects",
+		"service_group_members", "service_groups", "service_objects",
+		"entity_tag_mappings", "tags",
+	}
+	for _, t := range tables {
+		if _, err := tx.Exec("DELETE FROM " + t); err != nil {
+			return err
+		}
+	}
+
+	// Insert Tags
+	for _, t := range state.Tags {
+		res, err := tx.Exec("INSERT INTO tags (device_uuid, scope, name, color, comments) VALUES ((SELECT uuid FROM scopes WHERE name = ?), ?, ?, ?, ?)", t.Scope, t.Scope, t.Name, t.Color, t.Comments)
+		if err != nil {
+			return err
+		}
+		id, _ := res.LastInsertId()
+		_ = id
+	}
+
+	// Insert Address Objects
+	for _, ao := range state.AddressObjects {
+		res, err := tx.Exec("INSERT INTO address_objects (device_uuid, scope, name, type, value, description) VALUES ((SELECT uuid FROM scopes WHERE name = ?), ?, ?, ?, ?, ?)", ao.Scope, ao.Scope, ao.Name, ao.Type, ao.Value, ao.Description)
+		if err != nil {
+			return err
+		}
+		id, _ := res.LastInsertId()
+
+		// Tags
+		for _, tag := range ao.Tags {
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_object', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+		}
+	}
+
+	// Insert Address Groups
+	for _, ag := range state.AddressGroups {
+		res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description) VALUES ((SELECT uuid FROM scopes WHERE name = ?), ?, ?, ?, ?, ?)", ag.Scope, ag.Scope, ag.Name, ag.Type, ag.Filter, ag.Description)
+		if err != nil {
+			return err
+		}
+		id, _ := res.LastInsertId()
+
+		// Tags
+		for _, tag := range ag.Tags {
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+		}
+
+		// Members (Static only for now in restore)
+		for _, m := range ag.Members {
+			// Try to find if it's an object or group
+			var objID int64
+			err := tx.QueryRow("SELECT id FROM address_objects WHERE name = ?", m).Scan(&objID)
+			if err == nil {
+				tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", id, objID)
+			} else {
+				err = tx.QueryRow("SELECT id FROM address_groups WHERE name = ?", m).Scan(&objID)
+				if err == nil {
+					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", id, objID)
+				}
+			}
+		}
+	}
+
+	// Insert Services
+	for _, svc := range state.Services {
+		res, err := tx.Exec("INSERT INTO service_objects (device_uuid, scope, name, protocol, port, description) VALUES ((SELECT uuid FROM scopes WHERE name = ?), ?, ?, ?, ?, ?)", svc.Scope, svc.Scope, svc.Name, svc.Protocol, svc.Port, svc.Description)
+		if err != nil {
+			return err
+		}
+		id, _ := res.LastInsertId()
+
+		for _, tag := range svc.Tags {
+			tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('service_object', ?, (SELECT id FROM tags WHERE name = ?))", id, tag)
+		}
+	}
+
+	return nil
+}

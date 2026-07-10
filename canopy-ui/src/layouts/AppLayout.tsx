@@ -12,6 +12,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Modal } from '../components/Modal';
 import { useConfirm } from '../components/ConfirmProvider';
 import { useIsDirty } from '../components/UnsavedChangesProvider';
+import { CommitDropdown } from '../components/CommitDropdown';
 import packageJson from '../../package.json';
 import ReactMarkdown from 'react-markdown';
 
@@ -791,6 +792,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <ExternalLink size={18} />
             </button>
           </Tooltip>
+
+          <CommitDropdown addToast={addToast} />
 
           <Tooltip content="Lock Workspace" align="right">
             <button onClick={onLockApp} style={{ backgroundColor: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>

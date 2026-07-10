@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -489,4 +490,224 @@ func handleWorkspacesDelete(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// handleWorkspacesCommit generates a JSON snapshot and inserts it into commit_history
+func handleWorkspacesCommit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Message = "Auto Commit"
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	tx, err := db.DB().Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	snapshot, err := GenerateSnapshot(tx)
+	if err != nil {
+		http.Error(w, "Failed to generate snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	jsonData, err := json.Marshal(snapshot)
+	if err != nil {
+		http.Error(w, "Failed to serialize snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = tx.Exec("INSERT INTO commit_history (message, snapshot_json) VALUES (?, ?)", req.Message, jsonData)
+	if err != nil {
+		http.Error(w, "Failed to save commit", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// handleWorkspacesDiff compares the active configuration with the last commit
+func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	tx, err := db.DB().Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	// Get the last commit's JSON
+	var oldJSON []byte
+	err = tx.QueryRow("SELECT snapshot_json FROM commit_history ORDER BY id DESC LIMIT 1").Scan(&oldJSON)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, "Failed to fetch previous commit", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate the current active state
+	newState, err := GenerateSnapshot(tx)
+	if err != nil {
+		http.Error(w, "Failed to generate current snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	newJSON, _ := json.Marshal(newState)
+
+	// Diff them
+	diff, err := CompareSnapshots(oldJSON, newJSON)
+	if err != nil {
+		http.Error(w, "Failed to diff snapshots", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(diff)
+}
+
+// handleWorkspacesHistory returns the commit log
+func handleWorkspacesHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	rows, err := db.DB().Query("SELECT id, message, strftime('%Y-%m-%dT%H:%M:%SZ', timestamp) FROM commit_history ORDER BY id DESC")
+	if err != nil {
+		http.Error(w, "Failed to query history", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var history []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var msg, ts string
+		if err := rows.Scan(&id, &msg, &ts); err == nil {
+			history = append(history, map[string]interface{}{
+				"id": id, "message": msg, "timestamp": ts,
+			})
+		}
+	}
+
+	if history == nil {
+		history = make([]map[string]interface{}, 0)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
+}
+
+// handleWorkspacesRevert reverts the active DB state to a specific commit
+func handleWorkspacesRevert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		CommitID int `json:"commit_id"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		http.Error(w, "No active workspace", http.StatusBadRequest)
+		return
+	}
+	db := activeDB
+	vaultMutex.RUnlock()
+
+	tx, err := db.DB().Begin()
+	if err != nil {
+		http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+
+	var snapshotJSON []byte
+	query := "SELECT snapshot_json FROM commit_history ORDER BY id DESC LIMIT 1"
+	args := []interface{}{}
+	if req.CommitID > 0 {
+		query = "SELECT snapshot_json FROM commit_history WHERE id = ?"
+		args = append(args, req.CommitID)
+	}
+
+	err = tx.QueryRow(query, args...).Scan(&snapshotJSON)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to find snapshot", http.StatusNotFound)
+		return
+	}
+
+	if err := RestoreSnapshot(tx, snapshotJSON); err != nil {
+		tx.Rollback()
+		slog.Error("Failed to restore snapshot", slog.String("err", err.Error()))
+		http.Error(w, "Failed to restore snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a new commit to track the reversion
+	revertMsg := "Reverted to previous state"
+	if req.CommitID > 0 {
+		revertMsg = fmt.Sprintf("Reverted to commit %d", req.CommitID)
+	}
+	_, err = tx.Exec("INSERT INTO commit_history (message, snapshot_json) VALUES (?, ?)", revertMsg, snapshotJSON)
+	if err != nil {
+		tx.Rollback()
+		http.Error(w, "Failed to save revert commit", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }

@@ -60,6 +60,12 @@ var (
 )
 
 var actSchema = `
+	CREATE TABLE IF NOT EXISTS commit_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		message TEXT NOT NULL,
+		snapshot_json BLOB NOT NULL
+	);
 	CREATE TABLE IF NOT EXISTS scopes (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		uuid TEXT UNIQUE NOT NULL,
@@ -1300,6 +1306,12 @@ func main() {
 	mux.HandleFunc("/api/workspaces/export", handleWorkspacesExport)
 	mux.HandleFunc("/api/workspaces/import", handleWorkspacesImport)
 	mux.HandleFunc("/api/workspaces/delete", handleWorkspacesDelete)
+
+	// Commit endpoints
+	mux.HandleFunc("/api/workspaces/commit", handleWorkspacesCommit)
+	mux.HandleFunc("/api/workspaces/diff", handleWorkspacesDiff)
+	mux.HandleFunc("/api/workspaces/history", handleWorkspacesHistory)
+	mux.HandleFunc("/api/workspaces/revert", handleWorkspacesRevert)
 
 	// Secrets Vault: List
 	mux.HandleFunc("/api/secrets", handleSecretsList)
