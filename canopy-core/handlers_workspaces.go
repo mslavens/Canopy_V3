@@ -782,13 +782,22 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 			for _, tag := range obj.Tags {
 				tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES ('address_group', ?, (SELECT id FROM tags WHERE name = ?))", intID, tag)
 			}
+			var missingMembers []string
 			for _, m := range obj.Members {
 				var objID int64
 				if err := tx.QueryRow("SELECT id FROM address_objects WHERE name = ?", m).Scan(&objID); err == nil {
 					tx.Exec("INSERT INTO address_group_members (group_id, member_address_id) VALUES (?, ?)", intID, objID)
 				} else if err := tx.QueryRow("SELECT id FROM address_groups WHERE name = ?", m).Scan(&objID); err == nil {
 					tx.Exec("INSERT INTO address_group_members (group_id, member_group_id) VALUES (?, ?)", intID, objID)
+				} else {
+					missingMembers = append(missingMembers, m)
 				}
+			}
+			
+			if len(missingMembers) > 0 {
+				tx.Rollback()
+				http.Error(w, "Cannot fully revert Address Group. The following dependent members were not found (you must revert them first): " + strings.Join(missingMembers, ", "), http.StatusBadRequest)
+				return
 			}
 		}
 	case "services":
