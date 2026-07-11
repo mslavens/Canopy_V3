@@ -79,7 +79,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
           name: `${groupName} Members`,
           description: `Updated members for ${groupName} (${data.added.length} added, ${data.deleted.length} removed)`,
           details: { _isAggregated: true, ...data },
-          dbId: null
+          dbId: gid
         });
       });
       return;

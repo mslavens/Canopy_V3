@@ -897,22 +897,60 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tx.Exec("PRAGMA defer_foreign_keys = ON")
-	tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName), intID)
-
-	if rows, ok := state.Tables[tableName]; ok {
-		for _, row := range rows {
-			if fmt.Sprintf("%v", row["id"]) == req.ID || fmt.Sprintf("%v", row["id"]) == fmt.Sprintf("%d", intID) {
-				var cols []string
-				var placeholders []string
-				var vals []interface{}
-				for k, v := range row {
-					cols = append(cols, k)
-					placeholders = append(placeholders, "?")
-					vals = append(vals, v)
+	
+	if tableName == "address_group_members" || tableName == "service_group_members" || tableName == "application_group_members" {
+		tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE group_id = ?", tableName), intID)
+		if rows, ok := state.Tables[tableName]; ok {
+			for _, row := range rows {
+				if fmt.Sprintf("%v", row["group_id"]) == req.ID || fmt.Sprintf("%v", row["group_id"]) == fmt.Sprintf("%d", intID) {
+					var cols []string
+					var placeholders []string
+					var vals []interface{}
+					for k, v := range row {
+						cols = append(cols, k)
+						placeholders = append(placeholders, "?")
+						vals = append(vals, v)
+					}
+					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
+					tx.Exec(query, vals...)
 				}
-				query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
-				tx.Exec(query, vals...)
-				break
+			}
+		}
+	} else if tableName == "entity_tag_mappings" {
+		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ?", intID)
+		if rows, ok := state.Tables[tableName]; ok {
+			for _, row := range rows {
+				if fmt.Sprintf("%v", row["entity_id"]) == req.ID || fmt.Sprintf("%v", row["entity_id"]) == fmt.Sprintf("%d", intID) {
+					var cols []string
+					var placeholders []string
+					var vals []interface{}
+					for k, v := range row {
+						cols = append(cols, k)
+						placeholders = append(placeholders, "?")
+						vals = append(vals, v)
+					}
+					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
+					tx.Exec(query, vals...)
+				}
+			}
+		}
+	} else {
+		tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName), intID)
+		if rows, ok := state.Tables[tableName]; ok {
+			for _, row := range rows {
+				if fmt.Sprintf("%v", row["id"]) == req.ID || fmt.Sprintf("%v", row["id"]) == fmt.Sprintf("%d", intID) {
+					var cols []string
+					var placeholders []string
+					var vals []interface{}
+					for k, v := range row {
+						cols = append(cols, k)
+						placeholders = append(placeholders, "?")
+						vals = append(vals, v)
+					}
+					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
+					tx.Exec(query, vals...)
+					break
+				}
 			}
 		}
 	}
