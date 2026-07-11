@@ -3430,7 +3430,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               <input
                 type="text"
                 className="input-text"
-                value={formScopeUuid === 'paloalto-panorama-global' ? 'Shared (Global Root)' : (scopeNameMap[formScopeUuid] || formScopeUuid)}
+                value={scopeNameMap[formScopeUuid] || formScopeUuid}
                 disabled
                 style={{ cursor: 'not-allowed', opacity: 0.6 }}
               />
@@ -3439,8 +3439,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 width="100%"
                 value={formScopeUuid}
                 onChange={setFormScopeUuid}
-                options={Array.from(new Set(['paloalto-panorama-global', ...deviceGroups.map(dg => dg.uuid)]))}
-                renderOption={(opt) => opt === 'paloalto-panorama-global' ? 'Shared (Global Root)' : (scopeNameMap[opt] || opt)}
+                options={Array.from(new Set(deviceGroups.map(dg => dg.uuid)))}
+                renderOption={(opt) => scopeNameMap[opt] || opt}
               />
             )}
           </div>

@@ -1069,10 +1069,10 @@ func mountAndSeedVault(password string, w http.ResponseWriter) {
 
 	// 2. Workspace Schema
 	activeDB.WriteLock()
-	migrateWorkspaceDatabase(activeDB.DB())
 	if _, err := activeDB.DB().Exec(actSchema); err != nil {
 		slog.Error("Failed to initialize workspace schema", slog.String("error", err.Error()))
 	}
+	migrateWorkspaceDatabase(activeDB.DB())
 	activeDB.DB().Exec(fmt.Sprintf("INSERT OR REPLACE INTO framework_metadata (app_id, schema_version) VALUES ('%s', 3)", AppBundleID))
 	activeDB.WriteUnlock()
 
