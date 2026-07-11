@@ -937,7 +937,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               </tr>
               {expandableRowRender && expandedRows.has(getRowKey(row)) && (
                 <tr style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-                  <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0) + (expandableRowRender ? 1 : 0)} style={{ padding: 0, borderBottom: '1px solid var(--border-main)' }}>
+                  <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0) + 1} style={{ padding: 0, borderBottom: '1px solid var(--border-main)' }}>
                     {expandableRowRender(row)}
                   </td>
                 </tr>

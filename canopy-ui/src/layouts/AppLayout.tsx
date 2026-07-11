@@ -208,7 +208,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [dontShowAgain, setDontShowAgain] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const savedWidth = localStorage.getItem('canopy-sidebar-width');
-    return savedWidth ? parseInt(savedWidth, 10) : 240;
+    const width = savedWidth ? parseInt(savedWidth, 10) : 260;
+    return Math.max(260, width);
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => localStorage.getItem('canopy-sidebar-open') !== 'false');
   const [tabCounts, setTabCounts] = useState<Record<string, number>>({});
@@ -548,7 +549,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const newWidth = startWidth + (moveEvent.pageX - startX);
-      if (newWidth >= 200 && newWidth <= 500) {
+      if (newWidth >= 260 && newWidth <= 500) {
         setSidebarWidth(newWidth);
       }
     };
@@ -588,10 +589,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       overflow: 'hidden'
     }}>
       {/* --- TOP NAVIGATION BAR --- */}
-      <header style={{ position: 'relative', zIndex: 2000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '50px', backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border-main)', padding: '0 20px', gap: '20px' }}>
-
+      <header className="app-header" style={{ 
+        '--logo-width': isSidebarOpen ? `calc(${sidebarWidth}px + 4px)` : 'auto',
+        '--sidebar-border-display': isSidebarOpen ? 'block' : 'none',
+        '--logo-pad-right': isSidebarOpen ? '10px' : '20px',
+        '--sidebar-offset': isSidebarOpen ? `${sidebarWidth + 4}px` : '0px'
+      } as React.CSSProperties}>
         {/* Decouple the logo from the sidebar width for a perfectly rigid top header */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="app-header-logo">
           <Tooltip content={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"} position="bottom" align="left">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
               <PanelLeft size={18} />
@@ -602,7 +607,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         {/* Hide scrollbar for a cleaner look while allowing horizontal scrolling on narrow screens */}
         <style>{`.nav-scroll::-webkit-scrollbar { display: none; }`}</style>
-        <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, position: 'relative', height: '100%', overflow: 'hidden' }}>
+        <div className="app-header-tabs">
           {showLeftChevron && (
             <button
               onClick={() => scrollNav('left')}
@@ -674,7 +679,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </div>
 
         {/* Prevent the right-hand controls from shrinking so they never get cut off */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
+        <div className="app-header-controls">
           <div ref={searchRef} style={{ position: 'relative' }} onKeyDown={handleSearchKeyDown}>
             <SearchBar value={typeof globalSearchQuery === 'string' ? globalSearchQuery : ''} onChange={(val: any) => setGlobalSearchQuery(val?.target?.value !== undefined ? val.target.value : val)} placeholder="Search (Cmd+K)" variant="global" />
 

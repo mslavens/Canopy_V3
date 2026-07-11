@@ -253,13 +253,13 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
                   className="btn-secondary btn-sm"
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--text-danger)' }}
                   onClick={() => { 
-                    setConfirmModal({
-                      isOpen: true,
+                    confirm({
                       title: 'Delete Log',
                       message: 'Are you sure you want to permanently delete this log?',
                       confirmText: 'Delete',
                       isDestructive: true,
                       onConfirm: async () => {
+                        if (!auth) return;
                         try {
                           const client = new CanopyApiClient(auth);
                           setLogs(prev => prev.filter(l => l.id !== row.id));

@@ -3,7 +3,7 @@ import { CanopyApiClient } from '../api/client';
 import { PageHeader } from '../components/PageHeader';
 import { DataTable } from '../components/DataTable';
 import { Loader2, RefreshCw, ChevronLeft, PanelLeft, Split, GripVertical, Plus, Trash2, Box, Layers, GitMerge, Shield, Play, HelpCircle, Filter, Settings, ExternalLink } from 'lucide-react';
-import { HeatMapMatrix } from '../components/HeatMapMatrix';
+
 import { SearchableScopeDropdown } from '../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
 import { SearchBar } from '../components/SearchBar';

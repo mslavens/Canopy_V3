@@ -408,3 +408,79 @@ select.input-text option {
 .table-row-active > td:first-child {
   box-shadow: inset 3px 0 0 0 var(--accent-blue);
 }
+
+/* ==========================================================================================
+   8. RESPONSIVE HEADER STYLES
+   ========================================================================================== */
+.app-header {
+  position: relative;
+  z-index: 2000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 50px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-main);
+  flex-wrap: wrap;
+}
+
+/* Full-height vertical divider that spans across wrapped rows */
+.app-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sidebar-offset, 0px) - 4px);
+  width: 4px;
+  background-color: var(--border-main);
+  display: var(--sidebar-border-display, none);
+  z-index: 10;
+}
+
+.app-header-logo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: var(--logo-width, auto);
+  padding-left: 20px;
+  padding-right: var(--logo-pad-right, 20px);
+  height: 50px;
+  background-color: var(--bg-surface);
+  box-sizing: border-box;
+}
+
+.app-header-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  height: 50px;
+  overflow: hidden;
+  padding-left: 20px;
+}
+
+.app-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-shrink: 0;
+  padding-right: 20px;
+}
+
+@media (max-width: 1550px) {
+  .app-header-logo {
+    order: 1;
+  }
+  .app-header-controls {
+    order: 2;
+  }
+  .app-header-tabs {
+    order: 3;
+    flex-basis: calc(100% - var(--sidebar-offset, 0px));
+    margin-left: var(--sidebar-offset, 0px);
+    height: 50px;
+    padding-left: 20px;
+  }
+}
