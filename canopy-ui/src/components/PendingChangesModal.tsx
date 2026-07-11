@@ -16,10 +16,18 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
 
   // Flatten diffData into a list of changes
   const changes: any[] = [];
-  const getDisplayName = (item: any) => {
-    if (!item || !item.name) return 'Unknown Object';
-    if (typeof item.name === 'string') return item.name;
-    return item.name.new || item.name.old || 'Unknown Object';
+  const getDisplayName = (item: any, tableName?: string) => {
+    if (item?.name) {
+      if (typeof item.name === 'string') return item.name;
+      return item.name.new || item.name.old || 'Unknown Object';
+    }
+    
+    if (tableName === 'address_group_members') return `Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'service_group_members') return `Service Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'application_group_members') return `App Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'entity_tag_mappings') return `Tag ${item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
+    
+    return 'Unknown Object';
   };
 
   const getVendorName = (item: any) => {
@@ -39,12 +47,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     if (!categoryData) return;
     
     // Added
-    (categoryData.added || []).forEach((item: any) => {
-      const dName = getDisplayName(item);
+    (categoryData.added || []).forEach((item: any, idx: number) => {
+      const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item);
       const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
       changes.push({
-        id: `add_${categoryName}_${dName}_${scopeUUID}`,
+        id: `add_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'ADD',
         table: categoryName,
         vendor: vendor,
@@ -57,12 +65,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     });
 
     // Modified
-    (categoryData.modified || []).forEach((item: any) => {
-      const dName = getDisplayName(item);
+    (categoryData.modified || []).forEach((item: any, idx: number) => {
+      const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item.new || item);
       const scopeUUID = (item.new || item)?.device_uuid || (item.new || item)?.deviceUuid || (item.new || item)?.scope || 'global';
       changes.push({
-        id: `mod_${categoryName}_${dName}_${scopeUUID}`,
+        id: `mod_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'UPDATE',
         table: categoryName,
         vendor: vendor,
@@ -75,12 +83,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     });
 
     // Deleted
-    (categoryData.deleted || []).forEach((item: any) => {
-      const dName = getDisplayName(item);
+    (categoryData.deleted || []).forEach((item: any, idx: number) => {
+      const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item);
       const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
       changes.push({
-        id: `del_${categoryName}_${dName}_${scopeUUID}`,
+        id: `del_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'DELETE',
         table: categoryName,
         vendor: vendor,

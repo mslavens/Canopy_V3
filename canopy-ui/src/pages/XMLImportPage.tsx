@@ -236,6 +236,17 @@ export const XMLImportPage: React.FC<XMLImportPageProps> = ({ auth, addToast, on
         topologies_imported: finalResult.topologies_imported
       });
       addToast('Configuration successfully committed to database.', 'success');
+
+      try {
+        const healRes = await apiClient.healWorkspace();
+        if (healRes && (healRes.addresses_healed > 0 || healRes.services_healed > 0 || healRes.applications_healed > 0)) {
+          addToast(`Self-heal mapped ${healRes.addresses_healed} addresses, ${healRes.services_healed} services, and ${healRes.applications_healed} apps.`, 'success');
+        } else {
+          addToast('Self-heal complete (no orphaned objects found).', 'success');
+        }
+      } catch (err) {
+        console.error('Failed to run heal workspace:', err);
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Import failed.';
       setError(errMsg);

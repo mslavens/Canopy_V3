@@ -15,41 +15,58 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
   // Flatten diffData into a list of changes
   const changes: any[] = [];
   
+  const getDisplayName = (item: any, tableName?: string) => {
+    if (item?.name) {
+      if (typeof item.name === 'string') return item.name;
+      return item.name.new || item.name.old || 'Unknown Object';
+    }
+    
+    if (tableName === 'address_group_members') return `Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'service_group_members') return `Service Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'application_group_members') return `App Group ${item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'entity_tag_mappings') return `Tag ${item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
+    
+    return 'Unknown Object';
+  };
+
   const processCategory = (categoryName: string, categoryData: any) => {
     if (!categoryData) return;
     
     // Added
-    (categoryData.added || []).forEach((item: any) => {
+    (categoryData.added || []).forEach((item: any, idx: number) => {
+      const name = getDisplayName(item, categoryName);
       changes.push({
-        id: `add_${categoryName}_${item.name}`,
+        id: `add_${categoryName}_${name}_${idx}`,
         type: 'ADD',
         table: categoryName,
-        name: item.name,
-        description: `Added ${item.name} to ${categoryName}`,
+        name: name,
+        description: `Added ${name} to ${categoryName}`,
         details: item
       });
     });
 
     // Modified
-    (categoryData.modified || []).forEach((item: any) => {
+    (categoryData.modified || []).forEach((item: any, idx: number) => {
+      const name = getDisplayName(item, categoryName);
       changes.push({
-        id: `mod_${categoryName}_${item.name}`,
+        id: `mod_${categoryName}_${name}_${idx}`,
         type: 'UPDATE',
         table: categoryName,
-        name: item.name,
-        description: `Updated ${item.name} in ${categoryName}`,
+        name: name,
+        description: `Updated ${name} in ${categoryName}`,
         details: item
       });
     });
 
     // Deleted
-    (categoryData.deleted || []).forEach((item: any) => {
+    (categoryData.deleted || []).forEach((item: any, idx: number) => {
+      const name = getDisplayName(item, categoryName);
       changes.push({
-        id: `del_${categoryName}_${item.name}`,
+        id: `del_${categoryName}_${name}_${idx}`,
         type: 'DELETE',
         table: categoryName,
-        name: item.name,
-        description: `Deleted ${item.name} from ${categoryName}`,
+        name: name,
+        description: `Deleted ${name} from ${categoryName}`,
         details: item
       });
     });
