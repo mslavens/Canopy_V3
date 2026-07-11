@@ -21,4 +21,4 @@ Templates and Template Stacks represent the network configuration layering syste
 
 ### Generating CLI Configuration
 - Right-click a Base Template or Template Stack to open the context menu.
-- Click **Generate CLI** to view and copy standard Palo Alto Panorama CLI commands representing the configuration.
+- Click **Generate CLI** to view and copy standard vendor CLI commands representing the configuration.

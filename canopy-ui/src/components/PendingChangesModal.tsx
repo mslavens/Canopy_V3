@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, ChevronDown, ChevronRight, Search, Undo2 } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Search, Undo2, HelpCircle } from 'lucide-react';
 import { DataTable, ColumnDef } from './DataTable';
-
+import { CommitHelpModal } from './CommitHelpModal';
 
 interface CommitDetailsModalProps {
   onClose: () => void;
@@ -13,6 +13,7 @@ interface CommitDetailsModalProps {
 
 export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert, onCommit, globalScopeVendor }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Flatten diffData into a list of changes
   const changes: any[] = [];
@@ -209,13 +210,23 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-surface)' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
-            Pending Changes <span style={{ fontWeight: 600 }}>({changes.length})</span>
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
+              Pending Changes <span style={{ fontWeight: 600 }}>({changes.length})</span>
+            </h3>
+            <button 
+              onClick={() => setIsHelpOpen(true)}
+              title="How does Candidate Config work?"
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+            >
+              <HelpCircle size={16} />
+            </button>
+          </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
+        <CommitHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
         {/* Search */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)' }}>

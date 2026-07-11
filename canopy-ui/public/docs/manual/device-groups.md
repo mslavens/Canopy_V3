@@ -1,6 +1,6 @@
 # Device Group Management
 
-Device Groups inside the Canopy framework align with Palo Alto Networks Panorama device group architectures, allowing you to organize firewall units into hierarchical structures for inheritance-based security policy distribution.
+Device Groups inside the Canopy framework allow you to organize firewall units into hierarchical structures for inheritance-based security policy distribution.
 
 ## Key Actions
 
@@ -23,4 +23,4 @@ Device Groups inside the Canopy framework align with Palo Alto Networks Panorama
   > Dissolving a device group will delete all security rules, zones, and variables associated with its scope.
 
 ### Generating CLI Commands
-- Right-click any Device Group and select **Generate CLI** to generate the corresponding Panorama set commands (e.g. `set device-group ...`) to synchronize your structures.
+- Right-click any Device Group and select **Generate CLI** to generate the corresponding vendor set commands to synchronize your structures.

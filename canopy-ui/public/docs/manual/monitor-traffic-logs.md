@@ -15,7 +15,7 @@ The Traffic Logs tab displays a unified view of all network activity.
 
 The **Log Import** tab allows you to ingest historical firewall traffic logs for offline analysis.
 
-- **Supported Formats:** You can import logs exported from Palo Alto Networks firewalls or Panorama in standard CSV format.
+- **Supported Formats:** You can import logs exported from supported firewall vendors in standard CSV format.
 - **Data Enrichment:** During import, the system automatically parses firewall-specific columns and normalizes the data for high-speed querying within the offline SQLite vault.
 - **Performance:** Imported logs are seamlessly merged with the main database without requiring network access, enabling instant, high-performance offline analytics.
 

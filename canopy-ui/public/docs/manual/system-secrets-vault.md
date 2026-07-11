@@ -1,6 +1,6 @@
 # Secrets Vault
 
-The Secrets Vault securely stores API keys, tokens, and credentials used by the Canopy engine to authenticate with external infrastructure (such as Palo Alto firewalls or cloud APIs).
+The Secrets Vault securely stores API keys, tokens, and credentials used by the Canopy engine to authenticate with external infrastructure (such as firewalls or cloud APIs).
 
 ### Security & Encryption
 All secrets are encrypted at rest inside your client workspace using your active passphrase via **SQLCipher**. They are never saved in plaintext and are only decrypted in memory when actively required by the backend engine to perform an external operation.

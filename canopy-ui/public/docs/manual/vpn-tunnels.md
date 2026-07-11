@@ -1,4 +1,4 @@
-# Palo Alto IKEv2 Gateway Routing Configurations
+# IKEv2 Gateway Routing Configurations
 
 ## Architectural Constraints
 All VPN interfaces must match the standardized global zone configurations. If a remote dynamic peer fails to authenticate, inspect your peer identification parameters.

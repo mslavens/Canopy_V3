@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CanopyApiClient } from '../api/client';
-import { History, Clock, GitCommit, RotateCcw, FileJson, ArrowRight, CornerUpLeft, PlusCircle, MinusCircle, Edit2, Play, ChevronLeft, Code, Upload, Search } from 'lucide-react';
+import { History, Clock, GitCommit, RotateCcw, FileJson, ArrowRight, CornerUpLeft, PlusCircle, MinusCircle, Edit2, Play, ChevronLeft, Code, Upload, Search, HelpCircle } from 'lucide-react';
 import { useConfirm } from '../components/ConfirmProvider';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { HighlightedText } from '../components/HighlightedText';
 import { Dropdown } from '../components/Dropdown';
 import { SearchBar } from '../components/SearchBar';
+import { CommitHistoryHelpModal } from '../components/CommitHistoryHelpModal';
 
 interface CommitHistoryPageProps {
   globalScopeVendor?: string;
@@ -41,6 +42,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
   const [diffData, setDiffData] = useState<any>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   
   // Search states
   const [historySearch, setHistorySearch] = useState('');
@@ -431,7 +433,16 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
             {viewMode === 'history' ? (
               <React.Fragment>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minWidth: 0 }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Config Audit &amp; Commit History</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Config Audit &amp; Commit History</h2>
+                    <button 
+                      onClick={() => setIsHelpOpen(true)}
+                      title="How does Commit History work?"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                    >
+                      <HelpCircle size={18} />
+                    </button>
+                  </div>
                   <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
                     Review the timeline of changes made to your active workspace, inspect diffs, and revert to previous states if necessary.
                   </p>
@@ -626,6 +637,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
           </div>
         )}
       </div>
+      <CommitHistoryHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 };
