@@ -8,10 +8,8 @@ import (
 )
 
 func saveEntityTags(tx *sql.Tx, entityType string, entityID int64, deviceUUID string, tags []string) error {
-	_, err := tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_type = ? AND entity_id = ?", entityType, entityID)
-	if err != nil {
-		return err
-	}
+	// 1. Resolve all requested tags into tag IDs
+	requestedTagIDs := make(map[int64]bool)
 	for _, tagName := range tags {
 		tagName = strings.TrimSpace(tagName)
 		if tagName == "" {
@@ -26,12 +24,42 @@ func saveEntityTags(tx *sql.Tx, entityType string, entityID int64, deviceUUID st
 			}
 		}
 		if tagID > 0 {
-			_, err = tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES (?, ?, ?)", entityType, entityID, tagID)
-			if err != nil {
+			requestedTagIDs[tagID] = true
+		}
+	}
+
+	// 2. Get existing tag IDs for this entity
+	existingTagIDs := make(map[int64]bool)
+	rows, err := tx.Query("SELECT tag_id FROM entity_tag_mappings WHERE entity_type = ? AND entity_id = ?", entityType, entityID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tagID int64
+		if err := rows.Scan(&tagID); err == nil {
+			existingTagIDs[tagID] = true
+		}
+	}
+
+	// 3. Delete removed tags
+	for existingID := range existingTagIDs {
+		if !requestedTagIDs[existingID] {
+			if _, err := tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_type = ? AND entity_id = ? AND tag_id = ?", entityType, entityID, existingID); err != nil {
 				return err
 			}
 		}
 	}
+
+	// 4. Insert new tags
+	for reqID := range requestedTagIDs {
+		if !existingTagIDs[reqID] {
+			if _, err := tx.Exec("INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id) VALUES (?, ?, ?)", entityType, entityID, reqID); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 func handleTagCreate(w http.ResponseWriter, r *http.Request) {

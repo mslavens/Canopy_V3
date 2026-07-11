@@ -199,6 +199,9 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 				isDiff := false
 				changes := map[string]interface{}{}
 				for k, v := range newVal {
+					if k == "dirty" || k == "created_at" || k == "updated_at" {
+						continue
+					}
 					if fmt.Sprintf("%v", v) != fmt.Sprintf("%v", oldVal[k]) {
 						isDiff = true
 						changes[k] = map[string]interface{}{"old": oldVal[k], "new": v}
@@ -207,7 +210,9 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 				if isDiff {
 					for k, v := range newVal {
 						if k == "id" || k == "name" || strings.HasPrefix(k, "member_") || k == "group_id" || k == "entity_id" || k == "device_uuid" || k == "scope" {
-							changes[k] = v
+							if _, exists := changes[k]; !exists {
+								changes[k] = v
+							}
 						}
 					}
 					tableDiff.Modified = append(tableDiff.Modified, changes)
