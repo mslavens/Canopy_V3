@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0] - 2026-07-10
+### Added
+- **Candidate Configuration Engine (Workspace Commits)**: Implemented a full workspace snapshot and commit architecture mimicking Panorama's candidate configuration. Modifications to objects and policies are now safely staged in the active workspace and can be reviewed, diffed, committed, or completely reverted without affecting the active config.
+- **Commit Details Modal**: Built a dedicated UI interface for reviewing pending changes, complete with syntax-highlighted JSON diffs and a dynamic notification badge that perfectly tracks the number of uncommitted modifications.
+- **Single Change Revert (Undo)**: Implemented granular "Undo" capabilities within the Pending Changes modal. Users can now revert individual modifications without having to revert the entire uncommitted workspace.
+- **Dependency Enforcement for Deletions**: Restored Canopy 1.0 "Object in Use" safety guardrails. When attempting to delete an object (Address, Service, Group) that is actively referenced by parent Groups or Rules, the UI now intercepts the deletion and explicitly lists all dependent relationships, requiring explicit "Remove & Delete" confirmation to prevent accidental cascading configuration drops.
+
+### Changed
+- **Backend Diffing Engine**: Developed a high-performance generic map diffing engine in Go that mathematically compares the active SQLite state against the last committed JSON snapshot to generate real-time pending changes.
+- **Stable Pending Changes UI**: The Pending Changes diff list is now strictly sorted alphabetically by object name on the backend, resolving an issue where random Go map iterations caused the UI to shuffle items every few seconds.
+
+### Fixed
+- **Object Restoration Constraints**: Fixed a critical backend bug where reverting an object deletion silently failed to restore it due to a missing `device_uuid` lookup constraint. The snapshot engine now explicitly embeds device UUIDs, and a robust fallback layer gracefully handles legacy snapshots.
+- **Partial Object Restoration**: Fixed a flaw in the Undo logic where partially reverting a group while its members remained deleted would succeed silently, generating a broken object. The backend now strictly validates all nested relationships during a revert and gracefully rolls back the transaction with a 400 Bad Request error if dependent members are missing.
+- **Diff Rendering Engine**: Refactored the Pending Changes diff viewer to bypass heavy state updates and IPC lag. Fixed an issue where the viewer improperly rendered blank lines for unchanged metadata and values.
+
 ## [0.26.0] - 2026-07-09
 ### Added
 - **Structured Global Search**: Redesigned the global search omnibox to use a structured, tabular layout grouped by object/policy type (matching Panorama's UX). Features collapsible group headers and preserved keyboard navigation.
