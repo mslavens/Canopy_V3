@@ -2,6 +2,17 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.28.0 - Granular Group Mapping Reverts & Aggregated Diffing
+**Date:** 2026-07-11
+
+### Added
+- **Aggregated Mapping Diffs**: Upgraded the frontend Commit Details and Pending Changes modals to intelligently group individual mapping table changes (e.g. `address_group_members`). Instead of displaying a noisy row for every individual added or removed member, the UI now rolls them up into a single clean `UPDATE` row for the parent Group, dramatically reducing diff clutter when bulk-modifying group memberships.
+- **Granular Group Reverts**: Upgraded the backend `/api/workspaces/revert-single` API to support reverting entire group mapping composite keys. Users can now click the 'Undo' button on an aggregated Group diff row in the UI to instantly drop all pending uncommitted member additions/deletions and perfectly restore that group's mappings from the active Snapshot.
+- **Resolved Naming Resolution**: Extended the backend `CompareSnapshots` engine to resolve complex backend mapping table foreign keys into highly readable frontend display names. When reviewing pending changes, users will now see exact names like `Group Name` and `Member Name` instead of arbitrary backend database UUIDs.
+
+### Changed
+- **Diff Expansion Exclusions**: Excluded redundant raw backend keys (`group_id`, `member_address_id`, `tag_id`, etc.) from being rendered in the JSON expansion block in the UI to maintain a much cleaner and more human-readable configuration diff format.
+
 ## v0.27.0 - Single Change Reverts & Dependency Enforcement
 **Date:** 2026-07-10
 
