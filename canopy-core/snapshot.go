@@ -163,6 +163,80 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 	for k := range newState.Tables {
 		allTables[k] = true
 	}
+
+	idToName := make(map[string]string)
+	indexTable := func(state *SnapshotState, table string) {
+		for _, row := range state.Tables[table] {
+			if id, ok := row["id"]; ok {
+				if name, ok := row["name"].(string); ok {
+					idToName[fmt.Sprintf("%s:%v", table, id)] = name
+				}
+			}
+		}
+	}
+	for _, t := range []string{"address_objects", "address_groups", "service_objects", "service_groups", "application_objects", "application_groups", "tags"} {
+		indexTable(&oldState, t)
+		indexTable(&newState, t)
+	}
+
+	resolveName := func(table string, id interface{}) string {
+		if id == nil {
+			return ""
+		}
+		if name, ok := idToName[fmt.Sprintf("%s:%v", table, id)]; ok {
+			return name
+		}
+		return ""
+	}
+
+	enrichRow := func(tableName string, row map[string]interface{}) map[string]interface{} {
+		if tableName != "address_group_members" && tableName != "service_group_members" && tableName != "application_group_members" && tableName != "entity_tag_mappings" {
+			return row
+		}
+		
+		enriched := make(map[string]interface{})
+		for k, v := range row {
+			enriched[k] = v
+		}
+		
+		if gid, ok := enriched["group_id"]; ok && gid != nil {
+			switch tableName {
+			case "address_group_members":
+				enriched["_group_name"] = resolveName("address_groups", gid)
+			case "service_group_members":
+				enriched["_group_name"] = resolveName("service_groups", gid)
+			case "application_group_members":
+				enriched["_group_name"] = resolveName("application_groups", gid)
+			}
+		}
+		
+		switch tableName {
+		case "address_group_members":
+			if mid, ok := enriched["member_address_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("address_objects", mid)
+			} else if mid, ok := enriched["member_group_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("address_groups", mid)
+			}
+		case "service_group_members":
+			if mid, ok := enriched["member_service_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("service_objects", mid)
+			} else if mid, ok := enriched["member_group_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("service_groups", mid)
+			}
+		case "application_group_members":
+			if mid, ok := enriched["member_application_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("application_objects", mid)
+			} else if mid, ok := enriched["member_group_id"]; ok && mid != nil {
+				enriched["_member_name"] = resolveName("application_groups", mid)
+			}
+		case "entity_tag_mappings":
+			if tid, ok := enriched["tag_id"]; ok && tid != nil {
+				enriched["_tag_name"] = resolveName("tags", tid)
+			}
+		}
+		
+		return enriched
+	}
 	
 	for table := range allTables {
 		oldRows := oldState.Tables[table]
@@ -194,7 +268,7 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 			newVal := newDict[key]
 			oldVal, exists := oldDict[key]
 			if !exists {
-				tableDiff.Added = append(tableDiff.Added, newVal)
+				tableDiff.Added = append(tableDiff.Added, enrichRow(table, newVal))
 			} else {
 				isDiff := false
 				changes := map[string]interface{}{}
@@ -215,6 +289,13 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 							}
 						}
 					}
+					// Also include any enriched virtual fields so the UI can display them
+					enriched := enrichRow(table, newVal)
+					for k, v := range enriched {
+						if strings.HasPrefix(k, "_") {
+							changes[k] = v
+						}
+					}
 					tableDiff.Modified = append(tableDiff.Modified, changes)
 				}
 			}
@@ -229,7 +310,7 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 		for _, key := range oldKeys {
 			oldVal := oldDict[key]
 			if _, exists := newDict[key]; !exists {
-				tableDiff.Deleted = append(tableDiff.Deleted, oldVal)
+				tableDiff.Deleted = append(tableDiff.Deleted, enrichRow(table, oldVal))
 			}
 		}
 		

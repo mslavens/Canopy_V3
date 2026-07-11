@@ -23,10 +23,10 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
       return item.name.new || item.name.old || 'Unknown Object';
     }
     
-    if (tableName === 'address_group_members') return `Group ${item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'service_group_members') return `Service Group ${item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'application_group_members') return `App Group ${item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'entity_tag_mappings') return `Tag ${item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
+    if (tableName === 'address_group_members') return `Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'service_group_members') return `Service Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'application_group_members') return `App Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+    if (tableName === 'entity_tag_mappings') return `Tag ${item._tag_name || item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
     
     return 'Unknown Object';
   };
@@ -34,6 +34,39 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
   const processCategory = (categoryName: string, categoryData: any) => {
     if (!categoryData) return;
     
+    if (['address_group_members', 'service_group_members', 'application_group_members'].includes(categoryName)) {
+      const grouped = new Map<number, { added: any[], deleted: any[] }>();
+      
+      const getGroupId = (item: any) => item.group_id?.new || item.group_id;
+
+      (categoryData.added || []).forEach((item: any) => {
+        const gid = getGroupId(item);
+        if (!grouped.has(gid)) grouped.set(gid, { added: [], deleted: [] });
+        grouped.get(gid)!.added.push(item);
+      });
+
+      (categoryData.deleted || []).forEach((item: any) => {
+        const gid = getGroupId(item);
+        if (!grouped.has(gid)) grouped.set(gid, { added: [], deleted: [] });
+        grouped.get(gid)!.deleted.push(item);
+      });
+
+      Array.from(grouped.entries()).forEach(([gid, data], idx) => {
+        const firstItem = data.added[0] || data.deleted[0];
+        const groupName = firstItem?._group_name || `Group ${gid}`;
+        
+        changes.push({
+          id: `mod_group_members_${categoryName}_${gid}_${idx}`,
+          type: 'UPDATE',
+          table: categoryName,
+          name: `${groupName} Members`,
+          description: `Updated members for ${groupName} (${data.added.length} added, ${data.deleted.length} removed)`,
+          details: { _isAggregated: true, ...data }
+        });
+      });
+      return;
+    }
+
     // Added
     (categoryData.added || []).forEach((item: any, idx: number) => {
       const name = getDisplayName(item, categoryName);
@@ -113,30 +146,58 @@ export const CommitDetailsModal: React.FC<CommitDetailsModalProps> = ({ onClose,
     );
   };
 
+  const formatKey = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
   const renderDiffDetails = (change: any) => {
+    const skipKeys = [
+      'id', 'device_uuid', 'scope', 'dirty', 'created_at', 'updated_at',
+      'group_id', 'member_address_id', 'member_group_id', 'member_service_id', 'member_application_id', 'tag_id', 'entity_id', 'entity_type',
+      '_group_name'
+    ];
+
+    if (change.details?._isAggregated) {
+      return (
+        <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', fontFamily: 'monospace' }}>
+          {change.details.added.map((item: any, i: number) => (
+             <div key={`add-${i}`} style={{ color: '#10b981' }}>+ Added Member: {item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}</div>
+          ))}
+          {change.details.deleted.map((item: any, i: number) => (
+             <div key={`del-${i}`} style={{ color: '#ef4444' }}>- Removed Member: {item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}</div>
+          ))}
+        </div>
+      );
+    }
+
     if (change.type === 'ADD') {
       return (
-        <pre style={{ margin: 0, padding: '10px', backgroundColor: 'var(--bg-main)', color: '#10b981', fontSize: '13px', overflowX: 'auto' }}>
-          {JSON.stringify(change.details, null, 2).split('\n').map(line => `+ ${line}`).join('\n')}
-        </pre>
+        <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', color: '#10b981', fontFamily: 'monospace' }}>
+          {Object.entries(change.details).map(([key, val]) => {
+            if (val === null || val === '' || skipKeys.includes(key)) return null;
+            return <div key={key}>+ {formatKey(key)}: {JSON.stringify(val)}</div>;
+          })}
+        </div>
       );
     }
     if (change.type === 'DELETE') {
       return (
-        <pre style={{ margin: 0, padding: '10px', backgroundColor: 'var(--bg-main)', color: '#ef4444', fontSize: '13px', overflowX: 'auto' }}>
-          {JSON.stringify(change.details, null, 2).split('\n').map(line => `- ${line}`).join('\n')}
-        </pre>
+        <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', color: '#ef4444', fontFamily: 'monospace' }}>
+          {Object.entries(change.details).map(([key, val]) => {
+            if (val === null || val === '' || skipKeys.includes(key)) return null;
+            return <div key={key}>- {formatKey(key)}: {JSON.stringify(val)}</div>;
+          })}
+        </div>
       );
     }
     if (change.type === 'UPDATE') {
       return (
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto' }}>
           {Object.entries(change.details).map(([key, val]: any) => {
-            if (key === 'name') return null; // skip name
+            if (skipKeys.includes(key)) return null;
+            if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return null;
             return (
-              <div key={key} style={{ fontFamily: 'monospace' }}>
-                <div style={{ color: '#ef4444' }}>- {key}: {JSON.stringify(val.old)}</div>
-                <div style={{ color: '#10b981' }}>+ {key}: {JSON.stringify(val.new)}</div>
+              <div key={key} style={{ fontFamily: 'monospace', marginBottom: '4px' }}>
+                <div style={{ color: '#ef4444' }}>- {formatKey(key)}: {JSON.stringify(val.old)}</div>
+                <div style={{ color: '#10b981' }}>+ {formatKey(key)}: {JSON.stringify(val.new)}</div>
               </div>
             );
           })}
