@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
 import { AlertTriangle, FolderOpen, Upload, Download, Edit2, Archive, Check, ArrowRight, Plus, Trash2, Loader2 } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { Tooltip } from '../components/Tooltip';
@@ -338,6 +338,7 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
               const isActive = ws.name === activeWorkspaceName;
               return (
                 <>
+                  <ContextMenuHeader label={ws.name} />
                   <ContextMenuItem
                     icon={<Edit2 size={13} />}
                     label="Edit Workspace"

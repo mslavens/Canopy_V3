@@ -27,7 +27,7 @@ import {
   Lock,
   ExternalLink
 } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 import { CanopyApiClient } from '../api/client';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { Modal } from '../components/Modal';
@@ -2975,6 +2975,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 onSelectionChange={setSelectedRows}
                 rowContextMenuActions={(row, closeMenu) => (
                   <>
+                    <ContextMenuHeader label={row.name} />
                     <ContextMenuItem
                       icon={<Edit2 size={13} />}
                       label="Edit"

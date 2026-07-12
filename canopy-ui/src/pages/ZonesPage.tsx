@@ -11,7 +11,7 @@ import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { DataImportWizard } from '../components/DataImportWizard';
 import { AlertTriangle, Code, Download, Edit2, Play, Search, Trash2 } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 import { Network, Loader2, Plus } from 'lucide-react';
 
 const renderVendorBadge = (val: string) => {
@@ -509,6 +509,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, globalScop
                   const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
                   return (
                     <>
+                      <ContextMenuHeader label={row.name} />
                       <ContextMenuItem
                         icon={<Edit2 size={13} />}
                         label="Edit"

@@ -12,7 +12,7 @@ import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { DataImportWizard } from '../components/DataImportWizard';
 import { AlertTriangle, ArrowRight, Code, Download, Edit2, Play, Search, Trash2, Map, Loader2, Plus } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 
 const renderVendorBadge = (val: string) => {
   const v = (val || 'paloalto').toLowerCase();
@@ -526,6 +526,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                   const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
                   return (
                     <>
+                      <ContextMenuHeader label={row.name} />
                       <ContextMenuItem
                         icon={<Edit2 size={13} />}
                         label="Edit"

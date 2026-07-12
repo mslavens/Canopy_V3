@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Filter, FilterX, Play, Search, Trash2, Calendar, FileText, ChevronDown, ChevronRight, X, RefreshCw, FileUp, Database, Copy, Eye, Plus } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { LogImporter } from '../components/LogImporter';
 import { CanopyApiClient } from '../api/client';
@@ -213,6 +213,7 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
             }
             rowContextMenuActions={(row, closeMenu, colKey, cellValue, setFilterValue, clearColumnFilter, clearAllFilters) => (
               <>
+                <ContextMenuHeader label="Log Action" />
                 {colKey && cellValue !== undefined && cellValue !== null && setFilterValue && (
                   <ContextMenuItem
                     icon={<Filter size={13} />}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Upload, RotateCcw, Camera, Trash2, Database, Loader2, Edit2, AlertTriangle, Shield, Plus, Play } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { Tooltip } from '../components/Tooltip';
@@ -231,6 +231,7 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
             }
             rowContextMenuActions={(row, closeMenu) => (
               <>
+                <ContextMenuHeader label={row.name} />
                 <ContextMenuItem
                   icon={<Edit2 size={13} />}
                   label="Edit Description"

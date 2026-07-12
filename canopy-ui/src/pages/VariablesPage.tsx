@@ -12,7 +12,7 @@ import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { DataImportWizard } from '../components/DataImportWizard';
 import { FileCode2, Loader2, Plus, Edit2, Trash2, Code, Download } from 'lucide-react';
 import { AlertTriangle, Play, Search } from 'lucide-react';
-import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
+import { ContextMenuItem, ContextMenuDivider, ContextMenuHeader } from '../components/ContextMenu';
 
 const renderVendorBadge = (val: string) => {
   const v = (val || 'paloalto').toLowerCase();
@@ -517,6 +517,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
                   const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
                   return (
                     <>
+                      <ContextMenuHeader label={row.name} />
                       <ContextMenuItem
                         icon={<Edit2 size={13} />}
                         label="Edit"
