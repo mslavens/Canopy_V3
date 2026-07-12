@@ -2,6 +2,15 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.29.0 - Context Menu Standardization (DRY Refactor)
+**Date:** 2026-07-12
+
+### Changed
+- **Centralized Component**: Created a reusable `ContextMenuItem` and `ContextMenuDivider` component in `/canopy-ui/src/components/ContextMenu.tsx`.
+- **Application-wide Refactor**: Refactored the inline-styled buttons to use the new standardized components across all 9 primary datatable pages (`WorkspacesPage`, `SnapshotsPage`, `ObjectsPage`, `DeviceManagementPage`, `ZonesPage`, `MonitorPage`, `RouteTablePage`, `VariablesPage`, `InterfacesPage`).
+- **Consistent Styling**: All context menus now feature the same spacing, standardized icons, error state styling (`danger` prop), and a consistent hover micro-interaction (`rgba(255, 255, 255, 0.05)`).
+- **Reduced Tech Debt**: Removed hundreds of lines of duplicate inline CSS and manual hover event handlers.
+
 ## v0.28.0 - Granular Group Mapping Reverts & Aggregated Diffing
 **Date:** 2026-07-11
 
