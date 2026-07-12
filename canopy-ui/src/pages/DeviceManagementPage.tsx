@@ -10,6 +10,7 @@ import { Dropdown } from '../components/Dropdown';
 import { useConfirm } from '../components/ConfirmProvider';
 import { NewWindowPortal } from '../components/NewWindowPortal';
 import { DataImportWizard } from '../components/DataImportWizard';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 import { Server, LayoutGrid, Layers, FileText, ChevronRight, ChevronDown, ChevronUp, ChevronsUp, ChevronsDown, Loader2, Network, Plus, Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Copy, MoreHorizontal, ExternalLink, Globe, X, Code, Download } from 'lucide-react';
 import { useEnabledAdapters } from '../hooks/useEnabledAdapters';
 
@@ -1872,72 +1873,45 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                       ) : undefined
                     }
                     rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                        <button
-                          className="context-menu-item"
+                      <>
+                        <ContextMenuItem
+                          icon={<Edit2 size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Edit Device"
                           onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
-                        </button>
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuItem
+                          icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Copy Device Name"
                           onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
-                        </button>
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuItem
+                          icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Copy Serial Number"
                           onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                        </button>
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuItem
+                          icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Copy Management IP"
                           onClick={() => { if (row.ip_address) { navigator.clipboard.writeText(row.ip_address); addToast('Copied Management IP'); } else { addToast('No IP Address to copy', 'error'); } closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Management IP
-                        </button>
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuItem
+                          icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Copy Device Group"
                           onClick={() => { if (row.device_group) { navigator.clipboard.writeText(row.device_group); addToast('Copied Device Group'); } else { addToast('No Device Group to copy', 'error'); } closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Group
-                        </button>
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuItem
+                          icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                          label="Copy Template Stack"
                           onClick={() => { if (row.template_stack) { navigator.clipboard.writeText(row.template_stack); addToast('Copied Template Stack'); } else { addToast('No Template Stack to copy', 'error'); } closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Template Stack
-                        </button>
-                        <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                        <button
-                          className="context-menu-item"
+                        />
+                        <ContextMenuDivider />
+                        <ContextMenuItem
+                          icon={<Trash2 size={13} style={{ color: 'var(--status-red)' }} />}
+                          label="Delete Device"
                           onClick={() => { handleDeleteDevice(row); closeMenu(); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete Device
-                        </button>
-                      </div>
+                          danger
+                        />
+                      </>
                     )}
                     toolbarTitle={
                       <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -2376,45 +2350,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                             ) : undefined
                           }
                           rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                              <button
-                                className="context-menu-item"
+                            <>
+                              <ContextMenuItem
+                                icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Copy Device Name"
                                 onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
-                              </button>
-                              <button
-                                className="context-menu-item"
+                              />
+                              <ContextMenuItem
+                                icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Copy Serial Number"
                                 onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                              </button>
-                              <button
-                                className="context-menu-item"
+                              />
+                              <ContextMenuItem
+                                icon={<Edit2 size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Edit Settings"
                                 onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Settings
-                              </button>
-                              <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                              <button
-                                className="context-menu-item"
+                              />
+                              <ContextMenuDivider />
+                              <ContextMenuItem
+                                icon={<Trash2 size={13} style={{ color: 'var(--status-red)' }} />}
+                                label="Remove from Group"
                                 onClick={() => { handleBulkRemoveFromGroup([row]); closeMenu(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              >
-                                <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Group
-                              </button>
-                            </div>
+                                danger
+                              />
+                            </>
                           )}
                         />
                       </div>
@@ -2897,45 +2856,30 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                               ) : undefined
                             }
                             rowContextMenuActions={(row: ManagedDevice, closeMenu) => (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px', padding: '4px' }}>
-                                <button
-                                  className="context-menu-item"
-                                  onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Device Name
-                                </button>
-                                <button
-                                  className="context-menu-item"
-                                  onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <Copy size={13} style={{ color: 'var(--text-muted)' }} /> Copy Serial Number
-                                </button>
-                                <button
-                                  className="context-menu-item"
-                                  onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <Edit2 size={13} style={{ color: 'var(--text-muted)' }} /> Edit Device
-                                </button>
-                                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                                <button
-                                  className="context-menu-item"
-                                  onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
-                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px' }}
-                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                  <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Template
-                                </button>
-                              </div>
+                            <>
+                              <ContextMenuItem
+                                icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Copy Device Name"
+                                onClick={() => { navigator.clipboard.writeText(row.name); closeMenu(); addToast('Copied Device Name'); }}
+                              />
+                              <ContextMenuItem
+                                icon={<Copy size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Copy Serial Number"
+                                onClick={() => { navigator.clipboard.writeText(row.serial); closeMenu(); addToast('Copied Serial Number'); }}
+                              />
+                              <ContextMenuItem
+                                icon={<Edit2 size={13} style={{ color: 'var(--text-muted)' }} />}
+                                label="Edit Device"
+                                onClick={() => { handleOpenEditDeviceModal(row); closeMenu(); }}
+                              />
+                              <ContextMenuDivider />
+                              <ContextMenuItem
+                                icon={<Trash2 size={13} style={{ color: 'var(--status-red)' }} />}
+                                label="Remove from Template"
+                                onClick={() => { handleBulkRemoveFromTemplateContext([row]); closeMenu(); }}
+                                danger
+                              />
+                            </>
                             )}
                           />
                         )}
@@ -2983,99 +2927,64 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                                        <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600 }}>
                                          {cleanTemplateName(row.template_name)}
                                        </div>
-                                       <button
-                                         className="context-menu-item"
+                                       <ContextMenuItem
+                                         icon={<ChevronsUp size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label="Move to Top"
                                          onClick={() => {
                                            handleMoveMemberTemplateToPosition(activeStack, idx, 'top');
                                            closeMenu();
                                          }}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <ChevronsUp size={13} style={{ color: 'var(--text-muted)' }} /> Move to Top
-                                       </button>
-                                       <button
-                                         className="context-menu-item"
+                                       />
+                                       <ContextMenuItem
+                                         icon={<ChevronsDown size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label="Move to Bottom"
                                          onClick={() => {
                                            handleMoveMemberTemplateToPosition(activeStack, idx, 'bottom');
                                            closeMenu();
                                          }}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <ChevronsDown size={13} style={{ color: 'var(--text-muted)' }} /> Move to Bottom
-                                       </button>
-                                       <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                                       <button
-                                         className="context-menu-item"
+                                       />
+                                       <ContextMenuDivider />
+                                       <ContextMenuItem
+                                         icon={<ChevronUp size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label="Move Up"
                                          onClick={() => {
                                            handleMoveMemberTemplate(activeStack, idx, 'up');
                                            closeMenu();
                                          }}
                                          disabled={idx === 0}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: idx === 0 ? 'var(--text-muted)' : 'var(--text-main)', cursor: idx === 0 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => { if (idx !== 0) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <ChevronUp size={13} style={{ color: 'var(--text-muted)' }} /> Move Up
-                                       </button>
-                                       <button
-                                         className="context-menu-item"
+                                       />
+                                       <ContextMenuItem
+                                         icon={<ChevronDown size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label="Move Down"
                                          onClick={() => {
                                            handleMoveMemberTemplate(activeStack, idx, 'down');
                                            closeMenu();
                                          }}
                                          disabled={idx === activeStackMembers.length - 1}
-                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: idx === activeStackMembers.length - 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: idx === activeStackMembers.length - 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => { if (idx !== activeStackMembers.length - 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} /> Move Down
-                                       </button>
-                                       <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                                       <button
-                                         className="context-menu-item"
-                                         disabled={activeStackMembers.length <= 1}
+                                       />
+                                       <ContextMenuDivider />
+                                       <ContextMenuItem
+                                         icon={<ArrowUp size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label={<div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>Move Before...</span><span style={{ fontSize: '10px' }}>▶</span></div>}
                                          onClick={() => { setRightClickSubMenuType('before'); setSubmenuSearchQuery(''); }}
-                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'none', border: 'none', color: activeStackMembers.length <= 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: activeStackMembers.length <= 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                           <ArrowUp size={13} style={{ color: 'var(--text-muted)' }} />
-                                           <span>Move Before...</span>
-                                         </div>
-                                         <span style={{ fontSize: '10px' }}>▶</span>
-                                       </button>
-                                       <button
-                                         className="context-menu-item"
                                          disabled={activeStackMembers.length <= 1}
+                                       />
+                                       <ContextMenuItem
+                                         icon={<ArrowDown size={13} style={{ color: 'var(--text-muted)' }} />}
+                                         label={<div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}><span>Move After...</span><span style={{ fontSize: '10px' }}>▶</span></div>}
                                          onClick={() => { setRightClickSubMenuType('after'); setSubmenuSearchQuery(''); }}
-                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'none', border: 'none', color: activeStackMembers.length <= 1 ? 'var(--text-muted)' : 'var(--text-main)', cursor: activeStackMembers.length <= 1 ? 'not-allowed' : 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                         onMouseEnter={(e) => { if (activeStackMembers.length > 1) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
-                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                       >
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                           <ArrowDown size={13} style={{ color: 'var(--text-muted)' }} />
-                                           <span>Move After...</span>
-                                         </div>
-                                         <span style={{ fontSize: '10px' }}>▶</span>
-                                       </button>
-                                       <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                                       <button
-                                          className="context-menu-item"
+                                         disabled={activeStackMembers.length <= 1}
+                                       />
+                                       <ContextMenuDivider />
+                                       <ContextMenuItem
+                                          icon={<Trash2 size={13} style={{ color: 'var(--status-red)' }} />}
+                                          label="Remove from Stack"
                                           onClick={() => {
                                             handleRemoveMemberTemplate(activeStack, row.template_name);
                                             closeMenu();
                                           }}
-                                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', borderRadius: '4px', textAlign: 'left', fontSize: '12px', width: '100%' }}
-                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                        >
-                                          <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Remove from Stack
-                                        </button>
+                                          danger
+                                        />
                                      </>
                                    ) : (
                                      <>

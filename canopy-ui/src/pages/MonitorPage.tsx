@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Trash2, FileUp, Database, Copy, Eye, Filter, FilterX, Plus } from 'lucide-react';
+import { Filter, FilterX, Play, Search, Trash2, Calendar, FileText, ChevronDown, ChevronRight, X, RefreshCw, FileUp, Database, Copy, Eye, Plus } from 'lucide-react';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { LogImporter } from '../components/LogImporter';
 import { CanopyApiClient } from '../api/client';
@@ -213,45 +214,39 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
             rowContextMenuActions={(row, closeMenu, colKey, cellValue, setFilterValue, clearColumnFilter, clearAllFilters) => (
               <>
                 {colKey && cellValue !== undefined && cellValue !== null && setFilterValue && (
-                  <button 
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  <ContextMenuItem
+                    icon={<Filter size={13} />}
+                    label={`Add '${String(cellValue).length > 20 ? String(cellValue).substring(0, 20) + '...' : String(cellValue)}' to Filter`}
                     onClick={() => { 
                       setFilterValue(colKey, String(cellValue)); 
                       closeMenu(); 
                     }}
-                  >
-                    <Filter size={13} /> Add '{String(cellValue).length > 20 ? String(cellValue).substring(0, 20) + '...' : String(cellValue)}' to Filter
-                  </button>
+                  />
                 )}
                 {colKey && clearColumnFilter && (
-                  <button 
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  <ContextMenuItem
+                    icon={<FilterX size={13} />}
+                    label="Clear Filter for Column"
                     onClick={() => { 
                       clearColumnFilter(colKey); 
                       closeMenu(); 
                     }}
-                  >
-                    <FilterX size={13} /> Clear Filter for Column
-                  </button>
+                  />
                 )}
                 {clearAllFilters && (
-                  <button 
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  <ContextMenuItem
+                    icon={<FilterX size={13} />}
+                    label="Clear All Filters"
                     onClick={() => { 
                       clearAllFilters(); 
                       closeMenu(); 
                     }}
-                  >
-                    <FilterX size={13} /> Clear All Filters
-                  </button>
+                  />
                 )}
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                <button 
-                  className="btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--text-danger)' }}
+                <ContextMenuDivider />
+                <ContextMenuItem
+                  icon={<Trash2 size={13} />}
+                  label="Delete Log"
                   onClick={() => { 
                     confirm({
                       title: 'Delete Log',
@@ -276,9 +271,8 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
                     });
                     closeMenu(); 
                   }}
-                >
-                  <Trash2 size={13} /> Delete Log
-                </button>
+                  danger
+                />
               </>
             )}
           />

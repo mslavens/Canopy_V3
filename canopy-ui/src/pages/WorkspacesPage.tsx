@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { SearchBar } from '../components/SearchBar';
 import { AlertTriangle, FolderOpen, Upload, Download, Edit2, Archive, Check, ArrowRight, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { Tooltip } from '../components/Tooltip';
@@ -337,38 +338,33 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
               const isActive = ws.name === activeWorkspaceName;
               return (
                 <>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  <ContextMenuItem
+                    icon={<Edit2 size={13} />}
+                    label="Edit Workspace"
                     onClick={() => {
                       closeMenu();
                       handleEditClick(ws);
                     }}
-                  >
-                    <Edit2 size={13} /> Edit Workspace
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  />
+                  <ContextMenuItem
+                    icon={<Upload size={13} />}
+                    label="Export Vault"
                     onClick={() => {
                       closeMenu();
                       handleExportClick(ws);
                     }}
-                  >
-                    <Upload size={13} /> Export Vault
-                  </button>
-                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                  <button
-                    className="btn-danger btn-sm"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                  />
+                  <ContextMenuDivider />
+                  <ContextMenuItem
+                    icon={<Trash2 size={13} />}
+                    label="Delete Workspace"
                     onClick={() => {
                       closeMenu();
                       handleDeleteClick(ws);
                     }}
+                    danger
                     disabled={isActive}
-                  >
-                    <Trash2 size={13} /> Delete Workspace
-                  </button>
+                  />
                 </>
               );
             }}

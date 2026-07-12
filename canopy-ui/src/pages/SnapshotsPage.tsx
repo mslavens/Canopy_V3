@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Upload, RotateCcw, Camera, Trash2, Database, Loader2, Edit2, AlertTriangle } from 'lucide-react';
+import { Download, Upload, RotateCcw, Camera, Trash2, Database, Loader2, Edit2, AlertTriangle, Shield, Plus, Play } from 'lucide-react';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { Tooltip } from '../components/Tooltip';
@@ -230,39 +231,34 @@ export const SnapshotsPage: React.FC<SnapshotsPageProps> = ({ auth, addToast }) 
             }
             rowContextMenuActions={(row, closeMenu) => (
               <>
-                <button
-                  className="btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                <ContextMenuItem
+                  icon={<Edit2 size={13} />}
+                  label="Edit Description"
                   onClick={() => {
                     closeMenu();
                     setEditingSnapshot({ id: row.id, description: row.description || '' });
                     setEditSnapshotDesc(row.description || '');
                   }}
-                >
-                  <Edit2 size={13} /> Edit Description
-                </button>
-                <button
-                  className="btn-secondary btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                />
+                <ContextMenuItem
+                  icon={<Download size={13} />}
+                  label="Download as Backup"
                   onClick={() => {
                     closeMenu();
                     setExportId(row.id);
                     setIsBackupModalOpen(true);
                   }}
-                >
-                  <Download size={13} /> Download as Backup
-                </button>
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                <button
-                  className="btn-danger btn-sm"
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                />
+                <ContextMenuDivider />
+                <ContextMenuItem
+                  icon={<Trash2 size={13} />}
+                  label="Delete"
                   onClick={() => {
                     closeMenu();
                     handleDeleteSnapshot(row.id);
                   }}
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
+                  danger
+                />
               </>
             )}
           />

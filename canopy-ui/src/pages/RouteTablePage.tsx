@@ -11,7 +11,8 @@ import { VariableResolver } from '../components/VariableResolver';
 import { useTemplateHierarchy } from '../hooks/useTemplateHierarchy';
 import { useNetworkTabCounts } from '../hooks/useNetworkTabCounts';
 import { DataImportWizard } from '../components/DataImportWizard';
-import { Map, Loader2, Plus, Edit2, Trash2, Code, Download } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Code, Download, Edit2, Play, Search, Trash2, Map, Loader2, Plus } from 'lucide-react';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 
 const renderVendorBadge = (val: string) => {
   const v = (val || 'paloalto').toLowerCase();
@@ -525,44 +526,35 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
                   const isInherited = selectedScopeUuid !== 'show-all' && row.device_uuid !== selectedScopeUuid;
                   return (
                     <>
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
-                        disabled={isInherited}
+                      <ContextMenuItem
+                        icon={<Edit2 size={13} />}
+                        label="Edit"
                         onClick={() => {
                           closeMenu();
                           handleOpenEditRouteModal(row);
                         }}
-                      >
-                        <Edit2 size={13} /> Edit
-                      </button>
-
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                        disabled={isInherited}
+                      />
+                      <ContextMenuDivider />
+                      <ContextMenuItem
+                        icon={<Code size={13} />}
+                        label="Generate CLI"
                         onClick={() => {
                           closeMenu();
                           handleGenerateCli([row]);
                         }}
-                      >
-                        <Code size={13} /> Generate CLI
-                      </button>
-
-                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-
-                      <button
-                        className="btn-secondary btn-sm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', color: 'var(--status-red)' }}
-                        disabled={isInherited}
+                      />
+                      <ContextMenuDivider />
+                      <ContextMenuItem
+                        icon={<Trash2 size={13} />}
+                        label="Delete"
                         onClick={() => {
                           closeMenu();
                           handleDeleteRoute(row);
                         }}
-                      >
-                        <Trash2 size={13} style={{ color: 'var(--status-red)' }} /> Delete
-                      </button>
+                        disabled={isInherited}
+                        danger
+                      />
                     </>
                   );
                 }}

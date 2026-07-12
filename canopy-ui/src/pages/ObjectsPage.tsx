@@ -27,6 +27,7 @@ import {
   Lock,
   ExternalLink
 } from 'lucide-react';
+import { ContextMenuItem, ContextMenuDivider } from '../components/ContextMenu';
 import { CanopyApiClient } from '../api/client';
 import { DataTable, ColumnDef } from '../components/DataTable';
 import { Modal } from '../components/Modal';
@@ -2974,9 +2975,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 onSelectionChange={setSelectedRows}
                 rowContextMenuActions={(row, closeMenu) => (
                   <>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    <ContextMenuItem
+                      icon={<Edit2 size={13} />}
+                      label="Edit"
                       onClick={() => {
                         closeMenu();
                         const isShowAll = currentScope === 'show-all';
@@ -2987,81 +2988,68 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           addToast('Cannot edit inherited or read-only objects from this scope.', 'error');
                         }
                       }}
-                    >
-                      <Edit2 size={13} /> Edit
-                    </button>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuItem
+                      icon={<Eye size={13} />}
+                      label="Inspect"
                       onClick={() => {
                         closeMenu();
                         setInspectRow(row);
                       }}
-                    >
-                      <Eye size={13} /> Inspect
-                    </button>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuItem
+                      icon={<Copy size={13} />}
+                      label="Clone"
                       onClick={() => {
                         closeMenu();
                         const targetRows = selectedRows.includes(row) ? selectedRows : [row];
                         if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                         handleClone();
                       }}
-                    >
-                      <Copy size={13} /> Clone
-                    </button>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuItem
+                      icon={<Copy size={13} />}
+                      label="Clone to Group..."
                       onClick={() => {
                         closeMenu();
                         const targetRows = selectedRows.includes(row) ? selectedRows : [row];
                         if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                         handleCloneToGroup();
                       }}
-                    >
-                      <Copy size={13} /> Clone to Group...
-                    </button>
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuItem
+                      icon={<ArrowRight size={13} />}
+                      label="Move to Group..."
                       onClick={() => {
                         closeMenu();
                         const targetRows = selectedRows.includes(row) ? selectedRows : [row];
                         if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                         handleMoveToGroup();
                       }}
-                    >
-                      <ArrowRight size={13} /> Move to Group...
-                    </button>
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                    <button
-                      className="btn-secondary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuDivider />
+                    <ContextMenuItem
+                      icon={<Code size={13} />}
+                      label="Generate CLI"
                       onClick={() => {
                         closeMenu();
                         const targetRows = selectedRows.includes(row) ? selectedRows : [row];
                         if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                         handleGenerateCli(targetRows);
                       }}
-                    >
-                      <Code size={13} /> Generate CLI
-                    </button>
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-                    <button
-                      className="btn-danger btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    />
+                    <ContextMenuDivider />
+                    <ContextMenuItem
+                      icon={<Trash2 size={13} />}
+                      label="Delete"
                       onClick={() => {
                         closeMenu();
                         const targetRows = selectedRows.includes(row) ? selectedRows : [row];
                         if (!selectedRows.includes(row)) setSelectedRows(targetRows);
                         handleBulkDelete();
                       }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
+                      danger
+                    />
                   </>
                 )}
                 exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
