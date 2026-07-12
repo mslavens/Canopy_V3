@@ -447,7 +447,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                     Review the timeline of changes made to your active workspace, inspect diffs, and revert to previous states if necessary.
                   </p>
                 </div>
-                <div style={{ width: '250px', flexShrink: 0 }}>
+                <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
                     value={historySearch}
                     onChange={setHistorySearch}
@@ -474,7 +474,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                     </p>
                   </div>
                 </div>
-                <div style={{ width: '250px', flexShrink: 0 }}>
+                <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
                     value={compareSearch}
                     onChange={setCompareSearch}

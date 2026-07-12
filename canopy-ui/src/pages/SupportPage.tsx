@@ -187,7 +187,7 @@ export const SupportPage: React.FC<SupportPageProps> = ({ auth, addToast }) => {
               onChange={setLogSearchQuery} 
               placeholder="Filter logs..." 
               variant="local" 
-              width="250px" 
+              width="300px" 
             />
             <div style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-main)' }} />
             
