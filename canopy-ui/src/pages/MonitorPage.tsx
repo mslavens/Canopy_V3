@@ -164,9 +164,7 @@ export const MonitorPage: React.FC<MonitorPageProps> = ({ auth, addToast, active
         isSticky={true}
         bottomSpacing={false}
         actions={
-          <div style={{ width: '250px' }}>
             <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search all columns..." variant="local" />
-          </div>
         }
       />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-app)', overflow: 'hidden', margin: '15px -30px -30px -30px' }}>

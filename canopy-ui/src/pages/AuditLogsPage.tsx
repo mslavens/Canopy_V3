@@ -60,9 +60,7 @@ export const AuditLogsPage: React.FC<AuditLogsPageProps> = ({ auth, addToast }) 
         isSticky={false}
         bottomSpacing={false}
         actions={
-          <div style={{ width: '250px' }}>
             <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Filter audit trail..." variant="local" />
-          </div>
         }
       />
 

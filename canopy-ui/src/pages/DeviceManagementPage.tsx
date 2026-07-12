@@ -1837,7 +1837,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     onChange={setSearchQuery}
                     placeholder="Search inventory..."
                     width="100%"
-                    variant="global"
+                    variant="local"
                   />
                 </div>
               )}
@@ -1973,7 +1973,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                         value={searchQuery}
                         onChange={setSearchQuery}
                         placeholder="Filter groups..."
-                        width="180px"
+                        width="300px"
                         variant="local"
                       />
                     </div>
@@ -2366,7 +2366,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                           value={templatesSearchQuery}
                           onChange={setTemplatesSearchQuery}
                           placeholder="Filter templates..."
-                          width="180px"
+                          width="300px"
                           variant="local"
                         />
                       </div>

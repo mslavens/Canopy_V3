@@ -160,9 +160,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         isSticky={false}
         bottomSpacing={false}
         actions={
-          <div style={{ width: '250px' }}>
             <SearchBar value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search records..." variant="local" />
-          </div>
         }
       />
 

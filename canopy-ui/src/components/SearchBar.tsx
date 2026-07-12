@@ -20,7 +20,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   value, 
   onChange, 
   placeholder = 'Search...', 
-  width = '250px', 
+  width = '300px', 
   variant = 'local',
   matchCount,
   currentMatch = 0,

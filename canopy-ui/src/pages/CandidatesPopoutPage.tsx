@@ -123,15 +123,12 @@ export const CandidatesPopoutPage: React.FC = () => {
           <GitMerge size={16} color="var(--accent-purple)" /> Candidate Rules (Popout View)
           {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
         </h3>
-        <div style={{ width: '250px' }}>
-          <SearchBar 
-            value={searchQuery} 
-            onChange={setSearchQuery} 
-            placeholder="Search candidates..." 
-            width="100%" 
-            variant="local" 
-          />
-        </div>
+        <SearchBar 
+          value={searchQuery} 
+          onChange={setSearchQuery} 
+          placeholder="Search candidates..." 
+          variant="local" 
+        />
       </div>
 
       <div style={{

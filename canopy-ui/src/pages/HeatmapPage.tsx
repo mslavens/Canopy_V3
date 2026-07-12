@@ -1114,15 +1114,12 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                   {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '250px' }}>
                     <SearchBar 
                       value={candidateSearchQuery} 
                       onChange={setCandidateSearchQuery} 
                       placeholder="Search candidates..." 
-                      width="100%" 
                       variant="local" 
                     />
-                  </div>
                   <button
                     onClick={() => {
                       if (window.electron && window.electron.spawnWindow) {
