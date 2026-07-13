@@ -1273,7 +1273,45 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
       const scopesStr = !isShowAll ? visibleScopes.join(',') : undefined;
       const data = await apiClient.getObjects(queryType, scopesStr);
-      setTableData(data || []);
+      
+      let processedData = data || [];
+      if (!isShowAll && processedData.length > 0) {
+        const map: Record<string, { active: any, hasAncestor: boolean, ancestorScope?: string }> = {};
+        
+        processedData.forEach((item: any) => {
+          const existing = map[item.name];
+          if (!existing) {
+            map[item.name] = { active: item, hasAncestor: false };
+          } else {
+            const newIdx = visibleScopes.indexOf(item.device_uuid);
+            const oldIdx = visibleScopes.indexOf(existing.active.device_uuid);
+            
+            if (newIdx !== -1 && oldIdx !== -1) {
+              if (newIdx < oldIdx) {
+                map[item.name] = { active: item, hasAncestor: true, ancestorScope: existing.active.device_uuid };
+              } else {
+                map[item.name].hasAncestor = true;
+                if (!map[item.name].ancestorScope || visibleScopes.indexOf(item.device_uuid) < visibleScopes.indexOf(map[item.name].ancestorScope!)) {
+                  map[item.name].ancestorScope = item.device_uuid;
+                }
+              }
+            } else if (newIdx !== -1 && oldIdx === -1) {
+              map[item.name] = { active: item, hasAncestor: true, ancestorScope: existing.active.device_uuid };
+            } else if (newIdx === -1 && oldIdx !== -1) {
+              map[item.name].hasAncestor = true;
+              map[item.name].ancestorScope = item.device_uuid;
+            }
+          }
+        });
+        
+        processedData = Object.values(map).map(({ active, hasAncestor, ancestorScope }) => {
+          const isInherited = active.device_uuid !== currentScope;
+          const isOverridden = !isInherited && hasAncestor;
+          return { ...active, isInherited, isOverridden, overriddenFrom: isOverridden ? ancestorScope : undefined };
+        });
+      }
+      
+      setTableData(processedData);
     } catch (err) {
       console.error('Failed to load table data:', err);
       addToast('Failed to load objects from the database.', 'error');
@@ -1544,17 +1582,17 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     setIsCrudModalOpen(true);
   };
 
-  const openEditModal = (obj: any) => {
+  const openEditModal = (obj: any, isOverride: boolean = false) => {
     loadReferenceData();
     setSelectorSearchQuery('');
     setSelectorCheckedNames([]);
     setIsSelectorModalOpen(false);
     setMemberSearchQuery('');
     setMemberCheckedNames([]);
-    setCrudMode('edit');
-    setSelectedObject(obj);
+    setCrudMode(isOverride ? 'create' : 'edit');
+    setSelectedObject(isOverride ? null : obj);
     setFormName(obj.name);
-    setFormScopeUuid(obj.device_uuid);
+    setFormScopeUuid(isOverride ? currentScope : obj.device_uuid);
     setFormDescription(obj.description || '');
 
     // Resolve active tag mappings
@@ -1841,7 +1879,38 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     });
   };
 
-  // Bulk Delete
+  const handleRevertObject = async (obj: any) => {
+    if (!apiClient) return;
+
+    confirm({
+      title: 'Revert Object',
+      message: `Are you sure you want to revert "${obj.name}"? This will delete the local override and restore the inherited value from the parent scope.`,
+      confirmText: 'Revert',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          if (activeSubTab === 'Address Objects') await apiClient.deleteAddressObject(obj.id);
+          else if (activeSubTab === 'Address Groups') await apiClient.deleteAddressGroup(obj.id);
+          else if (activeSubTab === 'Services') await apiClient.deleteServiceObject(obj.id);
+          else if (activeSubTab === 'Service Groups') await apiClient.deleteServiceGroup(obj.id);
+          else if (activeSubTab === 'Applications') await apiClient.deleteApplicationObject(obj.id);
+          else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(obj.id);
+          else if (activeSubTab === 'Tags') await apiClient.deleteTag(obj.id);
+          else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(obj.id);
+          else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) await apiClient.deleteSecurityProfile(obj.id);
+          else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(obj.id);
+          else if (activeSubTab === 'URL Categories') await apiClient.deleteCustomURLCategory(obj.id);
+          else if (activeSubTab === 'External Dynamic Lists') await apiClient.deleteExternalDynamicList(obj.id);
+
+          addToast(`Reverted object "${obj.name}" successfully.`, 'success');
+          fetchRecords();
+        } catch (err: any) {
+          console.error('CRUD Delete Error (Revert):', err);
+          addToast(err.message || 'Failed to revert object.', 'error');
+        }
+      }
+    });
+  };
   const handleBulkDelete = () => {
     if (!apiClient || selectedRows.length === 0) return;
     confirm({
@@ -2163,7 +2232,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         width: '240px',
         renderCell: (val, row, query) => {
           const isShowAll = currentScope === 'show-all';
-          const isInherited = !isShowAll && row.device_uuid !== currentScope;
+          const isInherited = !isShowAll && row.isInherited;
+          const isOverridden = !isShowAll && row.isOverridden;
           const inheritedScopeName = isInherited ? (scopeNameMap[row.device_uuid] || row.device_uuid) : '';
           const isEditable = !isInherited && !isShowAll;
 
@@ -2172,6 +2242,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               {isInherited && (
                 <Tooltip content={`Inherited from ${inheritedScopeName}`} position="top">
                   <Lock size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                </Tooltip>
+              )}
+              {isOverridden && (
+                <Tooltip content={`Overriding object inherited from ${scopeNameMap[row.overriddenFrom] || row.overriddenFrom}`} position="top">
+                  <Layers size={12} style={{ color: 'var(--accent-orange)', flexShrink: 0 }} />
                 </Tooltip>
               )}
               <span
@@ -2693,7 +2768,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         renderCell: (val, row) => {
           const isGroup = activeSubTab.endsWith('Groups');
           const isShowAll = currentScope === 'show-all';
-          const isInherited = !isShowAll && row.device_uuid !== currentScope;
+          const isInherited = !isShowAll && row.isInherited;
+          const isOverridden = !isShowAll && row.isOverridden;
           const inheritedScopeName = isInherited ? (scopeNameMap[row.device_uuid] || row.device_uuid) : '';
           return (
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -2718,13 +2794,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   </button>
                 </Tooltip>
               ) : isInherited ? (
-                <Tooltip content={`Inherited from ${inheritedScopeName}. Switch to this scope to edit.`} position="top">
+                <Tooltip content={`Inherited from ${inheritedScopeName}. Click to Override in the current scope.`} position="top">
                   <button
                     className="btn-table-action"
-                    style={{ opacity: 0.5, cursor: 'not-allowed' }}
-                    disabled
+                    onClick={() => {
+                      setFormScopeUuid(currentScope);
+                      openEditModal(row, true);
+                    }}
                   >
-                    <Edit2 size={14} />
+                    <Layers size={14} style={{ color: 'var(--accent-orange)' }} />
                   </button>
                 </Tooltip>
               ) : (
@@ -2764,6 +2842,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                     onClick={() => handleDeleteObject(row)}
                   >
                     <Trash2 size={14} />
+                  </button>
+                </Tooltip>
+              )}
+              {isOverridden && (
+                <Tooltip content={`Revert to object inherited from ${scopeNameMap[row.overriddenFrom] || row.overriddenFrom}`} position="top">
+                  <button
+                    className="btn-table-action"
+                    onClick={() => handleRevertObject(row)}
+                  >
+                    <RefreshCw size={14} style={{ color: 'var(--accent-orange)' }} />
                   </button>
                 </Tooltip>
               )}
@@ -3024,7 +3112,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 selectable={true}
                 pagination={true}
                 onSelectionChange={setSelectedRows}
-                rowContextMenuActions={(row, closeMenu) => (
+                rowContextMenuActions={(row, closeMenu) => {
+                  const isShowAll = currentScope === 'show-all';
+                  const isInherited = !isShowAll && row.isInherited;
+                  const isOverridden = !isShowAll && row.isOverridden;
+                  
+                  return (
                   <>
                     <ContextMenuHeader label={row.name} />
                     <ContextMenuItem
@@ -3032,8 +3125,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                       label="Edit"
                       onClick={() => {
                         closeMenu();
-                        const isShowAll = currentScope === 'show-all';
-                        const isInherited = !isShowAll && row.device_uuid !== currentScope;
                         if (!isInherited && !isShowAll) {
                           openEditModal(row);
                         } else {
@@ -3041,6 +3132,27 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         }
                       }}
                     />
+                    {isInherited && (
+                      <ContextMenuItem
+                        icon={<Layers size={13} style={{ color: 'var(--accent-orange)' }} />}
+                        label="Override"
+                        onClick={() => {
+                          closeMenu();
+                          setFormScopeUuid(currentScope);
+                          openEditModal(row, true);
+                        }}
+                      />
+                    )}
+                    {isOverridden && (
+                      <ContextMenuItem
+                        icon={<RefreshCw size={13} style={{ color: 'var(--accent-orange)' }} />}
+                        label={`Revert (to ${scopeNameMap[row.overriddenFrom] || row.overriddenFrom})`}
+                        onClick={() => {
+                          closeMenu();
+                          handleRevertObject(row);
+                        }}
+                      />
+                    )}
                     <ContextMenuItem
                       icon={<Eye size={13} />}
                       label="Inspect"
@@ -3103,11 +3215,12 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                       danger
                     />
                   </>
-                )}
+                );
+                }}
                 exportFilename={`${dataViewTab.toLowerCase().replace(' ', '_')}_export.csv`}
                 rowStyle={(row) => {
                   const isShowAll = currentScope === 'show-all';
-                  const isInherited = !isShowAll && row.device_uuid !== currentScope;
+                  const isInherited = !isShowAll && row.isInherited;
                   return isInherited ? { opacity: 0.55 } : {};
                 }}
                 exportActions={
