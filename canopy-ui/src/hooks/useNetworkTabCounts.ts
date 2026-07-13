@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { CanopyApiClient } from '../api/client';
 
-export const useNetworkTabCounts = (apiClient: CanopyApiClient | null, selectedScopeUuid: string, visibleScopes: string[]) => {
+export const useNetworkTabCounts = (apiClient: CanopyApiClient | null, selectedScopeUuid: string, visibleScopes: string[], syncTrigger: number = 0) => {
   useEffect(() => {
     let isMounted = true;
     const loadTabCounts = async () => {
@@ -21,5 +21,5 @@ export const useNetworkTabCounts = (apiClient: CanopyApiClient | null, selectedS
     };
     loadTabCounts();
     return () => { isMounted = false; };
-  }, [apiClient, selectedScopeUuid, visibleScopes]);
+  }, [apiClient, selectedScopeUuid, visibleScopes, syncTrigger]);
 };

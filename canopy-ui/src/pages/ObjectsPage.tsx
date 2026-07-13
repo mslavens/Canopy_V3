@@ -1244,10 +1244,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     return resolved;
   };
 
+  const [syncTrigger, setSyncTrigger] = useState(0);
+
   useObjectTabCounts(
     apiClient,
     currentScope,
-    visibleScopes
+    visibleScopes,
+    syncTrigger
   );
 
   const hasInitiallyLoaded = useRef(false);
@@ -1308,8 +1311,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     loadReferenceData();
     setSelectedRows([]);
   }, [activeSubTab, currentScope, deviceGroups, firewalls]);
-
-  const [syncTrigger, setSyncTrigger] = useState(0);
 
   // Sync Data Across Windows and Locally
   useEffect(() => {

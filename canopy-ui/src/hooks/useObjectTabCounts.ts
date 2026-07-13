@@ -4,7 +4,8 @@ import { CanopyApiClient } from '../api/client';
 export const useObjectTabCounts = (
   apiClient: CanopyApiClient | null,
   selectedScopeUuid: string,
-  visibleScopes: string[]
+  visibleScopes: string[],
+  syncTrigger: number = 0
 ) => {
   useEffect(() => {
     let isMounted = true;
@@ -28,5 +29,5 @@ export const useObjectTabCounts = (
 
     loadTabCounts();
     return () => { isMounted = false; };
-  }, [apiClient, selectedScopeUuid, visibleScopes]);
+  }, [apiClient, selectedScopeUuid, visibleScopes, syncTrigger]);
 };
