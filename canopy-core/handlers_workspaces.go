@@ -898,7 +898,8 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 
 	tx.Exec("PRAGMA defer_foreign_keys = ON")
 	
-	if tableName == "address_group_members" || tableName == "service_group_members" || tableName == "application_group_members" {
+	switch tableName {
+	case "address_group_members", "service_group_members", "application_group_members":
 		tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE group_id = ?", tableName), intID)
 		if rows, ok := state.Tables[tableName]; ok {
 			for _, row := range rows {
@@ -916,7 +917,7 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-	} else if tableName == "entity_tag_mappings" {
+	case "entity_tag_mappings":
 		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ?", intID)
 		if rows, ok := state.Tables[tableName]; ok {
 			for _, row := range rows {
@@ -934,7 +935,7 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-	} else {
+	default:
 		tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName), intID)
 		if rows, ok := state.Tables[tableName]; ok {
 			for _, row := range rows {

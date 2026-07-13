@@ -419,6 +419,13 @@ type XMLDeviceGroup struct {
 }
 
 // Interface, VR, Zone definitions
+type InterfaceUnit struct {
+	Name string `xml:"name,attr"`
+	IPs  []struct {
+		Name string `xml:"name,attr"`
+	} `xml:"ip>entry"`
+}
+
 type InterfaceNode struct {
 	Name string `xml:"name,attr"`
 	IPs  []struct {
@@ -427,6 +434,21 @@ type InterfaceNode struct {
 	Layer2IPs []struct {
 		Name string `xml:"name,attr"`
 	} `xml:"layer2>ip>entry"`
+	Layer3Units []InterfaceUnit `xml:"layer3>units>entry"`
+	Layer2Units []InterfaceUnit `xml:"layer2>units>entry"`
+}
+
+type XMLGlobalProtectGatewayEntry struct {
+	Name            string `xml:"name,attr"`
+	TunnelInterface string `xml:"tunnel-interface"`
+	RemoteUserTunnel struct {
+		Configs []struct {
+			Name   string `xml:"name,attr"`
+			IPPool struct {
+				Members []string `xml:"member"`
+			} `xml:"ip-pool"`
+		} `xml:"configs>entry"`
+	} `xml:"remote-user-tunnel"`
 }
 
 type ZoneNode struct {
@@ -474,6 +496,9 @@ type XMLTemplate struct {
 					AggregateEthernet []InterfaceNode `xml:"aggregate-ethernet>entry"`
 				} `xml:"interface"`
 				VirtualRouter []VirtualRouterNode `xml:"virtual-router>entry"`
+				GlobalProtect struct {
+					GlobalProtectGateway []XMLGlobalProtectGatewayEntry `xml:"global-protect-gateway>entry"`
+				} `xml:"global-protect"`
 			} `xml:"network"`
 			Vsys []struct {
 				Name string     `xml:"name,attr"`
@@ -583,6 +608,9 @@ type PaloAltoConfig struct {
 				AggregateEthernet []InterfaceNode `xml:"aggregate-ethernet>entry"`
 			} `xml:"interface"`
 			VirtualRouter []VirtualRouterNode `xml:"virtual-router>entry"`
+			GlobalProtect struct {
+				GlobalProtectGateway []XMLGlobalProtectGatewayEntry `xml:"global-protect-gateway>entry"`
+			} `xml:"global-protect"`
 		} `xml:"network"`
 		Vsys []struct {
 			Name                  string                         `xml:"name,attr"`
@@ -2675,15 +2703,9 @@ func insertVariables(stmt *sql.Stmt, deviceUUID, scope string, vars []XMLVariabl
 }
 
 func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, scope, ifaceType string, list []InterfaceNode, interfaceToZone, interfaceToVR map[string]string, metadataTags []string, stats *IngestionStats, topologyImported *int) error {
-	for _, eth := range list {
-		zoneName, ok := interfaceToZone[eth.Name]
-		if !ok {
-			zoneName = "untrusted"
-		}
-		vrName, ok := interfaceToVR[eth.Name]
-		if !ok {
-			vrName = "default"
-		}
+	processSingleInterface := func(name string, ips []string) error {
+		zoneName, _ := interfaceToZone[name]
+		vrName, _ := interfaceToVR[name]
 
 		metadata := VendorMetadata{
 			VirtualRouter: vrName,
@@ -2691,29 +2713,59 @@ func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, sco
 		}
 		metaBytes, _ := json.Marshal(metadata)
 
-		var ipList []string
-		for _, ip := range eth.IPs {
-			ipList = append(ipList, ip.Name)
+		for _, ip := range ips {
 			if topologyStmt != nil {
-				if _, err := topologyStmt.Exec(deviceUUID, eth.Name, ip.Name, zoneName, string(metaBytes)); err != nil {
+				if _, err := topologyStmt.Exec(deviceUUID, name, ip, zoneName, string(metaBytes)); err != nil {
 					return fmt.Errorf("failed to insert network topology: %w", err)
 				}
 				*topologyImported++
 			}
 		}
-		for _, ip := range eth.Layer2IPs {
-			ipList = append(ipList, ip.Name)
-		}
 		
-		ipAddress := strings.Join(ipList, ", ")
+		ipAddress := strings.Join(ips, ", ")
 		if interfaceStmt != nil {
-			if _, err := interfaceStmt.Exec(deviceUUID, scope, eth.Name, ifaceType, ipAddress, "", zoneName, vrName); err != nil {
+			if _, err := interfaceStmt.Exec(deviceUUID, scope, name, ifaceType, ipAddress, "", zoneName, vrName); err != nil {
 				return err
 			}
 		}
 
 		if stats != nil {
-			stats.InterfacesCount += len(ipList)
+			stats.InterfacesCount += len(ips)
+		}
+		return nil
+	}
+
+	for _, eth := range list {
+		// Process parent interface
+		var parentIPs []string
+		for _, ip := range eth.IPs {
+			parentIPs = append(parentIPs, ip.Name)
+		}
+		for _, ip := range eth.Layer2IPs {
+			parentIPs = append(parentIPs, ip.Name)
+		}
+		if err := processSingleInterface(eth.Name, parentIPs); err != nil {
+			return err
+		}
+
+		// Process subinterfaces
+		for _, unit := range eth.Layer3Units {
+			var unitIPs []string
+			for _, ip := range unit.IPs {
+				unitIPs = append(unitIPs, ip.Name)
+			}
+			if err := processSingleInterface(unit.Name, unitIPs); err != nil {
+				return err
+			}
+		}
+		for _, unit := range eth.Layer2Units {
+			var unitIPs []string
+			for _, ip := range unit.IPs {
+				unitIPs = append(unitIPs, ip.Name)
+			}
+			if err := processSingleInterface(unit.Name, unitIPs); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -2918,6 +2970,26 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 					}
 					if err := insertStaticRoutes(tx, deviceUUID, vr.Name, vr.StaticRoutes); err != nil {
 						return 0, 0, fmt.Errorf("failed to insert static routes: %w", err)
+					}
+				}
+
+				// Extract GlobalProtect VPN routes
+				for _, gp := range dev.Network.GlobalProtect.GlobalProtectGateway {
+					if gp.TunnelInterface == "" {
+						continue
+					}
+					vrName, _ := interfaceToVR[gp.TunnelInterface]
+					for _, config := range gp.RemoteUserTunnel.Configs {
+						for _, member := range config.IPPool.Members {
+							route := XMLStaticRouteEntry{
+								Name:        "gp-" + gp.Name + "-" + config.Name,
+								Destination: member,
+								Interface:   gp.TunnelInterface,
+							}
+							if err := insertStaticRoutes(tx, deviceUUID, vrName, []XMLStaticRouteEntry{route}); err != nil {
+								return 0, 0, fmt.Errorf("failed to insert gp routes: %w", err)
+							}
+						}
 					}
 				}
 
@@ -3732,6 +3804,26 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				}
 				if err := insertStaticRoutes(tx, deviceUUID, vr.Name, vr.StaticRoutes); err != nil {
 					return 0, 0, fmt.Errorf("failed to insert static routes: %w", err)
+				}
+			}
+
+			// Extract GlobalProtect VPN routes
+			for _, gp := range dev.Network.GlobalProtect.GlobalProtectGateway {
+				if gp.TunnelInterface == "" {
+					continue
+				}
+					vrName, _ := interfaceToVR[gp.TunnelInterface]
+				for _, config := range gp.RemoteUserTunnel.Configs {
+					for _, member := range config.IPPool.Members {
+						route := XMLStaticRouteEntry{
+							Name:        "gp-" + gp.Name + "-" + config.Name,
+							Destination: member,
+							Interface:   gp.TunnelInterface,
+						}
+						if err := insertStaticRoutes(tx, deviceUUID, vrName, []XMLStaticRouteEntry{route}); err != nil {
+							return 0, 0, fmt.Errorf("failed to insert gp routes: %w", err)
+						}
+					}
 				}
 			}
 

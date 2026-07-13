@@ -154,7 +154,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	deviceUUID := r.URL.Query().Get("device_uuid")
 	
 	query := `
-		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, 'untrusted'), COALESCE(vr_name, 'default'), COALESCE(description, '')
+		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, ''), COALESCE(vr_name, ''), COALESCE(description, '')
 		FROM interfaces
 	`
 	
