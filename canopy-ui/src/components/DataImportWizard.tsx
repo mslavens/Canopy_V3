@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Dropdown } from './Dropdown';
+import { SearchableScopeDropdown } from './SearchableScopeDropdown';
 
 interface DataImportWizardProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface DataImportWizardProps {
   scope: string;
   onSuccess: (result?: any) => void;
   availableDataTypes?: { value: string; label: string }[];
+  hierarchyOptions?: any[];
+  scopeNameMap?: Record<string, string>;
 }
 
 const dbFieldsMap: Record<string, string[]> = {
@@ -83,7 +86,9 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   deviceUuid,
   scope,
   onSuccess,
-  availableDataTypes
+  availableDataTypes,
+  hierarchyOptions = [],
+  scopeNameMap = {}
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1); // 1: Upload, 2: Select Sheet, 3: Map, 4: Review
   const [dataType, setDataType] = useState(defaultDataType);
@@ -99,6 +104,10 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [defaultVendor, setDefaultVendor] = useState('');
+  const [customVendor, setCustomVendor] = useState('');
+  const [defaultScope, setDefaultScope] = useState('');
+
   useEffect(() => {
     if (isOpen) {
       setDataType(defaultDataType);
@@ -113,6 +122,9 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
       setMappings({});
       setErrorMessage('');
       setIsProcessing(false);
+      setDefaultVendor('');
+      setCustomVendor('');
+      setDefaultScope('');
     }
   }, [isOpen, defaultDataType]);
 
@@ -288,6 +300,17 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           dbRow[dbField] = row[csvHeader];
         }
       });
+      
+      // Inject defaults if they were set and the mapping is set to use defaults
+      if (mappings['vendor'] === '__USE_DEFAULT__') {
+        dbRow['vendor'] = defaultVendor === 'custom' ? customVendor : defaultVendor;
+      }
+      if (mappings['scope_context'] === '__USE_DEFAULT__') {
+        dbRow['scope_context'] = defaultScope;
+      }
+      if (mappings['device_group'] === '__USE_DEFAULT__') {
+        dbRow['device_group'] = defaultScope;
+      }
       return dbRow;
     });
 
@@ -315,6 +338,9 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
         setParsedHeaders([]);
         setParsedData([]);
         setMappings({});
+        setDefaultVendor('');
+        setCustomVendor('');
+        setDefaultScope('');
       } else {
         throw new Error(resData.error || 'Failed to import records');
       }
@@ -411,19 +437,54 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
               {targetFields.map(dbField => {
                 const isRequired = requiredFields.includes(dbField);
                 return (
-                  <div key={dbField} style={{ display: 'flex', padding: '12px 16px', borderBottom: '1px solid var(--border-main)', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '180px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
-                      {fieldLabelsMap[dbField] || dbField} {isRequired && <span style={{ color: 'var(--status-red)' }}>*</span>}
+                  <div key={dbField} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-main)' }}>
+                    <div style={{ display: 'flex', padding: '12px 16px', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '180px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        {fieldLabelsMap[dbField] || dbField} {isRequired && <span style={{ color: 'var(--status-red)' }}>*</span>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <Dropdown 
+                          value={mappings[dbField] || ''}
+                          onChange={val => setMappings({...mappings, [dbField]: val})}
+                          options={['', ...(dbField === 'vendor' || dbField === 'scope_context' || dbField === 'device_group' ? ['__USE_DEFAULT__'] : []), ...parsedHeaders]}
+                          renderOption={(val) => val === '' ? '-- Select Column --' : val === '__USE_DEFAULT__' ? 'Use Default Value...' : val}
+                          width="100%"
+                        />
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <Dropdown 
-                        value={mappings[dbField] || ''}
-                        onChange={val => setMappings({...mappings, [dbField]: val})}
-                        options={['', ...parsedHeaders]}
-                        renderOption={(val) => val === '' ? '-- Select Column --' : val}
-                        width="100%"
-                      />
-                    </div>
+                    {dbField === 'vendor' && mappings[dbField] === '__USE_DEFAULT__' && (
+                      <div style={{ padding: '0 16px 16px 212px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <Dropdown 
+                          value={defaultVendor}
+                          onChange={(val) => { setDefaultVendor(val); if(val !== 'custom') setCustomVendor(''); }}
+                          options={['', 'paloalto', 'fortinet', 'cisco', 'custom']}
+                          renderOption={(val) => val === '' ? '-- Select Vendor --' : val === 'custom' ? 'Other (Custom...)' : val}
+                          width="100%"
+                        />
+                        {defaultVendor === 'custom' && (
+                          <input 
+                            type="text"
+                            className="input"
+                            style={{ width: '100%', fontSize: '13px' }}
+                            placeholder="Enter custom vendor name"
+                            value={customVendor}
+                            onChange={(e) => setCustomVendor(e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
+                    {(dbField === 'scope_context' || dbField === 'device_group') && mappings[dbField] === '__USE_DEFAULT__' && (
+                      <div style={{ padding: '0 16px 16px 212px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <SearchableScopeDropdown
+                          value={defaultScope}
+                          options={[{value: '', label: '-- Select Scope --', depth: 0, type: 'global'}, ...(hierarchyOptions || []).map(o => ({ ...o, label: o.value === 'show-all' ? '-- Select Scope --' : o.label }))]}
+                          onChange={(val) => setDefaultScope(val === 'show-all' ? '' : val)}
+                          scopeNameMap={scopeNameMap || {}}
+                          ruleCounts={{}}
+                          width="100%"
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}

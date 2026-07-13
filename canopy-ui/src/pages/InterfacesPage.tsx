@@ -685,6 +685,8 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
         apiClient={apiClient}
         deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
         scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        hierarchyOptions={hierarchyOptions}
+        scopeNameMap={scopeNameMap}
         onSuccess={() => {
           addToast('Interfaces imported successfully', 'success');
           fetchInterfaces();

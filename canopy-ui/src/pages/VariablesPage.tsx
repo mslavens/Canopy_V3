@@ -665,6 +665,8 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
         apiClient={apiClient}
         deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
         scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        hierarchyOptions={hierarchyOptions}
+        scopeNameMap={scopeNameMap}
         onSuccess={() => {
           addToast('Variables imported successfully', 'success');
           fetchVariables();

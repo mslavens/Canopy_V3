@@ -640,6 +640,8 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, globalScop
         apiClient={apiClient}
         deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
         scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        hierarchyOptions={hierarchyOptions}
+        scopeNameMap={scopeNameMap}
         onSuccess={() => {
           addToast('Zones imported successfully', 'success');
           fetchZones();

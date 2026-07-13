@@ -3156,6 +3156,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               apiClient={apiClient}
               deviceUuid={currentScope}
               scope={currentScope === 'shared' ? 'shared' : 'local'}
+              hierarchyOptions={hierarchyOptions}
+              scopeNameMap={scopeNameMap}
               onSuccess={(result: any) => {
                 fetchRecords();
                 loadReferenceData();

@@ -686,6 +686,8 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
         apiClient={apiClient}
         deviceUuid={selectedScopeUuid === 'show-all' ? 'paloalto-panorama-global' : selectedScopeUuid}
         scope={selectedScopeUuid === 'show-all' ? 'Shared' : (scopeNameMap[selectedScopeUuid] || selectedScopeUuid)}
+        hierarchyOptions={hierarchyOptions}
+        scopeNameMap={scopeNameMap}
         onSuccess={() => {
           addToast('Static routes imported successfully', 'success');
           fetchRoutes();
