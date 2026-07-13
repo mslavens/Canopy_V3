@@ -636,7 +636,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   <th 
                     key={colKey} 
                     className="data-table-th"
-                    style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: filterMenuCol === colKey ? 100 : 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'visible' }} 
+                    style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: filterMenuCol === colKey ? 100 : 1, padding: `10px ${idx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${idx === 0 && !selectable ? '20px' : '15px'}`, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'left', borderBottom: '2px solid var(--bg-app)', borderRight: idx === visibleColumnKeys.length - 1 ? 'none' : '1px solid var(--border-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), overflow: 'visible' }} 
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -914,8 +914,8 @@ export const DataTable: React.FC<DataTableProps> = ({
                   </td>
                 )}
                 {selectable && (
-                  <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)' }}>
-                    <input type="checkbox" checked={selectedRows.has(row) || Array.from(selectedRows).some(r => getRowKey(r) === getRowKey(row))} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer' }} />
+                  <td style={{ padding: '10px 15px 10px 20px', borderBottom: '1px solid var(--border-main)', verticalAlign: 'top' }}>
+                    <input type="checkbox" checked={selectedRows.has(row) || Array.from(selectedRows).some(r => getRowKey(r) === getRowKey(row))} onChange={(e) => handleSelectRow(row, e.target.checked)} style={{ cursor: 'pointer', marginTop: '2px' }} />
                   </td>
                 )}
                 {visibleColumnKeys.map((colKey, cIdx) => {
@@ -930,7 +930,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                           setContextMenu({ x: e.pageX, y: e.pageY, row, colKey, cellValue: row[colKey] });
                         }
                       }}
-                      style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}
+                      style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', verticalAlign: 'top', textAlign: 'left', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}
                     >
                       {colDef.renderCell ? colDef.renderCell(row[colKey], row, searchQuery) : (row[colKey] !== null && row[colKey] !== undefined ? <HighlightedText text={String(row[colKey])} highlight={searchQuery} /> : <span style={{ color: 'var(--text-muted)' }}>NULL</span>)}
                     </td>

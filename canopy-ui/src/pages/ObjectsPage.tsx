@@ -2256,7 +2256,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   renderItem={(m: any) => {
                     const tagObj = tagsById[m.tag_id];
                     if (!tagObj) return <React.Fragment key={m.tag_id} />;
-                    const hex = colorMap[tagObj.color] || 'var(--text-muted)';
+                    const hex = colorMap[tagObj.color] || '#8b949e';
                     return (
                       <span
                         key={tagObj.id}
@@ -2380,7 +2380,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   renderItem={(m: any) => {
                     const tagObj = tagsById[m.tag_id];
                     if (!tagObj) return <React.Fragment key={m.tag_id} />;
-                    const hex = colorMap[tagObj.color] || 'var(--text-muted)';
+                    const hex = colorMap[tagObj.color] || '#8b949e';
                     return (
                       <span
                         key={tagObj.id}

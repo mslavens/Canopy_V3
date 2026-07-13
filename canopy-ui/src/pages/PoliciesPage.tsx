@@ -264,9 +264,9 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         renderItem={(r: any, i: number) => {
           const isPredefined = r.object_type === 'predefined' || r.object_type === 'predefined_app';
           const isAdHoc = r.object_type === 'ad_hoc';
-          const bgColor = isAdHoc ? 'rgba(255, 165, 0, 0.1)' : isPredefined ? 'transparent' : 'var(--bg-app)';
+          const bgColor = isAdHoc ? 'rgba(255, 165, 0, 0.1)' : 'var(--bg-app)';
           const textColor = isAdHoc ? '#e8a123' : isPredefined ? 'var(--text-muted)' : 'var(--text-main)';
-          const borderColor = isAdHoc ? 'rgba(255, 165, 0, 0.3)' : isPredefined ? 'transparent' : 'var(--border-main)';
+          const borderColor = isAdHoc ? 'rgba(255, 165, 0, 0.3)' : 'var(--border-main)';
 
           return (
             <span
@@ -306,7 +306,17 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         items={list}
         limit={5}
         renderItem={(item: string, idx: number) => (
-          <span key={idx} style={{ fontSize: '11px', wordBreak: 'break-all' }}>{item}</span>
+          <span key={idx} style={{ 
+            fontSize: '11px', 
+            padding: '2px 6px',
+            background: 'var(--bg-app)',
+            color: 'var(--text-main)',
+            borderRadius: '4px',
+            border: '1px solid var(--border-main)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            wordBreak: 'break-all' 
+          }}>{item}</span>
         )}
       />
     );
