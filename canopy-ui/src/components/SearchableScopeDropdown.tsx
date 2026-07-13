@@ -346,7 +346,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
               {selectedOption?.type === 'template' && <Layers size={13} style={{ color: 'var(--text-muted)' }} />}
               {selectedOption?.type === 'firewall' && <Server size={13} style={{ color: 'var(--text-muted)' }} />}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                {selectedOption ? selectedOption.label : 'Select scope...'}
+                {selectedOption ? selectedOption.label : (scopeNameMap && scopeNameMap[value] ? scopeNameMap[value] : 'Select scope...')}
               </span>
             </>
           )}

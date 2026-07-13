@@ -837,17 +837,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                       style={{
                         fontSize: '11px',
                         padding: '2px 8px',
-                        borderRadius: '12px',
+                        borderRadius: '4px',
                         backgroundColor: `${hex}22`,
                         color: hex,
                         border: `1px solid ${hex}44`,
                         fontWeight: 600,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '6px'
                       }}
                     >
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
                       <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {name}
                       </span>
@@ -1632,7 +1630,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
     // Prepare data
     let activeScopeName = scopeNameMap[formScopeUuid] || 'Shared';
-    if (formScopeUuid === 'paloalto-panorama-global' || activeScopeName === 'Panorama Shared') {
+    if (formScopeUuid === 'paloalto-panorama-global' || activeScopeName === 'Shared') {
       activeScopeName = 'shared';
     }
     const payload: Record<string, any> = {
@@ -2051,7 +2049,113 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
   // Define table columns dynamically based on sub-tab
   const columns: ColumnDef[] = useMemo(() => {
+    // Precompute tag lookup for performance (O(1) lookups instead of O(N^2) filtering)
+    const tagsByAddressObject: Record<string, any[]> = {};
+    const tagsByAddressGroup: Record<string, any[]> = {};
+    
+    // Build maps if we are on a relevant tab
+    if (dataViewTab === 'Address Objects' || dataViewTab === 'Address Groups') {
+      allTagMappings.forEach(m => {
+        if (m.entity_type === 'address_object') {
+            if (!tagsByAddressObject[m.entity_id]) tagsByAddressObject[m.entity_id] = [];
+            tagsByAddressObject[m.entity_id].push(m);
+        } else if (m.entity_type === 'address_group') {
+            if (!tagsByAddressGroup[m.entity_id]) tagsByAddressGroup[m.entity_id] = [];
+            tagsByAddressGroup[m.entity_id].push(m);
+        }
+      });
+    }
+
+    const tagsById: Record<string, any> = {};
+    if (dataViewTab === 'Address Objects' || dataViewTab === 'Address Groups') {
+      allTags.forEach(t => tagsById[t.id] = t);
+    }
+
     const defaultCols: ColumnDef[] = [
+      {
+        key: 'vendor',
+        label: 'Vendor',
+        width: '100px',
+        exportValue: (row) => {
+          let vendor = 'paloalto';
+          const scopeId = row.device_uuid;
+          if (scopeId === 'paloalto-panorama-global') {
+            vendor = 'paloalto';
+          } else if (scopeId && (scopeId.startsWith('fw-') || scopeId.startsWith('paloalto-fw-'))) {
+            const serial = scopeId.replace('paloalto-fw-', '').replace('fw-', '');
+            const fw = firewalls.find(f => f.serial === serial || f.uuid === scopeId);
+            if (fw && fw.vendor) vendor = fw.vendor;
+          } else {
+            const dg = deviceGroups.find(dg => dg.uuid === scopeId);
+            if (dg && dg.vendor) vendor = dg.vendor;
+          }
+          return vendor;
+        },
+        renderCell: (val, row) => {
+          let vendor = 'paloalto';
+          const scopeId = row.device_uuid;
+          if (scopeId === 'paloalto-panorama-global') {
+            vendor = 'paloalto';
+          } else if (scopeId && (scopeId.startsWith('fw-') || scopeId.startsWith('paloalto-fw-'))) {
+            const serial = scopeId.replace('paloalto-fw-', '').replace('fw-', '');
+            const fw = firewalls.find(f => f.serial === serial || f.uuid === scopeId);
+            if (fw && fw.vendor) vendor = fw.vendor;
+          } else {
+            const dg = deviceGroups.find(dg => dg.uuid === scopeId);
+            if (dg && dg.vendor) vendor = dg.vendor;
+          }
+          return renderVendorBadge(vendor);
+        }
+      },
+      {
+        key: 'device_uuid',
+        label: 'Scope Location',
+        width: '240px',
+        exportValue: (row) => {
+          const val = row.device_uuid;
+          const isShared = val === 'paloalto-panorama-global';
+          return isShared ? 'Shared' : (scopeNameMap[val] || val);
+        },
+        renderCell: (val, row, query) => {
+          const hierarchy = [...getScopeHierarchy(val)].reverse();
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', lineHeight: '1.2' }}>
+              {hierarchy.map((scopeId, idx) => {
+                const isLast = idx === hierarchy.length - 1;
+                const isShared = scopeId === 'paloalto-panorama-global';
+                const displayName = isShared ? 'Shared' : (scopeNameMap[scopeId] || scopeId);
+                const indent = idx * 12; // 12px indent per level
+
+                return (
+                  <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
+                    {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
+                    <span
+                      onClick={() => handleScopeChange(scopeId)}
+                      style={{
+                        cursor: 'pointer',
+                        transition: 'opacity 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; e.currentTarget.style.opacity = '0.8'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; e.currentTarget.style.opacity = '1'; }}
+                      title={`Switch active scope to ${displayName}`}
+                    >
+                      {isLast ? (
+                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
+                          <HighlightedText text={displayName} highlight={query || ''} />
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          <HighlightedText text={displayName} highlight={query || ''} />
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+      },
       {
         key: 'name',
         label: 'Name',
@@ -2096,70 +2200,6 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             </div>
           );
         }
-      },
-      {
-        key: 'vendor',
-        label: 'Vendor',
-        width: '100px',
-        renderCell: (val, row) => {
-          let vendor = 'paloalto';
-          const scopeId = row.device_uuid;
-          if (scopeId === 'paloalto-panorama-global') {
-            vendor = 'paloalto';
-          } else if (scopeId && (scopeId.startsWith('fw-') || scopeId.startsWith('paloalto-fw-'))) {
-            const serial = scopeId.replace('paloalto-fw-', '').replace('fw-', '');
-            const fw = firewalls.find(f => f.serial === serial || f.uuid === scopeId);
-            if (fw && fw.vendor) vendor = fw.vendor;
-          } else {
-            const dg = deviceGroups.find(dg => dg.uuid === scopeId);
-            if (dg && dg.vendor) vendor = dg.vendor;
-          }
-          return renderVendorBadge(vendor);
-        }
-      },
-      {
-        key: 'device_uuid',
-        label: 'Scope Context',
-        width: '240px',
-        renderCell: (val, row, query) => {
-          const hierarchy = [...getScopeHierarchy(val)].reverse();
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'var(--font-mono, monospace)', fontSize: '11px', lineHeight: '1.2' }}>
-              {hierarchy.map((scopeId, idx) => {
-                const isLast = idx === hierarchy.length - 1;
-                const isShared = scopeId === 'paloalto-panorama-global';
-                const displayName = isShared ? 'Shared' : (scopeNameMap[scopeId] || scopeId);
-                const indent = idx * 12; // 12px indent per level
-
-                return (
-                  <div key={scopeId} style={{ display: 'flex', alignItems: 'center', paddingLeft: `${indent}px`, gap: '4px' }}>
-                    {idx > 0 && <span style={{ color: 'var(--text-muted)', marginRight: '2px' }}>└─</span>}
-                    <span
-                      onClick={() => handleScopeChange(scopeId)}
-                      style={{
-                        cursor: 'pointer',
-                        transition: 'opacity 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; e.currentTarget.style.opacity = '0.8'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; e.currentTarget.style.opacity = '1'; }}
-                      title={`Switch active scope to ${displayName}`}
-                    >
-                      {isLast ? (
-                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
-                          <HighlightedText text={displayName} highlight={query || ''} />
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          <HighlightedText text={displayName} highlight={query || ''} />
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        }
       }
     ];
 
@@ -2167,21 +2207,28 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     switch (dataViewTab) {
       case 'Address Objects':
         subtabCols = [
-          { key: 'type', label: 'Type', width: '130px' },
-          { key: 'value', label: 'Address / Netmask / Range', width: '220px' },
+          { key: 'type', label: 'Address Type', width: '130px' },
+          { key: 'value', label: 'Value', width: '220px' },
           {
             key: 'tags',
             label: 'Tags',
             width: '180px',
             getFilterValues: (row) => {
-              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_object');
+              const mappings = tagsByAddressObject[row.id] || [];
               return mappings.map(m => {
-                const tagObj = allTags.find(t => t.id === m.tag_id);
+                const tagObj = tagsById[m.tag_id];
                 return tagObj ? tagObj.name : null;
               }).filter(Boolean) as string[];
             },
+            exportValue: (row) => {
+              const mappings = tagsByAddressObject[row.id] || [];
+              return mappings.map(m => {
+                const tagObj = tagsById[m.tag_id];
+                return tagObj ? tagObj.name : null;
+              }).filter(Boolean).join(',');
+            },
             renderCell: (val, row, query) => {
-              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_object');
+              const mappings = tagsByAddressObject[row.id] || [];
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
               const colorMap: Record<string, string> = {
                 color1: '#ef4444',
@@ -2206,7 +2253,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   items={mappings}
                   limit={5}
                   renderItem={(m: any) => {
-                    const tagObj = allTags.find(t => t.id === m.tag_id);
+                    const tagObj = tagsById[m.tag_id];
                     if (!tagObj) return <React.Fragment key={m.tag_id} />;
                     const hex = colorMap[tagObj.color] || 'var(--text-muted)';
                     return (
@@ -2215,18 +2262,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         style={{
                           fontSize: '11px',
                           padding: '2px 8px',
-                          borderRadius: '12px',
+                          borderRadius: '4px',
                           backgroundColor: `${hex}22`,
                           color: hex,
                           border: `1px solid ${hex}44`,
                           fontWeight: 600,
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
                           wordBreak: 'break-all'
                         }}
                       >
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
                         <HighlightedText text={tagObj.name} highlight={query || ''} />
                       </span>
                     );
@@ -2293,14 +2338,21 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             label: 'Tags',
             width: '180px',
             getFilterValues: (row) => {
-              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_group');
+              const mappings = tagsByAddressGroup[row.id] || [];
               return mappings.map(m => {
-                const tagObj = allTags.find(t => t.id === m.tag_id);
+                const tagObj = tagsById[m.tag_id];
                 return tagObj ? tagObj.name : null;
               }).filter(Boolean) as string[];
             },
+            exportValue: (row) => {
+              const mappings = tagsByAddressGroup[row.id] || [];
+              return mappings.map(m => {
+                const tagObj = tagsById[m.tag_id];
+                return tagObj ? tagObj.name : null;
+              }).filter(Boolean).join(',');
+            },
             renderCell: (val, row, query) => {
-              const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === 'address_group');
+              const mappings = tagsByAddressGroup[row.id] || [];
               if (mappings.length === 0) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
               const colorMap: Record<string, string> = {
                 color1: '#ef4444',
@@ -2325,7 +2377,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   items={mappings}
                   limit={5}
                   renderItem={(m: any) => {
-                    const tagObj = allTags.find(t => t.id === m.tag_id);
+                    const tagObj = tagsById[m.tag_id];
                     if (!tagObj) return <React.Fragment key={m.tag_id} />;
                     const hex = colorMap[tagObj.color] || 'var(--text-muted)';
                     return (
@@ -2334,18 +2386,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         style={{
                           fontSize: '11px',
                           padding: '2px 8px',
-                          borderRadius: '12px',
+                          borderRadius: '4px',
                           backgroundColor: `${hex}22`,
                           color: hex,
                           border: `1px solid ${hex}44`,
                           fontWeight: 600,
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '4px',
                           wordBreak: 'break-all'
                         }}
                       >
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: hex }} />
                         <HighlightedText text={tagObj.name} highlight={query || ''} />
                       </span>
                     );

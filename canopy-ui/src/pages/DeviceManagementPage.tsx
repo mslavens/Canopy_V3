@@ -92,7 +92,7 @@ const VENDOR_ROOT_UUIDS = ['paloalto-panorama-global', 'fortinet-global-adom', '
 const getVendorRootName = (uuid: string) => {
   if (uuid === 'fortinet-global-adom') return 'Global ADOM';
   if (uuid === 'cisco-global-domain') return 'Global Domain';
-  return 'Panorama Shared';
+  return 'Shared';
 };
 
 const getVendorRootUuid = (vendor: string) => {
@@ -190,7 +190,9 @@ const GroupTreeItem: React.FC<GroupTreeItemProps> = ({
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
             {VENDOR_ROOT_UUIDS.includes(group.uuid) ? getVendorRootName(group.uuid) : cleanGroupName(group.name)}
           </span>
-          {!VENDOR_ROOT_UUIDS.includes(group.uuid) && group.vendor && renderVendorBadge(group.vendor)}
+          {VENDOR_ROOT_UUIDS.includes(group.uuid) 
+            ? renderVendorBadge(group.uuid === 'fortinet-global-adom' ? 'fortinet' : group.uuid === 'cisco-global-domain' ? 'cisco' : 'paloalto')
+            : (group.vendor && renderVendorBadge(group.vendor))}
           {count !== undefined && count > 0 && (
             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.5px' }}>
               ({count})

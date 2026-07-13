@@ -20,7 +20,7 @@ export function useScopeHierarchy(
 
   const scopeNameMap = useMemo(() => {
     const map: Record<string, string> = {
-      'paloalto-panorama-global': 'Panorama Shared',
+      'paloalto-panorama-global': 'Shared',
       'fortinet-global-adom': 'Global ADOM',
       'cisco-global-domain': 'Global Domain',
       'paloalto-dg-shared': 'Shared'
@@ -30,7 +30,7 @@ export function useScopeHierarchy(
     }
 
     deviceGroups.forEach(dg => {
-      map[dg.uuid] = dg.name;
+      map[dg.uuid] = dg.name === 'Panorama Shared' ? 'Shared' : dg.name;
     });
     firewalls.forEach(fw => {
       const key = firewallValueKey === 'uuid' ? fw.uuid : `fw-${fw.serial}`;
@@ -46,7 +46,7 @@ export function useScopeHierarchy(
       opts.push({ label: 'Show all', value: 'show-all', depth: 0, type: 'global' });
     }
     const vendorRoots = [
-      { label: 'Panorama Shared', value: 'paloalto-panorama-global' },
+      { label: 'Shared', value: 'paloalto-panorama-global' },
       { label: 'Global ADOM', value: 'fortinet-global-adom' },
       { label: 'Global Domain', value: 'cisco-global-domain' }
     ];
@@ -101,7 +101,7 @@ export function useScopeHierarchy(
     });
 
     orderedRoots.forEach(root => {
-       opts.push({ label: root.name, value: root.uuid, depth: 0, type: 'shared' });
+       opts.push({ label: root.name === 'Panorama Shared' ? 'Shared' : root.name, value: root.uuid, depth: 0, type: 'shared' });
        buildNode(root.id, 1);
     });
 

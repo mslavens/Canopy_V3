@@ -19,7 +19,7 @@ interface DataImportWizardProps {
 
 const dbFieldsMap: Record<string, string[]> = {
 
-  address_objects: ['vendor', 'scope_context', 'name', 'value', 'description', 'tags'],
+  address_objects: ['vendor', 'scope_context', 'name', 'type', 'value', 'description', 'tags'],
   address_groups: ['vendor', 'scope_context', 'name', 'type', 'filter', 'members', 'description', 'tags'],
   service_objects: ['vendor', 'scope_context', 'name', 'protocol', 'destination_port', 'description'],
   service_groups: ['vendor', 'scope_context', 'name', 'description'],
@@ -154,6 +154,17 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   const parseCSVText = (text: string) => {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(line => line !== '');
     if (lines.length > 0) {
+      let delimiter = ',';
+      if (lines.length > 0) {
+        // Auto-detect delimiter based on first line
+        const firstLine = lines[0];
+        const commas = (firstLine.match(/,/g) || []).length;
+        const semis = (firstLine.match(/;/g) || []).length;
+        const tabs = (firstLine.match(/\t/g) || []).length;
+        if (semis > commas && semis > tabs) delimiter = ';';
+        else if (tabs > commas && tabs > semis) delimiter = '\t';
+      }
+
       const parseCSVLine = (line: string) => {
         const result = [];
         let current = '';
@@ -162,7 +173,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
           const char = line[i];
           if (char === '"') {
             inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
+          } else if (char === delimiter && !inQuotes) {
             result.push(current.trim());
             current = '';
           } else {
@@ -481,7 +492,6 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
                           onChange={(val) => setDefaultScope(val === 'show-all' ? '' : val)}
                           scopeNameMap={scopeNameMap || {}}
                           ruleCounts={{}}
-                          width="100%"
                         />
                       </div>
                     )}

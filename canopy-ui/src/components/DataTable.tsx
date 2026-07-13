@@ -11,6 +11,7 @@ export interface ColumnDef {
   width?: string;
   renderCell?: (value: any, row: any, searchQuery?: string) => React.ReactNode;
   getFilterValues?: (row: any) => string | string[];
+  exportValue?: (row: any) => string;
   allowOverflow?: boolean;
 }
 
@@ -474,7 +475,8 @@ export const DataTable: React.FC<DataTableProps> = ({
 
     const csvRows = rowsToExport.map(row => {
       const baseValues = exportKeys.map(k => {
-        let val = row[k];
+        const colDef = getColDef(k);
+        let val = colDef.exportValue ? colDef.exportValue(row) : row[k];
         if (val === null || val === undefined) val = '';
         
         // Format known multi-value fields with semicolons for strict Enterprise parsers
