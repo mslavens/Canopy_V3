@@ -436,6 +436,7 @@ type InterfaceNode struct {
 	} `xml:"layer2>ip>entry"`
 	Layer3Units []InterfaceUnit `xml:"layer3>units>entry"`
 	Layer2Units []InterfaceUnit `xml:"layer2>units>entry"`
+	AggregateGroup string `xml:"aggregate-group"`
 }
 
 type XMLGlobalProtectGatewayEntry struct {
@@ -2703,7 +2704,7 @@ func insertVariables(stmt *sql.Stmt, deviceUUID, scope string, vars []XMLVariabl
 }
 
 func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, scope, ifaceType string, list []InterfaceNode, interfaceToZone, interfaceToVR map[string]string, metadataTags []string, stats *IngestionStats, topologyImported *int) error {
-	processSingleInterface := func(name string, ips []string) error {
+	processSingleInterface := func(name string, ips []string, aggGroup string) error {
 		zoneName, _ := interfaceToZone[name]
 		vrName, _ := interfaceToVR[name]
 
@@ -2724,7 +2725,7 @@ func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, sco
 		
 		ipAddress := strings.Join(ips, ", ")
 		if interfaceStmt != nil {
-			if _, err := interfaceStmt.Exec(deviceUUID, scope, name, ifaceType, ipAddress, "", zoneName, vrName); err != nil {
+			if _, err := interfaceStmt.Exec(deviceUUID, scope, name, ifaceType, ipAddress, "", zoneName, vrName, aggGroup); err != nil {
 				return err
 			}
 		}
@@ -2744,7 +2745,7 @@ func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, sco
 		for _, ip := range eth.Layer2IPs {
 			parentIPs = append(parentIPs, ip.Name)
 		}
-		if err := processSingleInterface(eth.Name, parentIPs); err != nil {
+		if err := processSingleInterface(eth.Name, parentIPs, eth.AggregateGroup); err != nil {
 			return err
 		}
 
@@ -2754,7 +2755,7 @@ func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, sco
 			for _, ip := range unit.IPs {
 				unitIPs = append(unitIPs, ip.Name)
 			}
-			if err := processSingleInterface(unit.Name, unitIPs); err != nil {
+			if err := processSingleInterface(unit.Name, unitIPs, eth.AggregateGroup); err != nil {
 				return err
 			}
 		}
@@ -2763,7 +2764,7 @@ func processInterfaceList(interfaceStmt, topologyStmt *sql.Stmt, deviceUUID, sco
 			for _, ip := range unit.IPs {
 				unitIPs = append(unitIPs, ip.Name)
 			}
-			if err := processSingleInterface(unit.Name, unitIPs); err != nil {
+			if err := processSingleInterface(unit.Name, unitIPs, eth.AggregateGroup); err != nil {
 				return err
 			}
 		}
@@ -2857,8 +2858,8 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 	defer topologyStmt.Close()
 
 	interfaceStmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO interfaces (device_uuid, scope, name, type, ip_address, description, zone, vr_name)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO interfaces (device_uuid, scope, name, type, ip_address, description, zone, vr_name, aggregate_group)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to prepare interface statement: %w", err)

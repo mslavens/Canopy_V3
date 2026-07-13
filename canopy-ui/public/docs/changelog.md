@@ -2,6 +2,19 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.30.0 - Network Topology Parser Upgrades
+**Date:** 2026-07-13
+
+### Added
+- **Palo Alto XML Subinterface Support**: The backend XML parser now correctly navigates and extracts subinterfaces for physical Ethernet ports, ensuring IPs and zones are mapped properly.
+- **Aggregate Ethernet (AE) Interfaces**: Built full support for AE interfaces. Subinterfaces on AE ports are now extracted, and physical ethernet interfaces correctly parse and expose their assigned Aggregate Group.
+- **GlobalProtect Gateway VPN Extraction**: The offline network analyzer now automatically extracts GlobalProtect Gateway configurations and their remote-user IP Pools, seamlessly inserting them as connected Static Routes mapping back to the VPN tunnel interface.
+- **Network Interface Data Model**: Enhanced the internal `interfaces` database table and APIs to support tracking `aggregate_group`, allowing users to accurately trace interface bonds.
+
+### Fixed
+- **Unassigned Zone & Virtual Router Overrides**: Removed forced fallbacks that incorrectly defaulted unassigned XML interfaces to "untrusted" or "default" Virtual Routers. The ingestion pipeline now strictly adheres to 1:1 representations of the imported XML without assuming values.
+- **Pending Changes tagged switch**: Addressed a core backend linter warning by modernizing the composite table deletion logic to use a tagged switch statement.
+
 ## v0.29.0 - Context Menu Standardization (DRY Refactor)
 **Date:** 2026-07-12
 

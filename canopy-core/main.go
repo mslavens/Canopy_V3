@@ -145,6 +145,7 @@ var actSchema = `
 		description TEXT,
 		zone TEXT,
 		vr_name TEXT,
+		aggregate_group TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
 	);
 	CREATE TABLE IF NOT EXISTS zones (
@@ -926,6 +927,7 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE service_groups ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE interfaces ADD COLUMN zone TEXT;")
 	db.Exec("ALTER TABLE interfaces ADD COLUMN vr_name TEXT;")
+	db.Exec("ALTER TABLE interfaces ADD COLUMN aggregate_group TEXT;")
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN group_id INTEGER REFERENCES application_groups(id) ON DELETE CASCADE;")
 	db.Exec("ALTER TABLE security_rules ADD COLUMN log_setting TEXT;")
@@ -1140,7 +1142,7 @@ func main() {
 			fmt.Println("\nRun without arguments to start the background web daemon.")
 			os.Exit(0)
 		case "version", "--version", "-v":
-			fmt.Println("Canopy Core Engine v0.17.0")
+			fmt.Println("Canopy Core Engine v0.30.0")
 			os.Exit(0)
 		case "db-query":
 			if len(os.Args) < 3 {

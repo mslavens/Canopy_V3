@@ -346,6 +346,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
       { key: 'ip_address', label: 'IP Address', width: '200px', renderCell: (val: any, row: any) => <VariableResolver raw={row.ip_address} resolved={row.resolved_ip_address} /> },
       { key: 'zone', label: 'Security Zone', width: '150px' },
       { key: 'vr_name', label: 'Virtual Router', width: '150px' },
+      { key: 'aggregate_group', label: 'Aggregate Group', width: '150px' },
       { key: 'description', label: 'Description', width: '200px' },
     ],
     [scopeNameMap, getVisibleScopes, templates, templateStacks, devices]

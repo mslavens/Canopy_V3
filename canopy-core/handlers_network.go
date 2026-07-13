@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"canopy-core/engine"
@@ -144,6 +145,7 @@ type Interface struct {
 	ResolvedIPAddress string `json:"resolved_ip_address"`
 	Zone              string `json:"zone"`
 	VRName            string `json:"vr_name"`
+	AggregateGroup    string `json:"aggregate_group"`
 	Description       string `json:"description"`
 }
 
@@ -154,7 +156,7 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	deviceUUID := r.URL.Query().Get("device_uuid")
 	
 	query := `
-		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, ''), COALESCE(vr_name, ''), COALESCE(description, '')
+		SELECT id, device_uuid, scope, name, type, ip_address, COALESCE(zone, ''), COALESCE(vr_name, ''), COALESCE(aggregate_group, ''), COALESCE(description, '')
 		FROM interfaces
 	`
 	
@@ -192,7 +194,8 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 	var interfaces []Interface
 	for rows.Next() {
 		var i Interface
-		if err := rows.Scan(&i.ID, &i.DeviceUUID, &i.Scope, &i.Name, &i.Type, &i.IPAddress, &i.Zone, &i.VRName, &i.Description); err != nil {
+		if err := rows.Scan(&i.ID, &i.DeviceUUID, &i.Scope, &i.Name, &i.Type, &i.IPAddress, &i.Zone, &i.VRName, &i.AggregateGroup, &i.Description); err != nil {
+			log.Printf("Error scanning interface row: %v", err)
 			continue
 		}
 		
