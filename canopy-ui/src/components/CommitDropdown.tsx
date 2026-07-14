@@ -94,6 +94,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
       });
       addToast("Successfully committed changes", "success");
       setIsCommitModalOpen(false);
+      window.dispatchEvent(new Event('workspace-committed'));
       fetchDiff();
     } catch (err: any) {
       addToast(`Commit failed: ${err.message}`, "error");
@@ -130,6 +131,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
       const apiClient = new CanopyApiClient(creds);
       await apiClient.revertSingleChange(category, id);
       addToast('Change reverted successfully', 'success');
+      window.dispatchEvent(new Event('workspace-committed'));
       fetchDiff();
     } catch (err: any) {
       addToast(err.message || 'Failed to revert change', 'error');

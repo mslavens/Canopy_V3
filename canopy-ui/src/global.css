@@ -89,6 +89,9 @@ body,
   
   --accent-blue: #89b4fa;
   --accent-purple: #b4befe;
+  --accent-red: var(--status-red);
+  --accent-orange: var(--status-warn);
+  
   --status-green: #a6e3a1;
   --status-red: #f38ba8;
   --status-warn: #f9e2af;
@@ -108,6 +111,9 @@ html[data-theme="light"] {
   
   --accent-blue: #0067c0;
   --accent-purple: #4752c4;
+  --accent-red: var(--status-red);
+  --accent-orange: var(--status-warn);
+  
   --status-green: #248046;
   --status-red: #da373c;
   --status-warn: #df8000;

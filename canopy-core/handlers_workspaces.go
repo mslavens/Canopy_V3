@@ -544,6 +544,14 @@ func handleWorkspacesCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reset dirty flags on objects on configuration commit
+	tx.Exec("UPDATE address_objects SET dirty = 0;")
+	tx.Exec("UPDATE address_groups SET dirty = 0;")
+	tx.Exec("UPDATE service_objects SET dirty = 0;")
+	tx.Exec("UPDATE service_groups SET dirty = 0;")
+	tx.Exec("UPDATE application_objects SET dirty = 0;")
+	tx.Exec("UPDATE application_groups SET dirty = 0;")
+
 	if err := tx.Commit(); err != nil {
 		http.Error(w, "Failed to commit transaction", http.StatusInternalServerError)
 		return

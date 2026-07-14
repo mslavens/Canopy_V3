@@ -1272,7 +1272,28 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       }
 
       const scopesStr = !isShowAll ? visibleScopes.join(',') : undefined;
-      const data = await apiClient.getObjects(queryType, scopesStr);
+      const [data, diffData] = await Promise.all([
+        apiClient.getObjects(queryType, scopesStr),
+        apiClient.request<any>('/api/workspaces/diff').catch(() => null)
+      ]);
+      
+      const deletedNamesInScope = new Set<string>();
+      if (diffData && currentScope !== 'show-all') {
+        const processDeleted = (d: any) => {
+          if (d.device_uuid === currentScope && d.name) {
+            deletedNamesInScope.add(d.name);
+          }
+        };
+        
+        ['tags', 'address_objects', 'address_groups', 'service_objects', 'service_groups', 'application_objects', 'application_groups'].forEach(key => {
+          if (diffData[key]?.deleted) diffData[key].deleted.forEach(processDeleted);
+        });
+        if (diffData.tables) {
+          Object.values(diffData.tables).forEach((t: any) => {
+            if (t.deleted) t.deleted.forEach(processDeleted);
+          });
+        }
+      }
       
       let processedData = data || [];
       if (!isShowAll && processedData.length > 0) {
@@ -1307,7 +1328,22 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         processedData = Object.values(map).map(({ active, hasAncestor, ancestorScope }) => {
           const isInherited = active.device_uuid !== currentScope;
           const isOverridden = !isInherited && hasAncestor;
-          return { ...active, isInherited, isOverridden, overriddenFrom: isOverridden ? ancestorScope : undefined };
+          const isPendingRevert = isInherited && deletedNamesInScope.has(active.name);
+          const flags: string[] = [];
+          if (isInherited) flags.push('Inherited');
+          if (isOverridden) flags.push('Overridden');
+          if (isPendingRevert) flags.push('Pending Revert');
+          if (active.device_uuid && (active.device_uuid.startsWith('fw-') || active.device_uuid.startsWith('paloalto-fw-'))) flags.push('Local');
+          if (active.dirty === 1) flags.push('Uncommitted');
+
+          return { ...active, isInherited, isOverridden, isPendingRevert, overriddenFrom: isOverridden ? ancestorScope : undefined, flags };
+        });
+      } else if (isShowAll && processedData.length > 0) {
+        processedData = processedData.map((active: any) => {
+          const flags: string[] = [];
+          if (active.device_uuid && (active.device_uuid.startsWith('fw-') || active.device_uuid.startsWith('paloalto-fw-'))) flags.push('Local');
+          if (active.dirty === 1) flags.push('Uncommitted');
+          return { ...active, flags };
         });
       }
       
@@ -1323,6 +1359,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       }
     }
   };
+
+  useEffect(() => {
+    const onCommit = () => {
+      fetchRecords();
+    };
+    window.addEventListener('workspace-committed', onCommit);
+    return () => {
+      window.removeEventListener('workspace-committed', onCommit);
+    };
+  }, [fetchRecords]);
 
   // Load reference entities for modals
   const loadReferenceData = async () => {
@@ -2761,6 +2807,56 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
     const actionCols: ColumnDef[] = [
       { key: 'description', label: 'Description', width: '220px' },
+      {
+        key: 'flags',
+        label: 'Flags',
+        width: '180px',
+        getFilterValues: (row) => row.flags || [],
+        renderCell: (val: any) => {
+          const flags = Array.isArray(val) ? val : [];
+          if (flags.length === 0) return <span style={{ color: 'var(--text-muted)' }}>-</span>;
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+              {flags.map((flag: string) => {
+                let bg = 'var(--bg-element)';
+                let color = 'var(--text-main)';
+                let border = '1px solid var(--border-main)';
+                if (flag === 'Inherited') {
+                  color = 'var(--text-muted)';
+                } else if (flag === 'Overridden') {
+                  color = 'var(--accent-orange)';
+                  border = '1px solid var(--accent-orange)';
+                  bg = 'transparent';
+                } else if (flag === 'Local') {
+                  color = 'var(--accent-blue)';
+                  border = '1px solid var(--accent-blue)';
+                  bg = 'transparent';
+                } else if (flag === 'Uncommitted') {
+                  color = 'var(--accent-red)';
+                  border = '1px solid var(--accent-red)';
+                  bg = 'transparent';
+                } else if (flag === 'Pending Revert') {
+                  color = 'var(--accent-purple)';
+                  border = '1px dashed var(--accent-purple)';
+                  bg = 'transparent';
+                }
+                return (
+                  <span key={flag} style={{
+                    fontSize: '11px',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: bg,
+                    color: color,
+                    border: border
+                  }}>
+                    {flag}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        }
+      },
       {
         key: 'id',
         label: 'Actions',
