@@ -595,6 +595,8 @@ export const DataTable: React.FC<DataTableProps> = ({
             </div>
           )}
 
+
+
           <div ref={columnToggleRef} style={{ position: 'relative' }}>
             <button className="btn-secondary btn-sm" onClick={() => setShowColumnToggle(!showColumnToggle)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Columns size={14} /> Columns
@@ -627,7 +629,19 @@ export const DataTable: React.FC<DataTableProps> = ({
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
               {expandableRowRender && (
-                <th style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: '10px 10px', borderBottom: '2px solid var(--bg-app)', borderRight: '1px solid var(--border-main)', width: '32px' }}>
+                <th 
+                  style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: '10px 10px', borderBottom: '2px solid var(--bg-app)', borderRight: '1px solid var(--border-main)', width: '32px', cursor: 'pointer', textAlign: 'center' }}
+                  onClick={() => {
+                    if (expandedRows.size > 0 && expandedRows.size >= processedRows.length) {
+                      setExpandedRows(new Set());
+                    } else {
+                      const allKeys = new Set(processedRows.map(r => getRowKey(r)));
+                      setExpandedRows(allKeys);
+                    }
+                  }}
+                  title={expandedRows.size > 0 && expandedRows.size >= processedRows.length ? "Collapse All" : "Expand All"}
+                >
+                  {expandedRows.size > 0 && expandedRows.size >= processedRows.length ? <ChevronDown size={14} style={{color: 'var(--text-muted)'}} /> : <ChevronRight size={14} style={{color: 'var(--text-muted)'}} />}
                 </th>
               )}
               {selectable && (
