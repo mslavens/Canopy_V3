@@ -238,6 +238,49 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
 
   const formatKey = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
+  const formatDiffDetailsForCsv = (change: any) => {
+    const skipKeys = [
+      'id', 'device_uuid', 'scope', 'dirty', 'created_at', 'updated_at',
+      'group_id', 'member_address_id', 'member_group_id', 'member_service_id', 'member_application_id', 'tag_id', 'entity_id', 'entity_type',
+      '_group_name'
+    ];
+
+    if (!change.details) return '';
+    const lines: string[] = [];
+
+    if (change.details._isAggregated) {
+      (change.details.added || []).forEach((item: any) => {
+        lines.push(`+ Added Member: ${item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}`);
+      });
+      (change.details.deleted || []).forEach((item: any) => {
+        lines.push(`- Removed Member: ${item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}`);
+      });
+      return lines.join('\n');
+    }
+
+    if (change.type === 'ADD') {
+      Object.entries(change.details).forEach(([key, val]) => {
+        if (val === null || val === '' || skipKeys.includes(key)) return;
+        lines.push(`+ ${formatKey(key)}: ${renderDiffValue(val)}`);
+      });
+    } else if (change.type === 'DELETE') {
+      Object.entries(change.details).forEach(([key, val]) => {
+        if (val === null || val === '' || skipKeys.includes(key)) return;
+        lines.push(`- ${formatKey(key)}: ${renderDiffValue(val)}`);
+      });
+    } else if (change.type === 'UPDATE') {
+      Object.entries(change.details).forEach((entry: any) => {
+        const [key, val] = entry;
+        if (skipKeys.includes(key)) return;
+        if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return;
+        lines.push(`- ${formatKey(key)}: ${renderDiffValue(val.old)}`);
+        lines.push(`+ ${formatKey(key)}: ${renderDiffValue(val.new)}`);
+      });
+    }
+
+    return lines.join('\n');
+  };
+
   const renderDiffDetails = (change: any) => {
     const skipKeys = [
       'id', 'device_uuid', 'scope', 'dirty', 'created_at', 'updated_at',
@@ -388,7 +431,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
             selectable={true}
             onSelectionChange={setSelectedRows}
             exportFilename="pending_changes.csv"
-            additionalExportColumns={[{ header: 'Details', getValue: (row: any) => JSON.stringify(row.details || {}) }]}
+            additionalExportColumns={[{ header: 'Details', getValue: (row: any) => formatDiffDetailsForCsv(row) }]}
             bulkActions={
               selectedRows.length > 0 && onRevert ? (
                 <button 
