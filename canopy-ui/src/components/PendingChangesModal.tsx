@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronDown, ChevronRight, Search, Undo2, HelpCircle } from 'lucide-react';
 import { DataTable, ColumnDef } from './DataTable';
+import { HighlightedText } from './HighlightedText';
 import { CommitHelpModal } from './CommitHelpModal';
 import { CanopyApiClient } from '../api/client';
 import { useConfirm } from './ConfirmProvider';
@@ -17,6 +18,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
   const [searchQuery, setSearchQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Set<any>>(new Set());
   const confirm = useConfirm();
 
   // Flatten diffData into a list of changes
@@ -213,6 +215,26 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     JSON.stringify(c.details || {}).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  React.useEffect(() => {
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase();
+      const nextExpanded = new Set(expandedRows);
+      let changed = false;
+      
+      filteredChanges.forEach((c: any) => {
+        if (JSON.stringify(c.details || {}).toLowerCase().includes(lowerQuery)) {
+          if (!nextExpanded.has(c.id)) {
+            nextExpanded.add(c.id);
+            changed = true;
+          }
+        }
+      });
+      if (changed) {
+        setExpandedRows(nextExpanded);
+      }
+    }
+  }, [searchQuery, filteredChanges]);
+
 
 
   const renderBadge = (type: string) => {
@@ -299,10 +321,10 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       return (
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', fontFamily: 'monospace' }}>
           {change.details.added.map((item: any, i: number) => (
-             <div key={`add-${i}`} style={{ color: '#10b981' }}>+ Added Member: {item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}</div>
+             <div key={`add-${i}`} style={{ color: '#10b981' }}>+ Added Member: <HighlightedText text={item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'} highlight={searchQuery} /></div>
           ))}
           {change.details.deleted.map((item: any, i: number) => (
-             <div key={`del-${i}`} style={{ color: '#ef4444' }}>- Removed Member: {item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'}</div>
+             <div key={`del-${i}`} style={{ color: '#ef4444' }}>- Removed Member: <HighlightedText text={item._member_name || item.member_address_id || item.member_group_id || item.member_service_id || item.member_application_id || '?'} highlight={searchQuery} /></div>
           ))}
         </div>
       );
@@ -313,7 +335,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', color: '#10b981', fontFamily: 'monospace' }}>
           {Object.entries(change.details).map(([key, val]) => {
             if (val === null || val === '' || skipKeys.includes(key)) return null;
-            return <div key={key}>+ {formatKey(key)}: {renderDiffValue(val)}</div>;
+            return <div key={key}>+ {formatKey(key)}: <HighlightedText text={renderDiffValue(val)} highlight={searchQuery} /></div>;
           })}
         </div>
       );
@@ -323,7 +345,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto', color: '#ef4444', fontFamily: 'monospace' }}>
           {Object.entries(change.details).map(([key, val]) => {
             if (val === null || val === '' || skipKeys.includes(key)) return null;
-            return <div key={key}>- {formatKey(key)}: {renderDiffValue(val)}</div>;
+            return <div key={key}>- {formatKey(key)}: <HighlightedText text={renderDiffValue(val)} highlight={searchQuery} /></div>;
           })}
         </div>
       );
@@ -337,8 +359,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
             if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return null;
             return (
               <div key={key} style={{ fontFamily: 'monospace', marginBottom: '4px' }}>
-                <div style={{ color: '#ef4444' }}>- {formatKey(key)}: {renderDiffValue(val.old)}</div>
-                <div style={{ color: '#10b981' }}>+ {formatKey(key)}: {renderDiffValue(val.new)}</div>
+                <div style={{ color: '#ef4444' }}>- {formatKey(key)}: <HighlightedText text={renderDiffValue(val.old)} highlight={searchQuery} /></div>
+                <div style={{ color: '#10b981' }}>+ {formatKey(key)}: <HighlightedText text={renderDiffValue(val.new)} highlight={searchQuery} /></div>
               </div>
             );
           })}
@@ -405,7 +427,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px 12px 8px 36px',
+                padding: '8px 36px 8px 36px',
                 backgroundColor: 'var(--bg-main)',
                 border: '1px solid var(--border-main)',
                 borderRadius: '6px',
@@ -413,6 +435,14 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                 outline: 'none'
               }}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '12px', top: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 0 }}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -433,6 +463,10 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
               { key: 'description', label: 'Description', allowOverflow: true }
             ]}
             data={filteredChanges}
+            searchQuery={searchQuery}
+            disableInternalSearch={true}
+            expandedRows={expandedRows}
+            onExpandedRowsChange={setExpandedRows}
             expandableRowRender={renderDiffDetails}
             pagination={true}
             selectable={true}

@@ -44,11 +44,15 @@ interface DataTableProps {
   allowScrollPastEnd?: boolean;
   expandableRowRender?: (row: any) => React.ReactNode;
   rowKeyField?: string | ((row: any) => string);
+  disableInternalSearch?: boolean;
+  expandedRows?: Set<any>;
+  onExpandedRowsChange?: (expandedRows: Set<any>) => void;
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   columns, data, searchQuery = '', exportFilename, selectable = false, onSelectionChange, highlightRow, rowStyle, bulkActions, exportActions, topRightActions, toolbarTitle, additionalExportColumns, loading = false, isFetching = false, rowContextMenuActions,
-  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender, allowScrollPastEnd = false, expandableRowRender, rowKeyField
+  totalRows, pagination = false, currentPage: externalCurrentPage, rowsPerPage: externalRowsPerPage, onPageChange, onRowsPerPageChange, groupByField, groupByRender, allowScrollPastEnd = false, expandableRowRender, rowKeyField,
+  disableInternalSearch = false, expandedRows: externalExpandedRows, onExpandedRowsChange
 }) => {
   const [currentPage, setCurrentPage] = useState<number | string>(1);
   const [pageSize, setPageSize] = useState(50);
@@ -58,7 +62,13 @@ export const DataTable: React.FC<DataTableProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const [actualLastGroupHeight, setActualLastGroupHeight] = useState(0);
-  const [expandedRows, setExpandedRows] = useState<Set<any>>(new Set());
+  const [internalExpandedRows, setInternalExpandedRows] = useState<Set<any>>(new Set());
+  const expandedRows = externalExpandedRows !== undefined ? externalExpandedRows : internalExpandedRows;
+
+  const handleExpandedRowsChange = (next: Set<any>) => {
+    if (onExpandedRowsChange) onExpandedRowsChange(next);
+    if (externalExpandedRows === undefined) setInternalExpandedRows(next);
+  };
 
   const getRowKey = (row: any) => {
     if (rowKeyField) {
@@ -92,7 +102,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   const searchedRows = useMemo(() => {
     let rows = data || [];
     
-    if (searchQuery.trim()) {
+    if (searchQuery.trim() && !disableInternalSearch) {
       const lowerQuery = searchQuery.toLowerCase();
       rows = rows.filter(row => {
         // Search through all values in the row object natively
@@ -633,10 +643,10 @@ export const DataTable: React.FC<DataTableProps> = ({
                   style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bg-element)', zIndex: 1, padding: '10px 10px', borderBottom: '2px solid var(--bg-app)', borderRight: '1px solid var(--border-main)', width: '32px', cursor: 'pointer', textAlign: 'center' }}
                   onClick={() => {
                     if (expandedRows.size > 0 && expandedRows.size >= processedRows.length) {
-                      setExpandedRows(new Set());
+                      handleExpandedRowsChange(new Set());
                     } else {
                       const allKeys = new Set(processedRows.map(r => getRowKey(r)));
-                      setExpandedRows(allKeys);
+                      handleExpandedRowsChange(allKeys);
                     }
                   }}
                   title={expandedRows.size > 0 && expandedRows.size >= processedRows.length ? "Collapse All" : "Expand All"}
@@ -927,7 +937,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                     const next = new Set(expandedRows);
                     if (next.has(rowKey)) next.delete(rowKey);
                     else next.add(rowKey);
-                    setExpandedRows(next);
+                    handleExpandedRowsChange(next);
                   }}>
                     {expandedRows.has(getRowKey(row)) ? <ChevronDown size={14} style={{color: 'var(--text-muted)'}} /> : <ChevronRight size={14} style={{color: 'var(--text-muted)'}} />}
                   </td>
