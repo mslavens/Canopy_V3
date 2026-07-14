@@ -418,11 +418,16 @@ export const DataTable: React.FC<DataTableProps> = ({
     const tr = th?.parentElement;
     const ths = tr?.querySelectorAll('th');
     
+    // Calculate the exact DOM index offset for columns
+    let colOffset = 0;
+    if (expandableRowRender) colOffset++;
+    if (selectable) colOffset++;
+    
     // Capture actual rendered widths of all visible columns to prevent jumping/slippage
     const currentWidths: Record<string, number> = { ...columnWidths };
     if (ths) {
       visibleColumnKeys.forEach((key, idx) => {
-        const thElement = ths[selectable ? idx + 1 : idx];
+        const thElement = ths[idx + colOffset];
         if (thElement) {
           currentWidths[key] = thElement.getBoundingClientRect().width;
         }
@@ -434,7 +439,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
     let finalWidth = startWidth.current;
     const colIndex = visibleColumnKeys.indexOf(colKey);
-    const thIdx = selectable ? colIndex + 1 : colIndex;
+    const thIdx = colIndex + colOffset;
     const table = th?.closest('table');
     const cells = table ? table.querySelectorAll(`tr > *:nth-child(${thIdx + 1})`) : [];
 
@@ -618,7 +623,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
       {/* Main Table Area */}
       <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'scroll', overflowX: 'auto', containerType: 'inline-size' }}>
-        <table style={{ minWidth: '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
+        <table style={{ minWidth: Object.keys(columnWidths).length > 0 ? 'auto' : '100%', width: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left', fontSize: '13px', whiteSpace: 'nowrap' }}>
           <thead style={{ backgroundColor: 'var(--bg-element)' }}>
             <tr>
               {expandableRowRender && (

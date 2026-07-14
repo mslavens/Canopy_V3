@@ -38,15 +38,22 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
 
   const getVendorName = (item: any) => {
     const uuid = item?.device_uuid || item?.deviceUuid || item?.scope;
-    let vendor = globalScopeVendor || 'Unknown';
-    if (uuid) {
-      if (uuid.includes('paloalto-')) vendor = 'Palo Alto';
-      else if (uuid.includes('fortinet-')) vendor = 'Fortinet';
-      else if (uuid.includes('cisco-')) vendor = 'Cisco';
-      else if (uuid.includes('checkpoint-')) vendor = 'Check Point';
-      else if (uuid.includes('juniper-')) vendor = 'Juniper';
+    let rawVendor = globalScopeVendor || 'Unknown';
+    if (uuid && typeof uuid === 'string') {
+      if (uuid.includes('paloalto-')) rawVendor = 'paloalto';
+      else if (uuid.includes('fortinet-')) rawVendor = 'fortinet';
+      else if (uuid.includes('cisco-')) rawVendor = 'cisco';
+      else if (uuid.includes('checkpoint-')) rawVendor = 'checkpoint';
+      else if (uuid.includes('juniper-')) rawVendor = 'juniper';
     }
-    return vendor;
+    
+    const v = rawVendor.toLowerCase();
+    if (v === 'paloalto') return 'Palo Alto';
+    if (v === 'fortinet') return 'Fortinet';
+    if (v === 'cisco') return 'Cisco';
+    if (v === 'checkpoint') return 'Check Point';
+    if (v === 'juniper') return 'Juniper';
+    return rawVendor;
   };
 
   const processCategory = (categoryName: string, categoryData: any) => {
