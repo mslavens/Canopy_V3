@@ -26,14 +26,28 @@ func resolveRowScope(tx *sql.Tx, vendor string, scopeContext string, defaultDevi
 		return defaultDeviceUUID, defaultScope, ""
 	}
 
-	if strings.ToLower(scopeContext) == "shared" {
+	if strings.ToLower(scopeContext) == "shared" || scopeContext == "paloalto-panorama-global" {
 		if vendor == "paloalto" {
 			return "paloalto-panorama-global", "Shared", ""
 		}
 	}
 
+	var existingName sql.NullString
+	err := tx.QueryRow("SELECT name FROM device_groups WHERE uuid = ? LIMIT 1", scopeContext).Scan(&existingName)
+	if err == nil && existingName.Valid {
+		return scopeContext, existingName.String, ""
+	}
+	err = tx.QueryRow("SELECT name FROM templates WHERE uuid = ? LIMIT 1", scopeContext).Scan(&existingName)
+	if err == nil && existingName.Valid {
+		return scopeContext, existingName.String, ""
+	}
+	err = tx.QueryRow("SELECT name FROM managed_devices WHERE uuid = ? LIMIT 1", scopeContext).Scan(&existingName)
+	if err == nil && existingName.Valid {
+		return scopeContext, existingName.String, ""
+	}
+
 	var uuid sql.NullString
-	err := tx.QueryRow("SELECT uuid FROM device_groups WHERE name = ? AND vendor = ? LIMIT 1", scopeContext, vendor).Scan(&uuid)
+	err = tx.QueryRow("SELECT uuid FROM device_groups WHERE name = ? AND vendor = ? LIMIT 1", scopeContext, vendor).Scan(&uuid)
 	if err == nil && uuid.Valid {
 		return uuid.String, scopeContext, ""
 	}
@@ -127,7 +141,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				autoCreatedMap[ac] = true
 			}
 
-			res, err := tx.Exec("INSERT INTO address_objects (device_uuid, scope, name, type, value, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, addrType, value, desc)
+			res, err := tx.Exec("INSERT INTO address_objects (device_uuid, scope, name, type, value, description, dirty) VALUES (?, ?, ?, ?, ?, ?, 1)", rowDevUUID, rowScope, name, addrType, value, desc)
 			if err == nil {
 				insertedCount++
 
@@ -174,7 +188,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				autoCreatedMap[ac] = true
 			}
 
-			_, err = tx.Exec("INSERT INTO service_objects (device_uuid, scope, name, protocol, destination_port, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, protocol, port, desc)
+			_, err = tx.Exec("INSERT INTO service_objects (device_uuid, scope, name, protocol, destination_port, description, dirty) VALUES (?, ?, ?, ?, ?, ?, 1)", rowDevUUID, rowScope, name, protocol, port, desc)
 			if err == nil {
 				insertedCount++
 			}
@@ -570,7 +584,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				autoCreatedMap[ac] = true
 			}
 
-			res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description) VALUES (?, ?, ?, ?, ?, ?)", rowDevUUID, rowScope, name, agType, filter, desc)
+			res, err := tx.Exec("INSERT INTO address_groups (device_uuid, scope, name, type, filter, description, dirty) VALUES (?, ?, ?, ?, ?, ?, 1)", rowDevUUID, rowScope, name, agType, filter, desc)
 			if err == nil {
 				groupID, _ := res.LastInsertId()
 				
@@ -630,7 +644,7 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 				autoCreatedMap[ac] = true
 			}
 
-			_, err = tx.Exec("INSERT INTO service_groups (device_uuid, scope, name, description) VALUES (?, ?, ?, ?)", rowDevUUID, rowScope, name, desc)
+			_, err = tx.Exec("INSERT INTO service_groups (device_uuid, scope, name, description, dirty) VALUES (?, ?, ?, ?, 1)", rowDevUUID, rowScope, name, desc)
 			if err == nil {
 				insertedCount++
 			}

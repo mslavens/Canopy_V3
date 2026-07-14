@@ -10,9 +10,10 @@ export interface SearchableScopeDropdownProps {
   scopeNameMap: Record<string, string>;
   ruleCounts?: Record<string, number>;
   hasValuesMap?: Record<string, boolean>;
+  width?: string;
 }
 
-export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap, ruleCounts, hasValuesMap }) => {
+export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = ({ value, options, onChange, scopeNameMap, ruleCounts, hasValuesMap, width = '280px' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -271,7 +272,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
   ) : null;
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', width: '280px', zIndex: 900 }}>
+    <div ref={dropdownRef} style={{ position: 'relative', width, zIndex: 900 }}>
       <div
         onClick={() => {
           if (!isOpen) {

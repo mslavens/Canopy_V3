@@ -104,9 +104,19 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [defaultVendor, setDefaultVendor] = useState('');
-  const [customVendor, setCustomVendor] = useState('');
-  const [defaultScope, setDefaultScope] = useState('');
+  const [staticValues, setStaticValues] = useState<Record<string, string>>({});
+
+  const getKnownTypes = (dType: string, dbField: string): string[] => {
+    if (dbField === 'protocol') return ['tcp', 'udp'];
+    switch (dType) {
+      case 'address_objects': return ['ip-netmask', 'ip-range', 'fqdn'];
+      case 'address_groups': return ['static', 'dynamic'];
+      case 'zones': return ['layer3', 'layer2', 'vwire', 'tap', 'tunnel'];
+      case 'interfaces': return ['layer3', 'layer2', 'vwire', 'tap', 'tunnel', 'loopback', 'vlan'];
+      case 'variables': return ['ip-netmask', 'ip-range', 'fqdn', 'group-id', 'device-priority', 'device-id', 'as-number', 'qos-profile', 'egress-max'];
+      default: return [];
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -122,9 +132,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
       setMappings({});
       setErrorMessage('');
       setIsProcessing(false);
-      setDefaultVendor('');
-      setCustomVendor('');
-      setDefaultScope('');
+      setStaticValues({});
     }
   }, [isOpen, defaultDataType]);
 
@@ -307,21 +315,12 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
       const dbRow: Record<string, string> = {};
       Object.keys(mappings).forEach(dbField => {
         const csvHeader = mappings[dbField];
-        if (csvHeader) {
+        if (csvHeader === '__CUSTOM_INPUT__' || csvHeader === '__EXISTING_VALUE__') {
+          dbRow[dbField] = staticValues[dbField] || '';
+        } else if (csvHeader && csvHeader !== '--- Source Columns ---') {
           dbRow[dbField] = row[csvHeader];
         }
       });
-      
-      // Inject defaults if they were set and the mapping is set to use defaults
-      if (mappings['vendor'] === '__USE_DEFAULT__') {
-        dbRow['vendor'] = defaultVendor === 'custom' ? customVendor : defaultVendor;
-      }
-      if (mappings['scope_context'] === '__USE_DEFAULT__') {
-        dbRow['scope_context'] = defaultScope;
-      }
-      if (mappings['device_group'] === '__USE_DEFAULT__') {
-        dbRow['device_group'] = defaultScope;
-      }
       return dbRow;
     });
 
@@ -349,9 +348,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
         setParsedHeaders([]);
         setParsedData([]);
         setMappings({});
-        setDefaultVendor('');
-        setCustomVendor('');
-        setDefaultScope('');
+        setStaticValues({});
       } else {
         throw new Error(resData.error || 'Failed to import records');
       }
@@ -379,9 +376,10 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
     }}>
       <div style={{
         backgroundColor: 'var(--bg-surface)', borderRadius: '8px',
-        width: '600px', maxWidth: '90vw', padding: '30px',
+        width: '800px', maxWidth: '95vw', padding: '30px',
         border: '1px solid var(--border-main)',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)'
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+        resize: 'horizontal', overflow: 'hidden'
       }}>
         <h2 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '8px' }}>
           Data Import Manager
@@ -444,57 +442,91 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
               Map your spreadsheet columns to the Canopy database fields. Auto-matched columns are preselected.
             </p>
-            <div style={{ border: '1px solid var(--border-main)', borderRadius: '6px', overflowY: 'auto', maxHeight: '300px' }}>
+            <div style={{ border: '1px solid var(--border-main)', borderRadius: '6px', overflowY: 'auto', maxHeight: '400px' }}>
               {targetFields.map(dbField => {
                 const isRequired = requiredFields.includes(dbField);
+                const isCustom = mappings[dbField] === '__CUSTOM_INPUT__';
+                const isExisting = mappings[dbField] === '__EXISTING_VALUE__';
+                const isStatic = isCustom || isExisting;
                 return (
-                  <div key={dbField} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-main)' }}>
-                    <div style={{ display: 'flex', padding: '12px 16px', alignItems: 'center', gap: '16px' }}>
-                      <div style={{ width: '180px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                  <div key={dbField} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-main)', padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                      <div style={{ width: '180px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginTop: '8px' }}>
                         {fieldLabelsMap[dbField] || dbField} {isRequired && <span style={{ color: 'var(--status-red)' }}>*</span>}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <Dropdown 
-                          value={mappings[dbField] || ''}
-                          onChange={val => setMappings({...mappings, [dbField]: val})}
-                          options={['', ...(dbField === 'vendor' || dbField === 'scope_context' || dbField === 'device_group' ? ['__USE_DEFAULT__'] : []), ...parsedHeaders]}
-                          renderOption={(val) => val === '' ? '-- Select Column --' : val === '__USE_DEFAULT__' ? 'Use Default Value...' : val}
-                          width="100%"
-                        />
-                      </div>
-                    </div>
-                    {dbField === 'vendor' && mappings[dbField] === '__USE_DEFAULT__' && (
-                      <div style={{ padding: '0 16px 16px 212px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <Dropdown 
-                          value={defaultVendor}
-                          onChange={(val) => { setDefaultVendor(val); if(val !== 'custom') setCustomVendor(''); }}
-                          options={['', 'paloalto', 'fortinet', 'cisco', 'custom']}
-                          renderOption={(val) => val === '' ? '-- Select Vendor --' : val === 'custom' ? 'Other (Custom...)' : val}
-                          width="100%"
-                        />
-                        {defaultVendor === 'custom' && (
-                          <input 
-                            type="text"
-                            className="input"
-                            style={{ width: '100%', fontSize: '13px' }}
-                            placeholder="Enter custom vendor name"
-                            value={customVendor}
-                            onChange={(e) => setCustomVendor(e.target.value)}
+                      <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+                        <div style={{ flex: isStatic ? '0 0 250px' : 1 }}>
+                          <Dropdown 
+                            value={mappings[dbField] || ''}
+                            onChange={val => {
+                              if (val !== '--- Source Columns ---') {
+                                setMappings({...mappings, [dbField]: val});
+                                // Reset static value if they switch mapping modes
+                                setStaticValues(prev => ({...prev, [dbField]: ''}));
+                              }
+                            }}
+                            options={['', '__CUSTOM_INPUT__', '__EXISTING_VALUE__', '--- Source Columns ---', ...parsedHeaders]}
+                            renderOption={(val) => val === '' ? (isRequired ? '-- Select Column --' : '--- Skip Field ---') : val === '__CUSTOM_INPUT__' ? '[STATIC] Custom Input' : val === '__EXISTING_VALUE__' ? '[STATIC] Existing Value' : val}
+                            width="100%"
                           />
+                        </div>
+                        {isStatic && (
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {isCustom ? (
+                              <input 
+                                type="text"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  backgroundColor: 'var(--bg-app)',
+                                  border: '1px solid var(--border-main)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-main)',
+                                  fontSize: '13px',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
+                                  height: '35px'
+                                }}
+                                placeholder={`Custom value for ${fieldLabelsMap[dbField] || dbField}...`}
+                                value={staticValues[dbField] || ''}
+                                onChange={(e) => setStaticValues({...staticValues, [dbField]: e.target.value})}
+                              />
+                            ) : isExisting ? (
+                              dbField === 'vendor' ? (
+                                <Dropdown 
+                                  value={staticValues[dbField] || ''}
+                                  onChange={(val) => setStaticValues({...staticValues, [dbField]: val})}
+                                  options={['', 'paloalto', 'fortinet', 'cisco']}
+                                  renderOption={(val) => val === '' ? '-- Select Vendor --' : val}
+                                  width="100%"
+                                />
+                              ) : dbField === 'scope_context' || dbField === 'device_group' ? (
+                                <SearchableScopeDropdown
+                                  value={staticValues[dbField] || ''}
+                                  options={[{value: '', label: '-- Select Scope --', depth: 0, type: 'global'}, ...(hierarchyOptions || []).map(o => ({ ...o, label: o.value === 'show-all' ? '-- Select Scope --' : o.label }))]}
+                                  onChange={(val) => setStaticValues({...staticValues, [dbField]: val === 'show-all' ? '' : val})}
+                                  scopeNameMap={scopeNameMap || {}}
+                                  ruleCounts={{}}
+                                  width="100%"
+                                />
+                              ) : dbField === 'type' || dbField === 'protocol' ? (
+                                <Dropdown 
+                                  value={staticValues[dbField] || ''}
+                                  onChange={(val) => setStaticValues({...staticValues, [dbField]: val})}
+                                  options={['', ...getKnownTypes(dataType, dbField)]}
+                                  renderOption={(val) => val === '' ? '-- Select Value --' : val}
+                                  width="100%"
+                                />
+                              ) : (
+                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 0' }}>
+                                  No predefined values available for this field. Please use "Custom Input" instead.
+                                </div>
+                              )
+                            ) : null}
+                          </div>
                         )}
                       </div>
-                    )}
-                    {(dbField === 'scope_context' || dbField === 'device_group') && mappings[dbField] === '__USE_DEFAULT__' && (
-                      <div style={{ padding: '0 16px 16px 212px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <SearchableScopeDropdown
-                          value={defaultScope}
-                          options={[{value: '', label: '-- Select Scope --', depth: 0, type: 'global'}, ...(hierarchyOptions || []).map(o => ({ ...o, label: o.value === 'show-all' ? '-- Select Scope --' : o.label }))]}
-                          onChange={(val) => setDefaultScope(val === 'show-all' ? '' : val)}
-                          scopeNameMap={scopeNameMap || {}}
-                          ruleCounts={{}}
-                        />
-                      </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
