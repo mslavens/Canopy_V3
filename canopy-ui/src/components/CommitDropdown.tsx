@@ -79,10 +79,6 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
   };
 
   const submitCommit = async () => {
-    if (!commitMessage.trim()) {
-      addToast("Please enter a commit message", "error");
-      return;
-    }
     
     setIsCommitting(true);
     try {
@@ -154,14 +150,18 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (diffCount > 0) {
+            setIsModalOpen(true);
+          } else {
+            addToast("No pending changes", "info");
+          }
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          background: diffCount > 0 
-            ? (isOpen ? '#d97706' : '#f59e0b') 
-            : (isOpen ? 'var(--bg-hover)' : 'transparent'),
+          background: diffCount > 0 ? '#f59e0b' : 'transparent',
           border: diffCount > 0 ? '1px solid #d97706' : '1px solid var(--border-main)',
           padding: '4px 12px',
           borderRadius: '6px',
@@ -174,46 +174,8 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
       >
         <GitCommit size={14} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
         Pending Changes {diffCount > 0 && `(${diffCount})`}
-        <ChevronDown size={14} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
       </button>
 
-      {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          right: 0,
-          marginTop: '8px',
-          width: '220px',
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-main)',
-          borderRadius: '6px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          padding: '4px'
-        }}>
-          <DropdownItem icon={<List size={14} />} label="View Details" onClick={() => { setIsOpen(false); setIsModalOpen(true); }} disabled={diffCount === 0} />
-          <DropdownItem icon={<CheckCircle size={14} />} label="Validate" onClick={handleValidate} disabled={diffCount === 0} />
-          <DropdownItem icon={<Download size={14} />} label="Export Package" disabled />
-          <DropdownItem icon={<History size={14} />} label="History" onClick={() => { setIsOpen(false); navigateToHistory(); }} />
-          
-          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
-          
-          <DropdownItem 
-            icon={<RotateCcw size={14} />} 
-            label="Revert All" 
-            onClick={handleRevert} 
-            color="#ef4444" 
-            disabled={diffCount === 0}
-          />
-          <DropdownItem 
-            icon={<Save size={14} />} 
-            label="Commit" 
-            onClick={handleCommitClick} 
-            color="#10b981" 
-            disabled={diffCount === 0 || isCommitting}
-          />
-        </div>
-      )}
 
       {isModalOpen && diffData && (
         <CommitDetailsModal 
@@ -271,7 +233,7 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
               <button 
                 className="btn-primary" 
                 onClick={submitCommit}
-                disabled={isCommitting || !commitMessage.trim()}
+                disabled={isCommitting}
               >
                 {isCommitting ? 'Committing...' : 'Commit Changes'}
               </button>

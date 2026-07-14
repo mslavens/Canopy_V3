@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, ChevronDown, ChevronRight, Search, Undo2, HelpCircle } from 'lucide-react';
 import { DataTable, ColumnDef } from './DataTable';
 import { CommitHelpModal } from './CommitHelpModal';
+import { CanopyApiClient } from '../api/client';
+import { useConfirm } from './ConfirmProvider';
 
 interface CommitDetailsModalProps {
   onClose: () => void;
@@ -14,22 +16,25 @@ interface CommitDetailsModalProps {
 export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose, diffData, onRevert, onCommit, globalScopeVendor }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const confirm = useConfirm();
 
   // Flatten diffData into a list of changes
-  const changes: any[] = [];
-  const getDisplayName = (item: any, tableName?: string) => {
-    if (item?.name) {
-      if (typeof item.name === 'string') return item.name;
-      return item.name.new || item.name.old || 'Unknown Object';
-    }
-    
-    if (tableName === 'address_group_members') return `Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'service_group_members') return `Service Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'application_group_members') return `App Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
-    if (tableName === 'entity_tag_mappings') return `Tag ${item._tag_name || item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
-    
-    return 'Unknown Object';
-  };
+  const changes: any[] = React.useMemo(() => {
+    const list: any[] = [];
+    const getDisplayName = (item: any, tableName?: string) => {
+      if (item?.name) {
+        if (typeof item.name === 'string') return item.name;
+        return item.name.new || item.name.old || 'Unknown Object';
+      }
+      
+      if (tableName === 'address_group_members') return `Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+      if (tableName === 'service_group_members') return `Service Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+      if (tableName === 'application_group_members') return `App Group ${item._group_name || item.group_id?.new || item.group_id || '?'} Member`;
+      if (tableName === 'entity_tag_mappings') return `Tag ${item._tag_name || item.tag_id?.new || item.tag_id || '?'} on Entity ${item.entity_id?.new || item.entity_id || '?'}`;
+      
+      return 'Unknown Object';
+    };
 
   const getVendorName = (item: any) => {
     const uuid = item?.device_uuid || item?.deviceUuid || item?.scope;
@@ -70,7 +75,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         const scopeUUID = firstItem?.device_uuid || firstItem?.scope || 'global';
         const vendor = getVendorName(firstItem);
         
-        changes.push({
+        list.push({
           id: `mod_group_members_${categoryName}_${gid}_${idx}`,
           type: 'UPDATE',
           table: categoryName,
@@ -90,7 +95,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item);
       const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
-      changes.push({
+      list.push({
         id: `add_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'ADD',
         table: categoryName,
@@ -108,16 +113,16 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item.new || item);
       const scopeUUID = (item.new || item)?.device_uuid || (item.new || item)?.deviceUuid || (item.new || item)?.scope || 'global';
-      changes.push({
+      list.push({
         id: `mod_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'UPDATE',
         table: categoryName,
         vendor: vendor,
         scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
         name: dName,
-        description: `Updated ${dName} in ${categoryName}`,
+        description: `Modified ${dName} in ${categoryName}`,
         details: item,
-        dbId: item.id
+        dbId: item.id?.new || item.id || item.id?.old
       });
     });
 
@@ -126,7 +131,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       const dName = getDisplayName(item, categoryName);
       const vendor = getVendorName(item);
       const scopeUUID = item?.device_uuid || item?.deviceUuid || item?.scope || 'global';
-      changes.push({
+      list.push({
         id: `del_${categoryName}_${dName}_${scopeUUID}_${idx}`,
         type: 'DELETE',
         table: categoryName,
@@ -151,9 +156,54 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     if (diffData.tags) processCategory('tags', diffData.tags);
   }
 
-  const filteredChanges = changes.filter(c => 
+  return list;
+}, [diffData, globalScopeVendor]);
+
+  const handleRevertAll = async () => {
+    if (!onRevert) return;
+    confirm({
+      title: 'Revert All Changes',
+      message: 'Are you sure you want to revert all pending changes in the workspace?',
+      confirmText: 'Revert All',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          for (const change of changes) {
+            await onRevert(change.table, String(change.dbId || change.name));
+          }
+          window.dispatchEvent(new Event('workspace-committed'));
+          onClose();
+        } catch (e: any) {
+          alert(`Failed to revert all: ${e.message}`);
+        }
+      }
+    });
+  };
+
+  const handleBulkRevert = async () => {
+    if (!onRevert) return;
+    confirm({
+      title: 'Revert Selected',
+      message: `Are you sure you want to revert the ${selectedRows.length} selected changes?`,
+      confirmText: 'Revert',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          for (const row of selectedRows) {
+            await onRevert(row.table, String(row.dbId || row.name));
+          }
+          setSelectedRows([]);
+        } catch (e: any) {
+          alert(`Failed during bulk revert: ${e.message}`);
+        }
+      }
+    });
+  };
+
+  const filteredChanges = changes.filter((c: any) => 
     (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.table || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (c.table || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    JSON.stringify(c.details || {}).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
 
@@ -231,7 +281,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     if (change.type === 'UPDATE') {
       return (
         <div style={{ backgroundColor: 'var(--bg-main)', padding: '10px', fontSize: '13px', overflowX: 'auto' }}>
-          {Object.entries(change.details).map(([key, val]: any) => {
+          {Object.entries(change.details).map((entry: any) => {
+            const [key, val] = entry;
             if (skipKeys.includes(key)) return null;
             if (typeof val !== 'object' || val === null || (!('old' in val) && !('new' in val))) return null;
             return (
@@ -316,64 +367,66 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         </div>
 
         {/* Table Body */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <DataTable
             columns={[
               {
                 key: 'type',
                 label: 'Type',
-                width: '130px',
+                width: '110px',
                 renderCell: (val: any) => renderBadge(val)
               },
               { key: 'vendor', label: 'Vendor', width: '130px' },
               { key: 'table', label: 'Table', width: '150px' },
               { key: 'scope', label: 'Scope', width: '150px' },
               { key: 'name', label: 'Name', width: '200px' },
-              { key: 'description', label: 'Description', allowOverflow: true },
-              {
-                key: 'actions',
-                label: '',
-                width: '40px',
-                renderCell: (_: any, row: any) => {
-                  if (!row.dbId) return null;
-                  return (
-                    <button 
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (onRevert) {
-                          await onRevert(row.table, String(row.dbId));
-                        }
-                      }}
-                      title="Undo this change"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '4px',
-                        borderRadius: '4px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        e.currentTarget.style.color = 'var(--text-main)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--text-muted)';
-                      }}
-                    >
-                      <Undo2 size={16} />
-                    </button>
-                  );
-                }
-              }
+              { key: 'description', label: 'Description', allowOverflow: true }
             ]}
             data={filteredChanges}
             expandableRowRender={renderDiffDetails}
             pagination={true}
+            selectable={true}
+            onSelectionChange={setSelectedRows}
+            exportFilename="pending_changes.csv"
+            additionalExportColumns={[{ header: 'Details', getValue: (row: any) => JSON.stringify(row.details || {}) }]}
+            bulkActions={
+              selectedRows.length > 0 && onRevert ? (
+                <button 
+                  onClick={handleBulkRevert}
+                  className="btn-danger btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Undo2 size={14} /> Revert Selected
+                </button>
+              ) : undefined
+            }
+            exportActions={
+              onRevert ? (
+                <>
+                  <button
+                    onClick={handleRevertAll}
+                    className="btn-danger btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                    title="Revert all uncommitted changes in the workspace"
+                  >
+                    <Undo2 size={13} /> Revert All
+                  </button>
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                </>
+              ) : undefined
+            }
+            topRightActions={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-main)' }} />
+                <button
+                  className="btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => alert("Export Package feature coming soon")}
+                >
+                  Export Package
+                </button>
+              </div>
+            }
           />
         </div>
 
