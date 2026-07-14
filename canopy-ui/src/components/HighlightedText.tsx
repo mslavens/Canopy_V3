@@ -11,10 +11,11 @@ export const HighlightedText: React.FC<HighlightedTextProps> = ({ text, highligh
   }
 
   // Safely escape regex characters from user input to prevent ReDoS or app crashes
+  const cleanHighlight = highlight.trim();
   const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escapeRegExp(highlight)})`, 'gi');
+  const regex = new RegExp(`(${escapeRegExp(cleanHighlight)})`, 'gi');
   const parts = text.split(regex);
-  const lowerHighlight = highlight.toLowerCase();
+  const lowerHighlight = cleanHighlight.toLowerCase();
 
   return (
     <span>

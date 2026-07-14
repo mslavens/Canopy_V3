@@ -103,7 +103,7 @@ export const DataTable: React.FC<DataTableProps> = ({
     let rows = data || [];
     
     if (searchQuery.trim() && !disableInternalSearch) {
-      const lowerQuery = searchQuery.toLowerCase();
+      const lowerQuery = searchQuery.trim().toLowerCase();
       rows = rows.filter(row => {
         // Search through all values in the row object natively
         const matchesRowValues = Object.values(row).some(val => {

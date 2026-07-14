@@ -1,5 +1,22 @@
 # Canopy Framework Changelog
 
+
+## v0.32.0 - Pending Changes Modal Overhaul
+**Date:** 2026-07-14
+
+### Added
+- **Pending Changes Enhancements**: Overhauled the Pending Changes modal to include deep JSON searching, dynamic search highlighting, and automatic row expansion for matched payloads.
+- **CSV Data Export Formatting**: The CSV export engine now supports formatted detail payload exports, mirroring the native UI diff layout for changes.
+- **DataTable Column Resizing**: Improved DataTable flexibility by dropping full-width restrictions on resizing events, allowing seamless, spreadsheet-like UX without layout snapping.
+- **Global Table Controls**: Implemented dynamic Expand All / Collapse All column header toggles for expandable rows.
+- **Search Clear Buttons**: Added quick-clear actions to local table search inputs.
+
+### Fixed
+- **Transaction Blocked Reverts**: Addressed a transaction constraint error by moving bulk reverts to an iterative, single-item execution model.
+- **Column Indexing Offsets**: Fixed a bug where expandable or selectable columns caused an off-by-one indexing error during column drag-resize initialization.
+- **Vendor Normalization**: Standardized Vendor string capitalization to prevent mismatch between global UI rendering and hardware-derived scope data.
+- **App-Native Confirmations**: Swapped standard browser confirm dialogs for custom UI modals to maintain brand and style alignment.
+
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
 ## v0.31.0 - Panorama-Style Object Overrides

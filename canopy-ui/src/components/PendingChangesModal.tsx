@@ -209,10 +209,11 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     });
   };
 
+  const lowerQuery = searchQuery.trim().toLowerCase();
   const filteredChanges = changes.filter((c: any) => 
-    (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (c.table || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    JSON.stringify(c.details || {}).toLowerCase().includes(searchQuery.toLowerCase())
+    (c.name || '').toLowerCase().includes(lowerQuery) || 
+    (c.table || '').toLowerCase().includes(lowerQuery) ||
+    JSON.stringify(c.details || {}).toLowerCase().includes(lowerQuery)
   );
 
   React.useEffect(() => {
