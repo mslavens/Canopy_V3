@@ -2,6 +2,19 @@
 
 All notable changes to the Canopy platform and headless Go engine will be documented here.
 
+## v0.31.0 - Panorama-Style Object Overrides
+**Date:** 2026-07-14
+
+### Added
+- **Hierarchical Object Overrides**: Enabled full UI support for Panorama-style object overrides. Objects inherited from parent device groups can now be seamlessly overridden in lower-level scopes with custom values.
+- **Metadata Flags & Native Filtering**: Added a new native column and filtering support for `Flags` on objects. The table now dynamically calculates and renders "Inherited", "Overridden", "Local", and "Uncommitted" status badges.
+- **Override Reversion Workflow**: Implemented both single and bulk reversion actions, allowing users to safely delete local overrides and instantly fall back to inherited parent values.
+- **Pending Revert Tracking**: Built a cross-referenced diff checker that stages a "Pending Revert" dashed-badge on inherited objects when their active override has been deleted but the workspace has not yet been committed.
+
+### Fixed
+- **Commit State Flushes**: Fixed a candidate configuration bug in the Go backend where successfully generating a commit snapshot failed to flush the active `dirty` bit from object tables, causing uncommitted flags to persist improperly.
+
+
 ## v0.30.0 - Network Topology Parser Upgrades
 **Date:** 2026-07-13
 

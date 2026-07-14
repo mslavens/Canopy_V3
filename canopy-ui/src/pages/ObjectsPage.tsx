@@ -1988,7 +1988,53 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
           setSelectedRows([]);
         } catch (err: any) {
           console.error('Bulk Delete Error:', err);
-          addToast(`Deleted ${deletedCount} items. Failed to delete remainder: ` + err.message, 'error');
+          addToast(err.message || `Failed during bulk delete. ${deletedCount} items processed.`, 'error');
+          fetchRecords();
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  const handleBulkRevert = () => {
+    if (!apiClient || selectedRows.length === 0) return;
+    const overriddenRows = selectedRows.filter((r: any) => r.isOverridden);
+    if (overriddenRows.length === 0) {
+      addToast('No overridden objects selected to revert.', 'info');
+      return;
+    }
+
+    confirm({
+      title: 'Bulk Revert Objects',
+      message: `Are you sure you want to revert the ${overriddenRows.length} selected overridden objects? This will delete the local overrides and restore inherited values.`,
+      confirmText: 'Revert All',
+      isDestructive: true,
+      onConfirm: async () => {
+        setLoading(true);
+        let revertedCount = 0;
+        try {
+          for (const row of overriddenRows) {
+            if (activeSubTab === 'Address Objects') await apiClient.deleteAddressObject(row.id);
+            else if (activeSubTab === 'Address Groups') await apiClient.deleteAddressGroup(row.id);
+            else if (activeSubTab === 'Services') await apiClient.deleteServiceObject(row.id);
+            else if (activeSubTab === 'Service Groups') await apiClient.deleteServiceGroup(row.id);
+            else if (activeSubTab === 'Applications') await apiClient.deleteApplicationObject(row.id);
+            else if (activeSubTab === 'Application Groups') await apiClient.deleteApplicationGroup(row.id);
+            else if (activeSubTab === 'Tags') await apiClient.deleteTag(row.id);
+            else if (activeSubTab === 'Log Forwarding Profiles') await apiClient.deleteLogForwardingProfile(row.id);
+            else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) await apiClient.deleteSecurityProfile(row.id);
+            else if (activeSubTab === 'Security Profile Groups') await apiClient.deleteSecurityProfileGroup(row.id);
+            else if (activeSubTab === 'URL Categories') await apiClient.deleteCustomURLCategory(row.id);
+            else if (activeSubTab === 'External Dynamic Lists') await apiClient.deleteExternalDynamicList(row.id);
+            revertedCount++;
+          }
+          addToast(`Successfully reverted ${revertedCount} overridden objects.`, 'success');
+          setSelectedRows([]);
+          fetchRecords();
+        } catch (err: any) {
+          console.error('Bulk Revert Error:', err);
+          addToast(err.message || `Failed during bulk revert. ${revertedCount} items processed.`, 'error');
           fetchRecords();
         } finally {
           setLoading(false);
@@ -3367,6 +3413,15 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         </button>
 
                         <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+
+                        <button
+                          onClick={() => { setShowActionsMenu(false); handleBulkRevert(); }}
+                          className="btn-danger btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          title="Bulk revert selected overridden objects"
+                        >
+                          <RefreshCw size={13} /> Bulk Revert
+                        </button>
 
                         <button
                           onClick={() => { setShowActionsMenu(false); handleBulkDelete(); }}
