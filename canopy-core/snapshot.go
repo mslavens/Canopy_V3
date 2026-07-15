@@ -75,6 +75,11 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 			if err := tableRows.Scan(columnPointers...); err == nil {
 				rowMap := make(map[string]interface{})
 				for i, colName := range cols {
+					if colName == "dirty" {
+						rowMap[colName] = 0
+						continue
+					}
+					
 					val := columnPointers[i].(*interface{})
 					if val == nil || *val == nil {
 						rowMap[colName] = nil
@@ -357,7 +362,11 @@ func RestoreSnapshot(tx *sql.Tx, snapshotJSON []byte) error {
 			for k, v := range row {
 				cols = append(cols, k)
 				placeholders = append(placeholders, "?")
-				vals = append(vals, v)
+				if k == "dirty" {
+					vals = append(vals, 0)
+				} else {
+					vals = append(vals, v)
+				}
 			}
 
 			query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))

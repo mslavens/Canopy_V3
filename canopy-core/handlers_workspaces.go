@@ -918,15 +918,24 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 					for k, v := range row {
 						cols = append(cols, k)
 						placeholders = append(placeholders, "?")
-						vals = append(vals, v)
+						if k == "dirty" {
+							vals = append(vals, 0)
+						} else {
+							vals = append(vals, v)
+						}
 					}
 					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
 					tx.Exec(query, vals...)
 				}
 			}
 		}
+		
+		// Reset the dirty flag on the parent group since its members are now reverted to baseline
+		parentTable := strings.Replace(tableName, "_members", "s", 1)
+		tx.Exec(fmt.Sprintf("UPDATE %s SET dirty = 0 WHERE id = ?", parentTable), intID)
 	case "entity_tag_mappings":
 		tx.Exec("DELETE FROM entity_tag_mappings WHERE entity_id = ?", intID)
+		var entityType string
 		if rows, ok := state.Tables[tableName]; ok {
 			for _, row := range rows {
 				if fmt.Sprintf("%v", row["entity_id"]) == req.ID || fmt.Sprintf("%v", row["entity_id"]) == fmt.Sprintf("%d", intID) {
@@ -936,12 +945,24 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 					for k, v := range row {
 						cols = append(cols, k)
 						placeholders = append(placeholders, "?")
-						vals = append(vals, v)
+						if k == "dirty" {
+							vals = append(vals, 0)
+						} else {
+							vals = append(vals, v)
+						}
+						if k == "entity_type" {
+							entityType = fmt.Sprintf("%v", v)
+						}
 					}
 					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
 					tx.Exec(query, vals...)
 				}
 			}
+		}
+		
+		if entityType != "" {
+			parentTable := entityType + "s" // e.g. "address_object" -> "address_objects"
+			tx.Exec(fmt.Sprintf("UPDATE %s SET dirty = 0 WHERE id = ?", parentTable), intID)
 		}
 	default:
 		tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", tableName), intID)
@@ -954,7 +975,11 @@ func handleWorkspacesRevertSingle(w http.ResponseWriter, r *http.Request) {
 					for k, v := range row {
 						cols = append(cols, k)
 						placeholders = append(placeholders, "?")
-						vals = append(vals, v)
+						if k == "dirty" {
+							vals = append(vals, 0)
+						} else {
+							vals = append(vals, v)
+						}
 					}
 					query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
 					tx.Exec(query, vals...)
