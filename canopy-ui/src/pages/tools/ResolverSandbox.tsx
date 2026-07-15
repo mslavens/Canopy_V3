@@ -6,6 +6,8 @@ import { SearchBar } from '../../components/SearchBar';
 import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdown';
 import { Dropdown } from '../../components/Dropdown';
 import { useTemplateHierarchy } from '../../hooks/useTemplateHierarchy';
+import { Modal } from '../../components/Modal';
+import { ContextMenuItem } from '../../components/ContextMenu';
 import { DataTable } from '../../components/DataTable';
 
 interface ResolverSandboxProps {
@@ -28,6 +30,62 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
   const [devices, setDevices] = useState<any[]>([]);
 
   const [hasValuesMap, setHasValuesMap] = useState<Record<string, boolean>>({});
+
+  // Route Table Modal State
+  const [routeModalDeviceUUID, setRouteModalDeviceUUID] = useState<string | null>(null);
+  const [routeModalDeviceName, setRouteModalDeviceName] = useState<string | null>(null);
+  const [deviceRoutes, setDeviceRoutes] = useState<any[]>([]);
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+
+  // Fetch routes when modal opens
+  useEffect(() => {
+    if (!routeModalDeviceUUID || !apiClient) {
+      setDeviceRoutes([]);
+      return;
+    }
+    let isMounted = true;
+    const fetchRoutes = async () => {
+      setIsLoadingRoutes(true);
+      try {
+        const routes = await apiClient.getNetworksRoutes(routeModalDeviceUUID);
+        if (isMounted) setDeviceRoutes(routes || []);
+      } catch (err) {
+        console.error('Failed to fetch routes', err);
+      } finally {
+        if (isMounted) setIsLoadingRoutes(false);
+      }
+    };
+    fetchRoutes();
+    return () => { isMounted = false; };
+  }, [routeModalDeviceUUID, apiClient]);
+
+  // Interfaces Modal State
+  const [ifaceModalDeviceUUID, setIfaceModalDeviceUUID] = useState<string | null>(null);
+  const [ifaceModalDeviceName, setIfaceModalDeviceName] = useState<string | null>(null);
+  const [deviceInterfaces, setDeviceInterfaces] = useState<any[]>([]);
+  const [isLoadingInterfaces, setIsLoadingInterfaces] = useState(false);
+
+  // Fetch interfaces when modal opens
+  useEffect(() => {
+    if (!ifaceModalDeviceUUID || !apiClient) {
+      setDeviceInterfaces([]);
+      return;
+    }
+    let isMounted = true;
+    const fetchInterfaces = async () => {
+      setIsLoadingInterfaces(true);
+      try {
+        const interfaces = await apiClient.getNetworksInterfaces(ifaceModalDeviceUUID);
+        if (isMounted) setDeviceInterfaces(interfaces || []);
+      } catch (err) {
+        console.error('Failed to fetch interfaces', err);
+      } finally {
+        if (isMounted) setIsLoadingInterfaces(false);
+      }
+    };
+    fetchInterfaces();
+    return () => { isMounted = false; };
+  }, [ifaceModalDeviceUUID, apiClient]);
 
   // Load scope hierarchy
   useEffect(() => {
@@ -251,8 +309,8 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                       },
                       { 
                         key: 'type', 
-                        label: 'Location Type', 
-                        width: '180px',
+                        label: 'Calculated Route', 
+                        width: '120px', 
                         exportValue: (row) => row.is_default_route ? 'Default Route' : row.type,
                         getFilterValues: (row) => row.is_default_route ? 'Default Route' : row.type,
                         renderCell: (_, row) => (
@@ -270,26 +328,196 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                       },
                       { key: 'zone', label: 'Zone', width: '120px', renderCell: val => val || 'None' },
                       { key: 'interface', label: 'Interface', width: '150px', renderCell: val => val || 'None' },
+                      { 
+                        key: 'interface_ip', 
+                        label: 'Interface IP', 
+                        width: '160px', 
+                        renderCell: (val, row) => {
+                          if (!val) return '-';
+                          const resolved = row.resolved_interface_ip;
+                          if (resolved && resolved !== val) {
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                              </div>
+                            );
+                          }
+                          return val;
+                        }
+                      },
+                      { 
+                        key: 'destination', 
+                        label: 'Destination', 
+                        width: '180px', 
+                        renderCell: (val, row) => {
+                          if (!val) return '-';
+                          const resolved = row.resolved_dest;
+                          if (resolved && resolved !== val) {
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                              </div>
+                            );
+                          }
+                          return val;
+                        }
+                      },
                       { key: 'virtual_router', label: 'Virtual Router', width: '150px', renderCell: val => val || 'None' },
-                      { key: 'next_hop', label: 'Next Hop', width: '150px', renderCell: val => val || '-' },
+                      { 
+                        key: 'next_hop', 
+                        label: 'Next Hop', 
+                        width: '150px', 
+                        renderCell: (val, row) => {
+                          if (!val) return '-';
+                          const resolved = row.resolved_next_hop;
+                          if (resolved && resolved !== val) {
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                              </div>
+                            );
+                          }
+                          return val;
+                        }
+                      },
                       { 
                         key: 'origin_uuid', 
                         label: 'Template / Stack Origin', 
                         width: '250px',
-                        exportValue: (row) => row.origin_uuid === row.device_uuid ? 'Local Override' : (scopeNameMap[row.origin_uuid] || 'Unknown'),
-                        renderCell: (val, row) => (
-                          <span style={{ color: val === row.device_uuid ? 'var(--status-yellow)' : 'var(--text-main)', fontStyle: val === row.device_uuid ? 'italic' : 'normal' }}>
-                            {val === row.device_uuid ? 'Local Override' : (scopeNameMap[val] || 'Unknown')}
-                          </span>
-                        )
+                        exportValue: (row) => scopeNameMap[row.origin_uuid] || row.origin_uuid,
+                        getFilterValues: (row) => scopeNameMap[row.origin_uuid] || row.origin_uuid,
+                        renderCell: (val, row) => {
+                          const isLocal = row.origin_uuid === row.device_uuid;
+                          return (
+                            <span style={{ 
+                              color: isLocal ? 'var(--text-muted)' : 'var(--text-main)',
+                              fontStyle: isLocal ? 'italic' : 'normal'
+                            }}>
+                              {isLocal ? 'Local Override' : (scopeNameMap[row.origin_uuid] || row.origin_uuid)}
+                            </span>
+                          );
+                        }
                       }
                     ]}
+                    rowContextMenuActions={(row, closeMenu) => (
+                      <>
+                        <ContextMenuItem
+                          icon={<Route size={14} />}
+                          label="View Route Table"
+                          onClick={() => {
+                            setRouteModalDeviceUUID(row.device_uuid);
+                            setRouteModalDeviceName(row.device_name || row.firewall || 'Device');
+                            closeMenu();
+                          }}
+                        />
+                        <ContextMenuItem
+                          icon={<Network size={14} />}
+                          label="View Interfaces"
+                          onClick={() => {
+                            setIfaceModalDeviceUUID(row.device_uuid);
+                            setIfaceModalDeviceName(row.device_name || row.firewall || 'Device');
+                            closeMenu();
+                          }}
+                        />
+                      </>
+                    )}
                   />
               </div>
           )}
-          
         </div>
       </div>
+
+      <Modal
+        isOpen={!!routeModalDeviceUUID}
+        onClose={() => {
+          setRouteModalDeviceUUID(null);
+          setRouteModalDeviceName(null);
+        }}
+        title={`Route Table: ${routeModalDeviceName || 'Device'}`}
+        size="xl"
+      >
+        <div style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+          <DataTable
+            data={deviceRoutes}
+            loading={isLoadingRoutes}
+            exportFilename={`routes-${routeModalDeviceName}.csv`}
+            columns={[
+              { key: 'route_name', label: 'Name', width: '200px', renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.route_name}</span> },
+              { key: 'vr_name', label: 'Virtual Router', width: '150px' },
+              { key: 'destination', label: 'Destination', width: '200px', renderCell: (val: any, row: any) => {
+                  const resolved = row.resolved_destination;
+                  if (resolved && resolved !== val) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                        <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                      </div>
+                    );
+                  }
+                  return val || '-';
+                }
+              },
+              { key: 'nexthop', label: 'Next Hop', width: '180px', renderCell: (val: any, row: any) => {
+                  const resolved = row.resolved_nexthop;
+                  if (resolved && resolved !== val) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                        <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                      </div>
+                    );
+                  }
+                  return val || '-';
+                }
+              },
+              { key: 'interface', label: 'Interface', width: '150px' },
+              { key: 'metric', label: 'Metric', width: '100px' },
+            ]}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!ifaceModalDeviceUUID}
+        onClose={() => {
+          setIfaceModalDeviceUUID(null);
+          setIfaceModalDeviceName(null);
+        }}
+        title={`Interfaces: ${ifaceModalDeviceName || 'Device'}`}
+        size="xl"
+      >
+        <div style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+          <DataTable
+            data={deviceInterfaces}
+            loading={isLoadingInterfaces}
+            exportFilename={`interfaces-${ifaceModalDeviceName}.csv`}
+            columns={[
+              { key: 'name', label: 'Interface', width: '200px', renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.name}</span> },
+              { key: 'type', label: 'Type', width: '150px' },
+              { key: 'ip_address', label: 'IP Address', width: '200px', renderCell: (val: any, row: any) => {
+                  const resolved = row.resolved_ip_address;
+                  if (resolved && resolved !== val) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{val}</span>
+                        <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
+                      </div>
+                    );
+                  }
+                  return val || '-';
+                }
+              },
+              { key: 'zone', label: 'Security Zone', width: '150px' },
+              { key: 'vr_name', label: 'Virtual Router', width: '150px' },
+              { key: 'aggregate_group', label: 'Aggregate Group', width: '150px' },
+              { key: 'description', label: 'Description', width: '200px' },
+            ]}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

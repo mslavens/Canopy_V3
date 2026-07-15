@@ -12,13 +12,18 @@ type SandboxMatch struct {
 	DeviceUUID     string `json:"device_uuid"`
 	DeviceName     string `json:"device_name"`
 	Type           string `json:"type"`      // "Direct (Local Interface)" or "Routing Table"
-	Interface      string `json:"interface"` // The name of the interface
-	RouteName      string `json:"route_name,omitempty"`
+	Interface           string `json:"interface"` // The name of the interface
+	Destination         string `json:"destination,omitempty"`
+	ResolvedDest        string `json:"resolved_dest,omitempty"`
+	InterfaceIP         string `json:"interface_ip,omitempty"`
+	ResolvedInterfaceIP string `json:"resolved_interface_ip,omitempty"`
+	RouteName           string `json:"route_name,omitempty"`
 	Zone           string `json:"zone"`
 	VirtualRouter  string `json:"virtual_router"`
-	IsDefaultRoute bool   `json:"is_default_route,omitempty"`
-	NextHop        string `json:"next_hop,omitempty"`
-	OriginUUID     string `json:"origin_uuid,omitempty"`
+	IsDefaultRoute  bool   `json:"is_default_route,omitempty"`
+	NextHop         string `json:"next_hop,omitempty"`
+	ResolvedNextHop string `json:"resolved_next_hop,omitempty"`
+	OriginUUID      string `json:"origin_uuid,omitempty"`
 }
 
 type SandboxResolveResult struct {
@@ -138,13 +143,15 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 					if priority < bestIfacePriority {
 						bestIfacePriority = priority
 						bestIface = &SandboxMatch{
-							DeviceUUID:    devUUID,
-							DeviceName:    devName,
-							Type:          "Direct (Local Interface)",
-							Interface:     iName.String,
-							Zone:          iZone.String,
-							VirtualRouter: iVR.String,
-							OriginUUID:    iDeviceUUID.String,
+							DeviceUUID:          devUUID,
+							DeviceName:          devName,
+							Type:                "Direct",
+							Interface:           iName.String,
+							InterfaceIP:         iIP.String,
+							ResolvedInterfaceIP: resolvedIP,
+							Zone:                iZone.String,
+							VirtualRouter:       iVR.String,
+							OriginUUID:          iDeviceUUID.String,
 						}
 					}
 				}
@@ -221,18 +228,22 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 						bestRoutePriority = priority
 						bestRouteMetric = metric
 						bestNextHop = rNextHop.String
+						resolvedNextHop := ApplyVariables(bestNextHop, vars)
 						isDefaultRoute := resolvedDest == "0.0.0.0/0" || resolvedDest == "::/0"
 
 						bestRoute = &SandboxMatch{
-							DeviceUUID:     devUUID,
-							DeviceName:     devName,
-							Type:           "Routing Table",
-							RouteName:      rName.String,
-							Interface:      rIface.String,
-							VirtualRouter:  rVR.String,
-							IsDefaultRoute: isDefaultRoute,
-							NextHop:        bestNextHop,
-							OriginUUID:     rDeviceUUID.String,
+							DeviceUUID:      devUUID,
+							DeviceName:      devName,
+							Type:            "Routed",
+							RouteName:       rName.String,
+							Interface:       rIface.String,
+							Destination:     rDest.String,
+							ResolvedDest:    resolvedDest,
+							VirtualRouter:   rVR.String,
+							IsDefaultRoute:  isDefaultRoute,
+							NextHop:         bestNextHop,
+							ResolvedNextHop: resolvedNextHop,
+							OriginUUID:      rDeviceUUID.String,
 						}
 					}
 				}
@@ -241,18 +252,26 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 		routeRows.Close()
 
 		if bestRoute != nil {
-			// Resolve Zone for the matched route
+			// Resolve Zone and IP for the matched route interface
 			if bestRoute.Interface != "" {
-				var zone string
+				var zone sql.NullString
+				var ipAddr sql.NullString
 				// Interface could be from anywhere in ancestry, try to find its zone. Ancestry is ordered top-down (templates -> device)
-				// Wait! If ancestry is [template, stack, device], and we want device to win, we iterate BACKWARDS
 				for i := len(ancestry) - 1; i >= 0; i-- {
-					errZone := db.QueryRow("SELECT zone FROM interfaces WHERE name = ? AND device_uuid = ?", bestRoute.Interface, ancestry[i]).Scan(&zone)
-					if errZone == nil && zone != "" {
-						break
+					errZone := db.QueryRow("SELECT zone, ip_address FROM interfaces WHERE name = ? AND device_uuid = ?", bestRoute.Interface, ancestry[i]).Scan(&zone, &ipAddr)
+					if errZone == nil {
+						if zone.Valid && zone.String != "" {
+							bestRoute.Zone = zone.String
+						}
+						if ipAddr.Valid && ipAddr.String != "" {
+							bestRoute.InterfaceIP = ipAddr.String
+							bestRoute.ResolvedInterfaceIP = ApplyVariables(ipAddr.String, vars)
+						}
+						if bestRoute.Zone != "" && bestRoute.InterfaceIP != "" {
+							break
+						}
 					}
 				}
-				bestRoute.Zone = zone
 			} else if bestNextHop != "" {
 				// Recursive Next Hop Resolution
 				nextHopIP := net.ParseIP(bestNextHop)
