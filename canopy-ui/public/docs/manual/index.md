@@ -26,4 +26,8 @@ Welcome to the Canopy Framework Help Center. Select a topic below to read the do
 * [Diagnostics & Support Console](system-support.md)
 * [System Changelog](system-changelog.md)
 
+### Tools
+* [CIDR Subnet Calculator](tools-cidr-subnet-calculator.md)
+* [Resolver Sandbox](tools-resolver-sandbox.md)
+
 *Tip: You can use the search bar above to instantly search all guides, or press `Cmd/Ctrl+F` to find a specific word on this page.*

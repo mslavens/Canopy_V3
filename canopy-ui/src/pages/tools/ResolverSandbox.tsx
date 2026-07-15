@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, Bug, Database, Route, Network, Terminal, Info, ChevronRight, Activity } from 'lucide-react';
+import { Search, MapPin, Bug, Database, Route, Network, Terminal, Info, ChevronRight, Activity, Check } from 'lucide-react';
 import { CanopyApiClient } from '../../api/client';
 import { EmptyState } from '../../components/EmptyState';
 import { SearchBar } from '../../components/SearchBar';
@@ -7,7 +7,7 @@ import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdow
 import { Dropdown } from '../../components/Dropdown';
 import { useTemplateHierarchy } from '../../hooks/useTemplateHierarchy';
 import { Modal } from '../../components/Modal';
-import { ContextMenuItem } from '../../components/ContextMenu';
+import { ContextMenuItem, ContextMenuHeader, ContextMenuDivider } from '../../components/ContextMenu';
 import { DataTable } from '../../components/DataTable';
 
 interface ResolverSandboxProps {
@@ -23,6 +23,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
   const [error, setError] = useState<string | null>(null);
   const [locationFilter, setLocationFilter] = useState<'all' | 'direct' | 'routed' | 'default'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [templateStacks, setTemplateStacks] = useState<any[]>([]);
@@ -36,6 +37,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
   const [routeModalDeviceName, setRouteModalDeviceName] = useState<string | null>(null);
   const [deviceRoutes, setDeviceRoutes] = useState<any[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+  const [routeSearchQuery, setRouteSearchQuery] = useState('');
 
   // Fetch routes when modal opens
   useEffect(() => {
@@ -64,6 +66,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
   const [ifaceModalDeviceName, setIfaceModalDeviceName] = useState<string | null>(null);
   const [deviceInterfaces, setDeviceInterfaces] = useState<any[]>([]);
   const [isLoadingInterfaces, setIsLoadingInterfaces] = useState(false);
+  const [ifaceSearchQuery, setIfaceSearchQuery] = useState('');
 
   // Fetch interfaces when modal opens
   useEffect(() => {
@@ -143,6 +146,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
   }, [result, locationFilter]);
 
   const isSpecificDevice = selectedScopeUuid !== 'show-all' && devices.some(d => d.uuid === selectedScopeUuid);
+  const isSingleSelected = selectedRows.length === 1;
 
   const renderCalculateButton = () => (
     <button 
@@ -279,14 +283,105 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
               <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Running engine calculations...</span>
             </div>
           ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 0, paddingRight: '4px' }}>
                 <DataTable 
-                  data={result ? filteredMatches : []}
-                  exportFilename={result ? "resolver-sandbox-export.csv" : undefined}
+                  data={filteredMatches}
+                  selectable={true}
+                  onSelectionChange={setSelectedRows}
+                  exportFilename={`resolver-results-${ipAddress.replace(/[^0-9a-zA-Z]/g, '_')}.csv`}
                   toolbarTitle={
                     <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--text-main)' }}>
                       Resolved Locations ({result ? filteredMatches.length : 0})
                     </h2>
+                  }
+                  bulkActions={
+                    selectedRows.length === 1 ? (
+                      <>
+                        <button 
+                          className="btn-secondary btn-sm" 
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => {
+                            setRouteModalDeviceUUID(selectedRows[0].device_uuid);
+                            setRouteModalDeviceName(selectedRows[0].device_name || selectedRows[0].firewall || 'Device');
+                          }}
+                        >
+                          <Route size={14} /> Route Table
+                        </button>
+                        <button 
+                          className="btn-secondary btn-sm" 
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => {
+                            setIfaceModalDeviceUUID(selectedRows[0].device_uuid);
+                            setIfaceModalDeviceName(selectedRows[0].device_name || selectedRows[0].firewall || 'Device');
+                          }}
+                        >
+                          <Network size={14} /> Interfaces
+                        </button>
+                      </>
+                    ) : null
+                  }
+                  exportActions={
+                    <>
+                      {selectedRows.length === 1 && (
+                        <>
+                          <button 
+                            className="btn-secondary btn-sm" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                            onClick={() => {
+                              setRouteModalDeviceUUID(selectedRows[0].device_uuid);
+                              setRouteModalDeviceName(selectedRows[0].device_name || selectedRows[0].firewall || 'Device');
+                            }}
+                          >
+                            <Route size={13} style={{ color: 'var(--text-muted)' }} /> View Route Table
+                          </button>
+                          <button 
+                            className="btn-secondary btn-sm" 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%' }}
+                            onClick={() => {
+                              setIfaceModalDeviceUUID(selectedRows[0].device_uuid);
+                              setIfaceModalDeviceName(selectedRows[0].device_name || selectedRows[0].firewall || 'Device');
+                            }}
+                          >
+                            <Network size={13} style={{ color: 'var(--text-muted)' }} /> View Interfaces
+                          </button>
+                          <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                        </>
+                      )}
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '4px 8px' }}>Route Type Filter</div>
+                      <button 
+                        className="btn-secondary btn-sm" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%', backgroundColor: locationFilter === 'all' ? 'var(--bg-element)' : 'transparent' }}
+                        onClick={() => setLocationFilter('all')}
+                      >
+                        {locationFilter === 'all' && <Check size={13} style={{ color: 'var(--accent-blue)' }}/>}
+                        <span style={{ marginLeft: locationFilter === 'all' ? 0 : '21px' }}>Show All</span>
+                      </button>
+                      <button 
+                        className="btn-secondary btn-sm" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%', backgroundColor: locationFilter === 'direct' ? 'var(--bg-element)' : 'transparent' }}
+                        onClick={() => setLocationFilter('direct')}
+                      >
+                        {locationFilter === 'direct' && <Check size={13} style={{ color: 'var(--accent-blue)' }}/>}
+                        <span style={{ marginLeft: locationFilter === 'direct' ? 0 : '21px' }}>Directly Connected</span>
+                      </button>
+                      <button 
+                        className="btn-secondary btn-sm" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%', backgroundColor: locationFilter === 'routed' ? 'var(--bg-element)' : 'transparent' }}
+                        onClick={() => setLocationFilter('routed')}
+                      >
+                        {locationFilter === 'routed' && <Check size={13} style={{ color: 'var(--accent-blue)' }}/>}
+                        <span style={{ marginLeft: locationFilter === 'routed' ? 0 : '21px' }}>Routed</span>
+                      </button>
+                      <button 
+                        className="btn-secondary btn-sm" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start', width: '100%', backgroundColor: locationFilter === 'default' ? 'var(--bg-element)' : 'transparent' }}
+                        onClick={() => setLocationFilter('default')}
+                      >
+                        {locationFilter === 'default' && <Check size={13} style={{ color: 'var(--accent-blue)' }}/>}
+                        <span style={{ marginLeft: locationFilter === 'default' ? 0 : '21px' }}>Default Route</span>
+                      </button>
+                      <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    </>
                   }
                   topRightActions={renderCalculateButton()}
                   columns={[
@@ -294,12 +389,21 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                         key: 'device_name', 
                         label: 'Firewall', 
                         width: '200px',
-                        renderCell: (val) => <div style={{ fontWeight: 600 }}>{val}</div> 
+                        renderCell: (val, row) => (
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span 
+                              style={{ fontWeight: 600, color: 'var(--accent-blue)', cursor: 'pointer' }}
+                              onClick={() => setSelectedScopeUuid(row.device_uuid)}
+                            >
+                              {val || row.firewall}
+                            </span>
+                          </div>
+                        )
                       },
                       {
                         key: 'vendor',
                         label: 'Vendor',
-                        width: '120px',
+                        width: '140px',
                         exportValue: (row) => devices.find(d => d.uuid === row.device_uuid)?.vendor || 'Unknown',
                         renderCell: (_, row) => (
                           <span style={{ color: 'var(--text-muted)' }}>
@@ -310,7 +414,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                       { 
                         key: 'type', 
                         label: 'Calculated Route', 
-                        width: '120px', 
+                        width: '200px', 
                         exportValue: (row) => row.is_default_route ? 'Default Route' : row.type,
                         getFilterValues: (row) => row.is_default_route ? 'Default Route' : row.type,
                         renderCell: (_, row) => (
@@ -326,12 +430,12 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                           </span>
                         )
                       },
-                      { key: 'zone', label: 'Zone', width: '120px', renderCell: val => val || 'None' },
-                      { key: 'interface', label: 'Interface', width: '150px', renderCell: val => val || 'None' },
+                      { key: 'zone', label: 'Zone', width: '130px', renderCell: val => val || 'None' },
+                      { key: 'interface', label: 'Interface', width: '160px', renderCell: val => val || 'None' },
                       { 
                         key: 'interface_ip', 
                         label: 'Interface IP', 
-                        width: '160px', 
+                        width: '180px', 
                         renderCell: (val, row) => {
                           if (!val) return '-';
                           const resolved = row.resolved_interface_ip;
@@ -349,7 +453,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                       { 
                         key: 'destination', 
                         label: 'Destination', 
-                        width: '180px', 
+                        width: '200px', 
                         renderCell: (val, row) => {
                           if (!val) return '-';
                           const resolved = row.resolved_dest;
@@ -364,11 +468,11 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                           return val;
                         }
                       },
-                      { key: 'virtual_router', label: 'Virtual Router', width: '150px', renderCell: val => val || 'None' },
+                      { key: 'virtual_router', label: 'Virtual Router', width: '180px', renderCell: val => val || 'None' },
                       { 
                         key: 'next_hop', 
                         label: 'Next Hop', 
-                        width: '150px', 
+                        width: '160px', 
                         renderCell: (val, row) => {
                           if (!val) return '-';
                           const resolved = row.resolved_next_hop;
@@ -404,8 +508,9 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                     ]}
                     rowContextMenuActions={(row, closeMenu) => (
                       <>
+                        <ContextMenuHeader label={row.device_name || row.firewall || 'Device'} />
                         <ContextMenuItem
-                          icon={<Route size={14} />}
+                          icon={<Route size={13} />}
                           label="View Route Table"
                           onClick={() => {
                             setRouteModalDeviceUUID(row.device_uuid);
@@ -413,8 +518,9 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                             closeMenu();
                           }}
                         />
+                        <ContextMenuDivider />
                         <ContextMenuItem
-                          icon={<Network size={14} />}
+                          icon={<Network size={13} />}
                           label="View Interfaces"
                           onClick={() => {
                             setIfaceModalDeviceUUID(row.device_uuid);
@@ -437,11 +543,17 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
           setRouteModalDeviceName(null);
         }}
         title={`Route Table: ${routeModalDeviceName || 'Device'}`}
-        size="xl"
+        size="lg"
       >
-        <div style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '600px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <SearchBar 
+            value={routeSearchQuery}
+            onChange={setRouteSearchQuery}
+            placeholder="Search route table..."
+          />
           <DataTable
             data={deviceRoutes}
+            searchQuery={routeSearchQuery}
             loading={isLoadingRoutes}
             exportFilename={`routes-${routeModalDeviceName}.csv`}
             columns={[
@@ -487,11 +599,17 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
           setIfaceModalDeviceName(null);
         }}
         title={`Interfaces: ${ifaceModalDeviceName || 'Device'}`}
-        size="xl"
+        size="lg"
       >
-        <div style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '600px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <SearchBar 
+            value={ifaceSearchQuery}
+            onChange={setIfaceSearchQuery}
+            placeholder="Search interfaces..."
+          />
           <DataTable
             data={deviceInterfaces}
+            searchQuery={ifaceSearchQuery}
             loading={isLoadingInterfaces}
             exportFilename={`interfaces-${ifaceModalDeviceName}.csv`}
             columns={[
