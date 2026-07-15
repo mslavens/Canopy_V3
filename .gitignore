@@ -8,9 +8,9 @@ release/
 .npm/
 
 # Go backend executable
-/canopy-core/canopy-core
-/canopy-core/canopy-core.exe
-/canopy-core/canopy-core-linux
+/canopy-core/bin/canopy-core
+/canopy-core/bin/canopy-core.exe
+/canopy-core/bin/canopy-core-linux
 *.log
 
 # SQLite Database Files
