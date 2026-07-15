@@ -1,6 +1,20 @@
 # Canopy Framework Changelog
 
 
+## v0.32.1 - Bug Fixes & Optimizations
+**Date:** 2026-07-14
+
+### Added
+- **Dynamic Group Initialization (XML Import)**: The XML importer now correctly triggers dynamic group materialization after data ingestion is complete. This ensures dynamic groups accurately reflect their matching members immediately after an import.
+
+### Changed
+- **Optimized UI Data Loading**: Decoupled diff fetching from the main data loading sequence in the UI. Rendering large datasets (e.g., 45k+ objects) is now significantly faster, with diffs calculating non-blockingly in the background.
+
+### Fixed
+- **Dynamic Group Hierarchy Scoping**: Fixed a critical backend bug where intermediate scopes (like nested device groups) were improperly ignored during dynamic group candidate evaluation. Dynamic groups now strictly trace the entire inheritance hierarchy to find valid candidates.
+- **Sticky Uncommitted Flags**: Fixed multiple overlapping state bugs where the `Uncommitted` badge failed to clear after a user reverted their modifications. The backend now natively strips snapshot dirty flags and explicitly cascades state clears down to parent entities when child relationships (like members or tags) are reverted.
+- **CSV Data Mapping Styling**: Resolved a UI mapping issue where statically typed inputs on the CSV import modal were rendering out of alignment.
+
 ## v0.32.0 - Pending Changes Modal Overhaul
 **Date:** 2026-07-14
 
