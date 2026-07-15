@@ -405,6 +405,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                         label: 'Vendor',
                         width: '140px',
                         exportValue: (row) => devices.find(d => d.uuid === row.device_uuid)?.vendor || 'Unknown',
+                        getFilterValues: (row) => devices.find(d => d.uuid === row.device_uuid)?.vendor || 'Unknown',
                         renderCell: (_, row) => (
                           <span style={{ color: 'var(--text-muted)' }}>
                             {devices.find(d => d.uuid === row.device_uuid)?.vendor || 'Unknown'}
@@ -435,37 +436,31 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                       { 
                         key: 'interface_ip', 
                         label: 'Interface IP', 
+                        width: '160px', 
+                        renderCell: val => val || '-'
+                      },
+                      { 
+                        key: 'resolved_interface_ip', 
+                        label: 'Resolved Interface IP', 
                         width: '180px', 
                         renderCell: (val, row) => {
-                          if (!val) return '-';
-                          const resolved = row.resolved_interface_ip;
-                          if (resolved && resolved !== val) {
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
-                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
-                              </div>
-                            );
-                          }
-                          return val;
+                          const resolved = row.resolved_interface_ip || row.interface_ip || '-';
+                          return <span style={{ color: row.resolved_interface_ip && row.resolved_interface_ip !== row.interface_ip ? 'var(--accent-blue)' : 'inherit', fontWeight: row.resolved_interface_ip && row.resolved_interface_ip !== row.interface_ip ? 600 : 'normal' }}>{resolved}</span>;
                         }
                       },
                       { 
                         key: 'destination', 
                         label: 'Destination', 
-                        width: '200px', 
+                        width: '160px', 
+                        renderCell: val => val || '-'
+                      },
+                      { 
+                        key: 'resolved_dest', 
+                        label: 'Resolved Destination', 
+                        width: '180px', 
                         renderCell: (val, row) => {
-                          if (!val) return '-';
-                          const resolved = row.resolved_dest;
-                          if (resolved && resolved !== val) {
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
-                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
-                              </div>
-                            );
-                          }
-                          return val;
+                          const resolved = row.resolved_dest || row.destination || '-';
+                          return <span style={{ color: row.resolved_dest && row.resolved_dest !== row.destination ? 'var(--accent-blue)' : 'inherit', fontWeight: row.resolved_dest && row.resolved_dest !== row.destination ? 600 : 'normal' }}>{resolved}</span>;
                         }
                       },
                       { key: 'virtual_router', label: 'Virtual Router', width: '180px', renderCell: val => val || 'None' },
@@ -473,23 +468,21 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                         key: 'next_hop', 
                         label: 'Next Hop', 
                         width: '160px', 
-                        renderCell: (val, row) => {
-                          if (!val) return '-';
-                          const resolved = row.resolved_next_hop;
-                          if (resolved && resolved !== val) {
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ color: 'var(--text-muted)' }}>{val}</span>
-                                <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{resolved}</span>
-                              </div>
-                            );
-                          }
-                          return val;
-                        }
+                        renderCell: val => val || '-'
                       },
                       { 
-                        key: 'origin_uuid', 
-                        label: 'Template / Stack Origin', 
+                        key: 'resolved_next_hop', 
+                        label: 'Resolved Next Hop', 
+                        width: '180px', 
+                        renderCell: (val, row) => {
+                          const resolved = row.resolved_next_hop || row.next_hop || '-';
+                          return <span style={{ color: row.resolved_next_hop && row.resolved_next_hop !== row.next_hop ? 'var(--accent-blue)' : 'inherit', fontWeight: row.resolved_next_hop && row.resolved_next_hop !== row.next_hop ? 600 : 'normal' }}>{resolved}</span>;
+                        }
+                      },
+                      { key: 'distance', label: 'Metric', width: '130px', renderCell: val => val || 'None' },
+                      {
+                        key: 'origin_uuid',
+                        label: 'Template / Stack Origin',
                         width: '250px',
                         exportValue: (row) => scopeNameMap[row.origin_uuid] || row.origin_uuid,
                         getFilterValues: (row) => scopeNameMap[row.origin_uuid] || row.origin_uuid,
