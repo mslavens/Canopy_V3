@@ -601,7 +601,7 @@ func handleWorkspacesDiff(w http.ResponseWriter, r *http.Request) {
 
 	newJSON, _ := json.Marshal(newState)
 
-	// Diff them
+	// Diff them using CompareSnapshots which normalizes types
 	diff, err := CompareSnapshots(oldJSON, newJSON)
 	if err != nil {
 		http.Error(w, "Failed to diff snapshots", http.StatusInternalServerError)

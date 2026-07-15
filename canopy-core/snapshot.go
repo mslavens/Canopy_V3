@@ -165,6 +165,10 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 		}
 	}
 
+	return CompareSnapshotStates(&oldState, &newState)
+}
+
+func CompareSnapshotStates(oldState, newState *SnapshotState) (*DiffResult, error) {
 	diff := &DiffResult{
 		Tables: make(map[string]ObjectDiff),
 	}
@@ -188,8 +192,8 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 		}
 	}
 	for _, t := range []string{"address_objects", "address_groups", "service_objects", "service_groups", "application_objects", "application_groups", "tags"} {
-		indexTable(&oldState, t)
-		indexTable(&newState, t)
+		indexTable(oldState, t)
+		indexTable(newState, t)
 	}
 
 	resolveName := func(table string, id interface{}) string {

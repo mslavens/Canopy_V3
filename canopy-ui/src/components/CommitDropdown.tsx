@@ -56,7 +56,6 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
 
   useEffect(() => {
     fetchDiff();
-    const interval = setInterval(fetchDiff, 5000);
     
     const handleMutation = () => fetchDiff();
     window.addEventListener('canopy:mutation', handleMutation);
@@ -66,7 +65,6 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
     }
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('canopy:mutation', handleMutation);
     };
   }, []);
