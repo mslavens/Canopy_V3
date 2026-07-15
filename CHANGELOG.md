@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.33.0 - Resolver Engine Overhaul
+**Date:** 2026-07-15
+
+### Added
+- **True Recursive Next-Hop Resolution**: The Resolver Sandbox engine now seamlessly follows static routes to their Next Hops, recursively traversing routing tables (up to 5 levels deep) until it successfully resolves a physical interface.
+- **Cross-Platform SQLite Compatibility**: Refactored the core engine database queries to use dynamically generated SQL `IN` clauses instead of relying on the `json_each` SQLite extension, ensuring flawless cross-platform compatibility across various SQLCipher drivers without missing queries.
+
+### Changed
+- **Override Prioritization Engine**: Inverted the scope ancestry evaluation logic to accurately reflect device-level overrides. Locally defined routes on a physical firewall now correctly override conflicting routes inherited from generic templates, accurately mirroring real-world Palo Alto networking logic.
+- **Longest Prefix Match (LPM)**: Enhanced the routing calculation engine to properly prioritize routes based on subnet specificity (`/32` takes precedence over `/23`, and so on).
+
+### Fixed
+- **Resolver Sandbox Connectivity**: Fixed a silent React UI bug that prevented the API Client from properly initializing inside the `ToolsPage`, resolving an issue where clicking "Calculate Routes" previously failed silently.
+
+
 ## v0.32.1 - Bug Fixes & Optimizations
 **Date:** 2026-07-14
 
