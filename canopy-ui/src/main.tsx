@@ -31,6 +31,7 @@ import { CommitHistoryPage } from './pages/CommitHistoryPage';
 import { SecretsVaultPage } from './pages/SecretsVaultPage';
 import { SnapshotsPage } from './pages/SnapshotsPage';
 import { DatabaseHealthPage } from './pages/DatabaseHealthPage';
+import { ToolsPage } from './pages/ToolsPage';
 import { Loader2 } from 'lucide-react';
 import { ConfirmProvider } from './components/ConfirmProvider';
 import { UnsavedChangesProvider } from './components/UnsavedChangesProvider';
@@ -303,8 +304,10 @@ const App = () => {
     if (activeMainTab === 'Monitor') {
       return <MonitorPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
+    if (activeMainTab === 'Tools') {
+      return <ToolsPage auth={auth} activeSubTab={activeSubTab} />;
+    }
     if (
-      activeMainTab === 'Tools' || 
       activeMainTab === 'Policy Lifecycle' || 
       (activeMainTab === 'Networks' && (activeSubTab === 'Zones' || activeSubTab === 'Route Table' || activeSubTab === 'Template Variables'))
     ) {

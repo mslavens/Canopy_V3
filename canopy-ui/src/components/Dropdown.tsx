@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 
 interface DropdownProps {
   value: string;
@@ -146,42 +146,72 @@ export const Dropdown: React.FC<DropdownProps> = ({
     >
       {searchable && (
         <div style={{ padding: '8px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-surface)', position: 'sticky', top: 0, zIndex: 1 }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                const firstOption = document.querySelector('.portal-dropdown-menu .dropdown-option') as HTMLElement;
-                if (firstOption) firstOption.focus();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setIsOpen(false);
-                containerRef.current?.querySelector('div')?.focus();
-              } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (filteredOptions.length > 0) {
-                  onChange(filteredOptions[0]);
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  const firstOption = document.querySelector('.portal-dropdown-menu .dropdown-option') as HTMLElement;
+                  if (firstOption) firstOption.focus();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
                   setIsOpen(false);
                   containerRef.current?.querySelector('div')?.focus();
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (filteredOptions.length > 0) {
+                    onChange(filteredOptions[0]);
+                    setIsOpen(false);
+                    containerRef.current?.querySelector('div')?.focus();
+                  }
                 }
-              }
-            }}
-            placeholder="Search..."
-            autoFocus
-            style={{
-              width: '100%',
-              padding: '6px 8px',
-              fontSize: '12px',
-              border: '1px solid var(--border-main)',
-              borderRadius: '4px',
-              backgroundColor: 'var(--bg-base)',
-              color: 'var(--text-main)',
-              outline: 'none'
-            }}
-          />
+              }}
+              placeholder="Search..."
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '6px 28px 6px 8px', // Extra right padding for the X button
+                fontSize: '12px',
+                border: '1px solid var(--border-main)',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-base)',
+                color: 'var(--text-main)',
+                outline: 'none'
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchQuery('');
+                  // Refocus the input
+                  const input = document.querySelector('.portal-dropdown-menu input') as HTMLInputElement;
+                  if (input) input.focus();
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  background: 'none',
+                  border: 'none',
+                  padding: '2px',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-main)'}
+                onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 

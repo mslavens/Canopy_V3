@@ -1376,6 +1376,9 @@ func main() {
 
 	// Devices: Inventory
 	mux.HandleFunc("/api/devices/inventory", handleGetInventory)
+	// Tools endpoints
+	mux.HandleFunc("/api/tools/resolve-sandbox", handleResolveSandbox)
+
 	// Pathfinding Evaluation Endpoint
 	mux.HandleFunc("/api/paths/resolve", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

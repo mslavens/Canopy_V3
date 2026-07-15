@@ -170,6 +170,9 @@ export class CanopyApiClient {
   public revertToCommit = (commit_id: number) => this.request<any>('/api/workspaces/revert', { method: 'POST', body: JSON.stringify({ commit_id }) });
   
   public search = (query: string) => this.request<any[]>(`/api/search?q=${encodeURIComponent(query)}`);
+  
+  // Tools
+  public resolveSandboxIp = (ip_address: string, device_id?: string) => this.request<any>('/api/tools/resolve-sandbox', { method: 'POST', body: JSON.stringify({ ip_address, device_id }) });
 
   // Networks & Variables
   public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);
