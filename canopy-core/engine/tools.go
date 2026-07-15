@@ -17,6 +17,8 @@ type SandboxMatch struct {
 	Zone           string `json:"zone"`
 	VirtualRouter  string `json:"virtual_router"`
 	IsDefaultRoute bool   `json:"is_default_route,omitempty"`
+	NextHop        string `json:"next_hop,omitempty"`
+	OriginUUID     string `json:"origin_uuid,omitempty"`
 }
 
 type SandboxResolveResult struct {
@@ -142,6 +144,7 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 							Interface:     iName.String,
 							Zone:          iZone.String,
 							VirtualRouter: iVR.String,
+							OriginUUID:    iDeviceUUID.String,
 						}
 					}
 				}
@@ -217,17 +220,20 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 						maxPrefixLen = prefixLen
 						bestRoutePriority = priority
 						bestRouteMetric = metric
+						bestNextHop = rNextHop.String
+						isDefaultRoute := resolvedDest == "0.0.0.0/0" || resolvedDest == "::/0"
 
 						bestRoute = &SandboxMatch{
 							DeviceUUID:     devUUID,
 							DeviceName:     devName,
 							Type:           "Routing Table",
-							Interface:      rIface.String,
 							RouteName:      rName.String,
+							Interface:      rIface.String,
 							VirtualRouter:  rVR.String,
-							IsDefaultRoute: resolvedDest == "0.0.0.0/0" || resolvedDest == "::/0",
+							IsDefaultRoute: isDefaultRoute,
+							NextHop:        bestNextHop,
+							OriginUUID:     rDeviceUUID.String,
 						}
-						bestNextHop = rNextHop.String
 					}
 				}
 			}
