@@ -172,7 +172,7 @@ export class CanopyApiClient {
   public search = (query: string) => this.request<any[]>(`/api/search?q=${encodeURIComponent(query)}`);
   
   // Tools
-  public resolveSandboxIp = (ip_address: string, device_id?: string) => this.request<any>('/api/tools/resolve-sandbox', { method: 'POST', body: JSON.stringify({ ip_address, device_id }) });
+  public resolveSandboxIp = (ip_address: string, device_uuids?: string[]) => this.request<any>('/api/tools/resolve-sandbox', { method: 'POST', body: JSON.stringify({ ip_address, device_uuids: device_uuids || [] }) });
 
   // Networks & Variables
   public getNetworksZones = (deviceUuid?: string) => this.request<any[]>(`/api/networks/zones${deviceUuid ? `?device_uuid=${deviceUuid}` : ''}`);

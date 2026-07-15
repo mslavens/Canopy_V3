@@ -3,7 +3,7 @@ import { EmptyState } from '../components/EmptyState';
 import { CIDRCalculator } from './tools/CIDRCalculator';
 import { ResolverSandbox } from './tools/ResolverSandbox';
 import { Wrench } from 'lucide-react';
-
+import { CanopyApiClient } from '../api/client';
 
 interface ToolsPageProps {
   auth: any;
@@ -16,7 +16,8 @@ export const ToolsPage: React.FC<ToolsPageProps> = ({ auth, activeSubTab }) => {
   }
 
   if (activeSubTab === 'Resolver Sandbox') {
-    return <ResolverSandbox apiClient={auth?.apiClient} />;
+    const apiClient = auth ? new CanopyApiClient(auth) : undefined;
+    return <ResolverSandbox apiClient={apiClient} />;
   }
 
   return (

@@ -11,6 +11,7 @@ release/
 /canopy-core/bin/canopy-core
 /canopy-core/bin/canopy-core.exe
 /canopy-core/bin/canopy-core-linux
+/canopy-core/canopy-core
 *.log
 
 # SQLite Database Files

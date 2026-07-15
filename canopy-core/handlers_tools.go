@@ -10,8 +10,8 @@ import (
 )
 
 type SandboxResolveRequest struct {
-	IPAddress string `json:"ip_address"`
-	DeviceID  string `json:"device_id"` // Optional
+	IPAddress   string   `json:"ip_address"`
+	DeviceUUIDs []string `json:"device_uuids"` // Optional, if empty searches all
 }
 
 func handleResolveSandbox(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func handleResolveSandbox(w http.ResponseWriter, r *http.Request) {
 	// Wait, we can implement the same logic from useZoneResolver.jsx here.
 	// Query all devices, interfaces, and routes from the database.
 	
-	payload, err := engine.SandboxResolveIP(dbConn, req.IPAddress, req.DeviceID)
+	payload, err := engine.SandboxResolveIP(dbConn, req.IPAddress, req.DeviceUUIDs)
 	if err != nil {
 		slog.Error("Sandbox evaluation failed", slog.String("error", err.Error()))
 		w.Header().Set("Content-Type", "application/json")
