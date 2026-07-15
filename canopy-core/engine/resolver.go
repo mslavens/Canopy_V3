@@ -2,6 +2,7 @@ package engine
 
 import (
 	"database/sql"
+	"sort"
 	"strings"
 )
 
@@ -102,8 +103,19 @@ func ResolveVariables(db *sql.DB, ancestry []string) map[string]string {
 // ApplyVariables substitutes any variables found in the raw text with their resolved values
 func ApplyVariables(rawText string, vars map[string]string) string {
 	resolved := rawText
-	for vName, vVal := range vars {
-		resolved = strings.ReplaceAll(resolved, vName, vVal)
+	
+	// Sort variable keys by length descending to prevent partial replacements
+	// e.g. replacing $fw_outside before $fw_outside_next_hop
+	var keys []string
+	for k := range vars {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return len(keys[i]) > len(keys[j])
+	})
+
+	for _, vName := range keys {
+		resolved = strings.ReplaceAll(resolved, vName, vars[vName])
 	}
 	return resolved
 }
