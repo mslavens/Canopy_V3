@@ -1497,20 +1497,23 @@ func handleDevicesImport(w http.ResponseWriter, r *http.Request) {
 
 	logAuditSafe("Device XML Imported", "Network", fmt.Sprintf("Imported %d devices/templates and %d interface topology routes.", totalDevCount, totalTopoCount))
 
-	// Ensure an initial snapshot exists if the commit history is empty
+	// Ensure dynamic groups are fully resolved after import
 	vaultMutex.RLock()
 	if activeDB != nil {
-		var commitCount int
-		activeDB.DB().QueryRow("SELECT COUNT(*) FROM commit_history").Scan(&commitCount)
-		if commitCount == 0 {
-			if tx, err := activeDB.DB().Begin(); err == nil {
+		if tx, err := activeDB.DB().Begin(); err == nil {
+			// Materialize all dynamic groups after XML ingest
+			MaterializeDynamicGroups(tx, "")
+			
+			var commitCount int
+			tx.QueryRow("SELECT COUNT(*) FROM commit_history").Scan(&commitCount)
+			if commitCount == 0 {
 				if initialState, err := GenerateSnapshot(tx); err == nil {
 					if snapshotJSON, err := json.Marshal(initialState); err == nil {
 						tx.Exec("INSERT INTO commit_history (message, snapshot_json) VALUES (?, ?)", "Initial Configuration Import", snapshotJSON)
 					}
 				}
-				tx.Commit()
 			}
+			tx.Commit()
 		}
 	}
 	vaultMutex.RUnlock()

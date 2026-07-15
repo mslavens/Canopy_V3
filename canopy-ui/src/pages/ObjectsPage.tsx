@@ -1272,28 +1272,9 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       }
 
       const scopesStr = !isShowAll ? visibleScopes.join(',') : undefined;
-      const [data, diffData] = await Promise.all([
-        apiClient.getObjects(queryType, scopesStr),
-        apiClient.request<any>('/api/workspaces/diff').catch(() => null)
+      const [data] = await Promise.all([
+        apiClient.getObjects(queryType, scopesStr)
       ]);
-      
-      const deletedNamesInScope = new Set<string>();
-      if (diffData && currentScope !== 'show-all') {
-        const processDeleted = (d: any) => {
-          if (d.device_uuid === currentScope && d.name) {
-            deletedNamesInScope.add(d.name);
-          }
-        };
-        
-        ['tags', 'address_objects', 'address_groups', 'service_objects', 'service_groups', 'application_objects', 'application_groups'].forEach(key => {
-          if (diffData[key]?.deleted) diffData[key].deleted.forEach(processDeleted);
-        });
-        if (diffData.tables) {
-          Object.values(diffData.tables).forEach((t: any) => {
-            if (t.deleted) t.deleted.forEach(processDeleted);
-          });
-        }
-      }
       
       let processedData = data || [];
       if (!isShowAll && processedData.length > 0) {
@@ -1328,11 +1309,10 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         processedData = Object.values(map).map(({ active, hasAncestor, ancestorScope }) => {
           const isInherited = active.device_uuid !== currentScope;
           const isOverridden = !isInherited && hasAncestor;
-          const isPendingRevert = isInherited && deletedNamesInScope.has(active.name);
+          const isPendingRevert = false; // Resolved async below
           const flags: string[] = [];
           if (isInherited) flags.push('Inherited');
           if (isOverridden) flags.push('Overridden');
-          if (isPendingRevert) flags.push('Pending Revert');
           if (active.device_uuid && (active.device_uuid.startsWith('fw-') || active.device_uuid.startsWith('paloalto-fw-'))) flags.push('Local');
           if (active.dirty === 1) flags.push('Uncommitted');
 
@@ -1348,6 +1328,41 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       }
       
       setTableData(processedData);
+
+      // Async resolution for Pending Revert
+      if (!isShowAll) {
+        apiClient.request<any>('/api/workspaces/diff').then(diffData => {
+          if (!diffData) return;
+          const deletedNamesInScope = new Set<string>();
+          const processDeleted = (d: any) => {
+            if (d.device_uuid === currentScope && d.name) {
+              deletedNamesInScope.add(d.name);
+            }
+          };
+          ['tags', 'address_objects', 'address_groups', 'service_objects', 'service_groups', 'application_objects', 'application_groups'].forEach(key => {
+            if (diffData[key]?.deleted) diffData[key].deleted.forEach(processDeleted);
+          });
+          if (diffData.tables) {
+            Object.values(diffData.tables).forEach((t: any) => {
+              if (t.deleted) t.deleted.forEach(processDeleted);
+            });
+          }
+
+          if (deletedNamesInScope.size > 0) {
+            setTableData(prev => prev.map(active => {
+              const isPendingRevert = active.isInherited && deletedNamesInScope.has(active.name);
+              if (isPendingRevert && (!active.flags || !active.flags.includes('Pending Revert'))) {
+                return { 
+                  ...active, 
+                  isPendingRevert: true, 
+                  flags: [...(active.flags || []), 'Pending Revert'] 
+                };
+              }
+              return active;
+            }));
+          }
+        }).catch(() => null);
+      }
     } catch (err) {
       console.error('Failed to load table data:', err);
       addToast('Failed to load objects from the database.', 'error');

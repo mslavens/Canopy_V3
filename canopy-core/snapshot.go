@@ -96,9 +96,11 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 	return state, nil
 }
 
-func getUniqueIdentifier(row map[string]interface{}) string {
-	if id, ok := row["id"]; ok {
-		return fmt.Sprintf("%v", id)
+func getUniqueIdentifier(tableName string, row map[string]interface{}) string {
+	if tableName != "address_group_members" && tableName != "service_group_members" && tableName != "application_group_members" && tableName != "entity_tag_mappings" {
+		if id, ok := row["id"]; ok {
+			return fmt.Sprintf("%v", id)
+		}
 	}
 	var keys []string
 	if etype, ok := row["entity_type"]; ok {
@@ -115,6 +117,12 @@ func getUniqueIdentifier(row map[string]interface{}) string {
 	}
 	if mid, ok := row["member_address_id"]; ok && mid != nil {
 		keys = append(keys, fmt.Sprintf("addr_%v", mid))
+	}
+	if mid, ok := row["member_service_id"]; ok && mid != nil {
+		keys = append(keys, fmt.Sprintf("svc_%v", mid))
+	}
+	if mid, ok := row["member_application_id"]; ok && mid != nil {
+		keys = append(keys, fmt.Sprintf("app_%v", mid))
 	}
 	if mgid, ok := row["member_group_id"]; ok && mgid != nil {
 		keys = append(keys, fmt.Sprintf("group_%v", mgid))
@@ -244,12 +252,12 @@ func CompareSnapshots(oldJSON, newJSON []byte) (*DiffResult, error) {
 		
 		oldDict := make(map[string]map[string]interface{})
 		for _, row := range oldRows {
-			oldDict[getUniqueIdentifier(row)] = row
+			oldDict[getUniqueIdentifier(table, row)] = row
 		}
 		
 		newDict := make(map[string]map[string]interface{})
 		for _, row := range newRows {
-			newDict[getUniqueIdentifier(row)] = row
+			newDict[getUniqueIdentifier(table, row)] = row
 		}
 		
 		tableDiff := ObjectDiff{

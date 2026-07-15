@@ -454,8 +454,8 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
                       <div style={{ width: '180px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginTop: '8px' }}>
                         {fieldLabelsMap[dbField] || dbField} {isRequired && <span style={{ color: 'var(--status-red)' }}>*</span>}
                       </div>
-                      <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
-                        <div style={{ flex: isStatic ? '0 0 250px' : 1 }}>
+                      <div style={{ flex: 1, display: 'flex', gap: '16px' }}>
+                        <div style={{ flex: 1 }}>
                           <Dropdown 
                             value={mappings[dbField] || ''}
                             onChange={val => {
@@ -466,7 +466,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
                               }
                             }}
                             options={['', '__CUSTOM_INPUT__', '__EXISTING_VALUE__', '--- Source Columns ---', ...parsedHeaders]}
-                            renderOption={(val) => val === '' ? (isRequired ? '-- Select Column --' : '--- Skip Field ---') : val === '__CUSTOM_INPUT__' ? '[STATIC] Custom Input' : val === '__EXISTING_VALUE__' ? '[STATIC] Existing Value' : val}
+                            renderOption={(val) => val === '' ? (isRequired ? '-- Select Column --' : '--- Skip Field ---') : val === '__CUSTOM_INPUT__' ? 'Custom Input' : val === '__EXISTING_VALUE__' ? 'Existing Value' : val}
                             width="100%"
                           />
                         </div>

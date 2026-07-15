@@ -90,7 +90,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
           table: categoryName,
           vendor: vendor,
           scope: scopeUUID === 'global' ? 'Global' : scopeUUID,
-          name: `${groupName} Members`,
+          name: groupName,
           description: `Updated members for ${groupName} (${data.added.length} added, ${data.deleted.length} removed)`,
           details: { _isAggregated: true, ...data },
           dbId: gid
