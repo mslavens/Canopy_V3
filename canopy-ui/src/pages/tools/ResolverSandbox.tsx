@@ -297,6 +297,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                 <DataTable 
                   data={filteredMatches}
                   selectable={true}
+                  pagination={true}
                   onSelectionChange={setSelectedRows}
                   exportFilename={`resolver-results-${ipAddress.replace(/[^0-9a-zA-Z]/g, '_')}.csv`}
                   toolbarTitle={

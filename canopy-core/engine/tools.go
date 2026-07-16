@@ -50,9 +50,12 @@ func SandboxResolveIP(db *sql.DB, ipAddress string, deviceUUIDs []string) (*Sand
 	query := `SELECT d.device_uuid, d.name, d.id FROM managed_devices_raw d`
 	var args []interface{}
 	if len(deviceUUIDs) > 0 {
-		query += ` WHERE d.device_uuid IN (SELECT value FROM json_each(?))`
-		b, _ := json.Marshal(deviceUUIDs)
-		args = append(args, string(b))
+		placeholders := make([]string, len(deviceUUIDs))
+		for i, id := range deviceUUIDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		query += fmt.Sprintf(" WHERE d.device_uuid IN (%s)", strings.Join(placeholders, ","))
 	}
 
 	rows, err := db.Query(query, args...)
