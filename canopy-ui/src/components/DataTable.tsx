@@ -13,6 +13,7 @@ export interface ColumnDef {
   renderCell?: (value: any, row: any, searchQuery?: string) => React.ReactNode;
   getFilterValues?: (row: any) => string | string[];
   exportValue?: (row: any) => string;
+  formatFilterValue?: (value: string) => string;
   allowOverflow?: boolean;
 }
 
@@ -639,7 +640,10 @@ export const DataTable: React.FC<DataTableProps> = ({
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase' }}>{getColDef(k).label || k}</span>
                             <span style={{ color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {Array.from(columnFilters[k]).map(v => v === '' ? '(Blank)' : v).join(', ')}
+                              {Array.from(columnFilters[k]).map(v => {
+                                const displayVal = getColDef(k).formatFilterValue ? getColDef(k).formatFilterValue!(v) : v;
+                                return displayVal === '' ? '(Blank)' : displayVal;
+                              }).join(', ')}
                             </span>
                           </div>
                           <button
@@ -991,7 +995,10 @@ export const DataTable: React.FC<DataTableProps> = ({
                                         }}
                                         style={{ cursor: 'pointer', margin: 0 }}
                                       />
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={val || '(Blanks)'}>{val || '(Blanks)'}</span>
+                                      {(() => {
+                                        const displayVal = colDef.formatFilterValue ? colDef.formatFilterValue(val) : val;
+                                        return <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={displayVal || '(Blanks)'}>{displayVal || '(Blanks)'}</span>;
+                                      })()}
                                     </label>
                                   );
                                 })}

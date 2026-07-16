@@ -266,7 +266,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
   const columns: ColumnDef[] = useMemo(
     () => [
       { key: 'name', label: 'Variable Name', width: '200px', renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.name}</span> },
-      { key: 'device_uuid', label: 'Context / Scope', width: '250px', renderCell: (val: any) => {
+      { key: 'device_uuid', label: 'Context / Scope', width: '250px', formatFilterValue: (val: any) => scopeNameMap[val] || val, renderCell: (val: any) => {
         const hierarchy = getVisibleScopes(val, selectedScopeUuid);
         const activeConfig = getActiveConfigScope(selectedScopeUuid);
         const isDeviceContext = activeConfig !== selectedScopeUuid;

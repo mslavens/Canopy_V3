@@ -2293,6 +2293,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
           const isShared = val === 'paloalto-panorama-global';
           return isShared ? 'Shared' : (scopeNameMap[val] || val);
         },
+        formatFilterValue: (val) => val === 'paloalto-panorama-global' ? 'Shared' : (scopeNameMap[val] || val),
         renderCell: (val, row, query) => {
           const hierarchy = [...getScopeHierarchy(val)].reverse();
           return (

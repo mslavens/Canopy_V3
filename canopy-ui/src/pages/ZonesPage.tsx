@@ -258,7 +258,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, globalScop
   const columns: ColumnDef[] = useMemo(
     () => [
       { key: 'name', label: 'Zone Name', width: '250px', renderCell: (val: any, row: any) => <span style={{ fontWeight: 500 }}>{row.name}</span> },
-      { key: 'device_uuid', label: 'Context / Scope', width: '250px', renderCell: (val: any) => {
+      { key: 'device_uuid', label: 'Context / Scope', width: '250px', formatFilterValue: (val: any) => scopeNameMap[val] || val, renderCell: (val: any) => {
         const hierarchy = getVisibleScopes(val, selectedScopeUuid);
         const activeConfig = getActiveConfigScope(selectedScopeUuid);
         const isDeviceContext = activeConfig !== selectedScopeUuid;

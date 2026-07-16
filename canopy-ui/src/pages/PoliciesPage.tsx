@@ -356,6 +356,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         key: 'device_uuid',
         label: 'Scope Context',
         width: '260px',
+        formatFilterValue: (val: any) => val === 'paloalto-panorama-global' ? 'Shared' : (scopeNameMap[val] || val),
         renderCell: (val: any, row: any, query?: string) => {
           const hierarchy = [...getVisibleScopes(val)].reverse();
           return (
