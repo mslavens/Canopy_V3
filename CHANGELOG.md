@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.33.2 - Persistent Layouts & UX Enhancements
+**Date:** 2026-07-16
+
+### Added
+- **Persistent Data Grids**: The core `DataTable` now saves your column configurations (width, visibility, and sorting order) directly to your local browser storage. The UI will flawlessly remember your tailored layout for every specific table across the app on refresh. Added a quick "Reset to Default Layout" button to instantly restore the original grid.
+- **Context Menu Global Copy**: Natively right-clicking on any table row now exposes a "Copy [Column Name]" action at the top of the context menu, allowing you to instantly copy the exact cell value you clicked on directly to your clipboard.
+- **Creation & Modification Auditing**: Introduced `Created At` and `Modified At` timestamp columns to all major Network, Object, and Policy tables to drastically improve auditing and tracking for user-configurable elements.
+- **Selection Data Filtering**: Upgraded the static 'Selected' row counter badge in the table toolbar into an interactive dropdown. Users can now instantly "Filter to Selections" to temporarily isolate the table view to only the rows they've checked.
+
+### Changed
+- **Human-Readable Filters**: Re-wired the "Context / Scope" filter menus across the platform to resolve backend database IDs (like `paloalto-dg-AB-OIL`) into their highly-readable display names (`AB-OIL`) for a much cleaner UX.
+- **Filter Badge Indicator**: Added a persistent, interactive Active Filters badge next to the table title. The badge features a dropdown menu to list all active filter parameters, with targeted "Clear" buttons and a global "Clear All Filters" action.
+
 ## v0.33.1 - Tools UI Refinements & Bug Fixes
 **Date:** 2026-07-16
 
