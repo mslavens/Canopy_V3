@@ -1,11 +1,32 @@
 # Canopy Framework Changelog
 
-## v0.33.0 - Resolver Engine Overhaul
+## v0.33.1 - Tools UI Refinements & Bug Fixes
+**Date:** 2026-07-16
+
+### Added
+- **Interactive Sandbox Filtering**: The Resolver Sandbox table now dynamically listens to the active scope dropdown. Selecting a specific Template or Firewall override instantly filters the loaded routing results without requiring a recalculation.
+- **Route Type Filters**: Added a new filter menu to the Actions dropdown, allowing users to instantly filter sandbox results by "Show All", "Directly Connected", "Routed", or "Default Route".
+- **Enhanced CSV Exports**: The Sandbox CSV export now splits raw template variables and their runtime resolved IPs into distinct, parseable columns for easier offline data manipulation.
+
+### Changed
+- **Help Center Expansion**: Built out comprehensive contextual Help manuals (`?` modals) for both the Resolver Sandbox and CIDR Subnet Calculator, fully indexed in the Help Center Table of Contents.
+- **DataTable Pagination Rendering**: Enabled pagination on the Sandbox table to dramatically improve rendering performance for large route calculations, completely eliminating "checkbox flash" layout thrashing.
+- **Sandbox UI Polish**: Improved table readability by cleanly rendering human-readable firewall names and widening column headers to prevent text truncation.
+
+### Fixed
+- **Cross-Platform SQLite Compatibility**: Refactored the core engine database queries to use dynamically generated SQL `IN` clauses instead of relying on the `json_each` SQLite extension, ensuring flawless cross-platform compatibility across various SQLCipher drivers without missing queries.
+- **Variable Resolution Order**: Fixed a string-replacement bug in the Go backend (`ApplyVariables`) where variable subsets (e.g., `$fw_outside`) were being overwritten before their longer, more specific counterparts (`$fw_outside_next_hop`), resulting in orphaned string artifacts.
+- **Device Override Scoping**: Fixed a bug in the global `useTemplateHierarchy` hook where selecting a specific device override fell through the ancestry tree, causing local filters to mistakenly hide all table rows.
+- **Vendor Filtering**: Corrected a state binding issue that prevented the Vendor column filter from working in the Sandbox table.
+
+## v0.33.0 - Tools Pages & Resolver Sandbox
 **Date:** 2026-07-15
 
 ### Added
-- **True Recursive Next-Hop Resolution**: The Resolver Sandbox engine now seamlessly follows static routes to their Next Hops, recursively traversing routing tables (up to 5 levels deep) until it successfully resolves a physical interface.
-- **Cross-Platform SQLite Compatibility**: Refactored the core engine database queries to use dynamically generated SQL `IN` clauses instead of relying on the `json_each` SQLite extension, ensuring flawless cross-platform compatibility across various SQLCipher drivers without missing queries.
+- **Tools Page Navigation**: Introduced a brand new "Tools" top-level navigation hub for interactive utility applications.
+- **CIDR Subnet Calculator**: Built a fully interactive React-based IP calculator. The calculator allows users to input any CIDR block, instantly analyze network boundaries, split the subnet into smaller custom slices, and export the generated ranges to CSV.
+- **Resolver Sandbox**: Shipped the core Resolver Sandbox UI. This interactive tool allows users to input a destination IP and perform a dry-run calculation against the database, mapping exactly how Canopy expects the IP to be routed across all firewalls in the infrastructure.
+- **True Recursive Next-Hop Resolution**: The Resolver Sandbox engine seamlessly follows static routes to their Next Hops, recursively traversing routing tables (up to 5 levels deep) until it successfully resolves a physical interface.
 
 ### Changed
 - **Override Prioritization Engine**: Inverted the scope ancestry evaluation logic to accurately reflect device-level overrides. Locally defined routes on a physical firewall now correctly override conflicting routes inherited from generic templates, accurately mirroring real-world Palo Alto networking logic.
