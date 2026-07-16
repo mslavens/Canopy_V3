@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useRef, useEffect, useState } from 'react';
+import { Search, X, ChevronUp, ChevronDown, Clock, Trash2 } from 'lucide-react';
 import { Tooltip } from './Tooltip';
 
 interface SearchBarProps {
@@ -14,6 +14,8 @@ interface SearchBarProps {
   onPrev?: () => void;
   autoFocus?: boolean;
   onClose?: () => void;
+  historyKey?: string;
+  onSearch?: (val: string) => void;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ 
@@ -27,16 +29,80 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onNext,
   onPrev,
   autoFocus = false,
-  onClose
+  onClose,
+  historyKey,
+  onSearch
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  useEffect(() => {
+    if (historyKey) {
+      try {
+        const stored = localStorage.getItem(`search-history-${historyKey}`);
+        if (stored) {
+          setHistory(JSON.parse(stored));
+        }
+      } catch (e) {
+        console.error('Failed to load search history', e);
+      }
+    }
+  }, [historyKey]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node) && inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const saveHistory = (query: string) => {
+    if (!historyKey || !query.trim()) return;
+    const trimmed = query.trim();
+    setHistory(prev => {
+      const filtered = prev.filter(item => item !== trimmed);
+      const next = [trimmed, ...filtered].slice(0, 10);
+      try {
+        localStorage.setItem(`search-history-${historyKey}`, JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save search history', e);
+      }
+      return next;
+    });
+  };
+
+  const clearHistory = () => {
+    if (!historyKey) return;
+    setHistory([]);
+    try {
+      localStorage.removeItem(`search-history-${historyKey}`);
+    } catch (e) {}
+  };
 
   const handleClear = () => {
+    if (historyKey && value.trim()) {
+      saveHistory(value);
+    }
     onChange('');
     inputRef.current?.focus(); // Best practice: return focus to input after clearing
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (historyKey && value.trim()) {
+        saveHistory(value);
+      }
+      if (onSearch) {
+        onSearch(value);
+      }
+      setShowHistory(false);
+    }
+
     // Only intercept these keys if we are in "local" search mode with active matches
     if (matchCount !== undefined && matchCount > 0) {
       if (e.key === 'Enter') {
@@ -95,9 +161,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         type="text"
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (historyKey && !showHistory) setShowHistory(true);
+        }}
         onKeyDown={handleKeyDown}
         autoFocus={autoFocus}
+        onFocus={() => { if (historyKey && history.length > 0) setShowHistory(true); }}
         style={{
           width: '100%', padding, borderRadius: '4px', border: '1px solid var(--border-main)',
           backgroundColor: bgColor, color: 'var(--text-main)', fontSize, outline: 'none'
@@ -138,6 +208,63 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {showHistory && !value && history.length > 0 && (
+        <div ref={historyRef} style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px',
+          backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)',
+          borderRadius: '6px', boxShadow: '0 4px 16px rgba(0,0,0,0.25)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden'
+        }}>
+          <div style={{ padding: '6px 12px', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--border-main)' }}>
+            Recent Searches
+          </div>
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            {history.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  onChange(item);
+                  if (onSearch) onSearch(item);
+                  saveHistory(item);
+                  setShowHistory(false);
+                  inputRef.current?.blur();
+                }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '8px 12px', background: 'none', border: 'none', borderBottom: idx < history.length - 1 ? '1px solid var(--border-main)' : 'none',
+                  color: 'var(--text-main)', fontSize: '13px', cursor: 'pointer', textAlign: 'left'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <Clock size={14} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item}</span>
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: '4px', borderTop: '1px solid var(--border-main)' }}>
+            <button
+              type="button"
+              onClick={() => {
+                clearHistory();
+                setShowHistory(false);
+                inputRef.current?.focus();
+              }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                padding: '6px', background: 'none', border: 'none', borderRadius: '4px',
+                color: 'var(--status-red)', fontSize: '12px', cursor: 'pointer'
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Trash2 size={12} /> Clear History
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

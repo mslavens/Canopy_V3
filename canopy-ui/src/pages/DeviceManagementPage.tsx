@@ -1835,6 +1835,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
               {activeSubTab === 'Inventory' && (
                 <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
+                    historyKey="table-search-history"
                     value={searchQuery}
                     onChange={setSearchQuery}
                     placeholder="Search inventory..."
@@ -1972,6 +1973,7 @@ export const DeviceManagementPage: React.FC<DeviceManagementPageProps> = ({
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <SearchBar
+                        historyKey="table-search-history"
                         value={searchQuery}
                         onChange={setSearchQuery}
                         placeholder="Filter groups..."

@@ -681,7 +681,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* Prevent the right-hand controls from shrinking so they never get cut off */}
         <div className="app-header-controls">
           <div ref={searchRef} style={{ position: 'relative' }} onKeyDown={handleSearchKeyDown}>
-            <SearchBar value={typeof globalSearchQuery === 'string' ? globalSearchQuery : ''} onChange={(val: any) => setGlobalSearchQuery(val?.target?.value !== undefined ? val.target.value : val)} placeholder="Search (Cmd+K)" variant="global" />
+            <SearchBar 
+              value={typeof globalSearchQuery === 'string' ? globalSearchQuery : ''} 
+              onChange={(val: any) => setGlobalSearchQuery(val?.target?.value !== undefined ? val.target.value : val)} 
+              placeholder="Search (Cmd+K)" 
+              variant="global" 
+              historyKey="global-search-history"
+              onSearch={(val) => {
+                if (val.trim()) {
+                  // We just want it to save to history. 
+                  // Search executes instantly anyway.
+                }
+              }}
+            />
 
             {/* Floating Categorized Omnibox */}
             {showDropdown && (

@@ -944,31 +944,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              placeholder="Search available objects by name or value..."
-              value={selectorSearchQuery}
-              onChange={(e) => setSelectorSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 30px 8px 30px',
-                fontSize: '13px',
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-main)',
-                borderRadius: '6px',
-                color: 'var(--text-main)',
-                outline: 'none'
-              }}
-            />
-            {selectorSearchQuery && (
-              <button
-                onClick={() => setSelectorSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              >
-                <X size={14} />
-              </button>
-            )}
+            <SearchBar historyKey="table-search-history" value={selectorSearchQuery} onChange={setSelectorSearchQuery} placeholder="Search available objects by name or value..." width="100%" variant="local" />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
@@ -3185,6 +3161,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 </div>
                 <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
+                    historyKey="table-search-history"
                     value={searchQuery}
                     onChange={setSearchQuery}
                     placeholder={`Search ${activeSubTab.toLowerCase()}...`}
@@ -3554,6 +3531,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
 
               {/* Search filter in inspector */}
               <SearchBar
+                historyKey="inspector-search-history"
                 value={inspectorSearch}
                 onChange={setInspectorSearch}
                 placeholder="Search group members..."

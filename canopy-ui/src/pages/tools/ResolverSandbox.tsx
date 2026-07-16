@@ -116,8 +116,9 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
     templates, templateStacks, devices, templateStackMembers, { includeShowAll: true, firewallValueKey: 'uuid' }
   );
 
-  const handleResolve = async () => {
-    if (!ipAddress.trim() || !apiClient) return;
+  const handleResolve = async (targetIp?: string) => {
+    const ipToResolve = (targetIp || ipAddress).trim();
+    if (!ipToResolve || !apiClient) return;
     
     setIsResolving(true);
     setError(null);
@@ -125,7 +126,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
 
     try {
       const deviceUuids = selectedScopeUuid === 'show-all' ? [] : getDevicesForScope(selectedScopeUuid).map((d: any) => d.uuid);
-      const data = await apiClient.resolveSandboxIp(ipAddress.trim(), deviceUuids);
+      const data = await apiClient.resolveSandboxIp(ipToResolve, deviceUuids);
       setResult(data);
     } catch (err: any) {
       setError(err.message || 'Failed to resolve IP.');
@@ -160,7 +161,7 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
 
   const renderCalculateButton = () => (
     <button 
-      onClick={handleResolve}
+      onClick={() => handleResolve()}
       disabled={!ipAddress || isResolving}
       className="btn-primary btn-sm"
       style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -265,13 +266,15 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
                 </div>
               </div>
 
-              <div style={{ width: '300px', flexShrink: 0 }} onKeyDown={(e) => { if (e.key === 'Enter') handleResolve() }}>
+              <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar 
                   value={ipAddress}
                   onChange={setIpAddress}
                   placeholder="Target IP Address..."
                   width="100%"
                   variant="local"
+                  historyKey="resolver-sandbox-history"
+                  onSearch={(val) => handleResolve(val)}
                 />
               </div>
             </div>

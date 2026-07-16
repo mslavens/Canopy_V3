@@ -435,6 +435,7 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, globalScop
 
               <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar
+                  historyKey="table-search-history"
                   value={searchQuery}
                   onChange={setSearchQuery}
                   placeholder="Search zones..."

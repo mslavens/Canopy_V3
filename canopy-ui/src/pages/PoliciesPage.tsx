@@ -741,6 +741,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
 
               <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar
+                  historyKey="table-search-history"
                   value={searchQuery}
                   onChange={setSearchQuery}
                   placeholder={`Search ${activeSubTab.toLowerCase()}...`}
