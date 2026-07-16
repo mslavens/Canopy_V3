@@ -1227,6 +1227,18 @@ export const DataTable: React.FC<DataTableProps> = ({
                 setContextMenu(null);
               }}
             />
+            <ContextMenuItem
+              icon={<Search size={13} />}
+              label="Global Search"
+              onClick={() => {
+                const val = contextMenu.cellValue;
+                const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
+                if (text) {
+                  document.dispatchEvent(new CustomEvent('open-global-search', { detail: text }));
+                }
+                setContextMenu(null);
+              }}
+            />
             <ContextMenuDivider />
             {rowContextMenuActions(
               contextMenu.row, 

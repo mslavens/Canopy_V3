@@ -305,8 +305,30 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         if (searchInput) searchInput.focus();
       }
     };
+    const handleGlobalSearchEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && typeof customEvent.detail === 'string') {
+        setIsHelpOpen(false);
+        setIsNotificationsDrawerOpen(false);
+        setGlobalSearchQuery(customEvent.detail);
+        setShowDropdown(true);
+        setTimeout(() => {
+          const searchInput = searchRef.current?.querySelector('input');
+          if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+          }
+        }, 10);
+      }
+    };
+
     document.addEventListener('keydown', handleGlobalKeyDown);
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+    document.addEventListener('open-global-search', handleGlobalSearchEvent);
+    
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+      document.removeEventListener('open-global-search', handleGlobalSearchEvent);
+    };
   }, []);
 
   // Debounced Global Search execution
