@@ -93,7 +93,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
           name: groupName,
           description: `Updated members for ${groupName} (${data.added.length} added, ${data.deleted.length} removed)`,
           details: { _isAggregated: true, ...data },
-          dbId: gid
+          dbId: gid,
+          timestamp: firstItem?.updated_at?.new || firstItem?.updated_at || firstItem?.created_at?.new || firstItem?.created_at
         });
       });
       return;
@@ -113,7 +114,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Added ${dName} to ${categoryName}`,
         details: item,
-        dbId: item.id
+        dbId: item.id,
+        timestamp: item.updated_at || item.created_at
       });
     });
 
@@ -131,7 +133,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Modified ${dName} in ${categoryName}`,
         details: item,
-        dbId: item.id?.new || item.id || item.id?.old
+        dbId: item.id?.new || item.id || item.id?.old,
+        timestamp: item.updated_at?.new || item.updated_at || item.created_at?.new || item.created_at
       });
     });
 
@@ -149,7 +152,8 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Deleted ${dName} from ${categoryName}`,
         details: item,
-        dbId: item.id
+        dbId: item.id,
+        timestamp: item.updated_at || item.created_at
       });
     });
   };
@@ -165,7 +169,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     if (diffData.tags) processCategory('tags', diffData.tags);
   }
 
-  return list;
+  return list.sort((a, b) => {
+    if (!a.timestamp && !b.timestamp) return 0;
+    if (!a.timestamp) return 1;
+    if (!b.timestamp) return -1;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
 }, [diffData, globalScopeVendor]);
 
   const handleRevertAll = async () => {
@@ -456,6 +465,12 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
                 label: 'Type',
                 width: '110px',
                 renderCell: (val: any) => renderBadge(val)
+              },
+              { 
+                key: 'timestamp', 
+                label: 'Time', 
+                width: '160px',
+                renderCell: (val: any) => val ? new Date(val).toLocaleString() : 'N/A'
               },
               { key: 'vendor', label: 'Vendor', width: '130px' },
               { key: 'table', label: 'Table', width: '150px' },

@@ -300,7 +300,7 @@ func CompareSnapshotStates(oldState, newState *SnapshotState) (*DiffResult, erro
 				}
 				if isDiff {
 					for k, v := range newVal {
-						if k == "id" || k == "name" || strings.HasPrefix(k, "member_") || k == "group_id" || k == "entity_id" || k == "device_uuid" || k == "scope" {
+						if k == "id" || k == "name" || strings.HasPrefix(k, "member_") || k == "group_id" || k == "entity_id" || k == "device_uuid" || k == "scope" || k == "updated_at" || k == "created_at" {
 							if _, exists := changes[k]; !exists {
 								changes[k] = v
 							}

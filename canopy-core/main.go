@@ -80,6 +80,7 @@ var actSchema = `
 	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('fortinet-global-adom', 'shared', 'Global ADOM');
 	INSERT OR IGNORE INTO scopes (uuid, type, name) VALUES ('cisco-global-domain', 'shared', 'Global Domain');
 	CREATE TABLE IF NOT EXISTS device_groups (
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
@@ -90,8 +91,10 @@ var actSchema = `
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (parent_id) REFERENCES device_groups(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS templates (
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
@@ -100,8 +103,10 @@ var actSchema = `
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS template_stacks (
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		uuid TEXT UNIQUE NOT NULL,
@@ -110,14 +115,18 @@ var actSchema = `
 		description TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS template_stack_members_raw (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		stack_id INTEGER NOT NULL,
 		template_id INTEGER NOT NULL,
 		sequence INTEGER NOT NULL,
 		PRIMARY KEY (stack_id, template_id),
 		FOREIGN KEY (stack_id) REFERENCES template_stacks(id) ON DELETE CASCADE,
 		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+	
 	);
 	CREATE VIEW IF NOT EXISTS template_stack_members AS
 	SELECT 
@@ -127,6 +136,8 @@ var actSchema = `
 	FROM template_stack_members_raw tsm
 	JOIN templates t ON tsm.template_id = t.id;
 	CREATE TABLE IF NOT EXISTS network_topology (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		device_uuid TEXT,
 		interface_name TEXT,
 		network_cidr TEXT,
@@ -134,8 +145,11 @@ var actSchema = `
 		vendor_metadata TEXT,
 		PRIMARY KEY (device_uuid, interface_name),
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS interfaces (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -147,8 +161,11 @@ var actSchema = `
 		vr_name TEXT,
 		aggregate_group TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS zones (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -156,8 +173,11 @@ var actSchema = `
 		type TEXT NOT NULL,
 		description TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS variables (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -166,6 +186,7 @@ var actSchema = `
 		value TEXT NOT NULL,
 		description TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS framework_metadata (
 		app_id TEXT PRIMARY KEY,
@@ -186,6 +207,8 @@ var actSchema = `
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS address_objects (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -195,8 +218,11 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS address_groups (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -206,6 +232,7 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS address_group_members (
 		group_id INTEGER NOT NULL,
@@ -223,6 +250,8 @@ var actSchema = `
 		)
 	);
 	CREATE TABLE IF NOT EXISTS service_objects (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -233,8 +262,11 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS service_groups (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -242,6 +274,7 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS service_group_members (
 		group_id INTEGER NOT NULL,
@@ -259,6 +292,8 @@ var actSchema = `
 		)
 	);
 	CREATE TABLE IF NOT EXISTS application_objects (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -271,8 +306,11 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS regions (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -281,8 +319,11 @@ var actSchema = `
 		longitude REAL,
 		addresses TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS schedules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -290,8 +331,11 @@ var actSchema = `
 		schedule_type TEXT,
 		schedule_details TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS tags (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -299,24 +343,33 @@ var actSchema = `
 		color TEXT,
 		description TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS security_profiles (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		type TEXT NOT NULL,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS log_forwarding_profiles (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
 		name TEXT NOT NULL,
 		description TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS security_profile_groups (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -330,8 +383,11 @@ var actSchema = `
 		wildfire_analysis TEXT,
 		dns_security TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS custom_url_categories (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -339,8 +395,11 @@ var actSchema = `
 		description TEXT,
 		url_list TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS external_dynamic_lists (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -350,8 +409,11 @@ var actSchema = `
 		source_url TEXT,
 		recurring TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS security_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -365,8 +427,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS nat_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -384,8 +449,11 @@ var actSchema = `
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (service_id) REFERENCES service_objects(id) ON DELETE SET NULL,
 		FOREIGN KEY (service_group_id) REFERENCES service_groups(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS qos_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -397,8 +465,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS pbf_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -412,8 +483,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS decryption_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -426,8 +500,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS application_override_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -440,8 +517,11 @@ var actSchema = `
 		predefined_app_name TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (custom_app_id) REFERENCES application_objects(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS tunnel_inspection_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -451,8 +531,11 @@ var actSchema = `
 		protocols TEXT,
 		action_profile TEXT,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS authentication_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -465,8 +548,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS dos_rules (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -479,8 +565,11 @@ var actSchema = `
 		schedule_id INTEGER,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE,
 		FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE SET NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS static_routes (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		vr_name TEXT NOT NULL,
@@ -491,8 +580,10 @@ var actSchema = `
 		metric INTEGER DEFAULT 10,
 		admin_distance INTEGER DEFAULT 10,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS managed_devices_raw (
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		serial TEXT UNIQUE NOT NULL,
@@ -507,6 +598,7 @@ var actSchema = `
 		FOREIGN KEY (device_group_id) REFERENCES device_groups(id) ON DELETE SET NULL,
 		FOREIGN KEY (template_stack_id) REFERENCES template_stacks(id) ON DELETE SET NULL,
 		FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+	
 	);
 	DROP VIEW IF EXISTS managed_devices;
 	CREATE VIEW managed_devices AS
@@ -525,6 +617,8 @@ var actSchema = `
 	LEFT JOIN template_stacks ts ON m.template_stack_id = ts.id
 	LEFT JOIN templates t ON m.template_id = t.id;
 	CREATE TABLE IF NOT EXISTS rule_address_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_type TEXT NOT NULL,
 		rule_id INTEGER NOT NULL,
@@ -539,8 +633,11 @@ var actSchema = `
 			(address_id IS NULL AND group_id IS NOT NULL AND ad_hoc_value IS NULL) OR
 			(address_id IS NULL AND group_id IS NULL AND ad_hoc_value IS NOT NULL)
 		)
+	
 	);
 	CREATE TABLE IF NOT EXISTS rule_service_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_type TEXT NOT NULL,
 		rule_id INTEGER NOT NULL,
@@ -554,8 +651,11 @@ var actSchema = `
 			(service_id IS NULL AND group_id IS NOT NULL AND ad_hoc_value IS NULL) OR
 			(service_id IS NULL AND group_id IS NULL AND ad_hoc_value IS NOT NULL)
 		)
+	
 	);
 	CREATE TABLE IF NOT EXISTS rule_application_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_type TEXT NOT NULL,
 		rule_id INTEGER NOT NULL,
@@ -569,35 +669,50 @@ var actSchema = `
 			(custom_app_id IS NULL AND group_id IS NOT NULL AND predefined_app_name IS NULL) OR
 			(custom_app_id IS NULL AND group_id IS NULL AND predefined_app_name IS NOT NULL)
 		)
+	
 	);
 	CREATE TABLE IF NOT EXISTS rule_zone_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_type TEXT NOT NULL,
 		rule_id INTEGER NOT NULL,
 		direction TEXT NOT NULL,
 		zone_name TEXT NOT NULL
+	
 	);
 	CREATE TABLE IF NOT EXISTS rule_category_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_id INTEGER NOT NULL,
 		category TEXT NOT NULL,
 		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS entity_tag_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		entity_type TEXT NOT NULL,
 		entity_id INTEGER NOT NULL,
 		tag_id INTEGER NOT NULL,
 		FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS security_rule_profiles (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		rule_id INTEGER NOT NULL,
 		profile_id INTEGER NOT NULL,
 		PRIMARY KEY (rule_id, profile_id),
 		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE,
 		FOREIGN KEY (profile_id) REFERENCES security_profiles(id) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS application_groups (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		device_uuid TEXT NOT NULL,
 		scope TEXT NOT NULL,
@@ -605,8 +720,11 @@ var actSchema = `
 		description TEXT,
 		dirty INTEGER DEFAULT 0,
 		FOREIGN KEY (device_uuid) REFERENCES scopes(uuid) ON DELETE CASCADE
+	
 	);
 	CREATE TABLE IF NOT EXISTS application_group_members (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		group_id INTEGER NOT NULL,
 		member_application_id INTEGER,
 		member_group_id INTEGER,
@@ -620,6 +738,7 @@ var actSchema = `
 			(member_application_id IS NULL AND member_group_id IS NOT NULL AND member_name IS NULL) OR
 			(member_application_id IS NULL AND member_group_id IS NULL AND member_name IS NOT NULL)
 		)
+	
 	);
 	CREATE INDEX IF NOT EXISTS idx_address_objects_lookup ON address_objects (device_uuid, scope, name);
 	CREATE INDEX IF NOT EXISTS idx_address_groups_lookup ON address_groups (device_uuid, scope, name);
@@ -661,7 +780,231 @@ var actSchema = `
 	
 	CREATE INDEX IF NOT EXISTS idx_variables_device_uuid ON variables (device_uuid);
 	CREATE INDEX IF NOT EXISTS idx_zones_device_uuid ON zones (device_uuid);
-	CREATE INDEX IF NOT EXISTS idx_interfaces_device_uuid ON interfaces (device_uuid);`
+	CREATE INDEX IF NOT EXISTS idx_interfaces_device_uuid ON interfaces (device_uuid);
+
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_device_groups
+	AFTER UPDATE ON device_groups
+	FOR EACH ROW
+	BEGIN
+		UPDATE device_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_templates
+	AFTER UPDATE ON templates
+	FOR EACH ROW
+	BEGIN
+		UPDATE templates SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_template_stacks
+	AFTER UPDATE ON template_stacks
+	FOR EACH ROW
+	BEGIN
+		UPDATE template_stacks SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_interfaces
+	AFTER UPDATE ON interfaces
+	FOR EACH ROW
+	BEGIN
+		UPDATE interfaces SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_zones
+	AFTER UPDATE ON zones
+	FOR EACH ROW
+	BEGIN
+		UPDATE zones SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_variables
+	AFTER UPDATE ON variables
+	FOR EACH ROW
+	BEGIN
+		UPDATE variables SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_address_objects
+	AFTER UPDATE ON address_objects
+	FOR EACH ROW
+	BEGIN
+		UPDATE address_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_address_groups
+	AFTER UPDATE ON address_groups
+	FOR EACH ROW
+	BEGIN
+		UPDATE address_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_service_objects
+	AFTER UPDATE ON service_objects
+	FOR EACH ROW
+	BEGIN
+		UPDATE service_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_service_groups
+	AFTER UPDATE ON service_groups
+	FOR EACH ROW
+	BEGIN
+		UPDATE service_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_application_objects
+	AFTER UPDATE ON application_objects
+	FOR EACH ROW
+	BEGIN
+		UPDATE application_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_regions
+	AFTER UPDATE ON regions
+	FOR EACH ROW
+	BEGIN
+		UPDATE regions SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_schedules
+	AFTER UPDATE ON schedules
+	FOR EACH ROW
+	BEGIN
+		UPDATE schedules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_tags
+	AFTER UPDATE ON tags
+	FOR EACH ROW
+	BEGIN
+		UPDATE tags SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_security_profiles
+	AFTER UPDATE ON security_profiles
+	FOR EACH ROW
+	BEGIN
+		UPDATE security_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_log_forwarding_profiles
+	AFTER UPDATE ON log_forwarding_profiles
+	FOR EACH ROW
+	BEGIN
+		UPDATE log_forwarding_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_security_profile_groups
+	AFTER UPDATE ON security_profile_groups
+	FOR EACH ROW
+	BEGIN
+		UPDATE security_profile_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_custom_url_categories
+	AFTER UPDATE ON custom_url_categories
+	FOR EACH ROW
+	BEGIN
+		UPDATE custom_url_categories SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_external_dynamic_lists
+	AFTER UPDATE ON external_dynamic_lists
+	FOR EACH ROW
+	BEGIN
+		UPDATE external_dynamic_lists SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_security_rules
+	AFTER UPDATE ON security_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE security_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_nat_rules
+	AFTER UPDATE ON nat_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE nat_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_qos_rules
+	AFTER UPDATE ON qos_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE qos_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_pbf_rules
+	AFTER UPDATE ON pbf_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE pbf_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_decryption_rules
+	AFTER UPDATE ON decryption_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE decryption_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_application_override_rules
+	AFTER UPDATE ON application_override_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE application_override_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_tunnel_inspection_rules
+	AFTER UPDATE ON tunnel_inspection_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE tunnel_inspection_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_authentication_rules
+	AFTER UPDATE ON authentication_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE authentication_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_dos_rules
+	AFTER UPDATE ON dos_rules
+	FOR EACH ROW
+	BEGIN
+		UPDATE dos_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_static_routes
+	AFTER UPDATE ON static_routes
+	FOR EACH ROW
+	BEGIN
+		UPDATE static_routes SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_managed_devices_raw
+	AFTER UPDATE ON managed_devices_raw
+	FOR EACH ROW
+	BEGIN
+		UPDATE managed_devices_raw SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_application_groups
+	AFTER UPDATE ON application_groups
+	FOR EACH ROW
+	BEGIN
+		UPDATE application_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_address_mappings
+	AFTER UPDATE ON rule_address_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE rule_address_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_service_mappings
+	AFTER UPDATE ON rule_service_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE rule_service_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_application_mappings
+	AFTER UPDATE ON rule_application_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE rule_application_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_zone_mappings
+	AFTER UPDATE ON rule_zone_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE rule_zone_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_category_mappings
+	AFTER UPDATE ON rule_category_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE rule_category_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+	CREATE TRIGGER IF NOT EXISTS update_timestamp_entity_tag_mappings
+	AFTER UPDATE ON entity_tag_mappings
+	FOR EACH ROW
+	BEGIN
+		UPDATE entity_tag_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+	END;
+`
 
 // globalCORSMiddleware guarantees that all loopback traffic receives proper CORS headers.
 
@@ -931,12 +1274,134 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 	db.Exec("ALTER TABLE application_objects ADD COLUMN dirty INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN group_id INTEGER REFERENCES application_groups(id) ON DELETE CASCADE;")
 	db.Exec("ALTER TABLE security_rules ADD COLUMN log_setting TEXT;")
+	db.Exec("ALTER TABLE device_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE device_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_device_groups AFTER UPDATE ON device_groups FOR EACH ROW BEGIN UPDATE device_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE templates ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE templates ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_templates AFTER UPDATE ON templates FOR EACH ROW BEGIN UPDATE templates SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE template_stacks ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE template_stacks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_template_stacks AFTER UPDATE ON template_stacks FOR EACH ROW BEGIN UPDATE template_stacks SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE network_topology ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE network_topology ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE interfaces ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE interfaces ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_interfaces AFTER UPDATE ON interfaces FOR EACH ROW BEGIN UPDATE interfaces SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE zones ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE zones ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_zones AFTER UPDATE ON zones FOR EACH ROW BEGIN UPDATE zones SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE variables ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE variables ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_variables AFTER UPDATE ON variables FOR EACH ROW BEGIN UPDATE variables SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE address_objects ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE address_objects ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_address_objects AFTER UPDATE ON address_objects FOR EACH ROW BEGIN UPDATE address_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE address_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE address_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_address_groups AFTER UPDATE ON address_groups FOR EACH ROW BEGIN UPDATE address_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE service_objects ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE service_objects ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_service_objects AFTER UPDATE ON service_objects FOR EACH ROW BEGIN UPDATE service_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE service_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE service_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_service_groups AFTER UPDATE ON service_groups FOR EACH ROW BEGIN UPDATE service_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE application_objects ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE application_objects ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_application_objects AFTER UPDATE ON application_objects FOR EACH ROW BEGIN UPDATE application_objects SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE regions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE regions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_regions AFTER UPDATE ON regions FOR EACH ROW BEGIN UPDATE regions SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE schedules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE schedules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_schedules AFTER UPDATE ON schedules FOR EACH ROW BEGIN UPDATE schedules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE tags ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE tags ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_tags AFTER UPDATE ON tags FOR EACH ROW BEGIN UPDATE tags SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE security_profiles ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE security_profiles ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_security_profiles AFTER UPDATE ON security_profiles FOR EACH ROW BEGIN UPDATE security_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE log_forwarding_profiles ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE log_forwarding_profiles ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_log_forwarding_profiles AFTER UPDATE ON log_forwarding_profiles FOR EACH ROW BEGIN UPDATE log_forwarding_profiles SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE security_profile_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE security_profile_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_security_profile_groups AFTER UPDATE ON security_profile_groups FOR EACH ROW BEGIN UPDATE security_profile_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE custom_url_categories ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE custom_url_categories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_custom_url_categories AFTER UPDATE ON custom_url_categories FOR EACH ROW BEGIN UPDATE custom_url_categories SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE external_dynamic_lists ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE external_dynamic_lists ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_external_dynamic_lists AFTER UPDATE ON external_dynamic_lists FOR EACH ROW BEGIN UPDATE external_dynamic_lists SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE security_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE security_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_security_rules AFTER UPDATE ON security_rules FOR EACH ROW BEGIN UPDATE security_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE nat_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE nat_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_nat_rules AFTER UPDATE ON nat_rules FOR EACH ROW BEGIN UPDATE nat_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE qos_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE qos_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_qos_rules AFTER UPDATE ON qos_rules FOR EACH ROW BEGIN UPDATE qos_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE pbf_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE pbf_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_pbf_rules AFTER UPDATE ON pbf_rules FOR EACH ROW BEGIN UPDATE pbf_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE decryption_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE decryption_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_decryption_rules AFTER UPDATE ON decryption_rules FOR EACH ROW BEGIN UPDATE decryption_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE application_override_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE application_override_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_application_override_rules AFTER UPDATE ON application_override_rules FOR EACH ROW BEGIN UPDATE application_override_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE tunnel_inspection_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE tunnel_inspection_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_tunnel_inspection_rules AFTER UPDATE ON tunnel_inspection_rules FOR EACH ROW BEGIN UPDATE tunnel_inspection_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE authentication_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE authentication_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_authentication_rules AFTER UPDATE ON authentication_rules FOR EACH ROW BEGIN UPDATE authentication_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE dos_rules ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE dos_rules ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_dos_rules AFTER UPDATE ON dos_rules FOR EACH ROW BEGIN UPDATE dos_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE static_routes ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE static_routes ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_static_routes AFTER UPDATE ON static_routes FOR EACH ROW BEGIN UPDATE static_routes SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE managed_devices_raw ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE managed_devices_raw ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_managed_devices_raw AFTER UPDATE ON managed_devices_raw FOR EACH ROW BEGIN UPDATE managed_devices_raw SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE application_groups ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE application_groups ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_application_groups AFTER UPDATE ON application_groups FOR EACH ROW BEGIN UPDATE application_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE application_group_members ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE application_group_members ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_address_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_address_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_address_mappings AFTER UPDATE ON rule_address_mappings FOR EACH ROW BEGIN UPDATE rule_address_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE rule_service_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_service_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_service_mappings AFTER UPDATE ON rule_service_mappings FOR EACH ROW BEGIN UPDATE rule_service_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_application_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_application_mappings AFTER UPDATE ON rule_application_mappings FOR EACH ROW BEGIN UPDATE rule_application_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE rule_zone_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_zone_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_zone_mappings AFTER UPDATE ON rule_zone_mappings FOR EACH ROW BEGIN UPDATE rule_zone_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE rule_category_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE rule_category_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_rule_category_mappings AFTER UPDATE ON rule_category_mappings FOR EACH ROW BEGIN UPDATE rule_category_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE entity_tag_mappings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE entity_tag_mappings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec(`CREATE TRIGGER IF NOT EXISTS update_timestamp_entity_tag_mappings AFTER UPDATE ON entity_tag_mappings FOR EACH ROW BEGIN UPDATE entity_tag_mappings SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id; END;`)
+	db.Exec("ALTER TABLE security_rule_profiles ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE security_rule_profiles ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE template_stack_members_raw ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
+	db.Exec("ALTER TABLE template_stack_members_raw ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;")
 	db.Exec(`
 	CREATE TABLE IF NOT EXISTS rule_category_mappings (
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		rule_id INTEGER NOT NULL,
 		category TEXT NOT NULL,
 		FOREIGN KEY (rule_id) REFERENCES security_rules(id) ON DELETE CASCADE
+	
 	);`)
 
 	// Ensure all firewalls in managed_devices_raw are registered as scopes in the scopes table
