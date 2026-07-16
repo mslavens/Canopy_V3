@@ -172,6 +172,11 @@ export function useTemplateHierarchy(
       const uniqueDevices = Array.from(new Map(allDevices.map(fw => [fw.uuid, fw])).values());
       return uniqueDevices;
     }
+    // If it's a device
+    const fw = firewalls.find(f => f.uuid === scopeUuid);
+    if (fw) {
+      return [fw];
+    }
     
     return [];
   }, [firewalls, templates, templateStacks, templateStackMembers]);

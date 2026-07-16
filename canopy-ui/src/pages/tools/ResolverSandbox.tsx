@@ -136,14 +136,24 @@ export const ResolverSandbox: React.FC<ResolverSandboxProps> = ({ apiClient }) =
 
   const filteredMatches = useMemo(() => {
     if (!result || !result.matches) return [];
+
+    // Determine allowed devices based on the current active scope
+    const allowedDeviceUuids = new Set(
+      selectedScopeUuid === 'show-all' ? [] : getDevicesForScope(selectedScopeUuid).map((d: any) => d.uuid)
+    );
+
     return result.matches.filter((m: any) => {
-      if (locationFilter === 'all') return true;
-      if (locationFilter === 'direct') return m.type.includes('Direct');
-      if (locationFilter === 'routed') return m.type.includes('Routing') && !m.is_default_route;
-      if (locationFilter === 'default') return m.is_default_route;
+      // Apply location type filter
+      if (locationFilter === 'direct' && !m.type.includes('Direct')) return false;
+      if (locationFilter === 'routed' && (!m.type.includes('Routing') || m.is_default_route)) return false;
+      if (locationFilter === 'default' && !m.is_default_route) return false;
+
+      // Apply scope filter locally so the table instantly reflects dropdown changes
+      if (selectedScopeUuid !== 'show-all' && !allowedDeviceUuids.has(m.device_uuid)) return false;
+
       return true;
     });
-  }, [result, locationFilter]);
+  }, [result, locationFilter, selectedScopeUuid, getDevicesForScope]);
 
   const isSpecificDevice = selectedScopeUuid !== 'show-all' && devices.some(d => d.uuid === selectedScopeUuid);
   const isSingleSelected = selectedRows.length === 1;
