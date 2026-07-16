@@ -99,6 +99,8 @@ export const DataTable: React.FC<DataTableProps> = ({
   const [filterMenuCol, setFilterMenuCol] = useState<string | null>(null);
   const [filterMenuSearch, setFilterMenuSearch] = useState('');
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [showActiveFiltersMenu, setShowActiveFiltersMenu] = useState(false);
+  const activeFiltersMenuRef = useRef<HTMLDivElement>(null);
 
   const searchedRows = useMemo(() => {
     let rows = data || [];
@@ -244,6 +246,9 @@ export const DataTable: React.FC<DataTableProps> = ({
           setFilterMenuSearch('');
         }
       }
+      if (activeFiltersMenuRef.current && !activeFiltersMenuRef.current.contains(event.target as Node)) {
+        setShowActiveFiltersMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -287,13 +292,52 @@ export const DataTable: React.FC<DataTableProps> = ({
   }, [orderedColumnKeys, hiddenColumns]);
 
   const columnKeysString = columns.map(c => c.key).join(',');
+  const tableId = useMemo(() => `canopy_dt_${columnKeysString}`, [columnKeysString]);
 
-  // Reset columns and sizing when the underlying data schema structurally changes
+  // Load layout and columns
   useEffect(() => {
-    setOrderedColumnKeys(columns.map(c => c.key));
-    setColumnWidths({});
+    const savedStateStr = localStorage.getItem(tableId);
+    if (savedStateStr) {
+      try {
+        const savedState = JSON.parse(savedStateStr);
+        setOrderedColumnKeys(savedState.orderedColumnKeys || columns.map(c => c.key));
+        setHiddenColumns(new Set(savedState.hiddenColumns || []));
+        setColumnWidths(savedState.columnWidths || {});
+      } catch (e) {
+        setOrderedColumnKeys(columns.map(c => c.key));
+        setHiddenColumns(new Set());
+        setColumnWidths({});
+      }
+    } else {
+      setOrderedColumnKeys(columns.map(c => c.key));
+      setHiddenColumns(new Set());
+      setColumnWidths({});
+    }
     setSortConfig(null);
-  }, [columnKeysString]);
+  }, [columnKeysString, tableId]);
+
+  // Save layout changes
+  const isLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoadedRef.current) {
+      isLoadedRef.current = true;
+      return;
+    }
+    const stateToSave = {
+      orderedColumnKeys,
+      hiddenColumns: Array.from(hiddenColumns),
+      columnWidths
+    };
+    localStorage.setItem(tableId, JSON.stringify(stateToSave));
+  }, [orderedColumnKeys, hiddenColumns, columnWidths, tableId]);
+
+  const handleResetLayout = () => {
+    localStorage.removeItem(tableId);
+    setOrderedColumnKeys(columns.map(c => c.key));
+    setHiddenColumns(new Set());
+    setColumnWidths({});
+    setShowColumnToggle(false);
+  };
 
   // Process global search filtering and column sorting internally
   const processedRows = useMemo(() => {
@@ -560,6 +604,62 @@ export const DataTable: React.FC<DataTableProps> = ({
               {toolbarTitle}
             </div>
           )}
+          {(() => {
+            const activeFilterKeys = Object.keys(columnFilters).filter(k => columnFilters[k] !== undefined && columnFilters[k].size > 0);
+            if (activeFilterKeys.length === 0) return null;
+            return (
+              <div ref={activeFiltersMenuRef} style={{ position: 'relative' }}>
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={() => setShowActiveFiltersMenu(!showActiveFiltersMenu)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
+                >
+                  <Filter size={14} /> {activeFilterKeys.length} Filter{activeFilterKeys.length !== 1 ? 's' : ''} Applied
+                </button>
+                {showActiveFiltersMenu && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, width: '250px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Filters</span>
+                      <button onClick={() => setShowActiveFiltersMenu(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 0 }}><X size={14}/></button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                      {activeFilterKeys.map(k => (
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', fontSize: '12px', padding: '6px', backgroundColor: 'var(--bg-element)', borderRadius: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase' }}>{getColDef(k).label || k}</span>
+                            <span style={{ color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {Array.from(columnFilters[k]).map(v => v === '' ? '(Blank)' : v).join(', ')}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setColumnFilters(prev => { const next = {...prev}; delete next[k]; return next; });
+                              setEffectiveCurrentPage(1);
+                              if (activeFilterKeys.length === 1) setShowActiveFiltersMenu(false);
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', flexShrink: 0 }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                    <button
+                      onClick={() => {
+                        setColumnFilters({});
+                        setEffectiveCurrentPage(1);
+                        setShowActiveFiltersMenu(false);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--status-red)', fontSize: '11px', cursor: 'pointer', textAlign: 'center', padding: '4px' }}
+                    >
+                      Clear All Filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {selectable && (
             <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', visibility: selectedRows.size > 0 ? 'visible' : 'hidden', minWidth: '85px' }}>
               <CheckSquare size={14} /> {selectedRows.size > 0 ? selectedRows.size : 0} selected
@@ -626,6 +726,10 @@ export const DataTable: React.FC<DataTableProps> = ({
                     </label>
                   ))}
                 </div>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
+                <button onClick={handleResetLayout} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '11px', cursor: 'pointer', textAlign: 'center', padding: '4px' }}>
+                  Reset to default layout
+                </button>
               </div>
             )}
           </div>
