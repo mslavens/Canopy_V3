@@ -299,7 +299,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   }, [orderedColumnKeys, hiddenColumns]);
 
   const columnKeysString = columns.map(c => c.key).join(',');
-  const tableId = useMemo(() => `canopy_dt_${columnKeysString}`, [columnKeysString]);
+  const tableId = useMemo(() => `canopy_dt_v2_${columnKeysString}`, [columnKeysString]);
 
   // Load layout and columns
   useEffect(() => {
@@ -330,13 +330,21 @@ export const DataTable: React.FC<DataTableProps> = ({
       isLoadedRef.current = true;
       return;
     }
+    
+    // Prevent saving an empty array if columns were provided.
+    // This fixes a React 18 Strict Mode race condition where 
+    // the initial empty state gets saved to localStorage before the load effect finishes.
+    if (orderedColumnKeys.length === 0 && columns.length > 0) {
+      return;
+    }
+    
     const stateToSave = {
       orderedColumnKeys,
       hiddenColumns: Array.from(hiddenColumns),
       columnWidths
     };
     localStorage.setItem(tableId, JSON.stringify(stateToSave));
-  }, [orderedColumnKeys, hiddenColumns, columnWidths, tableId]);
+  }, [orderedColumnKeys, hiddenColumns, columnWidths, tableId, columns.length]);
 
   const handleResetLayout = () => {
     localStorage.removeItem(tableId);
