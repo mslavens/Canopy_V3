@@ -348,6 +348,8 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
       { key: 'nexthop', label: 'Next Hop', width: '180px', renderCell: (val: any, row: any) => <VariableResolver raw={row.nexthop} resolved={row.resolved_nexthop} /> },
       { key: 'interface', label: 'Interface', width: '150px' },
       { key: 'metric', label: 'Metric', width: '100px' },
+      { key: 'created_at', label: 'Created', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' },
+      { key: 'updated_at', label: 'Modified', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' }
     ],
     [scopeNameMap, getVisibleScopes, templates, templateStacks, devices]
   );

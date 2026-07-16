@@ -348,6 +348,8 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
       { key: 'vr_name', label: 'Virtual Router', width: '150px' },
       { key: 'aggregate_group', label: 'Aggregate Group', width: '150px' },
       { key: 'description', label: 'Description', width: '200px' },
+      { key: 'created_at', label: 'Created', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' },
+      { key: 'updated_at', label: 'Modified', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' }
     ],
     [scopeNameMap, getVisibleScopes, templates, templateStacks, devices]
   );

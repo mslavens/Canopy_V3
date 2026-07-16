@@ -3018,7 +3018,22 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       }
     ];
 
-    return [...defaultCols, ...subtabCols, ...actionCols];
+    const timestampCols: ColumnDef[] = [
+      {
+        key: 'created_at',
+        label: 'Created',
+        width: '150px',
+        renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-'
+      },
+      {
+        key: 'updated_at',
+        label: 'Modified',
+        width: '150px',
+        renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-'
+      }
+    ];
+
+    return [...defaultCols, ...subtabCols, ...timestampCols, ...actionCols];
   }, [dataViewTab, scopeNameMap, currentScope, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups, allSecurityProfiles, allTags, allTagMappings, deviceGroups, firewalls]);
 
   const isFormDirty = useMemo(() => {

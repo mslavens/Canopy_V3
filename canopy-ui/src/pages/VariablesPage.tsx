@@ -340,6 +340,8 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
       { key: 'type', label: 'Type', width: '150px' },
       { key: 'value', label: 'Value', width: '250px' },
       { key: 'description', label: 'Description', width: '250px' },
+      { key: 'created_at', label: 'Created', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' },
+      { key: 'updated_at', label: 'Modified', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' }
     ],
     [scopeNameMap, getVisibleScopes, devices, templates, templateStacks]
   );
@@ -459,7 +461,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
               <Loader2 size={24} className="animate-spin" />
               <span style={{ marginLeft: '12px' }}>Loading template variables...</span>
             </div>
-          ) : variables.length > 0 ? (
+          ) : (
             <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <DataTable
                 key={selectedScopeUuid}
@@ -552,13 +554,6 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
                 }}
               />
             </div>
-          ) : (
-            <EmptyState
-              icon={<FileCode2 size={32} />}
-              title="No Variables Found"
-              description="No template variables found for the selected scope context."
-              minHeight="100%"
-            />
           )}
         </div>
       </div>

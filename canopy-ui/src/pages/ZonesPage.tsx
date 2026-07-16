@@ -332,6 +332,8 @@ export const ZonesPage: React.FC<ZonesPageProps> = ({ auth, addToast, globalScop
         { key: 'type', label: 'Type', width: '150px' },
       { key: 'description', label: 'Description', width: '250px' },
       { key: 'interfaces', label: 'Interfaces', width: '400px', renderCell: (val: any) => val ? val.join(', ') : '' },
+      { key: 'created_at', label: 'Created', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' },
+      { key: 'updated_at', label: 'Modified', width: '150px', renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-' }
     ],
     [scopeNameMap, getVisibleScopes, templates, templateStacks, devices]
   );

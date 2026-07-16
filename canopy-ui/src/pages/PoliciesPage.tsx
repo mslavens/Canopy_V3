@@ -469,6 +469,18 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
           />
         ),
         getFilterValues: (r: any) => r.tags && r.tags.length > 0 ? r.tags : ['']
+      },
+      {
+        key: 'created_at',
+        label: 'Created',
+        width: '150px',
+        renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-'
+      },
+      {
+        key: 'updated_at',
+        label: 'Modified',
+        width: '150px',
+        renderCell: (val: any) => val ? new Date(val).toLocaleString() : '-'
       }
     ];
 
