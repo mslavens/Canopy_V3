@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp, ChevronDown, ChevronRight, Upload, Search, Columns, CheckSquare, X, MoreHorizontal, Filter } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight, Upload, Search, Columns, CheckSquare, X, MoreHorizontal, Filter, Copy } from 'lucide-react';
 import { Dropdown } from './Dropdown';
 import { HighlightedText } from './HighlightedText';
 import { EmptyState } from './EmptyState';
+import { ContextMenuItem, ContextMenuDivider } from './ContextMenu';
 
 export interface ColumnDef {
   key: string;
@@ -1046,6 +1047,17 @@ export const DataTable: React.FC<DataTableProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <ContextMenuItem
+              icon={<Copy size={13} />}
+              label={`Copy ${getColDef(contextMenu.colKey)?.label || contextMenu.colKey}`}
+              onClick={() => {
+                const val = contextMenu.cellValue;
+                const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
+                navigator.clipboard.writeText(text);
+                setContextMenu(null);
+              }}
+            />
+            <ContextMenuDivider />
             {rowContextMenuActions(
               contextMenu.row, 
               () => setContextMenu(null), 
