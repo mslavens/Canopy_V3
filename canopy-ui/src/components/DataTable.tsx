@@ -101,6 +101,9 @@ export const DataTable: React.FC<DataTableProps> = ({
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const [showActiveFiltersMenu, setShowActiveFiltersMenu] = useState(false);
   const activeFiltersMenuRef = useRef<HTMLDivElement>(null);
+  const [showSelectedMenu, setShowSelectedMenu] = useState(false);
+  const selectedMenuRef = useRef<HTMLDivElement>(null);
+  const [filterToSelections, setFilterToSelections] = useState(false);
 
   const searchedRows = useMemo(() => {
     let rows = data || [];
@@ -249,6 +252,9 @@ export const DataTable: React.FC<DataTableProps> = ({
       if (activeFiltersMenuRef.current && !activeFiltersMenuRef.current.contains(event.target as Node)) {
         setShowActiveFiltersMenu(false);
       }
+      if (selectedMenuRef.current && !selectedMenuRef.current.contains(event.target as Node)) {
+        setShowSelectedMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -373,8 +379,13 @@ export const DataTable: React.FC<DataTableProps> = ({
         return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       });
     }
+
+    if (filterToSelections && selectedRows.size > 0) {
+      rows = rows.filter(row => selectedRows.has(row) || Array.from(selectedRows).some(r => getRowKey(r) === getRowKey(row)));
+    }
+
     return rows;
-  }, [searchedRows, sortConfig, columns, columnFilters]);
+  }, [searchedRows, sortConfig, columns, columnFilters, filterToSelections, selectedRows]);
 
   useEffect(() => {
     if (!pagination) setCurrentPage(1);
@@ -661,8 +672,56 @@ export const DataTable: React.FC<DataTableProps> = ({
             );
           })()}
           {selectable && (
-            <div style={{ fontSize: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', visibility: selectedRows.size > 0 ? 'visible' : 'hidden', minWidth: '85px' }}>
-              <CheckSquare size={14} /> {selectedRows.size > 0 ? selectedRows.size : 0} selected
+            <div ref={selectedMenuRef} style={{ position: 'relative', visibility: selectedRows.size > 0 ? 'visible' : 'hidden' }}>
+              <button
+                className="btn-secondary btn-sm"
+                onClick={() => setShowSelectedMenu(!showSelectedMenu)}
+                style={{ fontSize: '12px', color: 'var(--accent-blue)', borderColor: filterToSelections ? 'var(--accent-blue)' : 'transparent', backgroundColor: 'rgba(59, 130, 246, 0.1)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', minWidth: '85px' }}
+              >
+                <CheckSquare size={14} /> {selectedRows.size > 0 ? selectedRows.size : 0} selected {filterToSelections && '(Filtered)'}
+              </button>
+              {showSelectedMenu && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000, width: '180px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {filterToSelections ? (
+                    <button
+                      onClick={() => {
+                        setFilterToSelections(false);
+                        setShowSelectedMenu(false);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: '8px 12px', borderRadius: '4px', width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Filter size={14} /> Show All Rows
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setFilterToSelections(true);
+                        setShowSelectedMenu(false);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: '8px 12px', borderRadius: '4px', width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Filter size={14} /> Filter to Selections
+                    </button>
+                  )}
+                  <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '2px 0' }} />
+                  <button
+                    onClick={() => {
+                      setSelectedRows(new Set());
+                      setFilterToSelections(false);
+                      setShowSelectedMenu(false);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--status-red)', fontSize: '12px', cursor: 'pointer', textAlign: 'left', padding: '8px 12px', borderRadius: '4px', width: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <X size={14} /> Clear Selections
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
