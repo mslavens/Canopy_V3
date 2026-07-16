@@ -388,9 +388,18 @@ export const DataTable: React.FC<DataTableProps> = ({
     return rows;
   }, [searchedRows, sortConfig, columns, columnFilters, filterToSelections, selectedRows]);
 
+  // Reset to page 1 when search queries or filters change
   useEffect(() => {
-    if (!pagination) setCurrentPage(1);
-  }, [searchQuery, data, pagination]);
+    if (pagination) {
+      if (onPageChange) {
+        if (externalCurrentPage !== 0 && externalCurrentPage !== undefined) {
+          onPageChange(0);
+        }
+      } else {
+        setCurrentPage(1);
+      }
+    }
+  }, [searchQuery, columnFilters, filterToSelections]);
 
   const effectiveCurrentPage = externalCurrentPage !== undefined ? externalCurrentPage + 1 : currentPage;
   const effectivePageSize = externalRowsPerPage !== undefined ? externalRowsPerPage : pageSize;
@@ -1127,7 +1136,15 @@ export const DataTable: React.FC<DataTableProps> = ({
                         if (rowContextMenuActions) {
                           e.preventDefault();
                           e.stopPropagation();
-                          setContextMenu({ x: e.pageX, y: e.pageY, row, colKey, cellValue: row[colKey] });
+                          let cellValue = row[colKey];
+                          
+                          if (e.target instanceof HTMLElement && e.target.tagName !== 'TD' && e.target.innerText) {
+                            cellValue = e.target.innerText.trim();
+                          } else if (Array.isArray(cellValue)) {
+                            cellValue = cellValue.join(', ');
+                          }
+                          
+                          setContextMenu({ x: e.pageX, y: e.pageY, row, colKey, cellValue });
                         }
                       }}
                       style={{ padding: `10px ${cIdx === visibleColumnKeys.length - 1 ? '20px' : '15px'} 10px ${cIdx === 0 && !selectable ? '20px' : '15px'}`, color: 'var(--text-main)', verticalAlign: 'top', textAlign: 'left', width: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), minWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), maxWidth: columnWidths[colKey] ? `${columnWidths[colKey]}px` : (colDef.width || 'auto'), borderBottom: '1px solid var(--border-main)', ...(colDef.allowOverflow ? { overflow: 'visible' } : { overflow: 'hidden', textOverflow: 'ellipsis' }) }}
@@ -1217,29 +1234,33 @@ export const DataTable: React.FC<DataTableProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <ContextMenuItem
-              icon={<Copy size={13} />}
-              label={`Copy ${getColDef(contextMenu.colKey)?.label || contextMenu.colKey}`}
-              onClick={() => {
-                const val = contextMenu.cellValue;
-                const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
-                navigator.clipboard.writeText(text);
-                setContextMenu(null);
-              }}
-            />
-            <ContextMenuItem
-              icon={<Search size={13} />}
-              label="Global Search"
-              onClick={() => {
-                const val = contextMenu.cellValue;
-                const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
-                if (text) {
-                  document.dispatchEvent(new CustomEvent('open-global-search', { detail: text }));
-                }
-                setContextMenu(null);
-              }}
-            />
-            <ContextMenuDivider />
+            {contextMenu.colKey && (
+              <>
+                <ContextMenuItem
+                  icon={<Copy size={13} />}
+                  label={`Copy ${getColDef(contextMenu.colKey)?.label || contextMenu.colKey}`}
+                  onClick={() => {
+                    const val = contextMenu.cellValue;
+                    const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
+                    navigator.clipboard.writeText(text);
+                    setContextMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={<Search size={13} />}
+                  label="Global Search"
+                  onClick={() => {
+                    const val = contextMenu.cellValue;
+                    const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
+                    if (text) {
+                      document.dispatchEvent(new CustomEvent('open-global-search', { detail: text }));
+                    }
+                    setContextMenu(null);
+                  }}
+                />
+                <ContextMenuDivider />
+              </>
+            )}
             {rowContextMenuActions(
               contextMenu.row, 
               () => setContextMenu(null), 

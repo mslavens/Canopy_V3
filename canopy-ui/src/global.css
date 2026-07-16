@@ -287,6 +287,17 @@ input[type="file"]:disabled::file-selector-button {
   font-size: 13px;
 }
 
+/* Badge Hover & Interaction */
+.badge {
+  transition: all 0.15s ease;
+  cursor: crosshair; /* Indicates it can be targeted for copy/search */
+}
+.badge:hover {
+  filter: brightness(1.25);
+  border-color: var(--accent-blue) !important;
+  color: var(--text-main) !important;
+}
+
 /* Table Action Buttons (Modern Dashboard Standard) */
 .btn-table-action {
   background-color: transparent;

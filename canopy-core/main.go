@@ -2146,15 +2146,15 @@ func main() {
 			submodule string
 			labelFmt  string
 		}{
-			{"SELECT id, name, value, device_uuid FROM address_objects WHERE name LIKE ? OR value LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Address Objects", "%s (Address: %s)"},
-			{"SELECT id, name, type, device_uuid FROM address_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Address Groups", "%s (Address Group: %s)"},
-			{"SELECT id, name, destination_port, device_uuid FROM service_objects WHERE name LIKE ? OR destination_port LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Services", "%s (Service: %s)"},
-			{"SELECT id, name, 'group', device_uuid FROM service_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Service Groups", "%s (Service Group)"},
-			{"SELECT id, name, category, device_uuid FROM application_objects WHERE name LIKE ? OR category LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Applications", "%s (App: %s)"},
-			{"SELECT id, name, 'group', device_uuid FROM application_groups WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Application Groups", "%s (App Group)"},
+			{"SELECT id, name, value, device_uuid FROM address_objects WHERE name LIKE ? OR value LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_object' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm, searchTerm}, "object", "Objects", "Address Objects", "%s (Address: %s)"},
+			{"SELECT id, name, type, device_uuid FROM address_groups WHERE name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_group' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Address Groups", "%s (Address Group: %s)"},
+			{"SELECT id, name, destination_port, device_uuid FROM service_objects WHERE name LIKE ? OR destination_port LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Services", "%s (Service: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM service_groups WHERE name LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Service Groups", "%s (Service Group)"},
+			{"SELECT id, name, category, device_uuid FROM application_objects WHERE name LIKE ? OR category LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Applications", "%s (App: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM application_groups WHERE name LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Application Groups", "%s (App Group)"},
 			{"SELECT id, name, 'tag', device_uuid FROM tags WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Tags", "%s (Tag)"},
-			{"SELECT id, rule_name, action, device_uuid FROM security_rules WHERE rule_name LIKE ? LIMIT 5", []interface{}{searchTerm}, "policy", "Policies", "Security - Device Rules", "%s (Security Rule: %s)"},
-			{"SELECT id, rule_name, 'nat', device_uuid FROM nat_rules WHERE rule_name LIKE ? LIMIT 5", []interface{}{searchTerm}, "policy", "Policies", "NAT - Device Rules", "%s (NAT Rule)"},
+			{"SELECT id, rule_name, action, device_uuid FROM security_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'security_rule' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "policy", "Policies", "Security - Device Rules", "%s (Security Rule: %s)"},
+			{"SELECT id, rule_name, 'nat', device_uuid FROM nat_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'nat_rule' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "policy", "Policies", "NAT - Device Rules", "%s (NAT Rule)"},
 		}
 
 		for _, oq := range objQueries {

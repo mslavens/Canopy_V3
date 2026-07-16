@@ -270,6 +270,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
 
           return (
             <span
+              className="badge"
               key={i}
               style={{
                 fontSize: '11px',
@@ -306,7 +307,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         items={list}
         limit={5}
         renderItem={(item: string, idx: number) => (
-          <span key={idx} style={{ 
+          <span className="badge" key={idx} style={{ 
             fontSize: '11px', 
             padding: '2px 6px',
             background: 'var(--bg-app)',

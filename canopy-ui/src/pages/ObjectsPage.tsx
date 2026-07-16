@@ -2418,6 +2418,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                     const hex = colorMap[tagObj.color] || '#8b949e';
                     return (
                       <span
+                        className="badge"
                         key={tagObj.id}
                         style={{
                           fontSize: '11px',
@@ -2473,6 +2474,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                     limit={5}
                     renderItem={(m: string) => (
                       <span
+                        className="badge"
                         key={m}
                         title={m}
                         style={{
@@ -2542,6 +2544,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                     const hex = colorMap[tagObj.color] || '#8b949e';
                     return (
                       <span
+                        className="badge"
                         key={tagObj.id}
                         style={{
                           fontSize: '11px',
@@ -2786,7 +2789,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
               return (
                 <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', maxWidth: '300px' }}>
                   {parts.map(p => (
-                    <span key={p} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                    <span className="badge" key={p} style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
                       <HighlightedText text={p} highlight={query || ''} />
                     </span>
                   ))}
@@ -2811,7 +2814,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   items={list}
                   limit={5}
                   renderItem={(u: string) => (
-                    <span key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', wordBreak: 'break-all' }}>
+                    <span className="badge" key={u} title={u} style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '3px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', wordBreak: 'break-all' }}>
                       <HighlightedText text={u} highlight={query || ''} />
                     </span>
                   )}
