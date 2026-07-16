@@ -160,7 +160,7 @@ export const DatabaseBrowserPage: React.FC<DatabaseBrowserPageProps> = ({ auth, 
         isSticky={false}
         bottomSpacing={false}
         actions={
-            <SearchBar value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search records..." variant="local" />
+            <SearchBar historyKey="databasebrowser-search-history" value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search records..." variant="local" />
         }
       />
 

@@ -124,9 +124,10 @@ export const CandidatesPopoutPage: React.FC = () => {
           {isGenerating && <Loader2 size={14} className="animate-spin" color="var(--text-muted)" />}
         </h3>
         <SearchBar 
+          historyKey="candidatespopout-search-history" 
           value={searchQuery} 
           onChange={setSearchQuery} 
-          placeholder="Search candidates..." 
+          placeholder="Filter routes..." 
           variant="local" 
         />
       </div>

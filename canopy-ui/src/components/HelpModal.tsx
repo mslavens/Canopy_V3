@@ -197,6 +197,7 @@ const HelpContent: React.FC<HelpContentProps> = ({ docId, onNavigate }) => {
         <div style={{ position: 'sticky', top: '10px', zIndex: 100, display: 'flex', justifyContent: 'flex-end', marginBottom: '-35px', pointerEvents: 'none' }}>
           <div style={{ pointerEvents: 'auto', marginRight: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', borderRadius: '4px' }}>
             <SearchBar 
+              historyKey="find-in-page-history"
               value={localQuery} 
               onChange={setLocalQuery} 
               placeholder="Find in page..." 
@@ -357,6 +358,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ docId, isOpen, onClose, in
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <div ref={searchRef} style={{ position: 'relative' }} onKeyDown={handleSearchKeyDown}>
               <SearchBar 
+                historyKey="global-search-history"
                 value={searchQuery} 
                 onChange={setSearchQuery} 
                 placeholder="Search guides..." 

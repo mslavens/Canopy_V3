@@ -103,19 +103,19 @@ export const DesignSystemPage: React.FC = () => {
           <div>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--text-main)' }}>1. Global Command Palette</h4>
             <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>Used exclusively in the main header. Triggers a dropdown overlay and navigates the user across the app. Associated with the <code>Cmd/Ctrl+K</code> shortcut.</p>
-            <SearchBar value="" onChange={() => {}} placeholder="Search (Cmd+K)" variant="global" />
+            <SearchBar historyKey="global-search-history" value="" onChange={() => {}} placeholder="Search (Cmd+K)" variant="global" />
           </div>
           <div style={{ height: '1px', backgroundColor: 'var(--border-main)' }} />
           <div>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--text-main)' }}>2. List Filter (Data Grids)</h4>
             <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>Used above data tables (Database Browser, Audit Logs) and lists (System Logs). Instantly hides non-matching rows. Does not use arrows or counts because the condensed data is immediately visible.</p>
-            <SearchBar value={filterQuery} onChange={setFilterQuery} placeholder="Filter results..." variant="local" />
+            <SearchBar historyKey="designsystem-search-history" value={filterQuery} onChange={setFilterQuery} placeholder="Filter results..." variant="local" />
           </div>
           <div style={{ height: '1px', backgroundColor: 'var(--border-main)' }} />
           <div>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--text-main)' }}>3. Document Find</h4>
             <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>Used for large static documents (Help Handbook, Changelog). Preserves surrounding text context and allows jumping between matches using Enter/Arrows. Associated with the <code>Cmd/Ctrl+F</code> shortcut.</p>
-            <SearchBar value={findQuery} onChange={setFindQuery} placeholder="Find in document..." variant="local" matchCount={5} currentMatch={1} />
+            <SearchBar historyKey="find-in-page-history" value={findQuery} onChange={setFindQuery} placeholder="Find in document..." variant="local" matchCount={5} currentMatch={1} />
           </div>
         </div>
       </section>

@@ -450,7 +450,7 @@ export const InterfacesPage: React.FC<InterfacesPageProps> = ({ auth, addToast, 
 
               <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar
-                  historyKey="table-search-history"
+                  historyKey="interfaces-search-history"
                   value={searchQuery}
                   onChange={setSearchQuery}
                   placeholder="Search interfaces..."

@@ -60,7 +60,7 @@ export const AuditLogsPage: React.FC<AuditLogsPageProps> = ({ auth, addToast }) 
         isSticky={false}
         bottomSpacing={false}
         actions={
-            <SearchBar historyKey="table-search-history" value={searchQuery} onChange={setSearchQuery} placeholder="Filter audit trail..." variant="local" />
+            <SearchBar historyKey="auditlogs-search-history" value={searchQuery} onChange={setSearchQuery} placeholder="Filter audit trail..." variant="local" />
         }
       />
 

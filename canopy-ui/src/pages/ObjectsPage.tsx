@@ -944,7 +944,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <SearchBar historyKey="table-search-history" value={selectorSearchQuery} onChange={setSelectorSearchQuery} placeholder="Search available objects by name or value..." width="100%" variant="local" />
+            <SearchBar historyKey="object-selector-search-history" value={selectorSearchQuery} onChange={setSelectorSearchQuery} placeholder="Search available objects by name or value..." width="100%" variant="local" />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '6px 12px', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
@@ -3161,7 +3161,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 </div>
                 <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
-                    historyKey="table-search-history"
+                    historyKey={`objects-${activeSubTab.toLowerCase().replace(/\s+/g, '-')}-search-history`}
                     value={searchQuery}
                     onChange={setSearchQuery}
                     placeholder={`Search ${activeSubTab.toLowerCase()}...`}

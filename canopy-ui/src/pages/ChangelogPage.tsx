@@ -124,6 +124,7 @@ export const ChangelogPage: React.FC = () => {
         description="Historical record of updates, bug fixes, and system patches." 
         actions={
           <SearchBar 
+            historyKey="changelog-search-history"
             value={pageSearchQuery} 
             onChange={setPageSearchQuery} 
             placeholder="Search changelog..." 

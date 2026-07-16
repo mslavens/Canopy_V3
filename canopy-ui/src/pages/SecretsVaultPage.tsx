@@ -225,7 +225,7 @@ export const SecretsVaultPage: React.FC<SecretsVaultPageProps> = ({ auth, addToa
         isSticky={false}
         bottomSpacing={false}
         actions={
-            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Find secret..." variant="local" />
+            <SearchBar historyKey="secretsvault-search-history" value={searchQuery} onChange={setSearchQuery} placeholder="Find secret..." variant="local" />
         }
       />
 

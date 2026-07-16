@@ -44,10 +44,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         const stored = localStorage.getItem(`search-history-${historyKey}`);
         if (stored) {
           setHistory(JSON.parse(stored));
+        } else {
+          setHistory([]);
         }
       } catch (e) {
         console.error('Failed to load search history', e);
+        setHistory([]);
       }
+    } else {
+      setHistory([]);
     }
   }, [historyKey]);
 

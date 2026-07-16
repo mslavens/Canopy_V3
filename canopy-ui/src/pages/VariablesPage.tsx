@@ -443,6 +443,7 @@ export const VariablesPage: React.FC<VariablesPageProps> = ({ auth, addToast, gl
 
               <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar
+                  historyKey="variables-search-history"
                   value={searchQuery}
                   onChange={setSearchQuery}
                   placeholder="Search variables..."

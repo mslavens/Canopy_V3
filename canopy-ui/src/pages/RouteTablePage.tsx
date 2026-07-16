@@ -451,6 +451,7 @@ export const RouteTablePage: React.FC<RouteTablePageProps> = ({ auth, addToast, 
 
               <div style={{ width: '300px', flexShrink: 0 }}>
                 <SearchBar
+                  historyKey="routetable-search-history"
                   value={searchQuery}
                   onChange={setSearchQuery}
                   placeholder="Search routes..."

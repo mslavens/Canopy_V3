@@ -81,7 +81,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({ isOpen
 
         {/* Toolbar */}
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search event history..." width="100%" />
+          <SearchBar historyKey="notifications-search-history" value={searchQuery} onChange={setSearchQuery} placeholder="Search event history..." width="100%" />
           <button onClick={onClearAll} disabled={history.length === 0} style={{ alignSelf: 'flex-end', background: 'transparent', border: 'none', color: history.length === 0 ? 'var(--text-muted)' : 'var(--status-red)', fontSize: '12px', cursor: history.length === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Trash2 size={14} /> Clear History
           </button>

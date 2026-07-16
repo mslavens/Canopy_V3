@@ -449,7 +449,7 @@ export const CommitHistoryPage: React.FC<CommitHistoryPageProps> = ({ globalScop
                 </div>
                 <div style={{ width: '300px', flexShrink: 0 }}>
                   <SearchBar
-                    historyKey="table-search-history"
+                    historyKey="commithistory-search-history"
                     value={historySearch}
                     onChange={setHistorySearch}
                     placeholder="Search commits..."

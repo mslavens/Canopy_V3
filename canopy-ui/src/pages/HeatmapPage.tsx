@@ -1115,6 +1115,7 @@ export const HeatmapPage: React.FC<HeatmapPageProps> = ({ auth, addToast }) => {
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <SearchBar 
+                      historyKey="heatmap-search-history"
                       value={candidateSearchQuery} 
                       onChange={setCandidateSearchQuery} 
                       placeholder="Search candidates..." 

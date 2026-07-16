@@ -300,7 +300,7 @@ export const WorkspacesPage: React.FC<WorkspacesPageProps> = ({ auth, addToast }
         isSticky={false}
         bottomSpacing={false}
         actions={
-            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Find workspace..." variant="local" />
+            <SearchBar historyKey="workspaces-search-history" value={searchQuery} onChange={setSearchQuery} placeholder="Find workspace..." variant="local" />
         }
       />
 

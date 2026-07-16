@@ -183,6 +183,7 @@ export const SupportPage: React.FC<SupportPageProps> = ({ auth, addToast }) => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <SearchBar 
+              historyKey="support-search-history"
               value={logSearchQuery} 
               onChange={setLogSearchQuery} 
               placeholder="Filter logs..." 

@@ -66,7 +66,7 @@ export const PathResolutionPage: React.FC<PathResolutionPageProps> = ({ auth, ad
         title="Path Resolution Analysis" 
         description="Evaluate end-to-end network transit paths and security policy enforcement." 
         actions={
-          <SearchBar value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search this page..." variant="local" />
+          <SearchBar historyKey="pathresolution-search-history" value={pageSearchQuery} onChange={setPageSearchQuery} placeholder="Search this page..." variant="local" />
         }
       />
       <section style={{ backgroundColor: 'var(--bg-surface)', padding: '25px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
