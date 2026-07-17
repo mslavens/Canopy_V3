@@ -74,7 +74,7 @@ const subTabsMap: Record<string, (globalScopeVendor?: string) => NavItem[]> = {
   'Monitor': () => ['Log Import', 'Traffic Logs'],
   'XML Import': () => ['Upload Config'],
   'Analytics': () => ['Traffic Heatmap'],
-  'Tools': () => ['CIDR Subnet Calculator', 'Resolver Sandbox'],
+  'Tools': () => ['CIDR Subnet Calculator', 'Resolver Sandbox', 'Optimization Sandbox'],
   'Policy Lifecycle': () => ['Placeholder'],
   'Policies': (globalScopeVendor?: string) => [
     {

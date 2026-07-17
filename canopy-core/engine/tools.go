@@ -76,6 +76,9 @@ func SandboxResolveIP(db *sql.DB, ipAddress string, deviceUUIDs []string) (*Sand
 			devices = append(devices, d)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	rows.Close()
 
 	result.DevicesSearched = len(devices)
@@ -158,6 +161,11 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 						}
 					}
 				}
+			}
+		}
+		if err := ifaceRows.Err(); err != nil {
+			if depth == 0 {
+				result.DebugLog = append(result.DebugLog, fmt.Sprintf("[%s] Interface query error during iteration: %v", devName, err))
 			}
 		}
 		ifaceRows.Close()
@@ -250,6 +258,11 @@ func resolveIPForDevice(db *sql.DB, targetIP4 net.IP, devUUID, devName string, a
 						}
 					}
 				}
+			}
+		}
+		if err := routeRows.Err(); err != nil {
+			if depth == 0 {
+				result.DebugLog = append(result.DebugLog, fmt.Sprintf("[%s] Route query error during iteration: %v", devName, err))
 			}
 		}
 		routeRows.Close()

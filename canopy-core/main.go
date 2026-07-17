@@ -1843,6 +1843,7 @@ func main() {
 	mux.HandleFunc("/api/devices/inventory", handleGetInventory)
 	// Tools endpoints
 	mux.HandleFunc("/api/tools/resolve-sandbox", handleResolveSandbox)
+	mux.HandleFunc("/api/tools/optimize", handleToolsOptimize)
 
 	// Pathfinding Evaluation Endpoint
 	mux.HandleFunc("/api/paths/resolve", func(w http.ResponseWriter, r *http.Request) {

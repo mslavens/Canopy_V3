@@ -56,3 +56,38 @@ func handleResolveSandbox(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(payload)
 }
+
+func handleToolsOptimize(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req engine.OptimizeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Malformed JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	vaultMutex.RLock()
+	if activeDB == nil {
+		vaultMutex.RUnlock()
+		w.WriteHeader(http.StatusLocked)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Storage vault is locked."})
+		return
+	}
+	dbConn := activeDB.DB()
+	vaultMutex.RUnlock()
+
+	insights, err := engine.Optimize(dbConn, req)
+	if err != nil {
+		slog.Error("Optimization evaluation failed", slog.String("error", err.Error()))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"insights": insights})
+}

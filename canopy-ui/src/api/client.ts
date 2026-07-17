@@ -354,4 +354,8 @@ export class CanopyApiClient {
   // CLI Engine
   public generateCliCommands = (payload: { entityType: string, entityIds: number[], scopeUuid: string, includeNested: boolean }) => 
     this.request<{commands: string[]}>('/api/cli/generate', { method: 'POST', body: JSON.stringify(payload) });
+
+  // Optimization Engine
+  public optimizeObjects = (payload: { scope_uuid: string, inputs: string[], cidr_threshold: number, group_tolerance: number }) =>
+    this.request<{insights: any[]}>('/api/tools/optimize', { method: 'POST', body: JSON.stringify(payload) });
 }

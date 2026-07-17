@@ -6,6 +6,27 @@ import (
 	"strings"
 )
 
+// GetPolicyScopeLineage computes the bottom-up inheritance path for Policies and Objects (Device Groups / Firewalls)
+func GetPolicyScopeLineage(db *sql.DB, scopeUUID string) []string {
+	var ancestry []string
+	if scopeUUID == "" {
+		return ancestry
+	}
+
+	currUUID := scopeUUID
+	for currUUID != "" {
+		ancestry = append(ancestry, currUUID)
+		var parentUUID sql.NullString
+		err := db.QueryRow("SELECT parent_uuid FROM scopes WHERE uuid = ?", currUUID).Scan(&parentUUID)
+		if err != nil || !parentUUID.Valid {
+			break
+		}
+		currUUID = parentUUID.String
+	}
+
+	return ancestry
+}
+
 // GetScopeLineage computes the bottom-up inheritance path for a given scope
 func GetScopeLineage(db *sql.DB, deviceUUID string) []string {
 	var ancestry []string
@@ -40,6 +61,9 @@ func GetScopeLineage(db *sql.DB, deviceUUID string) []string {
 					rows.Scan(&tUUID)
 					ancestry = append(ancestry, tUUID)
 				}
+				if err := rows.Err(); err != nil {
+					// Handle error or just ignore based on current error handling pattern
+				}
 			}
 			ancestry = append(ancestry, stackUUID)
 		} else if tmplID.Valid {
@@ -69,6 +93,9 @@ func GetScopeLineage(db *sql.DB, deviceUUID string) []string {
 					rows.Scan(&tUUID)
 					ancestry = append(ancestry, tUUID)
 				}
+				if err := rows.Err(); err != nil {
+					// handle error
+				}
 			}
 			ancestry = append(ancestry, deviceUUID)
 		} else {
@@ -93,6 +120,9 @@ func ResolveVariables(db *sql.DB, ancestry []string) map[string]string {
 				var name, value string
 				rows.Scan(&name, &value)
 				resolved[name] = value
+			}
+			if err := rows.Err(); err != nil {
+				// handle error
 			}
 			rows.Close()
 		}
