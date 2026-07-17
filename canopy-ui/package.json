@@ -1,6 +1,6 @@
 {
   "name": "canopy-ui",
-  "version": "0.33.3",
+  "version": "0.33.4",
   "description": "Canopy Security Framework UI",
   "private": true,
   "main": "main/index.js",

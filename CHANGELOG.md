@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.33.4 - Optimization Sandbox
+**Date:** 2026-07-17
+
+### Added
+- **Optimization Sandbox**: Introduced a new Optimization Sandbox tool. Paste IPs, CIDRs, or Object names to find aggregation opportunities and validate grouping rules safely before applying them in policies.
+- **Deep Nested Search**: The Sandbox insights panel now supports deep recursive searching, instantly finding matches across nested child objects and raw IP values within complex group hierarchies.
+- **Sandbox Documentation**: Built out a comprehensive Help manual (`?` modal) for the Optimization Sandbox, fully indexed in the Help Center.
+
+### Changed
+- **Sandbox UX Polish**: Refined the layout of the Optimization Sandbox to improve usability. Reordered the administrative scope selector, explicitly aligned column widths, and cleaned up the active tab underline to sit flush on the divider.
+- **Matrix View Details**: Restored the "perfect match" detail calculations in the Matrix View to provide precise overlap metrics (e.g., "2/2 members covered").
+- **Grid Cleanup**: Removed alternating row colors in the Matrix View in favor of clean grid lines for better readability.
+
+
 ## v0.33.3 - Table UX Refinements
 **Date:** 2026-07-16
 
