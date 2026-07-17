@@ -477,7 +477,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                                 {insight.type === 'group' ? (
                                   <>
                                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                      {insight.covered_members} items fit in object
+                                      {insight.nested_tree ? insight.nested_tree.filter((n: any) => n.is_covered).length : 0} / {insight.nested_tree ? insight.nested_tree.length : 0} members covered ({insight.covered_members}/{insight.total_members} nested)
                                     </span>
                                     {insight.missing_count === 0 ? (
                                       <span style={{ fontSize: '10px', color: 'var(--status-green)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -504,7 +504,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             {allMatchedItems.map((item, i) => (
                               <td key={i} style={{ padding: '12px 16px', borderRight: '1px solid var(--border-main)', textAlign: 'center' }}>
                               {insight.matched_items.includes(item) ? (
-                                <CheckSquare size={16} color="var(--status-green)" style={{ display: 'block', margin: '0 auto', opacity: 0.9 }} />
+                                <Check size={16} strokeWidth={2} color="var(--status-green)" style={{ display: 'block', margin: '0 auto', opacity: 0.9 }} />
                               ) : (
                                 <span style={{ color: 'var(--text-muted)', opacity: 0.5, fontWeight: 600 }}>-</span>
                               )}
