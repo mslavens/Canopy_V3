@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
@@ -16,6 +16,10 @@ interface OptimizationSandboxProps {
 export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiClient, addToast }) => {
   const [inputs, setInputs] = useState<string[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState('paloalto-panorama-global');
+
+  useEffect(() => {
+    setInputs([]);
+  }, [selectedScopeUuid]);
   
   const [cidrThreshold, setCidrThreshold] = useState<number>(3);
   const [groupTolerance, setGroupTolerance] = useState<number>(0.8);
@@ -97,7 +101,21 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     return () => { isMounted = false; };
   }, [apiClient]);
 
-  const { hierarchyOptions, scopeNameMap } = useScopeHierarchy(deviceGroups, devices, { includeShowAll: false, firewallValueKey: 'uuid' });
+  const { hierarchyOptions, scopeNameMap, getVisibleScopes } = useScopeHierarchy(deviceGroups, devices, { includeShowAll: false, firewallValueKey: 'uuid' });
+
+  const validScopeUuids = useMemo(() => new Set(getVisibleScopes(selectedScopeUuid)), [getVisibleScopes, selectedScopeUuid]);
+  
+  const filteredObjects = useMemo(() => {
+    return globalObjects.filter(obj => validScopeUuids.has(obj.device_uuid));
+  }, [globalObjects, validScopeUuids]);
+
+  const toggleSelectAll = () => {
+    if (inputs.length > 0) setInputs([]);
+    else {
+      // In this sandbox, just as a placeholder, maybe select all from visible objects
+      setInputs(filteredObjects.map((o: any) => o.name));
+    }
+  };
 
   const handleOptimize = async () => {
     if (!apiClient) return;
@@ -254,7 +272,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             <TokenizedFieldEditor
               values={inputs}
               onChange={setInputs}
-              options={globalObjects}
+              options={filteredObjects}
               addToast={addToast}
               scopeNameMap={scopeNameMap}
             />
