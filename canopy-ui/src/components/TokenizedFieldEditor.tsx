@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe } from 'lucide-react';
 
 interface ObjectRef {
@@ -28,9 +29,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
   const [dropdownTab, setDropdownTab] = useState<'all' | 'objects' | 'groups'>('all');
+  const [dropdownPos, setDropdownPos] = useState({ bottom: 0, left: 0 });
   
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close popover and dropdown when clicking outside
   useEffect(() => {
@@ -45,6 +48,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useLayoutEffect(() => {
+    if (dropdownOpen && addButtonRef.current) {
+      const rect = addButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        bottom: window.innerHeight - rect.bottom,
+        left: rect.right + 12
+      });
+    }
+  }, [dropdownOpen]);
   
   const optionsMap = useMemo(() => {
     const map = new Map<string, ObjectRef>();
@@ -206,7 +219,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
   const isAllVisibleSelected = visibleValues.length > 0 && selectedTokens.size === visibleValues.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden' }} ref={containerRef}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'visible' }} ref={containerRef}>
       
       {/* TOOLBAR */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
@@ -415,6 +428,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
 
         <div style={{ position: 'relative' }}>
           <button 
+            ref={addButtonRef}
             className="add-button-trigger"
             onClick={() => {
               setDropdownOpen(!dropdownOpen);
@@ -440,16 +454,15 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
             <Plus size={16} /> Add
           </button>
 
-          {dropdownOpen && (
+          {dropdownOpen && createPortal(
             <div 
               ref={dropdownRef}
               style={{
-                position: 'absolute',
-                bottom: '100%',
-                right: 0,
-                marginBottom: '8px',
+                position: 'fixed',
+                bottom: dropdownPos.bottom,
+                left: dropdownPos.left,
                 width: '320px',
-                maxHeight: '350px',
+                height: '400px',
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border-main)',
                 borderRadius: '8px',
@@ -460,7 +473,19 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                 overflow: 'hidden'
               }}
             >
-            <div style={{ padding: '8px 12px 0 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
+            <div style={{ padding: '12px 12px 0 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Select Object</span>
+                <button 
+                  onClick={() => setDropdownOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '6px 8px', backgroundColor: 'var(--bg-surface)' }}>
                 <Search size={14} style={{ color: 'var(--text-muted)' }} />
                 <input
@@ -470,6 +495,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '12px', color: 'var(--text-main)', padding: 0 }}
                   placeholder="Search objects..."
                 />
+                {dropdownSearch && (
+                  <button 
+                    onClick={() => setDropdownSearch('')}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
@@ -586,7 +621,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                 </>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
           )}
         </div>
       </div>

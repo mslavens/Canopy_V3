@@ -29,13 +29,15 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [globalObjects, setGlobalObjects] = useState<any[]>([]);
   
   // Resizer state
-  const [leftPaneWidth, setLeftPaneWidth] = useState(400);
+  const [leftPaneWidth, setLeftPaneWidth] = useState(550);
   const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, width: 0 });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      setLeftPaneWidth(Math.max(300, Math.min(e.clientX - 16, 1200)));
+      const deltaX = e.clientX - dragStartRef.current.x;
+      setLeftPaneWidth(Math.max(300, Math.min(dragStartRef.current.width + deltaX, 1200)));
     };
     const handleMouseUp = () => {
       if (isDraggingRef.current) {
@@ -304,8 +306,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
         {/* RESIZER */}
         <div 
-          onMouseDown={() => {
+          onMouseDown={(e) => {
              isDraggingRef.current = true;
+             dragStartRef.current = { x: e.clientX, width: leftPaneWidth };
              document.body.style.cursor = 'col-resize';
              document.body.style.userSelect = 'none';
           }}
