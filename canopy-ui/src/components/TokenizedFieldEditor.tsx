@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe } from 'lucide-react';
+import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap } from 'lucide-react';
 
 interface ObjectRef {
   id: number;
@@ -34,10 +34,17 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+  
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
 
   // Close popover and dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && popoverRef.current.contains(event.target as Node)) {
+        return;
+      }
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setPopoverToken(null);
       }
@@ -58,6 +65,19 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
       });
     }
   }, [dropdownOpen]);
+
+  useLayoutEffect(() => {
+    if (popoverToken) {
+      const rowEl = rowRefs.current.get(popoverToken);
+      if (rowEl) {
+        const rect = rowEl.getBoundingClientRect();
+        setPopoverPos({
+          top: rect.top,
+          left: rect.right + 12
+        });
+      }
+    }
+  }, [popoverToken]);
   
   const optionsMap = useMemo(() => {
     const map = new Map<string, ObjectRef>();
@@ -216,6 +236,17 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
     }
   };
 
+  const handleSwapRawToken = (rawVal: string, objName: string) => {
+    const nextValues = values.map(v => v === rawVal ? objName : v);
+    const finalSet = new Set(nextValues);
+    onChange(Array.from(finalSet));
+    
+    setPopoverToken(null);
+    if (addToast) {
+      addToast(`Swapped ${rawVal} for ${objName}`, 'success');
+    }
+  };
+
   const isAllVisibleSelected = visibleValues.length > 0 && selectedTokens.size === visibleValues.length;
 
   return (
@@ -261,6 +292,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
           const opt = optionsMap.get(val);
           const isGroup = opt?.member_list !== undefined && opt.member_list !== null;
           const isObject = opt !== undefined && !isGroup;
+          const isRaw = opt === undefined;
+          
+          let matchingObjects: ObjectRef[] = [];
+          if (isRaw) {
+            matchingObjects = options.filter(o => o.value === val);
+          }
           
           let iconColor = 'var(--text-muted)';
           if (isGroup) iconColor = '#60a5fa';
@@ -271,6 +308,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
           return (
             <div 
               key={val} 
+              ref={(el) => {
+                if (el) rowRefs.current.set(val, el);
+                else rowRefs.current.delete(val);
+              }}
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -321,18 +362,35 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                 </button>
               )}
 
+              {isRaw && matchingObjects.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPopoverToken(popoverToken === val ? null : val);
+                  }}
+                  style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 8px', color: '#fbbf24', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.25)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
+                  title="View Insights"
+                >
+                  <Zap size={12} fill="currentColor" /> {matchingObjects.length} Match{matchingObjects.length > 1 ? 'es' : ''}
+                </button>
+              )}
+
               {/* EXPANSION POPOVER */}
-              {popoverToken === val && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: '12px',
+              {popoverToken === val && createPortal(
+                <div 
+                  ref={popoverRef}
+                  style={{
+                  position: 'fixed',
+                  top: popoverPos.top,
+                  left: popoverPos.left,
                   width: '260px',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '6px',
                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
-                  zIndex: 50,
+                  zIndex: 100,
                   padding: '12px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -340,36 +398,65 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Group</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      {isGroup ? 'Group' : 'Insights'}
+                    </span>
                   </div>
                   
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleExpandMembers(val);
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '8px 12px',
-                      backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                      border: '1px solid rgba(217, 119, 6, 0.3)',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#fbbf24',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.2)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.1)'}
-                  >
-                    <RotateCcw size={14} /> Expand to Members
-                  </button>
-                </div>
+                  {isGroup && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExpandMembers(val);
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                        border: '1px solid rgba(217, 119, 6, 0.3)',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#fbbf24',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.2)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.1)'}
+                    >
+                      <RotateCcw size={14} /> Expand to Members
+                    </button>
+                  )}
+
+                  {isRaw && matchingObjects.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Matching Objects Found:</span>
+                      {matchingObjects.map(match => (
+                        <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.value}</span>
+                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSwapRawToken(val, match.name);
+                            }}
+                            style={{ padding: '4px 8px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                          >
+                            Swap
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>, document.body
               )}
             </div>
           );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
@@ -17,7 +17,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [inputs, setInputs] = useState<string[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState('paloalto-panorama-global');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setInputs([]);
   }, [selectedScopeUuid]);
   
