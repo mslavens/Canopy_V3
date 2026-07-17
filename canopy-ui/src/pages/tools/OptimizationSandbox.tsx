@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
+import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
@@ -26,6 +27,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   const [activeTab, setActiveTab] = useState<'all' | 'object' | 'group' | 'network'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
   const [expandedMatrixRows, setExpandedMatrixRows] = useState<Set<number>>(new Set());
 
@@ -161,7 +163,23 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     );
   };
 
-  const filteredResults = activeTab === 'all' ? results : results.filter(r => r.type === activeTab);
+  const filteredResults = (activeTab === 'all' ? results : results.filter(r => r.type === activeTab)).filter(r => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    
+    const checkNested = (members: any[] | undefined): boolean => {
+      if (!members) return false;
+      return members.some(m => 
+        m.name.toLowerCase().includes(q) || 
+        (m.value && m.value.toLowerCase().includes(q)) || 
+        checkNested(m.children)
+      );
+    };
+
+    return r.target_name.toLowerCase().includes(q) || 
+           r.matched_items.some((i: string) => i.toLowerCase().includes(q)) ||
+           checkNested(r.nested_members);
+  });
   const allMatchedItems = Array.from(new Set(filteredResults.flatMap(r => r.matched_items)));
 
   return (
@@ -174,10 +192,26 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         {/* LEFT PANE: Inputs & Controls */}
         <div style={{ width: '400px', flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Source Inputs
-          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Administrative Scope
+            </label>
+            <div style={{ width: '100%' }}>
+              <SearchableScopeDropdown
+                value={selectedScopeUuid}
+                onChange={setSelectedScopeUuid}
+                options={hierarchyOptions}
+                scopeNameMap={scopeNameMap}
+                hasValuesMap={{}}
+                width="100%"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, width: '100%' }}>
+            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Source Inputs
+            </label>
             <textarea
               className="input-text custom-scrollbar"
               style={{ width: '100%', flex: 1, fontFamily: 'monospace', resize: 'none', fontSize: '13px', lineHeight: 1.5 }}
@@ -188,20 +222,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Administrative Scope
-              </label>
-              <SearchableScopeDropdown
-                value={selectedScopeUuid}
-                onChange={setSelectedScopeUuid}
-                options={hierarchyOptions}
-                scopeNameMap={scopeNameMap}
-                hasValuesMap={{}}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   CIDR Threshold
@@ -254,10 +275,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                 Optimization Insights {results.length > 0 && <span style={{ color: 'var(--text-muted)' }}>({results.length})</span>}
               </h2>
               {results.length > 0 && (
-                <div style={{ position: 'relative', width: '280px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" placeholder="Search Groups, IPs, or Objects..." className="input-text" style={{ width: '100%', paddingLeft: '32px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)' }} />
-                </div>
+                <SearchBar width="280px" historyKey="optimization-sandbox-history" value={searchQuery} onChange={setSearchQuery} placeholder="Search Groups, IPs, or Objects..." variant="local" />
               )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -271,7 +289,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           <div style={{ margin: '24px 24px 0 24px', borderBottom: '1px solid var(--border-main)' }} />
 
           {results.length > 0 && (
-            <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '16px 0 0 0', margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
                 {[
                   { id: 'all', label: 'All Results' },
@@ -299,6 +317,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
+                        marginBottom: '-1px',
                         transition: 'all 0.2s'
                       }}
                     >
@@ -337,7 +356,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           )}
 
-          <div style={{ padding: '0 24px 24px 24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
+          <div style={{ padding: '16px 24px 24px 24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
             {error && (
               <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--status-red)', fontSize: '13px' }}>
                 {error}
