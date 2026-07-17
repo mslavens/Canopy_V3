@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package } from 'lucide-react';
+import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
 import { CanopyApiClient } from '../../api/client';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
@@ -170,7 +170,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         title="Optimization Sandbox" 
         description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '24px', gap: '24px' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 24px 0', gap: '32px' }}>
         {/* LEFT PANE: Inputs & Controls */}
         <div style={{ width: '400px', flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           
@@ -247,14 +247,67 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         {/* RIGHT PANE: Results Area */}
         <div style={{ flex: 1, overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', display: 'flex', flexDirection: 'column' }}>
           
-          {/* Header Toggle */}
-          <div style={{ padding: '24px 24px 0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <Info size={16} color="var(--accent-color)" /> Optimization Insights 
-              {results.length > 0 && <span style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '10px', padding: '2px 8px', borderRadius: '12px' }}>{results.length}</span>}
-            </h2>
+          {/* Header */}
+          <div style={{ padding: '24px 24px 0 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                Optimization Insights {results.length > 0 && <span style={{ color: 'var(--text-muted)' }}>({results.length})</span>}
+              </h2>
+              {results.length > 0 && (
+                <div style={{ position: 'relative', width: '280px' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="text" placeholder="Search Groups, IPs, or Objects..." className="input-text" style={{ width: '100%', paddingLeft: '32px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)' }} />
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              <span style={{ color: 'var(--text-main)' }}>Type:</span> Sandbox Analysis
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
+              Validate grouping rules safely before applying them in policies
+            </div>
+          </div>
 
-            {results.length > 0 && (
+          <div style={{ margin: '24px 24px 0 24px', borderBottom: '1px solid var(--border-main)' }} />
+
+          {results.length > 0 && (
+            <div style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                {[
+                  { id: 'all', label: 'All Results' },
+                  { id: 'object', label: '1:1 Replacement' },
+                  { id: 'group', label: 'Address Groups' },
+                  { id: 'network', label: 'CIDRs' }
+                ].map(tab => {
+                  const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
+                  if (count === 0 && tab.id !== 'all') return null;
+                  const isActive = activeTab === tab.id;
+                  
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      style={{
+                        padding: '12px 4px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                        color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                        fontSize: '13px',
+                        fontWeight: isActive ? 600 : 400,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+
               <div style={{ display: 'flex', backgroundColor: 'var(--bg-element)', borderRadius: '6px', padding: '4px' }}>
                 <button
                   onClick={() => setViewMode('list')}
@@ -281,55 +334,10 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                   <Grid size={14} /> Matrix
                 </button>
               </div>
-            )}
-          </div>
-
-          {results.length > 0 && (
-            <div style={{ padding: '0 24px', display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)' }}>
-              {[
-                { id: 'all', label: 'All Results' },
-                { id: 'object', label: '1:1 Replacement' },
-                { id: 'group', label: 'Address Groups' },
-                { id: 'network', label: 'CIDRs' }
-              ].map(tab => {
-                const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
-                if (count === 0 && tab.id !== 'all') return null;
-                const isActive = activeTab === tab.id;
-                
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    style={{
-                      padding: '12px 4px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      borderBottom: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent',
-                      color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
-                      fontSize: '13px',
-                      fontWeight: isActive ? 600 : 400,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {tab.label}
-                    <span style={{ 
-                      backgroundColor: isActive ? 'var(--accent-blue)' : 'var(--bg-hover)', 
-                      color: isActive ? 'white' : 'var(--text-muted)', 
-                      fontSize: '10px', padding: '2px 8px', borderRadius: '12px' 
-                    }}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
             </div>
           )}
 
-          <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
+          <div style={{ padding: '0 24px 24px 24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
             {error && (
               <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--status-red)', fontSize: '13px' }}>
                 {error}
@@ -377,17 +385,17 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                                 </span>
                               ) : (
                                 <span style={{ fontSize: '11px', color: 'var(--status-warn)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <AlertTriangle size={12} /> Note: Collapsing will grant access to {insight.missing_count} additional dormant nested objects (Currently {insight.covered_members}/{insight.total_members} covered).
+                                  <AlertTriangle size={12} /> Note: Swapping will grant access to {insight.missing_count} additional dormant nested objects (Currently {insight.covered_members}/{insight.total_members} covered).
                                 </span>
                               )}
                             </>
                           ) : (
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be collapsed into the broader {insight.type === 'object' ? 'object' : insight.type} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
+                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : insight.type} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Check size={12} color="var(--status-green)" /> Consolidates {insight.coverage_count} items into 1 object.
+                                <Check size={12} color="var(--status-green)" /> Swaps {insight.coverage_count} items for 1 object.
                               </span>
                             </>
                           )}
@@ -397,9 +405,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
                           className="btn-primary"
-                          style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                          style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', width: '160px', flexShrink: 0 }}
                         >
-                          <Layers size={14} /> Collapse into {insight.target_name}
+                          <Layers size={14} /> Swap Matches
                         </button>
                       </div>
 
@@ -418,7 +426,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                           ) : (
                             <div style={{ padding: '24px' }}>
                               <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-main)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Check size={14} color="var(--status-green)" /> ITEMS TO COLLAPSE ({insight.matched_items.length})
+                                <Check size={14} color="var(--status-green)" /> ITEMS TO SWAP ({insight.matched_items.length})
                               </div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                 {insight.matched_items.map((item: string, i: number) => (
@@ -462,8 +470,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                     </thead>
                     <tbody>
                       {filteredResults.map((insight, idx) => {
-                        const isEven = idx % 2 === 0;
-                        const defaultBg = isEven ? 'rgba(255, 255, 255, 0.03)' : 'transparent';
+                        const defaultBg = 'transparent';
                         return (
                           <React.Fragment key={idx}>
                             <tr 
