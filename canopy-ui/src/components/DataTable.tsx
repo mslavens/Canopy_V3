@@ -170,11 +170,39 @@ export const DataTable: React.FC<DataTableProps> = ({
     return Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [searchedRows, filterMenuCol, columns, columnFilters]);
 
+  const filterMenuSnapshotRef = useRef<{ col: string | null, selectedSet: Set<string> | null }>({ col: null, selectedSet: null });
+
   const filteredUniqueValues = useMemo(() => {
-    if (!filterMenuSearch) return uniqueValuesForFilter;
-    const lower = filterMenuSearch.toLowerCase();
-    return uniqueValuesForFilter.filter(v => v.toLowerCase().includes(lower));
-  }, [uniqueValuesForFilter, filterMenuSearch]);
+    let baseList = uniqueValuesForFilter;
+    if (filterMenuSearch) {
+      const lower = filterMenuSearch.toLowerCase();
+      baseList = uniqueValuesForFilter.filter(v => v.toLowerCase().includes(lower));
+    }
+    
+    if (filterMenuCol) {
+      if (filterMenuSnapshotRef.current.col !== filterMenuCol) {
+        filterMenuSnapshotRef.current = {
+          col: filterMenuCol,
+          selectedSet: columnFilters[filterMenuCol] ? new Set(columnFilters[filterMenuCol]) : null
+        };
+      }
+      
+      const selectedSet = filterMenuSnapshotRef.current.selectedSet;
+      if (selectedSet) {
+        return [...baseList].sort((a, b) => {
+          const aSelected = selectedSet.has(a);
+          const bSelected = selectedSet.has(b);
+          if (aSelected && !bSelected) return -1;
+          if (!aSelected && bSelected) return 1;
+          return a.localeCompare(b, undefined, { numeric: true });
+        });
+      }
+    } else {
+      filterMenuSnapshotRef.current = { col: null, selectedSet: null };
+    }
+    
+    return baseList;
+  }, [uniqueValuesForFilter, filterMenuSearch, filterMenuCol, columnFilters]);
 
   const resizingCol = useRef<string | null>(null);
   const startX = useRef<number>(0);
@@ -661,14 +689,41 @@ export const DataTable: React.FC<DataTableProps> = ({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
                       {activeFilterKeys.map(k => (
                         <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', fontSize: '12px', padding: '6px', backgroundColor: 'var(--bg-element)', borderRadius: '4px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase' }}>{getColDef(k).label || k}</span>
-                            <span style={{ color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
                               {Array.from(columnFilters[k]).map(v => {
                                 const displayVal = getColDef(k).formatFilterValue ? getColDef(k).formatFilterValue!(v) : v;
-                                return displayVal === '' ? '(Blank)' : displayVal;
-                              }).join(', ')}
-                            </span>
+                                const text = displayVal === '' ? '(Blank)' : displayVal;
+                                return (
+                                  <span key={v} className="badge" title={text} style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '100%', boxSizing: 'border-box' }}>
+                                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</span>
+                                    <X 
+                                      size={10} 
+                                      style={{ cursor: 'pointer', opacity: 0.6, flexShrink: 0 }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setColumnFilters(prev => {
+                                          const next = {...prev};
+                                          if (next[k]) {
+                                            const newSet = new Set(next[k]);
+                                            newSet.delete(v);
+                                            if (newSet.size === 0) {
+                                              delete next[k];
+                                              if (Object.keys(next).length === 0) setShowActiveFiltersMenu(false);
+                                            } else {
+                                              next[k] = newSet;
+                                            }
+                                          }
+                                          return next;
+                                        });
+                                        setEffectiveCurrentPage(1);
+                                      }}
+                                    />
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                           <button
                             onClick={() => {

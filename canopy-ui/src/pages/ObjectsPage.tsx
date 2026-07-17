@@ -2459,6 +2459,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'member_list',
             label: 'Members / Dynamic Filter',
             width: '320px',
+            getFilterValues: (r) => r.member_list ? r.member_list.split(',').map((s: string) => s.trim()) : [],
             renderCell: (val, row, query) => {
               const list = val ? val.split(',') : [];
               let filterBlock = null;
@@ -2589,6 +2590,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'member_list',
             label: 'Members list',
             width: '320px',
+            getFilterValues: (r) => r.member_list ? r.member_list.split(',').map((s: string) => s.trim()) : [],
             renderCell: (val, row, query) => {
               const list = val ? val.split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
@@ -2665,6 +2667,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'member_list',
             label: 'Signature Members',
             width: '320px',
+            getFilterValues: (r) => r.member_list ? r.member_list.split(',').map((s: string) => s.trim()) : [],
             renderCell: (val, row, query) => {
               const list = val ? val.split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No members</span>;
@@ -2806,6 +2809,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
             key: 'url_list',
             label: 'URLs List',
             width: '320px',
+            getFilterValues: (r) => r.url_list ? String(r.url_list).split(',').map(s => s.trim()) : [],
             renderCell: (val, row, query) => {
               const list = val ? String(val).split(',') : [];
               if (list.length === 0) return <span style={{ color: 'var(--text-muted)' }}>No URLs</span>;
