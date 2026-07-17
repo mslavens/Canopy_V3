@@ -28,6 +28,30 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [devices, setDevices] = useState<any[]>([]);
   const [globalObjects, setGlobalObjects] = useState<any[]>([]);
   
+  // Resizer state
+  const [leftPaneWidth, setLeftPaneWidth] = useState(400);
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      setLeftPaneWidth(Math.max(300, Math.min(e.clientX - 16, 1200)));
+    };
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+         isDraggingRef.current = false;
+         document.body.style.cursor = 'default';
+         document.body.style.userSelect = 'auto';
+      }
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+  
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   const [activeTab, setActiveTab] = useState<'all' | 'object' | 'group' | 'network'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,8 +82,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           setDevices(scopeData.devices || []);
           
           const allAddressObjects = [
-            ...(objData.address || []),
-            ...(objData.addressGroups || [])
+            ...(objData.addresses || []),
+            ...(objData.address_groups || [])
           ];
           setGlobalObjects(allAddressObjects);
         }
@@ -197,9 +221,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         title="Optimization Sandbox" 
         description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 24px 0', gap: '32px' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 24px 0' }}>
         {/* LEFT PANE: Inputs & Controls */}
-        <div style={{ width: '400px', flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
+        <div style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -230,6 +254,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               onChange={setInputs}
               options={globalObjects}
               addToast={addToast}
+              scopeNameMap={scopeNameMap}
             />
           </div>
 
@@ -275,6 +300,35 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               {isOptimizing ? 'Analyzing...' : 'Run Optimization'}
             </button>
           </div>
+        </div>
+
+        {/* RESIZER */}
+        <div 
+          onMouseDown={() => {
+             isDraggingRef.current = true;
+             document.body.style.cursor = 'col-resize';
+             document.body.style.userSelect = 'none';
+          }}
+          style={{ 
+             width: '32px', 
+             cursor: 'col-resize', 
+             flexShrink: 0, 
+             display: 'flex', 
+             justifyContent: 'center', 
+             alignItems: 'center' 
+          }}
+        >
+          <div 
+            style={{ 
+               width: '4px', 
+               height: '40px', 
+               backgroundColor: 'var(--border-main)', 
+               borderRadius: '2px',
+               transition: 'background-color 0.2s'
+            }} 
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--text-muted)'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--border-main)'}
+          />
         </div>
 
         {/* RIGHT PANE: Results Area */}
