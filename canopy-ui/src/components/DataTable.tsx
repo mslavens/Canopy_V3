@@ -440,6 +440,13 @@ export const DataTable: React.FC<DataTableProps> = ({
   const startIndex = (safeCurrentPage - 1) * effectivePageSize;
   const endIndex = Math.min(startIndex + effectivePageSize, totalRecords);
   
+  // Scroll to top when filters or search query changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo(0, 0);
+    }
+  }, [columnFilters, searchQuery]);
+  
   const paginatedRows = useMemo(() => {
     return pagination ? processedRows.slice(startIndex, endIndex) : processedRows;
   }, [processedRows, startIndex, endIndex, pagination]);
@@ -1228,8 +1235,12 @@ export const DataTable: React.FC<DataTableProps> = ({
             className="datatable-context-menu"
             style={{
               position: 'absolute',
-              top: `${Math.min(contextMenu.y, window.innerHeight - 280)}px`,
-              left: `${Math.min(contextMenu.x, window.innerWidth - 260)}px`,
+              ...(contextMenu.y > window.innerHeight - 350 
+                ? { bottom: `${window.innerHeight - contextMenu.y}px` } 
+                : { top: `${contextMenu.y}px` }),
+              ...(contextMenu.x > window.innerWidth - 260 
+                ? { right: `${window.innerWidth - contextMenu.x}px` } 
+                : { left: `${contextMenu.x}px` }),
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-main)',
               borderRadius: '6px',
@@ -1262,6 +1273,25 @@ export const DataTable: React.FC<DataTableProps> = ({
                     const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
                     if (text) {
                       document.dispatchEvent(new CustomEvent('open-global-search', { detail: text }));
+                    }
+                    setContextMenu(null);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={<Filter size={13} />}
+                  label="Filter by Value"
+                  onClick={() => {
+                    const val = contextMenu.cellValue;
+                    const text = typeof val === 'object' ? JSON.stringify(val) : (val !== null && val !== undefined ? String(val) : '');
+                    if (text && contextMenu.colKey) {
+                      setColumnFilters(prev => {
+                        const next = { ...prev };
+                        const values = new Set(next[contextMenu.colKey!] || []);
+                        values.add(text);
+                        next[contextMenu.colKey!] = values;
+                        return next;
+                      });
+                      setEffectiveCurrentPage(1);
                     }
                     setContextMenu(null);
                   }}
