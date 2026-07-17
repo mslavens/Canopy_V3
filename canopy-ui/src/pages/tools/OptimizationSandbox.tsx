@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, List as ListIcon, Grid, AlertTriangle } from 'lucide-react';
+import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package } from 'lucide-react';
 import { CanopyApiClient } from '../../api/client';
+import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../../hooks/useScopeHierarchy';
@@ -104,40 +105,46 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'group': return <Layers size={14} color="var(--purple-400)" />;
-      case 'network': return <Hash size={14} color="var(--emerald-400)" />;
-      default: return <Layers size={14} color="var(--blue-400)" />;
+      case 'group': return <Layers size={14} color="var(--accent-blue)" />;
+      case 'network': return <Hash size={14} color="var(--status-green)" />;
+      case 'object': return <Package size={14} color="var(--status-green)" />;
+      default: return <Layers size={14} color="var(--accent-blue)" />;
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'group': return 'var(--purple-400)';
-      case 'network': return 'var(--emerald-400)';
-      default: return 'var(--blue-400)';
+      case 'group': return 'var(--accent-blue)';
+      case 'network': return 'var(--status-green)';
+      default: return 'var(--accent-blue)';
     }
   };
 
-  const renderNestedTree = (nodes: any[]) => {
+  const renderNestedTree = (nodes: any[], depth = 0) => {
     if (!nodes || nodes.length === 0) return null;
     return (
-      <ul style={{ paddingLeft: '16px', listStyleType: 'none', margin: '4px 0 0 0', borderLeft: '1px solid var(--border-color)' }}>
+      <ul style={depth === 0 ? { paddingLeft: 0, listStyleType: 'none', margin: 0 } : { paddingLeft: '22px', listStyleType: 'none', margin: '4px 0 0 7px', borderLeft: '1px solid var(--border-main)' }}>
         {nodes.map((node, idx) => (
           <li key={idx} style={{ marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {node.type === 'group' ? <Layers size={14} color="var(--purple-400)" /> : <Hash size={14} color="var(--emerald-400)" />}
-              <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>{node.name}</span>
-              {node.is_covered ? (
-                <span style={{ fontSize: '10px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--emerald-400)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>
-                  <Check size={10} /> Covered
-                </span>
-              ) : (
-                <span style={{ fontSize: '10px', backgroundColor: 'rgba(251, 191, 36, 0.1)', color: 'var(--amber-400)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(251, 191, 36, 0.2)' }}>
-                  <AlertTriangle size={10} /> Uncovered
-                </span>
+              {node.type === 'group' ? <Layers size={14} color="var(--accent-blue)" /> : <Package size={14} color="var(--status-green)" />}
+              <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>
+                {node.name}
+              </span>
+              {node.value && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>[{node.value}]</span>}
+              {node.type !== 'group' && (
+                node.is_covered ? (
+                  <span style={{ fontSize: '10px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--status-green)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>
+                    <Check size={10} /> Covered
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '10px', backgroundColor: 'rgba(192, 132, 252, 0.15)', color: 'var(--purple-400)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', fontWeight: 600, border: '1px solid rgba(192, 132, 252, 0.3)' }}>
+                    + New
+                  </span>
+                )
               )}
             </div>
-            {node.children && node.children.length > 0 && renderNestedTree(node.children)}
+            {node.children && node.children.length > 0 && renderNestedTree(node.children, depth + 1)}
           </li>
         ))}
       </ul>
@@ -148,326 +155,379 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const allMatchedItems = Array.from(new Set(filteredResults.flatMap(r => r.matched_items)));
 
   return (
-    <div style={{ display: 'flex', height: '100%', backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}>
-      {/* LEFT PANE: Inputs & Controls */}
-      <div style={{ width: '400px', flexShrink: 0, padding: '24px', borderRight: '1px solid var(--border-color)', backgroundColor: 'var(--bg-panel)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
-        
-        <div>
-          <h1 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 6px 0', color: 'var(--text-main)' }}>
-            <Zap size={20} color="var(--accent-color)" />
-            Optimization Sandbox
-          </h1>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-            Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}>
+      <PageHeader 
+        title="Optimization Sandbox" 
+        description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
+      />
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '24px', gap: '24px' }}>
+        {/* LEFT PANE: Inputs & Controls */}
+        <div style={{ width: '400px', flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
           <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Source Inputs
           </label>
-          <textarea
-            className="input-field custom-scrollbar"
-            style={{ width: '100%', flex: 1, fontFamily: 'monospace', resize: 'none', fontSize: '13px', lineHeight: 1.5 }}
-            placeholder="10.1.1.1&#10;10.1.1.2&#10;Host-DB-01"
-            value={inputs}
-            onChange={(e) => setInputs(e.target.value)}
-          />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Administrative Scope
-            </label>
-            <SearchableScopeDropdown
-              value={selectedScopeUuid}
-              onChange={setSelectedScopeUuid}
-              options={hierarchyOptions}
-              scopeNameMap={scopeNameMap}
-              hasValuesMap={{}}
+            <textarea
+              className="input-text custom-scrollbar"
+              style={{ width: '100%', flex: 1, fontFamily: 'monospace', resize: 'none', fontSize: '13px', lineHeight: 1.5 }}
+              placeholder="10.1.1.1&#10;10.1.1.2&#10;Host-DB-01"
+              value={inputs}
+              onChange={(e) => setInputs(e.target.value)}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                CIDR Threshold
+                Administrative Scope
               </label>
-              <input
-                type="number"
-                min="0"
-                className="input-field"
-                style={{ width: '100%' }}
-                value={cidrThreshold}
-                onChange={(e) => setCidrThreshold(parseInt(e.target.value) || 0)}
+              <SearchableScopeDropdown
+                value={selectedScopeUuid}
+                onChange={setSelectedScopeUuid}
+                options={hierarchyOptions}
+                scopeNameMap={scopeNameMap}
+                hasValuesMap={{}}
               />
             </div>
-            
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Group Tolerance (%)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                className="input-field"
-                style={{ width: '100%' }}
-                value={Math.round(groupTolerance * 100)}
-                onChange={(e) => setGroupTolerance((parseInt(e.target.value) || 100) / 100)}
-              />
-            </div>
-          </div>
 
-          <button
-            onClick={handleOptimize}
-            disabled={isOptimizing || !inputs.trim()}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
-          >
-            <Zap size={16} />
-            {isOptimizing ? 'Analyzing...' : 'Run Optimization'}
-          </button>
-        </div>
-      </div>
-
-      {/* RIGHT PANE: Results Area */}
-      <div style={{ flex: 1, overflow: 'auto', backgroundColor: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* Header Toggle */}
-        <div style={{ padding: '24px 24px 0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-            <Info size={16} color="var(--accent-color)" /> Optimization Insights 
-            {results.length > 0 && <span style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '10px', padding: '2px 8px', borderRadius: '12px' }}>{results.length}</span>}
-          </h2>
-
-          {results.length > 0 && (
-            <div style={{ display: 'flex', backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '2px' }}>
-              <button
-                onClick={() => setViewMode('list')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', cursor: 'pointer',
-                  backgroundColor: viewMode === 'list' ? 'var(--accent-color)' : 'transparent',
-                  color: viewMode === 'list' ? 'white' : 'var(--text-muted)',
-                  border: 'none', transition: 'all 0.2s'
-                }}
-              >
-                <ListIcon size={14} /> List
-              </button>
-              <button
-                onClick={() => setViewMode('matrix')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', cursor: 'pointer',
-                  backgroundColor: viewMode === 'matrix' ? 'var(--accent-color)' : 'transparent',
-                  color: viewMode === 'matrix' ? 'white' : 'var(--text-muted)',
-                  border: 'none', transition: 'all 0.2s'
-                }}
-              >
-                <Grid size={14} /> Matrix
-              </button>
-            </div>
-          )}
-        </div>
-
-        {results.length > 0 && (
-          <div style={{ padding: '0 24px', display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)' }}>
-            {[
-              { id: 'all', label: 'All Results' },
-              { id: 'object', label: '1:1 Replacement' },
-              { id: 'group', label: 'Address Groups' },
-              { id: 'network', label: 'CIDRs' }
-            ].map(tab => {
-              const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
-              if (count === 0 && tab.id !== 'all') return null;
-              const isActive = activeTab === tab.id;
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  CIDR Threshold
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input-text"
+                  style={{ width: '100%' }}
+                  value={cidrThreshold}
+                  onChange={(e) => setCidrThreshold(parseInt(e.target.value) || 0)}
+                />
+              </div>
               
-              return (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Group Tolerance (%)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="input-text"
+                  style={{ width: '100%' }}
+                  value={Math.round(groupTolerance * 100)}
+                  onChange={(e) => setGroupTolerance((parseInt(e.target.value) || 100) / 100)}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={handleOptimize}
+              disabled={isOptimizing || !inputs.trim()}
+              className="btn-primary"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+            >
+              <Zap size={16} />
+              {isOptimizing ? 'Analyzing...' : 'Run Optimization'}
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT PANE: Results Area */}
+        <div style={{ flex: 1, overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', display: 'flex', flexDirection: 'column' }}>
+          
+          {/* Header Toggle */}
+          <div style={{ padding: '24px 24px 0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <Info size={16} color="var(--accent-color)" /> Optimization Insights 
+              {results.length > 0 && <span style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: '10px', padding: '2px 8px', borderRadius: '12px' }}>{results.length}</span>}
+            </h2>
+
+            {results.length > 0 && (
+              <div style={{ display: 'flex', backgroundColor: 'var(--bg-element)', borderRadius: '6px', padding: '4px' }}>
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setViewMode('list')}
                   style={{
-                    padding: '12px 4px',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderBottom: isActive ? '2px solid var(--accent-color)' : '2px solid transparent',
-                    color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
-                    fontSize: '13px',
-                    fontWeight: isActive ? 600 : 400,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s'
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 16px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', cursor: 'pointer',
+                    backgroundColor: viewMode === 'list' ? 'var(--bg-surface)' : 'transparent',
+                    color: viewMode === 'list' ? 'var(--text-main)' : 'var(--text-muted)',
+                    boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    border: 'none', transition: 'all 0.2s'
                   }}
                 >
-                  {tab.label}
-                  <span style={{ 
-                    backgroundColor: isActive ? 'var(--accent-color)' : 'var(--bg-hover)', 
-                    color: isActive ? 'white' : 'var(--text-muted)', 
-                    fontSize: '10px', padding: '2px 8px', borderRadius: '12px' 
-                  }}>
-                    {count}
-                  </span>
+                  <ListIcon size={14} /> List
                 </button>
-              );
-            })}
+                <button
+                  onClick={() => setViewMode('matrix')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 16px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', cursor: 'pointer',
+                    backgroundColor: viewMode === 'matrix' ? 'var(--bg-surface)' : 'transparent',
+                    color: viewMode === 'matrix' ? 'var(--text-main)' : 'var(--text-muted)',
+                    boxShadow: viewMode === 'matrix' ? '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    border: 'none', transition: 'all 0.2s'
+                  }}
+                >
+                  <Grid size={14} /> Matrix
+                </button>
+              </div>
+            )}
           </div>
-        )}
 
-        <div style={{ padding: '24px', flex: 1 }}>
-          {error && (
-            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--red-400)', fontSize: '13px' }}>
-              {error}
-            </div>
-          )}
-
-          {!isOptimizing && results.length === 0 && !error && (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <EmptyState
-                icon={<Settings size={40} color="var(--text-muted)" />}
-                title="Ready for Analysis"
-                description="Paste items and click Run Optimization to see aggregation opportunities."
-              />
-            </div>
-          )}
-
-          {/* List View */}
-          {filteredResults.length > 0 && viewMode === 'list' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {filteredResults.map((insight, idx) => {
-                const isExpanded = expandedInsights.has(insight.target_name);
+          {results.length > 0 && (
+            <div style={{ padding: '0 24px', display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-main)' }}>
+              {[
+                { id: 'all', label: 'All Results' },
+                { id: 'object', label: '1:1 Replacement' },
+                { id: 'group', label: 'Address Groups' },
+                { id: 'network', label: 'CIDRs' }
+              ].map(tab => {
+                const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
+                if (count === 0 && tab.id !== 'all') return null;
+                const isActive = activeTab === tab.id;
+                
                 return (
-                  <div key={idx} style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
-                    
-                    {/* Header Row */}
-                    <div 
-                      onClick={() => toggleExpand(insight.target_name)}
-                      style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', backgroundColor: 'var(--bg-panel)' }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-panel)'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ color: 'var(--text-muted)' }}>
-                          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                            <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items can be collapsed into the broader {insight.type} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--emerald-400)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Check size={12} /> Consolidates {insight.coverage_count} items into 1 object.
-                            {insight.missing_count > 0 && (
-                              <span style={{ color: 'var(--amber-400)', marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <AlertTriangle size={12} /> Grants access to {insight.missing_count} additional dormant nested objects.
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
-                        className="btn-primary"
-                        style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
-                      >
-                        <Layers size={14} /> Collapse into {insight.target_name}
-                      </button>
-                    </div>
-
-                    {/* Expanded Body */}
-                    {isExpanded && (
-                      <div style={{ borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)', display: 'flex', flexDirection: 'column' }}>
-                        {insight.nested_tree && insight.nested_tree.length > 0 ? (
-                          <div style={{ padding: '16px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Layers size={12} /> Nested Members
-                            </div>
-                            <div style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '16px', maxHeight: '300px', overflowY: 'auto' }} className="custom-scrollbar">
-                              {renderNestedTree(insight.nested_tree)}
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ padding: '16px' }}>
-                            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Check size={12} color="var(--emerald-400)" /> Items to Collapse ({insight.matched_items.length})
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                              {insight.matched_items.map((item: string, i: number) => (
-                                <span key={i} style={{ padding: '4px 8px', backgroundColor: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.2)', color: 'var(--emerald-400)', borderRadius: '4px', fontSize: '11px', fontFamily: 'monospace' }}>
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    style={{
+                      padding: '12px 4px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderBottom: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent',
+                      color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                      fontSize: '13px',
+                      fontWeight: isActive ? 600 : 400,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {tab.label}
+                    <span style={{ 
+                      backgroundColor: isActive ? 'var(--accent-blue)' : 'var(--bg-hover)', 
+                      color: isActive ? 'white' : 'var(--text-muted)', 
+                      fontSize: '10px', padding: '2px 8px', borderRadius: '12px' 
+                    }}>
+                      {count}
+                    </span>
+                  </button>
                 );
               })}
             </div>
           )}
 
-          {/* Matrix View */}
-          {filteredResults.length > 0 && viewMode === 'matrix' && (
-            <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-panel)' }}>
-              <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-                  <thead style={{ backgroundColor: 'var(--bg-hover)' }}>
-                    <tr>
-                      <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-hover)', zIndex: 10, minWidth: '200px' }}>
-                        Common Group
-                      </th>
-                      {allMatchedItems.map((item, i) => (
-                        <th key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
-                          {item}
-                        </th>
-                      ))}
-                      <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', textAlign: 'center', width: '120px' }}>
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredResults.map((insight, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '12px 16px', borderRight: '1px solid var(--border-color)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-panel)', zIndex: 10 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 600, color: getTypeColor(insight.type), display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {getTypeIcon(insight.type)} {insight.target_name}
-                            </span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                              {insight.coverage_count} items fit in object
-                            </span>
-                          </div>
-                        </td>
-                        {allMatchedItems.map((item, i) => (
-                          <td key={i} style={{ padding: '12px 16px', borderRight: '1px solid var(--border-color)', textAlign: 'center' }}>
-                            {insight.matched_items.includes(item) ? (
-                              <Check size={16} color="var(--emerald-400)" style={{ margin: '0 auto' }} />
-                            ) : (
-                              <span style={{ color: 'var(--border-color)' }}>-</span>
-                            )}
-                          </td>
-                        ))}
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => handleApplyOptimization(insight)}
-                            className="btn-primary"
-                            style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%' }}
-                          >
-                            <Layers size={12} /> Swap Matches
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
+            {error && (
+              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--status-red)', fontSize: '13px' }}>
+                {error}
               </div>
-            </div>
-          )}
+            )}
 
+            {!isOptimizing && results.length === 0 && !error && (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <EmptyState
+                  icon={<Settings size={40} color="var(--text-muted)" />}
+                  title="Ready for Analysis"
+                  description="Paste items and click Run Optimization to see aggregation opportunities."
+                />
+              </div>
+            )}
+
+            {/* List View */}
+            {filteredResults.length > 0 && viewMode === 'list' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredResults.map((insight, idx) => {
+                  const isExpanded = expandedInsights.has(insight.target_name);
+                  return (
+                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
+                      
+                      {/* Header Row */}
+                      <div 
+                        onClick={() => toggleExpand(insight.target_name)}
+                        style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', backgroundColor: 'var(--bg-surface)' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-surface)'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                          <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {insight.type === 'group' ? (
+                            <>
+                              <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
+                                <strong style={{ color: 'var(--text-main)' }}>{insight.covered_members}</strong> out of <strong>{insight.total_members}</strong> members of <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong> are covered.
+                              </span>
+                              {insight.missing_count === 0 ? (
+                                <span style={{ fontSize: '11px', color: 'var(--status-green)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Check size={12} /> Perfect Match: All {insight.total_members} nested objects are already covered by the rule.
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '11px', color: 'var(--status-warn)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <AlertTriangle size={12} /> Note: Collapsing will grant access to {insight.missing_count} additional dormant nested objects (Currently {insight.covered_members}/{insight.total_members} covered).
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
+                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be collapsed into the broader {insight.type === 'object' ? 'object' : insight.type} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Check size={12} color="var(--status-green)" /> Consolidates {insight.coverage_count} items into 1 object.
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        </div>
+                        
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
+                          className="btn-primary"
+                          style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                        >
+                          <Layers size={14} /> Collapse into {insight.target_name}
+                        </button>
+                      </div>
+
+                      {/* Expanded Body */}
+                      {isExpanded && (
+                        <div style={{ borderTop: '1px solid var(--border-main)', backgroundColor: 'rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column' }}>
+                          {insight.nested_tree && insight.nested_tree.length > 0 ? (
+                            <div style={{ padding: '24px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Layers size={14} color="var(--text-muted)" /> NESTED MEMBERS
+                              </div>
+                              <div style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '16px', maxHeight: '300px', overflowY: 'auto' }} className="custom-scrollbar">
+                                {renderNestedTree(insight.nested_tree)}
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ padding: '24px' }}>
+                              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-main)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Check size={14} color="var(--status-green)" /> ITEMS TO COLLAPSE ({insight.matched_items.length})
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {insight.matched_items.map((item: string, i: number) => (
+                                  <span key={i} style={{ padding: '4px 8px', backgroundColor: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.2)', color: 'var(--status-green)', borderRadius: '4px', fontSize: '11px', fontFamily: 'monospace' }}>
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Matrix View */}
+            {filteredResults.length > 0 && viewMode === 'matrix' && (
+              <div style={{ border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
+                   <Layers size={14} color="var(--text-muted)" /> ADDRESS MATRIX
+                </div>
+                <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+                    <thead style={{ backgroundColor: 'var(--bg-hover)' }}>
+                      <tr>
+                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-hover)', zIndex: 10, minWidth: '200px' }}>
+                          Common Group
+                        </th>
+                        {allMatchedItems.map((item, i) => (
+                          <th key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                            {item}
+                          </th>
+                        ))}
+                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderLeft: '1px solid var(--border-main)', textAlign: 'center', width: '120px' }}>
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredResults.map((insight, idx) => {
+                        const isEven = idx % 2 === 0;
+                        const defaultBg = isEven ? 'rgba(255, 255, 255, 0.03)' : 'transparent';
+                        return (
+                          <tr 
+                            key={idx} 
+                            style={{ borderBottom: '1px solid var(--border-main)', backgroundColor: defaultBg }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                              const stickyTd = e.currentTarget.querySelector('td') as HTMLElement;
+                              if (stickyTd) stickyTd.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = defaultBg;
+                              const stickyTd = e.currentTarget.querySelector('td') as HTMLElement;
+                              if (stickyTd) stickyTd.style.backgroundColor = defaultBg;
+                            }}
+                          >
+                            <td style={{ padding: '12px 16px', borderRight: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: defaultBg, zIndex: 10, transition: 'background-color 0.2s' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontWeight: 600, color: getTypeColor(insight.type), display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {getTypeIcon(insight.type)} {insight.target_name}
+                                </span>
+                                {insight.type === 'group' ? (
+                                  <>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                      {insight.covered_members} items fit in object
+                                    </span>
+                                    {insight.missing_count === 0 ? (
+                                      <span style={{ fontSize: '10px', color: 'var(--status-green)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Check size={10} /> Perfect Match
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: '10px', color: 'var(--status-warn)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <AlertTriangle size={10} /> {insight.missing_count} dormant nested
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                      {insight.coverage_count} items fit in object
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: 'var(--status-green)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <Check size={10} /> Consolidates {insight.coverage_count} items
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            {allMatchedItems.map((item, i) => (
+                              <td key={i} style={{ padding: '12px 16px', borderRight: '1px solid var(--border-main)', textAlign: 'center' }}>
+                              {insight.matched_items.includes(item) ? (
+                                <CheckSquare size={16} color="var(--status-green)" style={{ display: 'block', margin: '0 auto', opacity: 0.9 }} />
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', opacity: 0.5, fontWeight: 600 }}>-</span>
+                              )}
+                            </td>
+                            ))}
+                            <td style={{ padding: '12px 16px', borderLeft: '1px solid var(--border-main)', textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleApplyOptimization(insight)}
+                                className="btn-primary"
+                                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', whiteSpace: 'nowrap' }}
+                              >
+                                <Layers size={12} /> Swap Matches
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

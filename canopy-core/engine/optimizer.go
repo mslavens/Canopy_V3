@@ -21,13 +21,16 @@ type OptimizationInsight struct {
 	TargetName    string   `json:"target_name"`      // Object name or group name to replace with
 	TargetUUID    string   `json:"target_uuid"`      // UUID of the object/group
 	TargetValue   string   `json:"target_value"`     // e.g. "10.0.0.0/24"
-	MissingCount  int                `json:"missing_count"`    // How many items are inside the target but NOT in the input list
-	CoverageCount int                `json:"coverage_count"`   // How many items from the input list are covered
-	NestedTree    []NestedMemberNode `json:"nested_tree,omitempty"` // Full hierarchical group structure
+	MissingCount   int                `json:"missing_count"`    // How many items are inside the target but NOT in the input list
+	CoverageCount  int                `json:"coverage_count"`   // How many items from the input list are covered
+	CoveredMembers int                `json:"covered_members"`  // How many actual members of the group are covered
+	TotalMembers   int                `json:"total_members"`    // Total leaves/members in the group
+	NestedTree     []NestedMemberNode `json:"nested_tree,omitempty"` // Full hierarchical group structure
 }
 
 type NestedMemberNode struct {
 	Name      string             `json:"name"`
+	Value     string             `json:"value"`
 	Type      string             `json:"type"` // "object", "group", "unknown"
 	IsCovered bool               `json:"is_covered"`
 	Children  []NestedMemberNode `json:"children,omitempty"`
@@ -96,8 +99,8 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 		orderCases += fmt.Sprintf("WHEN '%s' THEN %d ", l, i)
 	}
 	inClause := strings.Join(placeholders, ",")
-	orderClauseObj := fmt.Sprintf("CASE device_uuid %s END ASC", orderCases)
-	orderClauseGrp := fmt.Sprintf("CASE g.device_uuid %s END ASC", orderCases)
+	orderClauseObj := fmt.Sprintf("CASE device_uuid %s END DESC", orderCases)
+	orderClauseGrp := fmt.Sprintf("CASE g.device_uuid %s END DESC", orderCases)
 
 	// Load all address objects
 	objQuery := fmt.Sprintf(`SELECT id, name, type, value FROM address_objects WHERE device_uuid IN (%s) ORDER BY %s`, inClause, orderClauseObj)
@@ -384,8 +387,9 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 									}
 								}
 								node.IsCovered = len(node.Children) > 0 && allCovered
-							} else if _, isObj := addresses[mName]; isObj {
+							} else if obj, isObj := addresses[mName]; isObj {
 								node.Type = "object"
+								node.Value = obj.Value
 								node.IsCovered = coveredLeavesMap[mName]
 							} else {
 								node.Type = "unknown"
@@ -399,12 +403,14 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 				tree := buildNested(gName, make(map[string]bool))
 
 				insights = append(insights, OptimizationInsight{
-					Type:          "group",
-					MatchedItems:  matched,
-					TargetName:    gName,
-					MissingCount:  totalLeaves - coverage,
-					CoverageCount: len(matched),
-					NestedTree:    tree,
+					Type:           "group",
+					MatchedItems:   matched,
+					TargetName:     gName,
+					MissingCount:   totalLeaves - coverage,
+					CoverageCount:  len(matched),
+					CoveredMembers: coverage,
+					TotalMembers:   totalLeaves,
+					NestedTree:     tree,
 				})
 			}
 		}
