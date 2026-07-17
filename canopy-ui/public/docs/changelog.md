@@ -1,5 +1,18 @@
 # Canopy Framework Changelog
 
+## v0.33.3 - Table UX Refinements
+**Date:** 2026-07-16
+
+### Added
+- **Native Tooltips**: Added native hover tooltips (`title` attributes) to Active Filters, Device Group selectors, and dropdown options to easily reveal full values when text is truncated.
+- **Copy Header Names**: Users can now right-click directly on any data table column header to expose a "Copy Column Name" action, making it easy to copy headers despite their draggable behavior.
+
+### Changed
+- **Stable Filter Menus**: Completely rebuilt the column filter dropdown logic. Active column filter dropdowns now take a "snapshot" of the selected items when opened, ensuring the list order remains completely stable and doesn't unpredictably jump around while checking multiple boxes.
+- **Dynamic Context Menus**: The data table context menus now feature smart, edge-aware coordinate positioning. Menus will dynamically anchor to the bottom or right of the cursor and expand upwards/leftwards when clicking near the edge of the screen, completely preventing layout clipping.
+- **Active Filter Badges**: Upgraded the "Active Filters" dropdown to render multi-value filters as individual, wrap-aware badges instead of a massive comma-separated string. Each badge now features its own precise `X` button to individually remove values without clearing the entire column.
+- **Standardized Pagination Margins**: Removed artificial "Zero-CLS" vertical padding from tables. Tables with fewer rows than their configured page size will now naturally end without generating confusing, massive empty scrollbars.
+- **Flash-Free Dropdowns**: Hardcoded fallback type inferences into the core Scope Dropdown for static top-level scopes (`Global` and `Shared`) to ensure their respective icons render instantly on tab switch, eliminating visual "pop-in" flashes while awaiting API hydration.
 ## v0.33.2 - Persistent Layouts & UX Enhancements
 **Date:** 2026-07-16
 
