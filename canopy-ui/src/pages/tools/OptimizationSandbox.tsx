@@ -27,6 +27,16 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   const [activeTab, setActiveTab] = useState<'all' | 'object' | 'group' | 'network'>('all');
   const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
+  const [expandedMatrixRows, setExpandedMatrixRows] = useState<Set<number>>(new Set());
+
+  const toggleMatrixRow = (idx: number) => {
+    setExpandedMatrixRows(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
 
   // Load scope hierarchy
   useEffect(() => {
@@ -455,9 +465,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                         const isEven = idx % 2 === 0;
                         const defaultBg = isEven ? 'rgba(255, 255, 255, 0.03)' : 'transparent';
                         return (
-                          <tr 
-                            key={idx} 
-                            style={{ borderBottom: '1px solid var(--border-main)', backgroundColor: defaultBg }}
+                          <React.Fragment key={idx}>
+                            <tr 
+                              style={{ borderBottom: '1px solid var(--border-main)', backgroundColor: defaultBg }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
                               const stickyTd = e.currentTarget.querySelector('td') as HTMLElement;
@@ -472,6 +482,14 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             <td style={{ padding: '12px 16px', borderRight: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: defaultBg, zIndex: 10, transition: 'background-color 0.2s' }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <span style={{ fontWeight: 600, color: getTypeColor(insight.type), display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {insight.type === 'group' && (
+                                    <button 
+                                      onClick={() => toggleMatrixRow(idx)}
+                                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, color: 'var(--text-muted)' }}
+                                    >
+                                      {expandedMatrixRows.has(idx) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    </button>
+                                  )}
                                   {getTypeIcon(insight.type)} {insight.target_name}
                                 </span>
                                 {insight.type === 'group' ? (
@@ -520,12 +538,23 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                               </button>
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                          {insight.type === 'group' && expandedMatrixRows.has(idx) && (
+                            <tr style={{ backgroundColor: 'rgba(0,0,0,0.1)', borderBottom: '1px solid var(--border-main)' }}>
+                              <td colSpan={allMatchedItems.length + 2} style={{ padding: '24px 24px 24px 48px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <Layers size={14} color="var(--text-muted)" /> NESTED MEMBERS
+                                </div>
+                                {renderNestedTree(insight.nested_tree)}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
+            </div>
             )}
           </div>
         </div>
