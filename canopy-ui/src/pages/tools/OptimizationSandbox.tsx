@@ -24,6 +24,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [devices, setDevices] = useState<any[]>([]);
   
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
+  const [activeTab, setActiveTab] = useState<'all' | 'object' | 'group' | 'network'>('all');
   const [expandedInsights, setExpandedInsights] = useState<Set<string>>(new Set());
 
   // Load scope hierarchy
@@ -143,7 +144,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     );
   };
 
-  const allMatchedItems = Array.from(new Set(results.flatMap(r => r.matched_items)));
+  const filteredResults = activeTab === 'all' ? results : results.filter(r => r.type === activeTab);
+  const allMatchedItems = Array.from(new Set(filteredResults.flatMap(r => r.matched_items)));
 
   return (
     <div style={{ display: 'flex', height: '100%', backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}>
@@ -268,6 +270,51 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           )}
         </div>
 
+        {results.length > 0 && (
+          <div style={{ padding: '0 24px', display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)' }}>
+            {[
+              { id: 'all', label: 'All Results' },
+              { id: 'object', label: '1:1 Replacement' },
+              { id: 'group', label: 'Address Groups' },
+              { id: 'network', label: 'CIDRs' }
+            ].map(tab => {
+              const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
+              if (count === 0 && tab.id !== 'all') return null;
+              const isActive = activeTab === tab.id;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  style={{
+                    padding: '12px 4px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderBottom: isActive ? '2px solid var(--accent-color)' : '2px solid transparent',
+                    color: isActive ? 'var(--text-main)' : 'var(--text-muted)',
+                    fontSize: '13px',
+                    fontWeight: isActive ? 600 : 400,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {tab.label}
+                  <span style={{ 
+                    backgroundColor: isActive ? 'var(--accent-color)' : 'var(--bg-hover)', 
+                    color: isActive ? 'white' : 'var(--text-muted)', 
+                    fontSize: '10px', padding: '2px 8px', borderRadius: '12px' 
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div style={{ padding: '24px', flex: 1 }}>
           {error && (
             <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--red-400)', fontSize: '13px' }}>
@@ -286,9 +333,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           )}
 
           {/* List View */}
-          {results.length > 0 && viewMode === 'list' && (
+          {filteredResults.length > 0 && viewMode === 'list' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {results.map((insight, idx) => {
+              {filteredResults.map((insight, idx) => {
                 const isExpanded = expandedInsights.has(insight.target_name);
                 return (
                   <div key={idx} style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
@@ -363,7 +410,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           )}
 
           {/* Matrix View */}
-          {results.length > 0 && viewMode === 'matrix' && (
+          {filteredResults.length > 0 && viewMode === 'matrix' && (
             <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-panel)' }}>
               <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
@@ -383,7 +430,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((insight, idx) => (
+                    {filteredResults.map((insight, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                         <td style={{ padding: '12px 16px', borderRight: '1px solid var(--border-color)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-panel)', zIndex: 10 }}>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
