@@ -163,7 +163,7 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
         {opt.type === 'template-stack' && <Layers size={12} style={{ color: 'var(--accent-blue)' }} />}
         {opt.type === 'template' && <FileText size={12} style={{ color: 'var(--text-muted)' }} />}
         {opt.type === 'firewall' && <Server size={12} style={{ color: 'var(--text-muted)' }} />}
-        <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span title={opt.label} style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
           {opt.label}
           {hasValuesMap && hasValuesMap[opt.value] && (
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', flexShrink: 0 }} title="Has configured values" />
@@ -341,14 +341,19 @@ export const SearchableScopeDropdown: React.FC<SearchableScopeDropdownProps> = (
             </>
           ) : (
             <>
-              {selectedOption?.type === 'global' && <Database size={13} className="text-accent" />}
-              {selectedOption?.type === 'shared' && <Globe size={13} style={{ color: 'var(--accent-blue)' }} />}
+              {(selectedOption?.type === 'global' || (!selectedOption && value === 'global')) && <Database size={13} className="text-accent" />}
+              {(selectedOption?.type === 'shared' || (!selectedOption && value === 'shared')) && <Globe size={13} style={{ color: 'var(--accent-blue)' }} />}
               {(selectedOption?.type === 'device-group' || selectedOption?.type === 'template-stack') && <Layers size={13} />}
               {selectedOption?.type === 'template' && <Layers size={13} style={{ color: 'var(--text-muted)' }} />}
               {selectedOption?.type === 'firewall' && <Server size={13} style={{ color: 'var(--text-muted)' }} />}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                {selectedOption ? selectedOption.label : (scopeNameMap && scopeNameMap[value] ? scopeNameMap[value] : 'Select scope...')}
-              </span>
+              {(() => {
+                const displayLabel = selectedOption ? selectedOption.label : (scopeNameMap && scopeNameMap[value] ? scopeNameMap[value] : 'Select scope...');
+                return (
+                  <span title={displayLabel} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                    {displayLabel}
+                  </span>
+                );
+              })()}
             </>
           )}
         </div>

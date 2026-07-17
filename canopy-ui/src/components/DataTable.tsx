@@ -921,9 +921,13 @@ export const DataTable: React.FC<DataTableProps> = ({
                           onDragStart={(e) => handleDragStart(e, colKey)} 
                           onDragOver={handleDragOver} 
                           onDrop={(e) => handleDrop(e, colKey)}
-                          onClick={() => handleSort(colKey)} 
+                          onClick={() => handleSort(colKey)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, row: 'HEADER', colKey, cellValue: colDef.label || colDef.key });
+                          }}
                           style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
-                          title="Drag to reorder, click to sort"
+                          title="Drag to reorder, click to sort. Right-click to copy name."
                         >
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-main)' }}>{colDef.label || colDef.key}</span>
                           <span style={{ display: 'inline-flex', width: '14px', flexShrink: 0, color: 'var(--accent-blue)' }}>{sortConfig?.key === colKey ? (sortConfig.direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
@@ -1253,12 +1257,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                 </div>
               </td></tr>
             )}
-            {/* Zero-CLS Padding: Fill the remaining space with a height-matched empty row so the pagination footer never jumps */}
-            {!allowScrollPastEnd && effectivePageSize !== 999999 && paginatedRows.length < effectivePageSize && (
-              <tr>
-                <td colSpan={visibleColumnKeys.length + (selectable ? 1 : 0)} style={{ height: `${(effectivePageSize - Math.max(1, paginatedRows.length)) * 37}px`, borderBottom: 'none', padding: 0 }}></td>
-              </tr>
-            )}
+
             {/* Scroll Past End Padding (must be inside tbody to preserve sticky headers) */}
             {allowScrollPastEnd && calculatedScrollPadding > 0 && (
               <tr>
@@ -1280,7 +1279,7 @@ export const DataTable: React.FC<DataTableProps> = ({
         </div>
       </div>
 
-      {contextMenu && rowContextMenuActions && createPortal(
+      {contextMenu && (contextMenu.row === 'HEADER' || rowContextMenuActions) && createPortal(
         <div
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
           onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
@@ -1308,8 +1307,19 @@ export const DataTable: React.FC<DataTableProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {contextMenu.colKey && (
+            {contextMenu.row === 'HEADER' ? (
+              <ContextMenuItem
+                icon={<Copy size={13} />}
+                label="Copy Column Name"
+                onClick={() => {
+                  navigator.clipboard.writeText(contextMenu.cellValue);
+                  setContextMenu(null);
+                }}
+              />
+            ) : (
               <>
+                {contextMenu.colKey && (
+                  <>
                 <ContextMenuItem
                   icon={<Copy size={13} />}
                   label={`Copy ${getColDef(contextMenu.colKey)?.label || contextMenu.colKey}`}
@@ -1352,30 +1362,33 @@ export const DataTable: React.FC<DataTableProps> = ({
                   }}
                 />
                 <ContextMenuDivider />
+                  </>
+                )}
+                {rowContextMenuActions && rowContextMenuActions(
+                  contextMenu.row, 
+                  () => setContextMenu(null), 
+                  contextMenu.colKey, 
+                  contextMenu.cellValue, 
+                  (col: string, val: string) => {
+                    setColumnFilters(prev => ({ ...prev, [col]: new Set([val]) }));
+                    setEffectiveCurrentPage(1);
+                  },
+                  (col: string) => {
+                    setColumnFilters(prev => {
+                      const next = { ...prev };
+                      delete next[col];
+                      return next;
+                    });
+                    setEffectiveCurrentPage(1);
+                  },
+                  () => {
+                    setColumnFilters({});
+                    setEffectiveCurrentPage(1);
+                  }
+                )}
               </>
             )}
-            {rowContextMenuActions(
-              contextMenu.row, 
-              () => setContextMenu(null), 
-              contextMenu.colKey, 
-              contextMenu.cellValue, 
-              (col: string, val: string) => {
-                setColumnFilters(prev => ({ ...prev, [col]: new Set([val]) }));
-                setEffectiveCurrentPage(1);
-              },
-              (col: string) => {
-                setColumnFilters(prev => {
-                  const next = { ...prev };
-                  delete next[col];
-                  return next;
-                });
-                setEffectiveCurrentPage(1);
-              },
-              () => {
-                setColumnFilters({});
-                setEffectiveCurrentPage(1);
-              }
-            )}
+
           </div>
         </div>,
         document.body
