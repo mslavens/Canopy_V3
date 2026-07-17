@@ -305,7 +305,7 @@ const App = () => {
       return <MonitorPage auth={auth} addToast={addToast} activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />;
     }
     if (activeMainTab === 'Tools') {
-      return <ToolsPage auth={auth} activeSubTab={activeSubTab} />;
+      return <ToolsPage auth={auth} activeSubTab={activeSubTab} addToast={addToast} />;
     }
     if (
       activeMainTab === 'Policy Lifecycle' || 

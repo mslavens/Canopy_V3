@@ -9,9 +9,10 @@ import { CanopyApiClient } from '../api/client';
 interface ToolsPageProps {
   auth: any;
   activeSubTab: string;
+  addToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
 }
 
-export const ToolsPage: React.FC<ToolsPageProps> = ({ auth, activeSubTab }) => {
+export const ToolsPage: React.FC<ToolsPageProps> = ({ auth, activeSubTab, addToast }) => {
   if (activeSubTab === 'CIDR Subnet Calculator') {
     return <CIDRCalculator />;
   }
@@ -23,7 +24,7 @@ export const ToolsPage: React.FC<ToolsPageProps> = ({ auth, activeSubTab }) => {
 
   if (activeSubTab === 'Optimization Sandbox') {
     const apiClient = auth ? new CanopyApiClient(auth) : undefined;
-    return <OptimizationSandbox apiClient={apiClient} />;
+    return <OptimizationSandbox apiClient={apiClient} addToast={addToast} />;
   }
 
   return (

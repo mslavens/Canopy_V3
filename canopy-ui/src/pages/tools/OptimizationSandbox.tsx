@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
@@ -6,13 +6,15 @@ import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../../hooks/useScopeHierarchy';
+import { TokenizedFieldEditor } from '../../components/TokenizedFieldEditor';
 
 interface OptimizationSandboxProps {
   apiClient?: CanopyApiClient;
+  addToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
 }
 
-export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiClient }) => {
-  const [inputs, setInputs] = useState('');
+export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiClient, addToast }) => {
+  const [inputs, setInputs] = useState<string[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState('paloalto-panorama-global');
   
   const [cidrThreshold, setCidrThreshold] = useState<number>(3);
@@ -24,6 +26,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
+  const [globalObjects, setGlobalObjects] = useState<any[]>([]);
   
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   const [activeTab, setActiveTab] = useState<'all' | 'object' | 'group' | 'network'>('all');
@@ -40,22 +43,31 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     });
   };
 
-  // Load scope hierarchy
+  // Load scope hierarchy and objects
   useEffect(() => {
     let isMounted = true;
-    const loadScopes = async () => {
+    const loadData = async () => {
       if (!apiClient) return;
       try {
-        const data = await apiClient.getPoliciesContext('security_rules', 'device');
+        const [scopeData, objData] = await Promise.all([
+          apiClient.getPoliciesContext('security_rules', 'device'),
+          apiClient.getObjectsReference()
+        ]);
         if (isMounted) {
-          setDeviceGroups(data.device_groups || []);
-          setDevices(data.devices || []);
+          setDeviceGroups(scopeData.device_groups || []);
+          setDevices(scopeData.devices || []);
+          
+          const allAddressObjects = [
+            ...(objData.address || []),
+            ...(objData.addressGroups || [])
+          ];
+          setGlobalObjects(allAddressObjects);
         }
       } catch (err) {
-        console.error('Failed to load scopes', err);
+        console.error('Failed to load sandbox data', err);
       }
     };
-    loadScopes();
+    loadData();
     return () => { isMounted = false; };
   }, [apiClient]);
 
@@ -63,8 +75,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   const handleOptimize = async () => {
     if (!apiClient) return;
-    const inputList = inputs.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
-    if (inputList.length === 0) return;
+    if (inputs.length === 0) return;
 
     setIsOptimizing(true);
     setError(null);
@@ -73,7 +84,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     try {
       const res = await apiClient.optimizeObjects({
         scope_uuid: selectedScopeUuid,
-        inputs: inputList,
+        inputs: inputs,
         cidr_threshold: cidrThreshold,
         group_tolerance: groupTolerance
       });
@@ -86,23 +97,21 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   };
 
   const handleApplyOptimization = (insight: any) => {
-    let newInputs = inputs;
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let newInputs = [...inputs];
     
     insight.matched_items.forEach((item: string) => {
-      const regex = new RegExp(`(^|[\\n,]\\s*)${escapeRegex(item)}(\\s*[\\n,]|$)`, 'g');
-      newInputs = newInputs.replace(regex, '$1$2');
+      newInputs = newInputs.filter(v => v !== item);
     });
 
-    newInputs = newInputs.trim();
-    if (newInputs) newInputs += '\n';
-    newInputs += insight.target_name;
-
-    newInputs = newInputs.replace(/\n{2,}/g, '\n').replace(/,{2,}/g, ',');
+    if (!newInputs.includes(insight.target_name)) {
+      newInputs.push(insight.target_name);
+    }
     setInputs(newInputs);
-
-    // Filter out the applied result
-    setResults(results.filter(r => r.target_name !== insight.target_name));
+    
+    // Rerun optimization automatically after swap
+    setTimeout(() => {
+      handleOptimize();
+    }, 100);
   };
 
   const toggleExpand = (targetName: string) => {
@@ -208,16 +217,19 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, width: '100%' }}>
-            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', minHeight: 0, overflow: 'hidden' }}>
+            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <Package size={14} style={{ color: '#a78bfa' }} />
               Source Inputs
             </label>
-            <textarea
-              className="input-text custom-scrollbar"
-              style={{ width: '100%', flex: 1, fontFamily: 'monospace', resize: 'none', fontSize: '13px', lineHeight: 1.5 }}
-              placeholder="10.1.1.1&#10;10.1.1.2&#10;Host-DB-01"
-              value={inputs}
-              onChange={(e) => setInputs(e.target.value)}
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
+              Paste raw IPs, CIDRs, or Object names. The sandbox will identify aggregation opportunities without modifying existing policies.
+            </div>
+            <TokenizedFieldEditor
+              values={inputs}
+              onChange={setInputs}
+              options={globalObjects}
+              addToast={addToast}
             />
           </div>
 
@@ -255,7 +267,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
             <button
               onClick={handleOptimize}
-              disabled={isOptimizing || !inputs.trim()}
+              disabled={isOptimizing || inputs.length === 0}
               className="btn-primary"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
             >
