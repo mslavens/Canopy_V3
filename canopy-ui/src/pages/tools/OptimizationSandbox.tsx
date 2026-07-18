@@ -357,7 +357,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         <div style={{ flex: 1, overflow: 'hidden', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', display: 'flex', flexDirection: 'column' }}>
           
           {/* Header */}
-          <div style={{ padding: '24px 24px 0 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ padding: '16px 24px 0 24px', display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 Optimization Insights {results.length > 0 && <span style={{ color: 'var(--text-muted)' }}>({results.length})</span>}
@@ -374,10 +374,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           </div>
 
-          <div style={{ margin: '24px 24px 0 24px', borderBottom: '1px solid var(--border-main)' }} />
-
           {results.length > 0 && (
-            <div style={{ padding: '16px 0 0 0', margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)' }}>
+            <div style={{ padding: '16px 0 0 0', margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '16px' }}>
                 {[
                   { id: 'all', label: 'All Results' },
@@ -444,9 +442,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           )}
 
-          <div style={{ padding: '16px 24px 24px 24px', flex: 1, overflowY: 'auto' }} className="custom-scrollbar">
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             {error && (
-              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', marginBottom: '16px', color: 'var(--status-red)', fontSize: '13px' }}>
+              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '16px', margin: '16px 24px', color: 'var(--status-red)', fontSize: '13px', flexShrink: 0 }}>
                 {error}
               </div>
             )}
@@ -463,11 +461,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
             {/* List View */}
             {filteredResults.length > 0 && viewMode === 'list' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', flex: 1, padding: '16px 24px 24px 24px' }} className="custom-scrollbar">
                 {filteredResults.map((insight, idx) => {
                   const isExpanded = expandedInsights.has(insight.target_name);
                   return (
-                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
+                    <div key={idx} style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
                       
                       {/* Header Row */}
                       <div 
@@ -554,23 +552,23 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
             {/* Matrix View */}
             {filteredResults.length > 0 && viewMode === 'matrix' && (
-              <div style={{ border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-surface)', margin: '16px 24px 24px 24px' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-main)', flexShrink: 0 }}>
                    <Layers size={14} color="var(--text-muted)" /> ADDRESS MATRIX
                 </div>
-                <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+                <div style={{ flex: 1, overflow: 'auto' }} className="custom-scrollbar">
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
                     <thead style={{ backgroundColor: 'var(--bg-element)' }}>
                       <tr>
-                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-element)', zIndex: 10, minWidth: '200px', boxShadow: 'inset -1px 0 0 var(--border-main), 4px 0 8px rgba(0, 0, 0, 0.15)' }}>
+                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', position: 'sticky', left: 0, top: 0, backgroundColor: 'var(--bg-element)', zIndex: 30, minWidth: '200px', boxShadow: 'inset -1px 0 0 var(--border-main), 4px 0 8px rgba(0, 0, 0, 0.15)' }}>
                           Common Group
                         </th>
                         {allMatchedItems.map((item, i) => (
-                          <th key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                          <th key={i} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', textAlign: 'center', whiteSpace: 'nowrap', fontFamily: 'monospace', color: 'var(--text-muted)', position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'var(--bg-element)' }}>
                             {item}
                           </th>
                         ))}
-                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderLeft: '1px solid var(--border-main)', textAlign: 'center', width: '120px' }}>
+                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderLeft: '1px solid var(--border-main)', textAlign: 'center', width: '120px', position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'var(--bg-element)' }}>
                           Action
                         </th>
                       </tr>
