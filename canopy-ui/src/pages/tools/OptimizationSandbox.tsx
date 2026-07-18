@@ -276,6 +276,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               addToast={addToast}
               scopeNameMap={scopeNameMap}
               groupTolerance={groupTolerance}
+              cidrThreshold={cidrThreshold}
             />
           </div>
 

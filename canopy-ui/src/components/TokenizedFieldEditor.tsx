@@ -80,6 +80,7 @@ interface TokenizedFieldEditorProps {
   addToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
   scopeNameMap?: Record<string, string>;
   groupTolerance?: number;
+  cidrThreshold?: number;
 }
 
 export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ 
@@ -88,7 +89,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   options, 
   addToast,
   scopeNameMap = {},
-  groupTolerance = 0
+  groupTolerance = 0,
+  cidrThreshold = 0
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
@@ -475,7 +477,22 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           let matchingObjects = options.filter(o => !o.member_list && o.value === valIp && o.name !== val);
           let matchingCidrs: ObjectRef[] = [];
           if (!valIp.includes('/')) {
-            matchingCidrs = options.filter(o => !o.member_list && o.value && o.value.includes('/') && isIpInCidr(valIp, o.value) && o.name !== val);
+            matchingCidrs = options.filter(o => {
+              if (o.member_list || !o.value || !o.value.includes('/')) return false;
+              if (o.name === val || !isIpInCidr(valIp, o.value)) return false;
+              
+              if (cidrThreshold > 0) {
+                 let matches = 0;
+                 for (const v of values) {
+                    const ip = optionsMap.get(v)?.value || v;
+                    if (!ip.includes('/') && isIpInCidr(ip, o.value)) {
+                       matches++;
+                    }
+                 }
+                 if (matches < cidrThreshold) return false;
+              }
+              return true;
+            });
           }
           
           let iconColor = 'var(--text-muted)';
