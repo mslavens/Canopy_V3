@@ -5,10 +5,11 @@ interface TooltipProps {
   content: string;
   align?: 'left' | 'center' | 'right';
   position?: 'top' | 'bottom';
+  disabled?: boolean;
   children: React.ReactNode;
 }
 
-export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', position = 'bottom', children }) => {
+export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', position = 'bottom', disabled = false, children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -76,7 +77,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', pos
       onMouseLeave={() => setIsVisible(false)}
     >
       {children}
-      {isVisible && createPortal(
+      {isVisible && !disabled && createPortal(
         <div 
           ref={tooltipRef}
           style={{
@@ -90,8 +91,8 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, align = 'center', pos
             fontSize: '11px',
             lineHeight: '1.4',
             borderRadius: '6px',
-            whiteSpace: 'normal',
-            maxWidth: '240px',
+            whiteSpace: 'nowrap',
+            maxWidth: 'none',
             zIndex: 1000000,
             boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
             border: '1px solid var(--accent-blue)', // subtle theme border accent

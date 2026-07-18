@@ -438,7 +438,7 @@ select.input-text option {
   min-height: 50px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-main);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* Full-height vertical divider that spans across wrapped rows */
@@ -474,7 +474,7 @@ select.input-text option {
   min-width: 0;
   position: relative;
   height: 50px;
-  overflow: hidden;
+  overflow: visible;
   padding-left: 20px;
 }
 
@@ -484,20 +484,4 @@ select.input-text option {
   gap: 15px;
   flex-shrink: 0;
   padding-right: 20px;
-}
-
-@media (max-width: 1550px) {
-  .app-header-logo {
-    order: 1;
-  }
-  .app-header-controls {
-    order: 2;
-  }
-  .app-header-tabs {
-    order: 3;
-    flex-basis: calc(100% - var(--sidebar-offset, 0px));
-    margin-left: var(--sidebar-offset, 0px);
-    height: 50px;
-    padding-left: 20px;
-  }
 }

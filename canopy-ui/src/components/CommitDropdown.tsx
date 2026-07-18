@@ -4,14 +4,16 @@ import { CanopyApiClient } from '../api/client';
 import { PendingChangesModal as CommitDetailsModal } from './PendingChangesModal';
 import { CommitHistoryModal } from './CommitHistoryModal';
 import { Modal } from './Modal';
+import { Tooltip } from './Tooltip';
 
 interface CommitDropdownProps {
   addToast: (message: string, type?: 'info' | 'success' | 'error') => void;
   globalScopeVendor?: string;
   navigateToHistory: () => void;
+  compact?: boolean;
 }
 
-export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, globalScopeVendor, navigateToHistory }) => {
+export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, globalScopeVendor, navigateToHistory, compact }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [diffCount, setDiffCount] = useState(0);
   const [isCommitting, setIsCommitting] = useState(false);
@@ -145,34 +147,50 @@ export const CommitDropdown: React.FC<CommitDropdownProps> = ({ addToast, global
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const buttonContent = (
+    <button
+      onClick={() => {
+        if (diffCount > 0) {
+          setIsModalOpen(true);
+        } else {
+          addToast("No pending changes", "info");
+        }
+      }}
+      aria-label="Pending Changes"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        background: diffCount > 0 ? '#f59e0b' : 'transparent',
+        border: diffCount > 0 ? '1px solid #d97706' : '1px solid var(--border-main)',
+        padding: compact ? '6px' : '4px 12px',
+        borderRadius: '6px',
+        color: diffCount > 0 ? '#fff' : 'var(--text-main)',
+        cursor: 'pointer',
+        fontSize: '13px',
+        fontWeight: 500,
+        transition: 'all 0.2s ease',
+        minWidth: compact ? '30px' : 'auto',
+        height: compact ? '30px' : 'auto'
+      }}
+    >
+      <GitCommit size={16} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
+      {!compact && (
+        <>Pending Changes {diffCount > 0 && `(${diffCount})`}</>
+      )}
+    </button>
+  );
+
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <button
-        onClick={() => {
-          if (diffCount > 0) {
-            setIsModalOpen(true);
-          } else {
-            addToast("No pending changes", "info");
-          }
-        }}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: diffCount > 0 ? '#f59e0b' : 'transparent',
-          border: diffCount > 0 ? '1px solid #d97706' : '1px solid var(--border-main)',
-          padding: '4px 12px',
-          borderRadius: '6px',
-          color: diffCount > 0 ? '#fff' : 'var(--text-main)',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <GitCommit size={14} style={{ color: diffCount > 0 ? '#fff' : 'var(--text-muted)' }} />
-        Pending Changes {diffCount > 0 && `(${diffCount})`}
-      </button>
+      {compact ? (
+        <Tooltip content={`Pending Changes ${diffCount > 0 ? `(${diffCount})` : ''}`.trim()} disabled={isModalOpen || isCommitModalOpen}>
+          {buttonContent}
+        </Tooltip>
+      ) : (
+        buttonContent
+      )}
 
 
       {isModalOpen && diffData && (

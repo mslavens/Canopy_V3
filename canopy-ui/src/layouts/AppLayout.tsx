@@ -175,23 +175,29 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   // Tab bar horizontal scroll navigation hooks & states
   const subTabs = subTabsMap[activeMainTab] ? subTabsMap[activeMainTab](globalScopeVendor) : [];
-  const navScrollRef = useRef<HTMLDivElement>(null);
-  const [showLeftChevron, setShowLeftChevron] = useState(false);
-  const [showRightChevron, setShowRightChevron] = useState(false);
+  
+  // Responsive / Priority+ Navigation State
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [visibleTabsCount, setVisibleTabsCount] = useState(mainTabs.length);
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 1600);
+  const [showMoreNav, setShowMoreNav] = useState(false);
+  const moreNavRef = useRef<HTMLDivElement>(null);
 
-  const checkOverflow = () => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    setShowLeftChevron(el.scrollLeft > 2);
-    setShowRightChevron(el.scrollWidth - el.clientWidth - el.scrollLeft > 2);
-  };
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+       if (moreNavRef.current && !moreNavRef.current.contains(e.target as Node)) {
+         setShowMoreNav(false);
+       }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
 
-  const scrollNav = (direction: 'left' | 'right') => {
-    const el = navScrollRef.current;
-    if (!el) return;
-    const amount = direction === 'left' ? -150 : 150;
-    el.scrollBy({ left: amount, behavior: 'smooth' });
-  };
+  useEffect(() => {
+    const handleResize = () => setIsNarrow(window.innerWidth < 1600);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [isNotificationsDrawerOpen, setIsNotificationsDrawerOpen] = useState<boolean>(false);
   const [helpInitialQuery, setHelpInitialQuery] = useState<string>('');
@@ -226,35 +232,41 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     localStorage.setItem('canopy-sidebar-open', isSidebarOpen.toString());
   }, [isSidebarOpen]);
 
-  // Tab bar horizontal scroll navigation wheel and resize integration
+  // Priority+ Navigation Resize Observer
   useEffect(() => {
-    const el = navScrollRef.current;
-    if (!el) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const containerWidth = entry.contentRect.width;
+        let usedWidth = 70; // "More" button approx width + some padding
+        let count = 0;
+        
+        for (let i = 0; i < mainTabs.length; i++) {
+           // estimate tab width based on character count (approx 7.5px per char + 24px padding)
+           const tabWidth = mainTabs[i].length * 7.5 + 24;
+           if (usedWidth + tabWidth < containerWidth) {
+              usedWidth += tabWidth;
+              count++;
+           } else {
+              break;
+           }
+        }
+        const totalEstimated = mainTabs.reduce((acc, tab) => acc + tab.length * 7.5 + 24, 0);
+        if (totalEstimated <= containerWidth) {
+           setVisibleTabsCount(mainTabs.length);
+        } else {
+           setVisibleTabsCount(Math.max(1, count));
+        }
       }
-    };
+    });
 
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    el.addEventListener('scroll', checkOverflow);
-    window.addEventListener('resize', checkOverflow);
-
-    // Initial run
-    const timer = setTimeout(checkOverflow, 100);
-
-    return () => {
-      el.removeEventListener('wheel', handleWheel);
-      el.removeEventListener('scroll', checkOverflow);
-      window.removeEventListener('resize', checkOverflow);
-      clearTimeout(timer);
-    };
+    if (tabsContainerRef.current) {
+      resizeObserver.observe(tabsContainerRef.current);
+    }
+    return () => resizeObserver.disconnect();
   }, [mainTabs]);
 
   useEffect(() => {
-    checkOverflow();
+    // Check overflow removed, handled by ResizeObserver
   }, [activeMainTab]);
 
   const confirm = useConfirm();
@@ -629,35 +641,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         {/* Hide scrollbar for a cleaner look while allowing horizontal scrolling on narrow screens */}
         <style>{`.nav-scroll::-webkit-scrollbar { display: none; }`}</style>
-        <div className="app-header-tabs">
-          {showLeftChevron && (
-            <button
-              onClick={() => scrollNav('left')}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: '32px',
-                background: 'linear-gradient(to right, var(--bg-surface) 60%, transparent)',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-start',
-                paddingLeft: '4px'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-            >
-              <ChevronLeft size={16} />
-            </button>
-          )}
-
-          <nav ref={navScrollRef} className="nav-scroll" style={{ display: 'flex', height: '100%', flex: 1, overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none', padding: '0 20px' }}>
-            {mainTabs.map(tab => (
+        <div className="app-header-tabs" ref={tabsContainerRef}>
+          <nav style={{ display: 'flex', height: '100%', flex: 1, overflow: 'visible' }}>
+            {mainTabs.slice(0, visibleTabsCount).map(tab => (
               <button
                 key={tab}
                 className="nav-tab"
@@ -671,33 +657,51 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 {tab}
               </button>
             ))}
-          </nav>
 
-          {showRightChevron && (
-            <button
-              onClick={() => scrollNav('right')}
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: '32px',
-                background: 'linear-gradient(to left, var(--bg-surface) 60%, transparent)',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                paddingRight: '4px'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-main)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-            >
-              <ChevronRight size={16} />
-            </button>
-          )}
+            {visibleTabsCount < mainTabs.length && (
+              <div ref={moreNavRef} style={{ position: 'relative', height: '100%', display: 'flex', alignItems: 'center' }}>
+                <button
+                  onClick={() => setShowMoreNav(!showMoreNav)}
+                  style={{
+                    background: 'none', border: 'none', borderBottom: '3px solid transparent',
+                    color: 'var(--text-main)', cursor: 'pointer', padding: '0 15px', fontWeight: 600, fontSize: '14px', height: '100%',
+                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  More <ChevronDown size={14} />
+                </button>
+                {showMoreNav && (
+                  <div style={{
+                    position: 'absolute', top: '100%', right: 0, zIndex: 3000, 
+                    background: 'var(--bg-surface)', border: '1px solid var(--border-main)', 
+                    borderRadius: '6px', padding: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    display: 'flex', flexDirection: 'column', minWidth: '150px'
+                  }}>
+                    {mainTabs.slice(visibleTabsCount).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => {
+                          setActiveMainTab(tab); 
+                          setActiveSubTab(getFirstSubTab(subTabsMap[tab] ? subTabsMap[tab](globalScopeVendor) : ['Overview']));
+                          setShowMoreNav(false);
+                        }}
+                        style={{
+                          background: 'none', border: 'none', padding: '10px 16px',
+                          color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '13px',
+                          cursor: 'pointer', textAlign: 'left', borderRadius: '4px'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </nav>
         </div>
 
         {/* Prevent the right-hand controls from shrinking so they never get cut off */}
@@ -709,6 +713,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               placeholder="Search (Cmd+K)" 
               variant="global" 
               historyKey="global-search-history"
+              compact={isNarrow}
               onSearch={(val) => {
                 if (val.trim()) {
                   // We just want it to save to history. 
@@ -720,7 +725,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {/* Floating Categorized Omnibox */}
             {showDropdown && (
               <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: '8px', width: '800px',
+                position: 'absolute', top: isNarrow ? 'calc(100% + 44px)' : '100%', right: 0, marginTop: '8px', width: '800px',
                 backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)',
                 borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 1000,
                 maxHeight: '500px', overflowY: 'auto'
@@ -814,6 +819,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               setActiveMainTab('System');
               setActiveSubTab('Commit History');
             }}
+            compact={isNarrow}
           />
 
           <Tooltip content="Message Center" align="right">

@@ -16,6 +16,7 @@ interface SearchBarProps {
   onClose?: () => void;
   historyKey?: string;
   onSearch?: (val: string) => void;
+  compact?: boolean;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ 
@@ -31,12 +32,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   autoFocus = false,
   onClose,
   historyKey,
-  onSearch
+  onSearch,
+  compact = false
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
+  const compactContainerRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [isCompactExpanded, setIsCompactExpanded] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (compactContainerRef.current && !compactContainerRef.current.contains(e.target as Node)) {
+        setIsCompactExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (historyKey) {
@@ -157,8 +171,35 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const padding = variant === 'global' ? `6px ${paddingRight} 6px 32px` : `8px ${paddingRight} 8px 32px`;
 
   return (
-    <div style={{ position: 'relative', width, display: 'flex', alignItems: 'center' }}>
-      <div style={{ position: 'absolute', left: '10px', display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+    <div ref={compactContainerRef} style={{ position: 'relative', display: 'flex' }}>
+      {compact && (
+        <Tooltip content="Search" disabled={isCompactExpanded}>
+          <button 
+            onClick={() => {
+              setIsCompactExpanded(!isCompactExpanded);
+              if (!isCompactExpanded) {
+                setTimeout(() => inputRef.current?.focus(), 50);
+              }
+            }}
+            aria-label="Search"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: isCompactExpanded ? 'var(--bg-element)' : 'transparent', border: '1px solid var(--border-main)',
+              borderRadius: '6px', color: 'var(--text-main)', cursor: 'pointer',
+              padding: '6px', transition: 'all 0.2s', minWidth: '30px', height: '30px'
+            }}
+          >
+            <Search size={16} style={{ color: 'var(--text-muted)' }} />
+          </button>
+        </Tooltip>
+      )}
+
+      {(!compact || isCompactExpanded) && (
+        <div style={compact ? {
+          position: 'absolute', top: '100%', right: 0, marginTop: '8px', zIndex: 3000, width: '300px'
+        } : { width: '100%', display: 'flex' }}>
+          <div style={{ position: 'relative', width, display: 'flex', alignItems: 'center', boxShadow: compact ? '0 4px 12px rgba(0,0,0,0.2)' : 'none', borderRadius: '4px' }}>
+            <div style={{ position: 'absolute', left: '10px', display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
         <Search size={14} />
       </div>
       <input
@@ -268,6 +309,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             >
               <Trash2 size={12} /> Clear History
             </button>
+          </div>
+        </div>
+      )}
           </div>
         </div>
       )}
