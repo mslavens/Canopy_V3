@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap } from 'lucide-react';
+import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight } from 'lucide-react';
 
 interface ObjectRef {
   id: number;
@@ -11,15 +11,65 @@ interface ObjectRef {
   member_list?: string;
 }
 
+const ConfirmSwapModal = ({ dialogData, onConfirm, onCancel }: any) => {
+  const [excluded, setExcluded] = useState(new Set<string>());
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
+      <div style={{ width: '450px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '8px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)' }}>Confirm Swap</h3>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: '20px', fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Are you sure you want to swap <strong style={{ color: 'var(--accent-blue)' }}>{dialogData.oldVal}</strong> for <strong style={{ color: '#a78bfa' }}>{dialogData.newVal}</strong>?
+          {dialogData.redundantItems.length > 0 && (
+            <>
+              <div style={{ marginTop: '12px', marginBottom: '8px', color: 'var(--text-main)' }}>The following items are already covered by {dialogData.newVal} and will be removed:</div>
+              <div style={{ border: '1px solid var(--border-main)', borderRadius: '6px', maxHeight: '180px', overflowY: 'auto', backgroundColor: 'var(--bg-surface)' }}>
+                {dialogData.redundantItems.map((item: string) => {
+                  const isKept = excluded.has(item);
+                  return (
+                    <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderBottom: '1px solid var(--border-main)', cursor: 'pointer', backgroundColor: isKept ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                      <input type="checkbox" checked={!isKept} onChange={(e) => {
+                        const next = new Set(excluded);
+                        if (e.target.checked) next.delete(item);
+                        else next.add(item);
+                        setExcluded(next);
+                      }} />
+                      <span style={{ textDecoration: !isKept ? 'line-through' : 'none', color: !isKept ? 'var(--status-red)' : 'var(--text-main)' }}>{item}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <button onClick={onCancel} style={{ padding: '6px 16px', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-main)', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Cancel</button>
+          <button onClick={() => onConfirm(excluded)} style={{ padding: '6px 16px', background: '#a78bfa', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Confirm Swap</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface TokenizedFieldEditorProps {
   values: string[];
   onChange: (values: string[]) => void;
   options: ObjectRef[];
   addToast?: (message: string, type?: 'info' | 'success' | 'error') => void;
   scopeNameMap?: Record<string, string>;
+  groupTolerance?: number;
 }
 
-export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ values, onChange, options, addToast, scopeNameMap = {} }) => {
+export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ 
+  values, 
+  onChange, 
+  options, 
+  addToast,
+  scopeNameMap = {},
+  groupTolerance = 0
+}) => {
   const [inputValue, setInputValue] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
   const [popoverToken, setPopoverToken] = useState<string | null>(null);
@@ -38,6 +88,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const popoverRef = useRef<HTMLDivElement>(null);
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
+  const [expandedParent, setExpandedParent] = useState<string | null>(null);
+  const [inspectGroupOpen, setInspectGroupOpen] = useState(false);
+  const [groupMembershipsOpen, setGroupMembershipsOpen] = useState(true);
+  
+  const [confirmSwapDialog, setConfirmSwapDialog] = useState<{
+    isOpen: boolean;
+    oldVal: string;
+    newVal: string;
+    redundantItems: string[];
+  } | null>(null);
 
   // Close popover and dropdown when clicking outside
   useEffect(() => {
@@ -182,7 +242,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
     const opt = optionsMap.get(token);
     if (!opt || !opt.member_list) return;
 
-    const membersToAdd = getDeepMembers(token);
+    const membersToAdd = opt.member_list.split(',').map(m => m.trim());
     const existingSet = new Set(values);
     existingSet.delete(token);
 
@@ -244,6 +304,89 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
     setPopoverToken(null);
     if (addToast) {
       addToast(`Swapped ${rawVal} for ${objName}`, 'success');
+    }
+  };
+  
+  // Clear expandedParent when popover closes
+  useEffect(() => {
+    if (!popoverToken) {
+      setExpandedParent(null);
+      setInspectGroupOpen(false);
+      setGroupMembershipsOpen(true);
+    }
+  }, [popoverToken]);
+  
+  const isDeepMember = (groupName: string, targetToken: string): boolean => {
+    let found = false;
+    const visit = (name: string, visited = new Set<string>()) => {
+      if (found || visited.has(name)) return;
+      visited.add(name);
+      const opt = optionsMap.get(name);
+      if (opt && opt.member_list) {
+        opt.member_list.split(',').forEach(m => {
+          const mTrim = m.trim();
+          if (mTrim === targetToken) {
+            found = true;
+          } else {
+            visit(mTrim, visited);
+          }
+        });
+      }
+    };
+    visit(groupName);
+    return found;
+  };
+
+  const renderMemberTree = (memberName: string, indent: number, currentlyCoveredLeaves: Set<string>) => {
+    const mOpt = optionsMap.get(memberName);
+    const isGroup = mOpt && mOpt.member_list;
+    const memberLeaves = getDeepMembers(memberName);
+    const isCovered = memberLeaves.length > 0 && memberLeaves.every(l => currentlyCoveredLeaves.has(l));
+
+    return (
+      <div key={memberName} style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isGroup ? <Layers size={12} style={{ color: 'var(--accent-blue)' }} /> : <Package size={12} style={{ color: '#10b981' }} />}
+            <span style={{ fontSize: '11px', color: 'var(--text-main)' }}>{memberName}</span>
+          </div>
+          {isCovered 
+            ? <span style={{ fontSize: '9px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>✓ Covered</span>
+            : <span style={{ fontSize: '9px', backgroundColor: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>+ New</span>
+          }
+        </div>
+        {isGroup && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {mOpt.member_list.split(',').map(m => renderMemberTree(m.trim(), indent + 1, currentlyCoveredLeaves))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getParentGroups = (token: string): ObjectRef[] => {
+    return options.filter(o => o.member_list && isDeepMember(o.name, token));
+  };
+  
+  const handleSwapGroup = (oldVal: string, newVal: string) => {
+    const groupCoverage = new Set(getDeepMembers(newVal));
+    const current = values.filter(v => v !== oldVal);
+    const redundantItems: string[] = [];
+    current.forEach(v => {
+      const vLeaves = getDeepMembers(v);
+      if (vLeaves.length > 0 && vLeaves.every(l => groupCoverage.has(l))) {
+        redundantItems.push(v);
+      }
+    });
+
+    if (redundantItems.length > 0) {
+      setConfirmSwapDialog({ isOpen: true, oldVal, newVal, redundantItems });
+      setPopoverToken(null);
+    } else {
+      const finalCleaned = [...current, newVal];
+      onChange(finalCleaned);
+      setPopoverToken(null);
+      if (addToast) addToast(`Swapped ${oldVal} for ${newVal}`, 'success');
     }
   };
 
@@ -347,20 +490,55 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                 )}
               </div>
 
-              {isGroup && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPopoverToken(popoverToken === val ? null : val);
-                  }}
-                  style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                  title="Expand to Members"
-                >
-                  <Layers size={14} />
-                </button>
-              )}
+              {!isRaw && (() => {
+                const currentlyCoveredLeaves = new Set<string>();
+                values.forEach(v => {
+                  getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
+                });
+                getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
+
+                const parents = getParentGroups(val).filter(parent => {
+                   const leaves = getDeepMembers(parent.name);
+                   let coveredLeavesCount = 0;
+                   leaves.forEach(l => {
+                     if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
+                   });
+                   const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
+                   return toleranceRatio >= groupTolerance;
+                });
+
+                if (parents.length > 0) {
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPopoverToken(popoverToken === val ? null : val);
+                      }}
+                      style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 8px', color: '#fbbf24', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.25)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
+                      title="View Insights"
+                    >
+                      <Zap size={12} fill="currentColor" /> {parents.length} Insight{parents.length > 1 ? 's' : ''}
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPopoverToken(popoverToken === val ? null : val);
+                    }}
+                    style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    title="View Options"
+                  >
+                    <Layers size={14} />
+                  </button>
+                );
+              })()}
 
               {isRaw && matchingObjects.length > 0 && (
                 <button
@@ -385,7 +563,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                   position: 'fixed',
                   top: popoverPos.top,
                   left: popoverPos.left,
-                  width: '260px',
+                  width: '320px',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '6px',
@@ -397,40 +575,118 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
                   gap: '12px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</span>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                      {isGroup ? 'Group' : 'Insights'}
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {isRaw ? val : `Options for ${val}:`}
                     </span>
+                    <button onClick={() => setPopoverToken(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={14} /></button>
                   </div>
                   
-                  {isGroup && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleExpandMembers(val);
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        padding: '8px 12px',
-                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                        border: '1px solid rgba(217, 119, 6, 0.3)',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#fbbf24',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.2)'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.1)'}
-                    >
-                      <RotateCcw size={14} /> Expand to Members
-                    </button>
-                  )}
+                  {isGroup && opt && (() => {
+                    const currentlyCoveredLeaves = new Set<string>();
+                    values.forEach(v => {
+                      getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
+                    });
+                    getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div 
+                          onClick={() => setInspectGroupOpen(!inspectGroupOpen)}
+                          style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                        >
+                          <ChevronRight size={12} style={{ transform: inspectGroupOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Inspect Group ({opt.member_list?.split(',').length || 0} Members)
+                        </div>
+                        {inspectGroupOpen && (
+                          <div style={{ border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
+                            {opt.member_list?.split(',').map(m => m.trim()).map(member => renderMemberTree(member, 0, currentlyCoveredLeaves))}
+                          </div>
+                        )}
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleExpandMembers(val); }}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
+                        >
+                          <RotateCcw size={14} /> Expand to Members
+                        </button>
+                      </div>
+                    );
+                  })()}
+
+                  {!isRaw && (() => {
+                    const parents = getParentGroups(val);
+                    if (parents.length === 0) return null;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                        <div 
+                          onClick={() => setGroupMembershipsOpen(!groupMembershipsOpen)}
+                          style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                        >
+                          <ChevronRight size={12} style={{ transform: groupMembershipsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Group Memberships
+                        </div>
+                        {groupMembershipsOpen && (() => {
+                           const currentlyCoveredLeaves = new Set<string>();
+                           values.forEach(v => {
+                             getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
+                           });
+                           getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
+
+                           return parents
+                            .map(parent => {
+                               const leaves = getDeepMembers(parent.name);
+                               let coveredLeavesCount = 0;
+                               leaves.forEach(l => {
+                                 if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
+                               });
+                               
+                               const pMembers = parent.member_list ? parent.member_list.split(',').map(m => m.trim()) : [];
+                               let nestedGroupsCount = 0;
+                               pMembers.forEach(m => {
+                                 const mOpt = optionsMap.get(m);
+                                 if (mOpt && mOpt.member_list) nestedGroupsCount++;
+                               });
+
+                               const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
+                               return { parent, pMembers, leaves, coveredLeavesCount, nestedGroupsCount, toleranceRatio };
+                            })
+                            .filter(item => item.toleranceRatio >= groupTolerance)
+                            .map(({ parent, pMembers, leaves, coveredLeavesCount, nestedGroupsCount }) => {
+                             return (
+                               <div key={parent.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                                   <div 
+                                     onClick={(e) => { e.stopPropagation(); setExpandedParent(expandedParent === parent.name ? null : parent.name); }}
+                                     style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                                   >
+                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                       <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                         <ChevronRight size={12} style={{ color: 'var(--text-muted)', transform: expandedParent === parent.name ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {parent.name}
+                                       </span>
+                                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: 600, color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 4px', borderRadius: '4px' }} title="Optimization Insight">
+                                         <Zap size={10} fill="currentColor" />
+                                       </span>
+                                     </div>
+                                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '18px', marginTop: '2px' }}>{coveredLeavesCount} / {leaves.length} leaf members covered ({nestedGroupsCount} nested)</span>
+                                   </div>
+                                   <button 
+                                     onClick={(e) => { e.stopPropagation(); handleSwapGroup(val, parent.name); }}
+                                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: '#a78bfa', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                                   >
+                                     <Layers size={12} /> Swap
+                                   </button>
+                                 </div>
+                                 {expandedParent === parent.name && (
+                                   <div style={{ marginLeft: '18px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
+                                      {pMembers.map(member => renderMemberTree(member, 0, currentlyCoveredLeaves))}
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                          });
+                        })()}
+                      </div>
+                    );
+                  })()}
 
                   {isRaw && matchingObjects.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -713,6 +969,23 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ valu
           )}
         </div>
       </div>
+      {confirmSwapDialog?.isOpen && createPortal(
+        <ConfirmSwapModal 
+          dialogData={confirmSwapDialog}
+          onCancel={() => setConfirmSwapDialog(null)}
+          onConfirm={(excluded: Set<string>) => {
+            const current = values.filter(v => v !== confirmSwapDialog.oldVal);
+            const finalCleaned = current.filter(v => !confirmSwapDialog.redundantItems.includes(v) || excluded.has(v));
+            if (!finalCleaned.includes(confirmSwapDialog.newVal)) finalCleaned.push(confirmSwapDialog.newVal);
+            onChange(finalCleaned);
+            setConfirmSwapDialog(null);
+            if (addToast) {
+              const removedCount = confirmSwapDialog.redundantItems.length - excluded.size;
+              addToast(`Swapped ${confirmSwapDialog.oldVal} for ${confirmSwapDialog.newVal}${removedCount > 0 ? ` and removed ${removedCount} redundant items` : ''}`, 'success');
+            }
+          }}
+        />, document.body
+      )}
     </div>
   );
 };
