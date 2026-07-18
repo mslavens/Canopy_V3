@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.33.5 - Optimization Sandbox Smart Swaps
+**Date:** 2026-07-17
+
+### Added
+- **Smart Swap Redundancy Engine**: The Optimization Sandbox now deeply evaluates group coverage before you swap an object. If swapping in a parent group completely encompasses other inputs (like nested sub-groups), the sandbox proactively intercepts the action with a "Confirm Swap" modal, listing redundant objects and allowing you to prune them simultaneously.
+- **Dynamic Insight Badges**: Replaced static View Options buttons with interactive, dynamic "Insight" badges that intelligently appear when deep backend logic identifies a mathematically viable optimization opportunity against your live inputs.
+
+### Changed
+- **Deep Member Tolerance Math**: Rewired the frontend `TokenizedFieldEditor`'s Tolerance matching logic to accurately map against deep leaf members. Deeply nested child group coverage is now precisely synchronized with the backend engine's mathematical evaluations, resulting in 1:1 parity between active sandbox inputs and the backend insights panel.
+- **Inspector UX Polish**: Refined the Inspector popover inside the token editor. Added expanding chevrons for clean accordion control, condensed insight badges for improved row density, correctly bound single-child expansion for deep groups, collapsed the Inspect Group accordion by default, and built a recursive indented visualization tree for nested items.
+
 ## v0.33.4 - Optimization Sandbox
 **Date:** 2026-07-17
 
