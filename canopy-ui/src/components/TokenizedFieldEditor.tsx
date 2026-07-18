@@ -11,6 +11,26 @@ interface ObjectRef {
   member_list?: string;
 }
 
+const ipToInt = (ip: string) => {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  const num = parts.reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+  return num;
+};
+
+const isIpInCidr = (ip: string, cidr: string) => {
+  const ipNum = ipToInt(ip);
+  if (ipNum === null) return false;
+  const [network, bits] = cidr.split('/');
+  if (!network || !bits) return false;
+  const netNum = ipToInt(network);
+  if (netNum === null) return false;
+  const maskBits = parseInt(bits, 10);
+  if (isNaN(maskBits) || maskBits < 0 || maskBits > 32) return false;
+  const mask = maskBits === 0 ? 0 : (0xffffffff << (32 - maskBits)) >>> 0;
+  return (ipNum & mask) === (netNum & mask);
+};
+
 const ConfirmSwapModal = ({ dialogData, onConfirm, onCancel }: any) => {
   const [excluded, setExcluded] = useState(new Set<string>());
   return (
@@ -91,6 +111,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [expandedParent, setExpandedParent] = useState<string | null>(null);
   const [inspectGroupOpen, setInspectGroupOpen] = useState(false);
   const [groupMembershipsOpen, setGroupMembershipsOpen] = useState(true);
+  const [exactMatchesOpen, setExactMatchesOpen] = useState(false);
+  const [subnetsOpen, setSubnetsOpen] = useState(false);
   
   const [confirmSwapDialog, setConfirmSwapDialog] = useState<{
     isOpen: boolean;
@@ -131,8 +153,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       const rowEl = rowRefs.current.get(popoverToken);
       if (rowEl) {
         const rect = rowEl.getBoundingClientRect();
+        let top = rect.top;
+        if (top + 400 > window.innerHeight - 100) {
+          top = Math.max(20, window.innerHeight - 500);
+        }
         setPopoverPos({
-          top: rect.top,
+          top,
           left: rect.right + 12
         });
       }
@@ -313,6 +339,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       setExpandedParent(null);
       setInspectGroupOpen(false);
       setGroupMembershipsOpen(true);
+      setExactMatchesOpen(false);
+      setSubnetsOpen(false);
     }
   }, [popoverToken]);
   
@@ -357,7 +385,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         </div>
         {isGroup && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {mOpt.member_list.split(',').map(m => renderMemberTree(m.trim(), indent + 1, currentlyCoveredLeaves))}
+            {mOpt?.member_list?.split(',').map(m => renderMemberTree(m.trim(), indent + 1, currentlyCoveredLeaves))}
           </div>
         )}
       </div>
@@ -437,9 +465,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isObject = opt !== undefined && !isGroup;
           const isRaw = opt === undefined;
           
-          let matchingObjects: ObjectRef[] = [];
-          if (isRaw) {
-            matchingObjects = options.filter(o => o.value === val);
+          const valIp = opt?.value || val;
+          let matchingObjects = options.filter(o => !o.member_list && o.value === valIp && o.name !== val);
+          let matchingCidrs: ObjectRef[] = [];
+          if (!valIp.includes('/')) {
+            matchingCidrs = options.filter(o => !o.member_list && o.value && o.value.includes('/') && isIpInCidr(valIp, o.value) && o.name !== val);
           }
           
           let iconColor = 'var(--text-muted)';
@@ -564,6 +594,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   top: popoverPos.top,
                   left: popoverPos.left,
                   width: '320px',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '6px',
@@ -573,7 +605,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'
-                }}>
+                }} className="custom-scrollbar">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {isRaw ? val : `Options for ${val}:`}
@@ -685,10 +717,45 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     );
                   })()}
 
-                  {isRaw && matchingObjects.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Matching Objects Found:</span>
-                      {matchingObjects.map(match => (
+                  {matchingObjects.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      <div 
+                        onClick={() => setExactMatchesOpen(!exactMatchesOpen)}
+                        style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                      >
+                        <ChevronRight size={12} style={{ transform: exactMatchesOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Exact 1:1 Matches ({matchingObjects.length})
+                      </div>
+                      {exactMatchesOpen && matchingObjects.map(match => (
+                        <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.value}</span>
+                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSwapRawToken(val, match.name);
+                            }}
+                            style={{ padding: '4px 8px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                          >
+                            Swap
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {matchingCidrs.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      <div 
+                        onClick={() => setSubnetsOpen(!subnetsOpen)}
+                        style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                      >
+                        <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Containing Subnets ({matchingCidrs.length})
+                      </div>
+                      {subnetsOpen && matchingCidrs.map(match => (
                         <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>

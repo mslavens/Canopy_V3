@@ -560,9 +560,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                 </div>
                 <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-                    <thead style={{ backgroundColor: 'var(--bg-hover)' }}>
+                    <thead style={{ backgroundColor: 'var(--bg-element)' }}>
                       <tr>
-                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-hover)', zIndex: 10, minWidth: '200px' }}>
+                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: 'var(--bg-element)', zIndex: 10, minWidth: '200px', boxShadow: 'inset -1px 0 0 var(--border-main), 4px 0 8px rgba(0, 0, 0, 0.15)' }}>
                           Common Group
                         </th>
                         {allMatchedItems.map((item, i) => (
@@ -578,6 +578,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                     <tbody>
                       {filteredResults.map((insight, idx) => {
                         const defaultBg = 'transparent';
+                        const stickyDefaultBg = 'var(--bg-surface)';
+                        const stickyHoverBg = 'var(--bg-element)';
                         return (
                           <React.Fragment key={idx}>
                             <tr 
@@ -585,15 +587,15 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             onMouseEnter={(e) => {
                               e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
                               const stickyTd = e.currentTarget.querySelector('td') as HTMLElement;
-                              if (stickyTd) stickyTd.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                              if (stickyTd) stickyTd.style.backgroundColor = stickyHoverBg;
                             }}
                             onMouseLeave={(e) => {
                               e.currentTarget.style.backgroundColor = defaultBg;
                               const stickyTd = e.currentTarget.querySelector('td') as HTMLElement;
-                              if (stickyTd) stickyTd.style.backgroundColor = defaultBg;
+                              if (stickyTd) stickyTd.style.backgroundColor = stickyDefaultBg;
                             }}
                           >
-                            <td style={{ padding: '12px 16px', borderRight: '1px solid var(--border-main)', position: 'sticky', left: 0, backgroundColor: defaultBg, zIndex: 10, transition: 'background-color 0.2s' }}>
+                            <td style={{ padding: '12px 16px', position: 'sticky', left: 0, backgroundColor: stickyDefaultBg, zIndex: 10, transition: 'background-color 0.2s', boxShadow: 'inset -1px 0 0 var(--border-main), 4px 0 8px rgba(0, 0, 0, 0.15)' }}>
                               <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <span style={{ fontWeight: 600, color: getTypeColor(insight.type), display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   {insight.type === 'group' && (
