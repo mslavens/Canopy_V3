@@ -1212,7 +1212,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                           e.stopPropagation();
                           let cellValue = row[colKey];
                           
-                          if (e.target instanceof HTMLElement && e.target.tagName !== 'TD' && e.target.innerText) {
+                          if (e.target instanceof HTMLElement && e.target.tagName !== 'TD' && !e.target.closest('.highlighted-text-wrapper') && e.target.innerText) {
                             cellValue = e.target.innerText.trim();
                           } else if (Array.isArray(cellValue)) {
                             cellValue = cellValue.join(', ');

@@ -345,14 +345,14 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
     return (
       <div key={memberName} style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {isGroup ? <Layers size={12} style={{ color: 'var(--accent-blue)' }} /> : <Package size={12} style={{ color: '#10b981' }} />}
-            <span style={{ fontSize: '11px', color: 'var(--text-main)' }}>{memberName}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+            {isGroup ? <Layers size={12} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} /> : <Package size={12} style={{ color: '#10b981', flexShrink: 0 }} />}
+            <span title={`${memberName}${mOpt && mOpt.value ? `\nValue: ${mOpt.value}` : ''}`} style={{ fontSize: '11px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{memberName}</span>
           </div>
           {isCovered 
-            ? <span style={{ fontSize: '9px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>✓ Covered</span>
-            : <span style={{ fontSize: '9px', backgroundColor: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>+ New</span>
+            ? <span style={{ fontSize: '9px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 0', width: '28px', justifyContent: 'center', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>✓ C</span>
+            : <span style={{ fontSize: '9px', backgroundColor: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '2px 0', width: '28px', justifyContent: 'center', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>+ N</span>
           }
         </div>
         {isGroup && (
@@ -661,9 +661,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                        <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                          <ChevronRight size={12} style={{ color: 'var(--text-muted)', transform: expandedParent === parent.name ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {parent.name}
-                                       </span>
-                                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', fontWeight: 600, color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 4px', borderRadius: '4px' }} title="Optimization Insight">
-                                         <Zap size={10} fill="currentColor" />
                                        </span>
                                      </div>
                                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '18px', marginTop: '2px' }}>{coveredLeavesCount} / {leaves.length} leaf members covered ({nestedGroupsCount} nested)</span>

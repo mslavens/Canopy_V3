@@ -18,7 +18,7 @@ export const HighlightedText: React.FC<HighlightedTextProps> = ({ text, highligh
   const lowerHighlight = cleanHighlight.toLowerCase();
 
   return (
-    <span>
+    <span className="highlighted-text-wrapper">
       {parts.map((part, index) =>
         part.toLowerCase() === lowerHighlight ? (
           <mark key={index} style={{ backgroundColor: 'var(--accent-purple)', color: 'var(--bg-app)', borderRadius: '2px', padding: '0 2px' }}>
