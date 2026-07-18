@@ -241,7 +241,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         title="Optimization Sandbox" 
         description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 24px 0' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 0 0' }}>
         {/* LEFT PANE: Inputs & Controls */}
         <div style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           

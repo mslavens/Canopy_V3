@@ -150,6 +150,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
   useLayoutEffect(() => {
     if (popoverToken) {
+      const isRaw = optionsMap.get(popoverToken) === undefined;
+      setInspectGroupOpen(false);
+      setGroupMembershipsOpen(!isRaw);
+      setExactMatchesOpen(isRaw);
+      setSubnetsOpen(false);
+
       const rowEl = rowRefs.current.get(popoverToken);
       if (rowEl) {
         const rect = rowEl.getBoundingClientRect();
@@ -520,24 +526,30 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 )}
               </div>
 
-              {!isRaw && (() => {
-                const currentlyCoveredLeaves = new Set<string>();
-                values.forEach(v => {
-                  getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
-                });
-                getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
+              {(() => {
+                let parentsCount = 0;
+                if (!isRaw) {
+                  const currentlyCoveredLeaves = new Set<string>();
+                  values.forEach(v => {
+                    getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
+                  });
+                  getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
 
-                const parents = getParentGroups(val).filter(parent => {
-                   const leaves = getDeepMembers(parent.name);
-                   let coveredLeavesCount = 0;
-                   leaves.forEach(l => {
-                     if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
-                   });
-                   const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
-                   return toleranceRatio >= groupTolerance;
-                });
+                  const parents = getParentGroups(val).filter(parent => {
+                     const leaves = getDeepMembers(parent.name);
+                     let coveredLeavesCount = 0;
+                     leaves.forEach(l => {
+                       if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
+                     });
+                     const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
+                     return toleranceRatio >= groupTolerance;
+                  });
+                  parentsCount = parents.length;
+                }
 
-                if (parents.length > 0) {
+                const totalInsights = parentsCount + matchingObjects.length + matchingCidrs.length;
+
+                if (totalInsights > 0) {
                   return (
                     <button
                       onClick={(e) => {
@@ -549,7 +561,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
                       title="View Insights"
                     >
-                      <Zap size={12} fill="currentColor" /> {parents.length} Insight{parents.length > 1 ? 's' : ''}
+                      <Zap size={12} fill="currentColor" /> {totalInsights} Insight{totalInsights > 1 ? 's' : ''}
                     </button>
                   );
                 }
@@ -570,21 +582,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 );
               })()}
 
-              {isRaw && matchingObjects.length > 0 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPopoverToken(popoverToken === val ? null : val);
-                  }}
-                  style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 8px', color: '#fbbf24', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.25)'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
-                  title="View Insights"
-                >
-                  <Zap size={12} fill="currentColor" /> {matchingObjects.length} Match{matchingObjects.length > 1 ? 'es' : ''}
-                </button>
-              )}
-
               {/* EXPANSION POPOVER */}
               {popoverToken === val && createPortal(
                 <div 
@@ -595,7 +592,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   left: popoverPos.left,
                   width: '320px',
                   maxHeight: '400px',
-                  overflowY: 'auto',
+                  overflowY: 'scroll',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '6px',
