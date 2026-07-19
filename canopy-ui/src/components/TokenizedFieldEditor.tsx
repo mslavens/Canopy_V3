@@ -657,23 +657,25 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div 
                           onClick={() => setInspectGroupOpen(!inspectGroupOpen)}
-                          style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                          style={{ fontSize: '10px', fontWeight: 600, color: '#60a5fa', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                         >
                           <ChevronRight size={12} style={{ transform: inspectGroupOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Inspect Group ({opt.member_list?.split(',').length || 0} Members)
                         </div>
                         {inspectGroupOpen && (
-                          <div style={{ border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
-                            {opt.member_list?.split(',').map(m => m.trim()).map(member => renderMemberTree(member, 0, isLeafCoveredByInputs))}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
+                              {opt.member_list?.split(',').map(m => m.trim()).map(member => renderMemberTree(member, 0, isLeafCoveredByInputs))}
+                            </div>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleExpandMembers(val); }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
+                            >
+                              <RotateCcw size={14} /> Expand to Members
+                            </button>
                           </div>
                         )}
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleExpandMembers(val); }}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 12px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
-                        >
-                          <RotateCcw size={14} /> Expand to Members
-                        </button>
                       </div>
                     );
                   })()}
