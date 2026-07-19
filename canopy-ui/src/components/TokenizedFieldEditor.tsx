@@ -415,12 +415,25 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   };
   
   const handleSwapGroup = (oldVal: string, newVal: string) => {
-    const groupCoverage = new Set(getDeepMembers(newVal));
+    const groupCoverage = new Set<string>();
+    getDeepMembers(newVal).forEach(l => {
+      groupCoverage.add(l);
+      const opt = optionsMap.get(l);
+      if (opt && opt.value) groupCoverage.add(opt.value);
+    });
+
     const current = values.filter(v => v !== oldVal);
     const redundantItems: string[] = [];
     current.forEach(v => {
       const vLeaves = getDeepMembers(v);
-      if (vLeaves.length > 0 && vLeaves.every(l => groupCoverage.has(l))) {
+      const vIsRedundant = vLeaves.length > 0 && vLeaves.every(l => {
+        if (groupCoverage.has(l)) return true;
+        const opt = optionsMap.get(l);
+        if (opt && opt.value && groupCoverage.has(opt.value)) return true;
+        return false;
+      });
+
+      if (vIsRedundant) {
         redundantItems.push(v);
       }
     });

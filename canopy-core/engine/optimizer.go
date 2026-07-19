@@ -240,13 +240,13 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 	}
 
 	// 1. IP to Object (Exact Match)
-	for _, inputIP := range inputAddrs {
+	for inputIP, origStr := range inputIPMap {
 		for _, obj := range addressList {
 			if len(obj.IPs) == 1 && len(obj.CIDRs) == 0 && obj.IPs[0] == inputIP {
 				if !inputMap[obj.Name] {
 					insights = append(insights, OptimizationInsight{
 						Type:          "object",
-						MatchedItems:  []string{inputIP.String()},
+						MatchedItems:  []string{origStr},
 						TargetName:    obj.Name,
 						TargetValue:   obj.Value,
 						MissingCount:  0,
@@ -262,19 +262,51 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 	for _, obj := range addressList {
 		if len(obj.CIDRs) == 1 {
 			cidr := obj.CIDRs[0]
-			var matched []string
+			
+			totalCoveredIPs := 0
 			for _, inputIP := range inputAddrs {
 				if cidr.Contains(inputIP) {
-					// Use original string if available to make replace easier
-					if orig, ok := inputIPMap[inputIP]; ok {
-						matched = append(matched, orig)
-					} else {
-						matched = append(matched, inputIP.String())
-					}
+					totalCoveredIPs++
 				}
 			}
 			
-			if len(matched) >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+			if totalCoveredIPs >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+				var matched []string
+				
+				for _, in := range req.Inputs {
+					isFullyCovered := true
+					hasAnyIPs := false
+			
+					if addr, err := netip.ParseAddr(in); err == nil {
+						hasAnyIPs = true
+						if !cidr.Contains(addr) {
+							isFullyCovered = false
+						}
+					} else if inObj, ok := addresses[in]; ok {
+						for _, ip := range inObj.IPs {
+							hasAnyIPs = true
+							if !cidr.Contains(ip) {
+								isFullyCovered = false
+							}
+						}
+					} else if leaves, ok := resolvedGroupLeaves[in]; ok {
+						for leaf := range leaves {
+							if inObj, isObj := addresses[leaf]; isObj {
+								for _, ip := range inObj.IPs {
+									hasAnyIPs = true
+									if !cidr.Contains(ip) {
+										isFullyCovered = false
+									}
+								}
+							}
+						}
+					}
+			
+					if hasAnyIPs && isFullyCovered {
+						matched = append(matched, in)
+					}
+				}
+
 				cidrMap[obj.Name] = &OptimizationInsight{
 					Type:          "network",
 					MatchedItems:  matched,

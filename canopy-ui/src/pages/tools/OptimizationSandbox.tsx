@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
@@ -120,9 +120,12 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     }
   };
 
-  const handleOptimize = async () => {
+  const handleOptimize = useCallback(async () => {
     if (!apiClient) return;
-    if (inputs.length === 0) return;
+    if (inputs.length === 0) {
+      setResults([]);
+      return;
+    }
 
     setIsOptimizing(true);
     setError(null);
@@ -141,7 +144,14 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     } finally {
       setIsOptimizing(false);
     }
-  };
+  }, [apiClient, inputs, cidrThreshold, groupTolerance, selectedScopeUuid]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleOptimize();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [handleOptimize]);
 
   const handleApplyOptimization = (insight: any) => {
     let newInputs = [...inputs];
@@ -320,16 +330,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                 />
               </div>
             </div>
-
-            <button
-              onClick={handleOptimize}
-              disabled={isOptimizing || inputs.length === 0}
-              className="btn-primary"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
-            >
-              <Zap size={16} />
-              {isOptimizing ? 'Analyzing...' : 'Run Optimization'}
-            </button>
           </div>
         </div>
 
