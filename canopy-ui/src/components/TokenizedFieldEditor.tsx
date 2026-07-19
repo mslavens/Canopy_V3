@@ -493,11 +493,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isSelected = selectedTokens.has(val);
 
           const flattenedAllInputs = new Set<string>();
-          values.forEach(v => getDeepMembers(v).forEach(l => flattenedAllInputs.add(l)));
-          if (!values.includes(val)) getDeepMembers(val).forEach(l => flattenedAllInputs.add(l));
+          const addToFlattened = (l: string, set: Set<string>) => {
+             set.add(l);
+             const o = optionsMap.get(l);
+             if (o && o.value) set.add(o.value);
+          };
+          values.forEach(v => getDeepMembers(v).forEach(l => addToFlattened(l, flattenedAllInputs)));
+          if (!values.includes(val)) getDeepMembers(val).forEach(l => addToFlattened(l, flattenedAllInputs));
           
-          const flattenedInputsWithoutVal = new Set<string>();
-          values.filter(v => v !== val).forEach(v => getDeepMembers(v).forEach(l => flattenedInputsWithoutVal.add(l)));
+          const valFlattened = new Set<string>();
+          getDeepMembers(val).forEach(l => addToFlattened(l, valFlattened));
 
           const isLeafCoveredBy = (leafName: string, flattenedSet: Set<string>): boolean => {
              if (flattenedSet.has(leafName)) return true;
@@ -518,15 +523,15 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
              if (leaves.length === 0) return null;
              
              let coveredWithVal = 0;
-             let coveredWithoutVal = 0;
+             let tokenContributes = false;
              leaves.forEach(l => {
                if (isLeafCoveredBy(l, flattenedAllInputs)) coveredWithVal++;
-               if (isLeafCoveredBy(l, flattenedInputsWithoutVal)) coveredWithoutVal++;
+               if (isLeafCoveredBy(l, valFlattened)) tokenContributes = true;
              });
              
              const toleranceRatio = coveredWithVal / leaves.length;
              
-             if (toleranceRatio >= groupTolerance && coveredWithVal > coveredWithoutVal) {
+             if (toleranceRatio >= groupTolerance && tokenContributes) {
                 const pMembers = parent.member_list ? parent.member_list.split(',').map(m => m.trim()) : [];
                 let nestedGroupsCount = 0;
                 pMembers.forEach(m => {
