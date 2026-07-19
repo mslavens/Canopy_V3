@@ -214,7 +214,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   };
 
   const addTokens = (rawText: string) => {
-    const newTokens = rawText.split(/[\n,]+/).map(t => t.trim()).filter(t => t.length > 0);
+    const newTokens = rawText.split(/[\n,;]+/).map(t => t.trim()).filter(t => t.length > 0);
     if (newTokens.length === 0) return;
     
     const nextValues = [...values];
