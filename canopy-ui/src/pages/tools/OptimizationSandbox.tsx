@@ -21,8 +21,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     setInputs([]);
   }, [selectedScopeUuid]);
   
-  const [cidrThreshold, setCidrThreshold] = useState<number>(3);
-  const [groupTolerance, setGroupTolerance] = useState<number>(0.8);
+  const [cidrThresholdRaw, setCidrThresholdRaw] = useState<string>('3');
+  const [groupToleranceRaw, setGroupToleranceRaw] = useState<string>('10');
+  
+  const cidrThreshold = isNaN(parseInt(cidrThresholdRaw)) ? 0 : parseInt(cidrThresholdRaw);
+  const groupTolerance = isNaN(parseInt(groupToleranceRaw)) ? 1 : parseInt(groupToleranceRaw) / 100;
 
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -291,8 +294,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                   min="0"
                   className="input-text"
                   style={{ width: '100%' }}
-                  value={cidrThreshold}
-                  onChange={(e) => setCidrThreshold(parseInt(e.target.value) || 0)}
+                  value={cidrThresholdRaw}
+                  onChange={(e) => setCidrThresholdRaw(e.target.value)}
+                  onBlur={() => {
+                    if (cidrThresholdRaw.trim() === '') setCidrThresholdRaw('0');
+                  }}
                 />
               </div>
               
@@ -306,8 +312,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                   max="100"
                   className="input-text"
                   style={{ width: '100%' }}
-                  value={Math.round(groupTolerance * 100)}
-                  onChange={(e) => setGroupTolerance((parseInt(e.target.value) || 100) / 100)}
+                  value={groupToleranceRaw}
+                  onChange={(e) => setGroupToleranceRaw(e.target.value)}
+                  onBlur={() => {
+                    if (groupToleranceRaw.trim() === '') setGroupToleranceRaw('100');
+                  }}
                 />
               </div>
             </div>
@@ -471,7 +480,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                       {/* Header Row */}
                       <div 
                         onClick={() => toggleExpand(insight.target_name)}
-                        style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', backgroundColor: 'var(--bg-surface)' }}
+                        style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', backgroundColor: 'var(--bg-surface)', gap: '24px' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-surface)'}
                       >

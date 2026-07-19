@@ -354,6 +354,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   
   const isDeepMember = (groupName: string, targetToken: string): boolean => {
     let found = false;
+    const targetIp = optionsMap.get(targetToken)?.value || targetToken;
+    
     const visit = (name: string, visited = new Set<string>()) => {
       if (found || visited.has(name)) return;
       visited.add(name);
@@ -364,7 +366,15 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           if (mTrim === targetToken) {
             found = true;
           } else {
-            visit(mTrim, visited);
+            const leafOpt = optionsMap.get(mTrim);
+            if (leafOpt && !leafOpt.member_list && leafOpt.value) {
+               if (leafOpt.value === targetIp) {
+                  found = true;
+               } else if (leafOpt.value.includes('/') && !targetIp.includes('/') && isIpInCidr(targetIp, leafOpt.value)) {
+                  found = true;
+               }
+            }
+            if (!found) visit(mTrim, visited);
           }
         });
       }
@@ -373,11 +383,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     return found;
   };
 
-  const renderMemberTree = (memberName: string, indent: number, currentlyCoveredLeaves: Set<string>) => {
+  const renderMemberTree = (memberName: string, indent: number, isLeafCovered: (l: string) => boolean) => {
     const mOpt = optionsMap.get(memberName);
     const isGroup = mOpt && mOpt.member_list;
     const memberLeaves = getDeepMembers(memberName);
-    const isCovered = memberLeaves.length > 0 && memberLeaves.every(l => currentlyCoveredLeaves.has(l));
+    const isCovered = memberLeaves.length > 0 && memberLeaves.every(l => isLeafCovered(l));
 
     return (
       <div key={memberName} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -393,7 +403,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         </div>
         {isGroup && (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {mOpt?.member_list?.split(',').map(m => renderMemberTree(m.trim(), indent + 1, currentlyCoveredLeaves))}
+            {mOpt?.member_list?.split(',').map(m => renderMemberTree(m.trim(), indent + 1, isLeafCovered))}
           </div>
         )}
       </div>
@@ -429,7 +439,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const isAllVisibleSelected = visibleValues.length > 0 && selectedTokens.size === visibleValues.length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'visible' }} ref={containerRef}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'visible', minHeight: 0 }} ref={containerRef}>
       
       {/* TOOLBAR */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
@@ -475,31 +485,58 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           
           const valIp = opt?.value || val;
           let matchingObjects = options.filter(o => !o.member_list && o.value === valIp && o.name !== val);
-          let matchingCidrs: ObjectRef[] = [];
-          if (!valIp.includes('/')) {
-            matchingCidrs = options.filter(o => {
-              if (o.member_list || !o.value || !o.value.includes('/')) return false;
-              if (o.name === val || !isIpInCidr(valIp, o.value)) return false;
-              
-              if (cidrThreshold > 0) {
-                 let matches = 0;
-                 for (const v of values) {
-                    const ip = optionsMap.get(v)?.value || v;
-                    if (!ip.includes('/') && isIpInCidr(ip, o.value)) {
-                       matches++;
-                    }
-                 }
-                 if (matches < cidrThreshold) return false;
-              }
-              return true;
-            });
-          }
           
           let iconColor = 'var(--text-muted)';
           if (isGroup) iconColor = '#60a5fa';
           else if (isObject) iconColor = '#10b981'; // Canopy 1.0 style green for object
 
           const isSelected = selectedTokens.has(val);
+
+          const flattenedAllInputs = new Set<string>();
+          values.forEach(v => getDeepMembers(v).forEach(l => flattenedAllInputs.add(l)));
+          if (!values.includes(val)) getDeepMembers(val).forEach(l => flattenedAllInputs.add(l));
+          
+          const flattenedInputsWithoutVal = new Set<string>();
+          values.filter(v => v !== val).forEach(v => getDeepMembers(v).forEach(l => flattenedInputsWithoutVal.add(l)));
+
+          const isLeafCoveredBy = (leafName: string, flattenedSet: Set<string>): boolean => {
+             if (flattenedSet.has(leafName)) return true;
+             const leafOpt = optionsMap.get(leafName);
+             if (!leafOpt || !leafOpt.value) return false;
+             if (!leafOpt.value.includes('/')) {
+                return flattenedSet.has(leafOpt.value);
+             } else {
+                return flattenedSet.has(leafOpt.value);
+             }
+          };
+          
+          const isLeafCoveredByInputs = (leafName: string): boolean => isLeafCoveredBy(leafName, flattenedAllInputs);
+          
+          const allGroups = options.filter(o => o.member_list && o.name !== val);
+          const validParents = allGroups.map(parent => {
+             const leaves = getDeepMembers(parent.name);
+             if (leaves.length === 0) return null;
+             
+             let coveredWithVal = 0;
+             let coveredWithoutVal = 0;
+             leaves.forEach(l => {
+               if (isLeafCoveredBy(l, flattenedAllInputs)) coveredWithVal++;
+               if (isLeafCoveredBy(l, flattenedInputsWithoutVal)) coveredWithoutVal++;
+             });
+             
+             const toleranceRatio = coveredWithVal / leaves.length;
+             
+             if (toleranceRatio >= groupTolerance && coveredWithVal > coveredWithoutVal) {
+                const pMembers = parent.member_list ? parent.member_list.split(',').map(m => m.trim()) : [];
+                let nestedGroupsCount = 0;
+                pMembers.forEach(m => {
+                   const mOpt = optionsMap.get(m);
+                   if (mOpt && mOpt.member_list) nestedGroupsCount++;
+                });
+                return { parent, pMembers, leaves, coveredLeavesCount: coveredWithVal, nestedGroupsCount, toleranceRatio };
+             }
+             return null;
+          }).filter((item): item is NonNullable<typeof item> => item !== null);
 
           return (
             <div 
@@ -527,7 +564,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 {isSelected ? <CheckSquare size={16} style={{ color: 'var(--accent-blue)' }} /> : <Square size={16} />}
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}>
+              <div 
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}
+                title={opt && opt.value ? `${val} [${opt.value}]` : val}
+              >
                 <span style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
                   {isGroup ? <Layers size={14} /> : isObject ? <Package size={14} /> : <Hash size={14} />}
                 </span>
@@ -544,27 +584,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               </div>
 
               {(() => {
-                let parentsCount = 0;
-                if (!isRaw) {
-                  const currentlyCoveredLeaves = new Set<string>();
-                  values.forEach(v => {
-                    getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
-                  });
-                  getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
-
-                  const parents = getParentGroups(val).filter(parent => {
-                     const leaves = getDeepMembers(parent.name);
-                     let coveredLeavesCount = 0;
-                     leaves.forEach(l => {
-                       if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
-                     });
-                     const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
-                     return toleranceRatio >= groupTolerance;
-                  });
-                  parentsCount = parents.length;
-                }
-
-                const totalInsights = parentsCount + matchingObjects.length + matchingCidrs.length;
+                const totalInsights = validParents.length + matchingObjects.length;
 
                 if (totalInsights > 0) {
                   return (
@@ -628,12 +648,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   </div>
                   
                   {isGroup && opt && (() => {
-                    const currentlyCoveredLeaves = new Set<string>();
-                    values.forEach(v => {
-                      getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
-                    });
-                    getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
-
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div 
@@ -644,7 +658,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         </div>
                         {inspectGroupOpen && (
                           <div style={{ border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
-                            {opt.member_list?.split(',').map(m => m.trim()).map(member => renderMemberTree(member, 0, currentlyCoveredLeaves))}
+                            {opt.member_list?.split(',').map(m => m.trim()).map(member => renderMemberTree(member, 0, isLeafCoveredByInputs))}
                           </div>
                         )}
                         <button 
@@ -659,77 +673,44 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     );
                   })()}
 
-                  {!isRaw && (() => {
-                    const parents = getParentGroups(val);
-                    if (parents.length === 0) return null;
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                        <div 
-                          onClick={() => setGroupMembershipsOpen(!groupMembershipsOpen)}
-                          style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                        >
-                          <ChevronRight size={12} style={{ transform: groupMembershipsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Group Memberships
-                        </div>
-                        {groupMembershipsOpen && (() => {
-                           const currentlyCoveredLeaves = new Set<string>();
-                           values.forEach(v => {
-                             getDeepMembers(v).forEach(l => currentlyCoveredLeaves.add(l));
-                           });
-                           getDeepMembers(val).forEach(l => currentlyCoveredLeaves.add(l));
-
-                           return parents
-                            .map(parent => {
-                               const leaves = getDeepMembers(parent.name);
-                               let coveredLeavesCount = 0;
-                               leaves.forEach(l => {
-                                 if (currentlyCoveredLeaves.has(l)) coveredLeavesCount++;
-                               });
-                               
-                               const pMembers = parent.member_list ? parent.member_list.split(',').map(m => m.trim()) : [];
-                               let nestedGroupsCount = 0;
-                               pMembers.forEach(m => {
-                                 const mOpt = optionsMap.get(m);
-                                 if (mOpt && mOpt.member_list) nestedGroupsCount++;
-                               });
-
-                               const toleranceRatio = leaves.length > 0 ? coveredLeavesCount / leaves.length : 0;
-                               return { parent, pMembers, leaves, coveredLeavesCount, nestedGroupsCount, toleranceRatio };
-                            })
-                            .filter(item => item.toleranceRatio >= groupTolerance)
-                            .map(({ parent, pMembers, leaves, coveredLeavesCount, nestedGroupsCount }) => {
-                             return (
-                               <div key={parent.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
-                                   <div 
-                                     onClick={(e) => { e.stopPropagation(); setExpandedParent(expandedParent === parent.name ? null : parent.name); }}
-                                     style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
-                                   >
-                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                       <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                         <ChevronRight size={12} style={{ color: 'var(--text-muted)', transform: expandedParent === parent.name ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {parent.name}
-                                       </span>
-                                     </div>
-                                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '18px', marginTop: '2px' }}>{coveredLeavesCount} / {leaves.length} leaf members covered ({nestedGroupsCount} nested)</span>
-                                   </div>
-                                   <button 
-                                     onClick={(e) => { e.stopPropagation(); handleSwapGroup(val, parent.name); }}
-                                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: '#a78bfa', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                                   >
-                                     <Layers size={12} /> Swap
-                                   </button>
-                                 </div>
-                                 {expandedParent === parent.name && (
-                                   <div style={{ marginLeft: '18px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
-                                      {pMembers.map(member => renderMemberTree(member, 0, currentlyCoveredLeaves))}
-                                   </div>
-                                 )}
-                               </div>
-                             );
-                          });
-                        })()}
+                  {validParents.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      <div 
+                        onClick={() => setGroupMembershipsOpen(!groupMembershipsOpen)}
+                        style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                      >
+                        <ChevronRight size={12} style={{ transform: groupMembershipsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Group Memberships ({validParents.length})
                       </div>
-                    );
-                  })()}
+                      {groupMembershipsOpen && validParents.map(({ parent, pMembers, leaves, coveredLeavesCount, nestedGroupsCount }) => (
+                         <div key={parent.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                             <div 
+                               onClick={(e) => { e.stopPropagation(); setExpandedParent(expandedParent === parent.name ? null : parent.name); }}
+                               style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                             >
+                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                 <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                   <ChevronRight size={12} style={{ color: 'var(--text-muted)', transform: expandedParent === parent.name ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {parent.name}
+                                 </span>
+                               </div>
+                               <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '18px', marginTop: '2px' }}>{coveredLeavesCount} / {leaves.length} leaf members covered ({nestedGroupsCount} nested)</span>
+                             </div>
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); handleSwapGroup(val, parent.name); }}
+                               style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: '#a78bfa', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                             >
+                               <Layers size={12} /> Swap
+                             </button>
+                           </div>
+                           {expandedParent === parent.name && (
+                             <div style={{ marginLeft: '18px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
+                                {pMembers.map(member => renderMemberTree(member, 0, isLeafCoveredByInputs))}
+                             </div>
+                           )}
+                         </div>
+                      ))}
+                    </div>
+                  )}
 
                   {matchingObjects.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
@@ -761,35 +742,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </div>
                   )}
 
-                  {matchingCidrs.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                      <div 
-                        onClick={() => setSubnetsOpen(!subnetsOpen)}
-                        style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
-                      >
-                        <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Containing Subnets ({matchingCidrs.length})
-                      </div>
-                      {subnetsOpen && matchingCidrs.map(match => (
-                        <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.value}</span>
-                          </div>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSwapRawToken(val, match.name);
-                            }}
-                            style={{ padding: '4px 8px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
-                          >
-                            Swap
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>, document.body
               )}
             </div>
@@ -798,7 +750,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       </div>
 
       {/* INPUT ROW */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
         <input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -815,7 +767,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               fontSize: '13px',
               fontFamily: 'monospace',
               color: 'var(--text-main)',
-              padding: 0
+              padding: '0 8px'
             }}
             placeholder="Paste IPs, CIDRs, or Object names..."
             autoComplete="off"
@@ -823,7 +775,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       </div>
 
       {/* BUTTON ROW WITH PICK LIST */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', borderTop: '1px solid var(--border-main)', position: 'relative', backgroundColor: 'var(--bg-app)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', borderTop: '1px solid var(--border-main)', position: 'relative', backgroundColor: 'var(--bg-app)', flexShrink: 0 }}>
         
         <button 
           onClick={() => {
