@@ -1,5 +1,19 @@
 # Canopy Framework Changelog
 
+## v0.33.6 - Optimization Sandbox Live Updates & Engine Fixes
+**Date:** 2026-07-18
+
+### Added
+- **Live Optimization Engine**: Removed the manual "Run Optimization" button in favor of a silent, reactive auto-updater. The global insights panel now dynamically re-evaluates inputs, thresholds, and scopes in real-time as you type, instantly reflecting aggregation opportunities without requiring a manual refresh.
+
+### Changed
+- **Strict 1:1 Replacement Mapping**: Fixed a bug where the backend engine was improperly suggesting 1:1 object replacements for raw IPs that were deeply nested inside an explicitly provided group. 1:1 swaps are now strictly limited to IPs that you specifically type into the input box.
+- **Strict CIDR Boundary Adherence**: Updated the global CIDR collapsing logic to ensure that if a group overlaps with a mathematical CIDR boundary, it will only suggest swapping the group for the CIDR if *100%* of the group's members fall inside the CIDR, completely preventing accidental coverage loss for partially-overlapping groups.
+- **Redundant Member Purging**: Fixed a string-matching bug in the UI's inline swap handler. When you swap an inline group, the UI now properly cross-references the underlying IPs and correctly purges any of your raw IP inputs that are mathematically covered by the newly swapped group.
+- **Sandbox Documentation Polish**: Rewrote the Sandbox Help manual (`?` modal) into a comprehensive, step-by-step "How-To" guide for new users.
+- **Delimiter Support**: The Sandbox input parser now accepts semicolons (`;`) as valid delimiters alongside commas and newlines.
+- **Inspector UX Polish**: Changed the inline 'Inspect Group' label to use the standard Canopy blue color. Nested the 'Expand to Members' button directly inside the Inspection accordion to drastically reduce default popover clutter.
+
 ## v0.33.5 - Optimization Sandbox Smart Swaps
 **Date:** 2026-07-17
 
