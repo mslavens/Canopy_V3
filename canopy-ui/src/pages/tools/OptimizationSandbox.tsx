@@ -14,6 +14,7 @@ interface OptimizationSandboxProps {
 }
 
 export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiClient, addToast }) => {
+  const [domainTab, setDomainTab] = useState<'addresses' | 'services' | 'applications'>('addresses');
   const [inputs, setInputs] = useState<string[]>([]);
   const [selectedScopeUuid, setSelectedScopeUuid] = useState('paloalto-panorama-global');
 
@@ -254,7 +255,29 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         title="Optimization Sandbox" 
         description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '48px 0 0 0' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-main)', padding: '0 32px' }}>
+        <button
+          onClick={() => setDomainTab('addresses')}
+          style={{ padding: '16px 24px', background: 'transparent', border: 'none', borderBottom: domainTab === 'addresses' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: domainTab === 'addresses' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Addresses
+        </button>
+        <button
+          onClick={() => setDomainTab('services')}
+          style={{ padding: '16px 24px', background: 'transparent', border: 'none', borderBottom: domainTab === 'services' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: domainTab === 'services' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Services
+        </button>
+        <button
+          onClick={() => setDomainTab('applications')}
+          style={{ padding: '16px 24px', background: 'transparent', border: 'none', borderBottom: domainTab === 'applications' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: domainTab === 'applications' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Applications
+        </button>
+      </div>
+
+      {domainTab === 'addresses' ? (
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '32px 0 0 0' }}>
         {/* LEFT PANE: Inputs & Controls */}
         <div style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           
@@ -683,6 +706,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           </div>
         </div>
       </div>
+      ) : (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500 }}>
+          {domainTab === 'services' ? 'Service Optimization Sandbox (Coming Soon)' : 'Application Optimization Sandbox (Coming Soon)'}
+        </div>
+      )}
     </div>
   );
 };
