@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -413,27 +415,64 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reader := csv.NewReader(file)
+	bodyBytes, err := io.ReadAll(file)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read file"})
+		return
+	}
+	
+	// Strip UTF-8 BOM if present
+	if bytes.HasPrefix(bodyBytes, []byte("\xef\xbb\xbf")) {
+		bodyBytes = bytes.TrimPrefix(bodyBytes, []byte("\xef\xbb\xbf"))
+	}
+
+	reader := csv.NewReader(bytes.NewReader(bodyBytes))
 	reader.LazyQuotes = true
 	reader.TrimLeadingSpace = true
 
-	headers, err := reader.Read()
-	if err != nil {
+	var headers []string
+	colMap := make(map[string]int)
+	foundHeaders := false
+
+	// Scan until we find a row with 'name' header
+	for {
+		headers, err = reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue // skip malformed lines before headers?
+		}
+
+		// build temp map
+		tempMap := make(map[string]int)
+		for i, h := range headers {
+			cleanHeader := strings.TrimPrefix(h, "\xef\xbb\xbf")
+			cleanHeader = strings.Trim(cleanHeader, "\"")
+			cleanHeader = strings.ToLower(strings.TrimSpace(cleanHeader))
+			cleanHeader = strings.ReplaceAll(cleanHeader, " ", "_")
+			cleanHeader = strings.ReplaceAll(cleanHeader, "-", "_")
+			tempMap[cleanHeader] = i
+		}
+
+		if _, hasName := tempMap["name"]; hasName {
+			colMap = tempMap
+			foundHeaders = true
+			break
+		}
+	}
+
+	if !foundHeaders {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to read CSV headers: " + err.Error()})
+		errMsg := "CSV is missing the required 'name' column. Could not find a valid header row in the file."
+		json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
 		return
 	}
 
-	colMap := make(map[string]int)
-	for i, h := range headers {
-		cleanHeader := strings.TrimPrefix(h, "\xef\xbb\xbf")
-		cleanHeader = strings.ToLower(strings.TrimSpace(cleanHeader))
-		cleanHeader = strings.ReplaceAll(cleanHeader, " ", "_")
-		cleanHeader = strings.ReplaceAll(cleanHeader, "-", "_")
-		colMap[cleanHeader] = i
-	}
+	slog.Info("CSV Upload Debug", slog.Any("raw_headers", headers), slog.Any("col_map", colMap))
 
-	nameIdx, hasName := colMap["name"]
+	nameIdx := colMap["name"]
 	categoryIdx, hasCategory := colMap["category"]
 	subcategoryIdx, hasSubcategory := colMap["subcategory"]
 	if !hasSubcategory {
@@ -446,12 +485,6 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 		portsIdx, hasPorts = colMap["standard_ports"]
 	}
 	descIdx, hasDesc := colMap["description"]
-
-	if !hasName {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "CSV is missing the required 'name' column."})
-		return
-	}
 
 	tx, err := dbConn.Begin()
 	if err != nil {

@@ -3182,7 +3182,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
           </div>
 
           {/* Ingest Pack drop-zone (Only for Custom Applications list) */}
-          {activeSubTab === 'Applications' && currentScope !== 'show-all' && (
+          {activeSubTab === 'Applications' && currentScope === 'paloalto-panorama-global' && (
             <div
               onDragEnter={handleDrag}
               onDragOver={handleDrag}

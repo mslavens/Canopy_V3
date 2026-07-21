@@ -1,5 +1,11 @@
 # Canopy Framework Changelog
 
+## v0.33.8 - CSV Ingestion Engine Fixes
+**Date:** 2026-07-21
+
+### Fixed
+- **Application CSV Imports**: Hardened the backend CSV ingestion engine to properly detect and strip invisible UTF-8 BOM (Byte Order Mark) signatures from files exported by Windows and Panorama. This fixes a persistent bug where the engine would fail to locate the "Name" column header due to it being trapped inside the BOM marker.
+
 ## v0.33.7 - Optimization Sandbox UI Refinements & Engine Sorting
 **Date:** 2026-07-21
 

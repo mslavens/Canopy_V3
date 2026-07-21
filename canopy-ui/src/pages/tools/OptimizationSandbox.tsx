@@ -383,23 +383,43 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     );
   };
 
-  const filteredResults = (activeTab === 'all' ? results : results.filter(r => r.type === activeTab)).filter(r => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
+  const filteredResults = useMemo(() => {
+    let r = activeTab === 'all' ? results : results.filter(x => x.type === activeTab);
     
-    const checkNested = (members: any[] | undefined): boolean => {
-      if (!members) return false;
-      return members.some(m => 
-        m.name.toLowerCase().includes(q) || 
-        (m.value && m.value.toLowerCase().includes(q)) || 
-        checkNested(m.children)
-      );
-    };
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const checkNested = (members: any[] | undefined): boolean => {
+        if (!members) return false;
+        return members.some(m => 
+          m.name.toLowerCase().includes(q) || 
+          (m.value && m.value.toLowerCase().includes(q)) || 
+          checkNested(m.children)
+        );
+      };
 
-    return r.target_name.toLowerCase().includes(q) || 
-           r.matched_items.some((i: string) => i.toLowerCase().includes(q)) ||
-           checkNested(r.nested_members);
-  });
+      r = r.filter(x => 
+        x.target_name.toLowerCase().includes(q) || 
+        x.matched_items.some((i: string) => i.toLowerCase().includes(q)) ||
+        checkNested(x.nested_members)
+      );
+    }
+
+    // Sort by most impactful
+    r.sort((a, b) => {
+      // 1. Perfect matches first (missing_count === 0, but total_members > 1 to avoid trivial 1:1s if groups exist)
+      const aIsPerfect = a.type === 'group' && a.missing_count === 0;
+      const bIsPerfect = b.type === 'group' && b.missing_count === 0;
+      
+      if (aIsPerfect && !bIsPerfect) return -1;
+      if (!aIsPerfect && bIsPerfect) return 1;
+
+      // 2. Sort by number of matched items
+      return b.matched_items.length - a.matched_items.length;
+    });
+
+    return r;
+  }, [results, activeTab, searchQuery]);
+
   const allMatchedItems = Array.from(new Set(filteredResults.flatMap(r => r.matched_items)));
 
   return (

@@ -162,12 +162,17 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   // Close popover and dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-        if (!(event.target as Element).closest('.popover-trigger')) {
-          setPopoverToken(null);
-        }
+      const target = event.target as Element;
+      if (target.closest('.add-button-trigger') || target.closest('.popover-trigger')) {
+         return;
       }
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && !(event.target as Element).closest('.add-button-trigger')) {
+
+      const isOutsidePopover = !popoverRef.current || !popoverRef.current.contains(target);
+      const isOutsideDropdown = !dropdownRef.current || !dropdownRef.current.contains(target);
+      const isOutsideContainer = !containerRef.current || !containerRef.current.contains(target);
+
+      if (isOutsidePopover && isOutsideDropdown && isOutsideContainer) {
+        setPopoverToken(null);
         setDropdownOpen(false);
         setReplacingToken(null);
       }
@@ -1016,7 +1021,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 top: dropdownPos.top,
                 bottom: dropdownPos.bottom,
                 left: dropdownPos.left,
-                width: '420px',
+                width: '600px',
                 height: '400px',
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border-main)',
