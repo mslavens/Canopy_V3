@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react';
-import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search } from 'lucide-react';
+import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search, X } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
 import { PageHeader } from '../../components/PageHeader';
@@ -42,6 +42,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [leftPaneWidth, setLeftPaneWidth] = useState(550);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, width: 0 });
+
+  // Extraction State
+  const [selectedInsightToExtract, setSelectedInsightToExtract] = useState<any>(null);
+  const [extractStrictGroupName, setExtractStrictGroupName] = useState('');
+  const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -163,6 +168,69 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
       setIsOptimizing(false);
     }
   }, [apiClient, inputs, cidrThreshold, groupTolerance, selectedScopeUuid]);
+
+  const handleExtractStrictGroup = async () => {
+    if (!apiClient || !selectedInsightToExtract || !extractStrictGroupName.trim()) return;
+    setIsExtracting(true);
+    try {
+      // Find all covered leaf nodes recursively
+      const coveredLeaves: string[] = [];
+      const extractLeaves = (nodes: any[]) => {
+        nodes.forEach(node => {
+          if (node.is_covered) {
+            if (node.children && node.children.length > 0) {
+              extractLeaves(node.children);
+            } else {
+              coveredLeaves.push(node.name);
+            }
+          }
+        });
+      };
+      
+      if (selectedInsightToExtract.nested_tree) {
+        extractLeaves(selectedInsightToExtract.nested_tree);
+      }
+
+      if (coveredLeaves.length === 0) {
+        if (addToast) addToast("No covered members found to extract.", "error");
+        setIsExtracting(false);
+        return;
+      }
+
+      let activeScopeName = scopeNameMap[selectedScopeUuid] || 'Shared';
+      if (selectedScopeUuid === 'paloalto-panorama-global' || activeScopeName === 'Shared') {
+        activeScopeName = 'shared';
+      }
+
+      const payload = {
+        device_uuid: selectedScopeUuid,
+        scope: activeScopeName,
+        name: extractStrictGroupName.trim(),
+        description: `Strict optimization group extracted from ${selectedInsightToExtract.target_name}`,
+        type: 'static',
+        filter: '',
+        members: coveredLeaves,
+        tags: []
+      };
+
+      if (domainTab === 'addresses') {
+        await apiClient.createAddressGroup(payload);
+      } else if (domainTab === 'services') {
+        await apiClient.createServiceGroup(payload);
+      } else {
+        await apiClient.createApplicationGroup(payload);
+      }
+
+      if (addToast) addToast(`Successfully extracted strict group '${payload.name}' with ${coveredLeaves.length} members.`, 'success');
+      
+      setSelectedInsightToExtract(null);
+      setExtractStrictGroupName('');
+    } catch (e: any) {
+      if (addToast) addToast(e.message || "Failed to extract strict group.", "error");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -542,6 +610,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
                                 <strong style={{ color: 'var(--text-main)' }}>{insight.covered_members}</strong> out of <strong>{insight.total_members}</strong> members of <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong> are covered.
+                                {insight.usage_count > 0 && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, color: 'var(--status-warn)', marginLeft: '8px', verticalAlign: 'middle' }}>
+                                    <Zap size={10} /> {insight.usage_count} Policies
+                                  </span>
+                                )}
                               </span>
                               {insight.missing_count === 0 ? (
                                 <span style={{ fontSize: '11px', color: 'var(--status-green)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -557,6 +630,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
                                 <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : (insight.type === 'network' ? (domainTab === 'addresses' ? 'network' : 'range') : insight.type)} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
+                                {insight.usage_count > 0 && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, color: 'var(--status-warn)', marginLeft: '8px', verticalAlign: 'middle' }}>
+                                    <Zap size={10} /> {insight.usage_count} Policies
+                                  </span>
+                                )}
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Check size={12} color="var(--status-green)" /> Swaps {insight.coverage_count} items for 1 object.
@@ -566,13 +644,24 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                         </div>
                         </div>
                         
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
-                          className="btn-primary"
-                          style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', width: '160px', flexShrink: 0 }}
-                        >
-                          <Layers size={14} /> Swap Matches
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, width: '160px' }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
+                            className="btn-primary"
+                            style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', width: '100%' }}
+                          >
+                            <Layers size={14} /> Swap Matches
+                          </button>
+                          {insight.type === 'group' && insight.missing_count > 0 && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setSelectedInsightToExtract(insight); setExtractStrictGroupName(`${insight.target_name}_strict`); }}
+                              className="btn-secondary"
+                              style={{ padding: '6px 16px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap', width: '100%' }}
+                            >
+                              <CheckSquare size={14} /> Extract Strict Group
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Expanded Body */}
@@ -664,6 +753,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                                     </button>
                                   )}
                                   {getTypeIcon(insight.type)} {insight.target_name}
+                                  {insight.usage_count > 0 && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)', padding: '2px 6px', borderRadius: '12px', fontSize: '9px', fontWeight: 600, color: 'var(--status-warn)', marginLeft: '8px' }}>
+                                      <Zap size={9} /> {insight.usage_count} Policies
+                                    </span>
+                                  )}
                                 </span>
                                 {insight.type === 'group' ? (
                                   <>
@@ -702,13 +796,24 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             </td>
                             ))}
                             <td style={{ padding: '12px 16px', borderLeft: '1px solid var(--border-main)', textAlign: 'center' }}>
-                              <button
-                                onClick={() => handleApplyOptimization(insight)}
-                                className="btn-primary"
-                                style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', whiteSpace: 'nowrap' }}
-                              >
-                                <Layers size={12} /> Swap Matches
-                              </button>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <button
+                                  onClick={() => handleApplyOptimization(insight)}
+                                  className="btn-primary"
+                                  style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', whiteSpace: 'nowrap' }}
+                                >
+                                  <Layers size={12} /> Swap Matches
+                                </button>
+                                {insight.type === 'group' && insight.missing_count > 0 && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedInsightToExtract(insight); setExtractStrictGroupName(`${insight.target_name}_strict`); }}
+                                    className="btn-secondary"
+                                    style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', width: '100%', whiteSpace: 'nowrap' }}
+                                  >
+                                    <CheckSquare size={12} /> Extract Strict
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                           {insight.type === 'group' && expandedMatrixRows.has(idx) && (
@@ -732,6 +837,75 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           </div>
         </div>
       </div>
+      
+      {/* Extract Strict Group Modal */}
+      {selectedInsightToExtract && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-main, #1E1E24)', border: '1px solid var(--border-main)',
+            borderRadius: '8px', padding: '24px', width: '400px',
+            display: 'flex', flexDirection: 'column', gap: '16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckSquare size={18} /> Extract Strict Group
+              </h3>
+              <button onClick={() => { setSelectedInsightToExtract(null); setExtractStrictGroupName(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>
+              You are extracting a strict Custom Group containing only the <strong>{selectedInsightToExtract.covered_members}</strong> covered members from <strong style={{ color: 'var(--text-main)' }}>{selectedInsightToExtract.target_name}</strong>.
+            </p>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                New Group Name
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="text" 
+                  value={extractStrictGroupName}
+                  onChange={e => setExtractStrictGroupName(e.target.value)}
+                  placeholder={`e.g. ${selectedInsightToExtract.target_name}_strict`}
+                  style={{
+                    width: '100%', padding: '8px 32px 8px 12px',
+                    backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-main)',
+                    color: 'var(--text-main)', borderRadius: '4px', fontSize: '14px', outline: 'none'
+                  }}
+                  autoFocus
+                />
+                {extractStrictGroupName && (
+                  <button 
+                    onClick={() => setExtractStrictGroupName('')}
+                    style={{
+                      position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+              <button onClick={() => { setSelectedInsightToExtract(null); setExtractStrictGroupName(''); }} className="btn-secondary" style={{ padding: '8px 16px' }} disabled={isExtracting}>Cancel</button>
+              <button onClick={handleExtractStrictGroup} className="btn-primary" style={{ padding: '8px 16px' }} disabled={isExtracting || !extractStrictGroupName.trim()}>
+                {isExtracting ? 'Extracting...' : 'Extract Group'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

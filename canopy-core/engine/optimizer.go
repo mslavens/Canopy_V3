@@ -27,6 +27,7 @@ type OptimizationInsight struct {
 	CoverageCount  int                `json:"coverage_count"`   // How many items from the input list are covered
 	CoveredMembers int                `json:"covered_members"`  // How many actual members of the group are covered
 	TotalMembers   int                `json:"total_members"`    // Total leaves/members in the group
+	UsageCount     int                `json:"usage_count"`      // Number of policy rules using this object
 	NestedTree     []NestedMemberNode `json:"nested_tree,omitempty"` // Full hierarchical group structure
 }
 
@@ -591,6 +592,10 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 		}
 	}
 
+	usageMap := fetchUsageCounts(db, inClause, args, "service")
+	for i := range insights {
+		insights[i].UsageCount = usageMap[insights[i].TargetName]
+	}
 	return insights, nil
 }
 
@@ -775,7 +780,62 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 		}
 	}
 
+	usageMap := fetchUsageCounts(db, inClause, args, "application")
+	for i := range insights {
+		insights[i].UsageCount = usageMap[insights[i].TargetName]
+	}
 	return insights, nil
+}
+
+func fetchUsageCounts(db *sql.DB, inClause string, args []interface{}, domain string) map[string]int {
+	usageMap := make(map[string]int)
+
+	var objQuery, grpQuery string
+	switch domain {
+	case "address":
+		objQuery = fmt.Sprintf(`SELECT ao.name, COUNT(m.id) FROM address_objects ao JOIN rule_address_mappings m ON ao.id = m.address_id WHERE ao.device_uuid IN (%s) GROUP BY ao.name`, inClause)
+		grpQuery = fmt.Sprintf(`SELECT ag.name, COUNT(m.id) FROM address_groups ag JOIN rule_address_mappings m ON ag.id = m.group_id WHERE ag.device_uuid IN (%s) GROUP BY ag.name`, inClause)
+	case "service":
+		objQuery = fmt.Sprintf(`SELECT so.name, COUNT(m.id) FROM service_objects so JOIN rule_service_mappings m ON so.id = m.service_id WHERE so.device_uuid IN (%s) GROUP BY so.name`, inClause)
+		grpQuery = fmt.Sprintf(`SELECT sg.name, COUNT(m.id) FROM service_groups sg JOIN rule_service_mappings m ON sg.id = m.group_id WHERE sg.device_uuid IN (%s) GROUP BY sg.name`, inClause)
+	case "application":
+		objQuery = fmt.Sprintf(`SELECT ao.name, COUNT(m.id) FROM application_objects ao JOIN rule_application_mappings m ON ao.id = m.application_id WHERE ao.device_uuid IN (%s) GROUP BY ao.name`, inClause)
+		grpQuery = fmt.Sprintf(`SELECT ag.name, COUNT(m.id) FROM application_groups ag JOIN rule_application_mappings m ON ag.id = m.group_id WHERE ag.device_uuid IN (%s) GROUP BY ag.name`, inClause)
+	default:
+		return usageMap
+	}
+
+	rows, err := db.Query(objQuery, args...)
+	if err == nil {
+		for rows.Next() {
+			var name string
+			var count int
+			if err := rows.Scan(&name, &count); err == nil {
+				usageMap[name] = count
+			}
+		}
+		if err := rows.Err(); err != nil {
+			// Optional: log error
+		}
+		rows.Close()
+	}
+
+	rows2, err := db.Query(grpQuery, args...)
+	if err == nil {
+		for rows2.Next() {
+			var name string
+			var count int
+			if err := rows2.Scan(&name, &count); err == nil {
+				usageMap[name] = count
+			}
+		}
+		if err := rows2.Err(); err != nil {
+			// Optional: log error
+		}
+		rows2.Close()
+	}
+
+	return usageMap
 }
 
 func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
@@ -1203,5 +1263,9 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		return insights[i].CoverageCount > insights[j].CoverageCount
 	})
 
+	usageMap := fetchUsageCounts(db, inClause, args, "address")
+	for i := range insights {
+		insights[i].UsageCount = usageMap[insights[i].TargetName]
+	}
 	return insights, nil
 }
