@@ -3481,7 +3481,8 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                 activeSubTab === 'Address Objects' ? 'address_objects' :
                   activeSubTab === 'Address Groups' ? 'address_groups' :
                     activeSubTab === 'Service Objects' ? 'service_objects' :
-                      'address_objects'
+                      activeSubTab === 'Applications' ? 'applications' :
+                        'address_objects'
               }
               apiClient={apiClient}
               deviceUuid={currentScope}

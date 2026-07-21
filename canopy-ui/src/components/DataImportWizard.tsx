@@ -18,7 +18,7 @@ interface DataImportWizardProps {
 }
 
 const dbFieldsMap: Record<string, string[]> = {
-
+  applications: ['vendor', 'scope_context', 'name', 'category', 'subcategory', 'technology', 'risk', 'ports', 'description'],
   address_objects: ['vendor', 'scope_context', 'name', 'type', 'value', 'description', 'tags'],
   address_groups: ['vendor', 'scope_context', 'name', 'type', 'filter', 'members', 'description', 'tags'],
   service_objects: ['vendor', 'scope_context', 'name', 'protocol', 'destination_port', 'description'],
@@ -36,6 +36,11 @@ const dbFieldsMap: Record<string, string[]> = {
 
 const fieldLabelsMap: Record<string, string> = {
   name: 'Name',
+  category: 'Category',
+  subcategory: 'Subcategory',
+  technology: 'Technology',
+  risk: 'Risk (1-5)',
+  ports: 'Default/Standard Ports',
   value: 'Value',
   description: 'Description',
   tags: 'Tags (comma separated)',
@@ -63,6 +68,7 @@ const fieldLabelsMap: Record<string, string> = {
 };
 
 const requiredFieldsMap: Record<string, string[]> = {
+  applications: ['name'],
   address_objects: ['name', 'value'],
   address_groups: ['name'],
   service_objects: ['name', 'protocol', 'destination_port'],
@@ -360,6 +366,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   };
 
   const typesToRender = availableDataTypes || [
+    { value: 'applications', label: 'Applications' },
     { value: 'address_objects', label: 'Address Objects' },
     { value: 'address_groups', label: 'Address Groups' },
     { value: 'service_objects', label: 'Service Objects' },

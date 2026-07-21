@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -118,6 +119,68 @@ func handleObjectsImport(w http.ResponseWriter, r *http.Request) {
 	var currentStmt *sql.Stmt
 
 	switch req.Type {
+	case "applications":
+		for _, row := range req.Data {
+			name, _ := row["name"].(string)
+			category, _ := row["category"].(string)
+			subcategory, _ := row["subcategory"].(string)
+			technology, _ := row["technology"].(string)
+			riskStr, _ := row["risk"].(string)
+			ports, _ := row["ports"].(string)
+			desc, _ := row["description"].(string)
+			vendor, _ := row["vendor"].(string)
+			scopeContext, _ := row["scope_context"].(string)
+
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+
+			if category == "" {
+				category = "general-internet"
+			}
+			if subcategory == "" {
+				subcategory = "internet-utility"
+			}
+			if technology == "" {
+				technology = "browser-based"
+			}
+			risk := 1
+			if riskStr != "" {
+				if rVal, err := strconv.Atoi(strings.TrimSpace(riskStr)); err == nil {
+					risk = rVal
+				}
+			}
+
+			rowDevUUID, rowScope, ac := resolveRowScope(tx, vendor, scopeContext, req.DeviceUUID, req.Scope)
+			if ac != "" && !autoCreatedMap[ac] {
+				autoCreatedScopes = append(autoCreatedScopes, ac)
+				autoCreatedMap[ac] = true
+			}
+
+			var existingID int
+			err = tx.QueryRow("SELECT id FROM application_objects WHERE device_uuid = ? AND name = ?", rowDevUUID, name).Scan(&existingID)
+			switch err {
+			case sql.ErrNoRows:
+				_, err = tx.Exec(`
+					INSERT INTO application_objects (device_uuid, scope, name, category, subcategory, technology, risk, ports, description, dirty)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+				`, rowDevUUID, rowScope, name, category, subcategory, technology, risk, ports, desc)
+				if err == nil {
+					insertedCount++
+				}
+			case nil:
+				_, err = tx.Exec(`
+					UPDATE application_objects
+					SET category = ?, subcategory = ?, technology = ?, risk = ?, ports = ?, description = ?, dirty = 1
+					WHERE id = ?
+				`, category, subcategory, technology, risk, ports, desc, existingID)
+				if err == nil {
+					insertedCount++
+				}
+			}
+		}
+
 	case "address_objects":
 		for _, row := range req.Data {
 			name, _ := row["name"].(string)

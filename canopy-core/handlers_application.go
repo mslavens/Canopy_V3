@@ -426,7 +426,8 @@ func handleApplicationImportCSV(w http.ResponseWriter, r *http.Request) {
 
 	colMap := make(map[string]int)
 	for i, h := range headers {
-		cleanHeader := strings.ToLower(strings.TrimSpace(h))
+		cleanHeader := strings.TrimPrefix(h, "\xef\xbb\xbf")
+		cleanHeader = strings.ToLower(strings.TrimSpace(cleanHeader))
 		cleanHeader = strings.ReplaceAll(cleanHeader, " ", "_")
 		cleanHeader = strings.ReplaceAll(cleanHeader, "-", "_")
 		colMap[cleanHeader] = i
