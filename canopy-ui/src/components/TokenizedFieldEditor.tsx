@@ -665,20 +665,24 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   );
                 }
 
-                return (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPopoverToken(popoverToken === val ? null : val);
-                    }}
-                    style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    title="View Options"
-                  >
-                    <Layers size={14} />
-                  </button>
-                );
+                if (isGroup) {
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPopoverToken(popoverToken === val ? null : val);
+                      }}
+                      style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      title="Inspect Group"
+                    >
+                      <Layers size={14} />
+                    </button>
+                  );
+                }
+
+                return null;
               })()}
 
               {/* EXPANSION POPOVER */}
