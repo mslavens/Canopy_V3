@@ -592,6 +592,15 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 		}
 	}
 
+	// Sort insights: Group > Object > Network, then by coverage desc
+	sort.Slice(insights, func(i, j int) bool {
+		typeWeight := map[string]int{"group": 3, "object": 2, "network": 1}
+		if typeWeight[insights[i].Type] != typeWeight[insights[j].Type] {
+			return typeWeight[insights[i].Type] > typeWeight[insights[j].Type]
+		}
+		return insights[i].CoverageCount > insights[j].CoverageCount
+	})
+
 	usageMap := fetchUsageCounts(db, inClause, args, "service")
 	for i := range insights {
 		insights[i].UsageCount = usageMap[insights[i].TargetName]
@@ -779,6 +788,15 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 			}
 		}
 	}
+
+	// Sort insights: Group > Object > Network, then by coverage desc
+	sort.Slice(insights, func(i, j int) bool {
+		typeWeight := map[string]int{"group": 3, "object": 2, "network": 1}
+		if typeWeight[insights[i].Type] != typeWeight[insights[j].Type] {
+			return typeWeight[insights[i].Type] > typeWeight[insights[j].Type]
+		}
+		return insights[i].CoverageCount > insights[j].CoverageCount
+	})
 
 	usageMap := fetchUsageCounts(db, inClause, args, "application")
 	for i := range insights {
@@ -1306,9 +1324,9 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		}
 	}
 
-	// Sort insights: Group > Network > Object, then by coverage desc
+	// Sort insights: Group > Object > Network, then by coverage desc
 	sort.Slice(insights, func(i, j int) bool {
-		typeWeight := map[string]int{"group": 3, "network": 2, "object": 1}
+		typeWeight := map[string]int{"group": 3, "object": 2, "network": 1}
 		if typeWeight[insights[i].Type] != typeWeight[insights[j].Type] {
 			return typeWeight[insights[i].Type] > typeWeight[insights[j].Type]
 		}

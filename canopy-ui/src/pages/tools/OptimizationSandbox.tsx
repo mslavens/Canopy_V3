@@ -574,9 +574,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               <div style={{ display: 'flex', gap: '16px' }}>
                 {[
                   { id: 'all', label: 'All Results' },
+                  { id: 'group', label: 'Groups' },
                   { id: 'object', label: '1:1 Replacement' },
-                  { id: 'network', label: domainTab === 'addresses' ? 'CIDRs' : 'Ranges' },
-                  { id: 'group', label: 'Groups' }
+                  { id: 'network', label: domainTab === 'addresses' ? 'CIDRs' : 'Ranges' }
                 ].map(tab => {
                   const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
                   if (count === 0 && tab.id !== 'all') return null;
