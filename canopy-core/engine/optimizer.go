@@ -1014,19 +1014,71 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 	}
 
 	// 1. IP to Object (Exact Match)
-	for inputIP, origStr := range inputIPMap {
+	for _, inputIP := range inputAddrs {
+		var origStr string
+		if s, ok := inputIPMap[inputIP]; ok {
+			origStr = s
+		} else {
+			for name, obj := range addresses {
+				if inputMap[name] && len(obj.IPs) > 0 {
+					for _, ip := range obj.IPs {
+						if ip == inputIP {
+							origStr = name
+							break
+						}
+					}
+				}
+				if origStr != "" {
+					break
+				}
+			}
+		}
+
 		for _, obj := range addressList {
 			if len(obj.IPs) == 1 && len(obj.CIDRs) == 0 && obj.IPs[0] == inputIP {
-				if !inputMap[obj.Name] {
-					insights = append(insights, OptimizationInsight{
-						Type:          "object",
-						MatchedItems:  []string{origStr},
-						TargetName:    obj.Name,
-						TargetValue:   obj.Value,
-						MissingCount:  0,
-						CoverageCount: 1,
-					})
+				insights = append(insights, OptimizationInsight{
+					Type:          "object",
+					MatchedItems:  []string{origStr},
+					TargetName:    obj.Name,
+					TargetValue:   obj.Value,
+					MissingCount:  0,
+					CoverageCount: 1,
+				})
+			}
+		}
+	}
+
+	// 1b. CIDR to Object (Exact Match)
+	for _, inputCIDR := range inputCIDRs {
+		var origStr string
+		if s, ok := inputCIDRMap[inputCIDR]; ok {
+			origStr = s
+		} else {
+			for name, obj := range addresses {
+				if inputMap[name] && len(obj.CIDRs) > 0 {
+					for _, c := range obj.CIDRs {
+						if c == inputCIDR {
+							origStr = name
+							break
+						}
+					}
 				}
+				if origStr != "" {
+					break
+				}
+			}
+		}
+
+		for _, obj := range addressList {
+			if len(obj.CIDRs) == 1 && len(obj.IPs) == 0 && obj.CIDRs[0] == inputCIDR {
+				insights = append(insights, OptimizationInsight{
+					Type:          "network",
+					MatchedItems:  []string{origStr},
+					TargetName:    obj.Name,
+					TargetValue:   obj.Value,
+					MissingCount:  0,
+					CoverageCount: 1,
+				})
 			}
 		}
 	}

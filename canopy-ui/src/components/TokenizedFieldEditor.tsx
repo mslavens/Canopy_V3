@@ -364,14 +364,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   };
 
   const handleSwapRawToken = (rawVal: string, objName: string) => {
-    const nextValues = values.map(v => v === rawVal ? objName : v);
-    const finalSet = new Set(nextValues);
-    onChange(Array.from(finalSet));
-    
-    setPopoverToken(null);
-    if (addToast) {
-      addToast(`Swapped ${rawVal} for ${objName}`, 'success');
-    }
+    handleSwapGroup(rawVal, objName);
   };
   
   // Clear expandedParent when popover closes
@@ -477,6 +470,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           if (opt.value && groupCoverage.has(opt.value)) return true;
           if (domain === 'service' && opt.protocol && opt.destination_port && groupCoverage.has(`${opt.protocol.toLowerCase()}/${opt.destination_port}`)) return true;
         }
+
+        if (domain === 'address') {
+          const checkVal = opt?.value || l;
+          if (checkVal && !checkVal.includes('/')) {
+            for (const gCov of Array.from(groupCoverage)) {
+              if (gCov.includes('/') && isIpInCidr(checkVal, gCov)) return true;
+            }
+          }
+        }
+        
         return false;
       });
 
@@ -489,8 +492,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       setConfirmSwapDialog({ isOpen: true, oldVal, newVal, redundantItems });
       setPopoverToken(null);
     } else {
-      const finalCleaned = [...current, newVal];
-      onChange(finalCleaned);
+      const nextValues = values.map(v => v === oldVal ? newVal : v);
+      onChange(Array.from(new Set(nextValues)));
       setPopoverToken(null);
       if (addToast) addToast(`Swapped ${oldVal} for ${newVal}`, 'success');
     }

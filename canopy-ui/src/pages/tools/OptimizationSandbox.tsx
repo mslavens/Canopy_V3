@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Layers, Zap, Settings, Info, Hash, ChevronDown, ChevronRight, Check, CheckSquare, List as ListIcon, Grid, AlertTriangle, Package, Search, X } from 'lucide-react';
 import { SearchBar } from '../../components/SearchBar';
 import { CanopyApiClient } from '../../api/client';
@@ -7,6 +8,45 @@ import { EmptyState } from '../../components/EmptyState';
 import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../../hooks/useScopeHierarchy';
 import { TokenizedFieldEditor } from '../../components/TokenizedFieldEditor';
+
+const GlobalConfirmSwapModal = ({ insight, onConfirm, onCancel }: any) => {
+  const [excluded, setExcluded] = useState(new Set<string>());
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(2px)' }}>
+      <div style={{ width: '450px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-main)', borderRadius: '8px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)' }}>Confirm Optimization Swap</h3>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={16} /></button>
+        </div>
+        <div style={{ padding: '20px', fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          Are you sure you want to swap <strong style={{ color: 'var(--accent-blue)' }}>{insight.matched_items?.length}</strong> items for <strong style={{ color: '#a78bfa' }}>{insight.target_name}</strong>?
+          
+          <div style={{ marginTop: '12px', marginBottom: '8px', color: 'var(--text-main)' }}>The following items will be removed from your inputs:</div>
+          <div style={{ border: '1px solid var(--border-main)', borderRadius: '6px', maxHeight: '250px', overflowY: 'auto', backgroundColor: 'var(--bg-surface)' }}>
+            {insight.matched_items?.map((item: string) => {
+              const isKept = excluded.has(item);
+              return (
+                <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderBottom: '1px solid var(--border-main)', cursor: 'pointer', backgroundColor: isKept ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                  <input type="checkbox" checked={!isKept} onChange={(e) => {
+                    const next = new Set(excluded);
+                    if (e.target.checked) next.delete(item);
+                    else next.add(item);
+                    setExcluded(next);
+                  }} />
+                  <span style={{ textDecoration: !isKept ? 'line-through' : 'none', color: !isKept ? 'var(--status-red)' : 'var(--text-main)' }}>{item}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-main)', display: 'flex', justifyContent: 'flex-end', gap: '12px', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <button onClick={onCancel} style={{ padding: '6px 16px', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-main)', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Cancel</button>
+          <button onClick={() => onConfirm(excluded)} style={{ padding: '6px 16px', background: '#a78bfa', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>Confirm Swap</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface OptimizationSandboxProps {
   apiClient?: CanopyApiClient;
@@ -47,6 +87,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [selectedInsightToExtract, setSelectedInsightToExtract] = useState<any>(null);
   const [extractStrictGroupName, setExtractStrictGroupName] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
+  const [confirmGlobalSwapInsight, setConfirmGlobalSwapInsight] = useState<any>(null);
 
   // Policy Usages Modal State
   const [policyUsagesModalData, setPolicyUsagesModalData] = useState<{ targetName: string; domain: string; usageCount: number } | null>(null);
@@ -260,22 +301,29 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     return () => clearTimeout(timer);
   }, [handleOptimize]);
 
-  const handleApplyOptimization = (insight: any) => {
+  const executeApplyOptimization = (insight: any, excluded: Set<string>) => {
     let newInputs = [...inputs];
     
     insight.matched_items.forEach((item: string) => {
-      newInputs = newInputs.filter(v => v !== item);
+      if (!excluded.has(item)) {
+        newInputs = newInputs.filter(v => v !== item);
+      }
     });
 
     if (!newInputs.includes(insight.target_name)) {
       newInputs.push(insight.target_name);
     }
     setInputs(newInputs);
+    setConfirmGlobalSwapInsight(null);
     
     // Rerun optimization automatically after swap
     setTimeout(() => {
       handleOptimize();
     }, 100);
+  };
+
+  const handleApplyOptimization = (insight: any) => {
+    setConfirmGlobalSwapInsight(insight);
   };
 
   const toggleExpand = (targetName: string) => {
@@ -987,6 +1035,14 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           </div>
         </div>
+      )}
+      {confirmGlobalSwapInsight && createPortal(
+        <GlobalConfirmSwapModal
+          insight={confirmGlobalSwapInsight}
+          onCancel={() => setConfirmGlobalSwapInsight(null)}
+          onConfirm={(excluded: Set<string>) => executeApplyOptimization(confirmGlobalSwapInsight, excluded)}
+        />,
+        document.body
       )}
     </div>
   );
