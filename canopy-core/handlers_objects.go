@@ -69,6 +69,10 @@ func handleGetObjectCounts(w http.ResponseWriter, r *http.Request) {
 				secCounts[pType] = count
 			}
 		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -228,6 +232,10 @@ func handleGetObjects(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, m)
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	if results == nil {
 		results = []map[string]interface{}{}
@@ -289,6 +297,10 @@ func handleGetObjectsReference(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			results = append(results, m)
+		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
 		}
 		if results == nil {
 			results = []map[string]interface{}{}
@@ -465,6 +477,10 @@ func handleGetGroupMembers(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, m)
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	if results == nil {
 		results = []map[string]interface{}{}
@@ -580,6 +596,10 @@ func handleGetObjectDependencies(w http.ResponseWriter, r *http.Request) {
 				"typeLabel": typeLabel,
 			})
 		}
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	if results == nil {

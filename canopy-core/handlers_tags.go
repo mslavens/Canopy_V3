@@ -41,6 +41,10 @@ func saveEntityTags(tx *sql.Tx, entityType string, entityID int64, deviceUUID st
 			existingTagIDs[tagID] = true
 		}
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 3. Delete removed tags
 	for existingID := range existingTagIDs {

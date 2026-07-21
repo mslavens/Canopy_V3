@@ -48,6 +48,27 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [extractStrictGroupName, setExtractStrictGroupName] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
 
+  // Policy Usages Modal State
+  const [policyUsagesModalData, setPolicyUsagesModalData] = useState<{ targetName: string; domain: string; usageCount: number } | null>(null);
+  const [policyUsages, setPolicyUsages] = useState<any[]>([]);
+  const [isLoadingUsages, setIsLoadingUsages] = useState(false);
+
+  const handleOpenPolicyUsages = async (targetName: string, domain: string, usageCount: number) => {
+    setPolicyUsagesModalData({ targetName, domain, usageCount });
+    setIsLoadingUsages(true);
+    setPolicyUsages([]);
+    try {
+      const resp = await apiClient?.request<any>(`/api/policies/usages?scope=${selectedScopeUuid}&domain=${domain}&object_name=${encodeURIComponent(targetName)}`);
+      if (resp) {
+        setPolicyUsages(resp);
+      }
+    } catch (e) {
+      if (addToast) addToast("Failed to fetch policy usages", "error");
+    } finally {
+      setIsLoadingUsages(false);
+    }
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
@@ -298,11 +319,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               {node.value && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>[{node.value}]</span>}
               {node.type !== 'group' && (
                 node.is_covered ? (
-                  <span style={{ fontSize: '10px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--status-green)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>
+                  <span style={{ marginLeft: 'auto', fontSize: '10px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--status-green)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>
                     <Check size={10} /> Covered
                   </span>
                 ) : (
-                  <span style={{ fontSize: '10px', backgroundColor: 'rgba(192, 132, 252, 0.15)', color: 'var(--purple-400)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', fontWeight: 600, border: '1px solid rgba(192, 132, 252, 0.3)' }}>
+                  <span style={{ marginLeft: 'auto', fontSize: '10px', backgroundColor: 'rgba(192, 132, 252, 0.15)', color: 'var(--purple-400)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', fontWeight: 600, border: '1px solid rgba(192, 132, 252, 0.3)' }}>
                     + New
                   </span>
                 )
@@ -588,7 +609,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
             {/* List View */}
             {filteredResults.length > 0 && viewMode === 'list' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', flex: 1, padding: '16px 24px 24px 24px' }} className="custom-scrollbar">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', scrollbarGutter: 'stable', flex: 1, padding: '16px 24px 24px 24px' }} className="custom-scrollbar">
                 {filteredResults.map((insight, idx) => {
                   const isExpanded = expandedInsights.has(insight.target_name);
                   return (
@@ -610,11 +631,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
                                 <strong style={{ color: 'var(--text-main)' }}>{insight.covered_members}</strong> out of <strong>{insight.total_members}</strong> members of <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong> are covered.
-                                {insight.usage_count > 0 && (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, color: 'var(--status-warn)', marginLeft: '8px', verticalAlign: 'middle' }}>
-                                    <Zap size={10} /> {insight.usage_count} Policies
-                                  </span>
-                                )}
                               </span>
                               {insight.missing_count === 0 ? (
                                 <span style={{ fontSize: '11px', color: 'var(--status-green)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -630,11 +646,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
                                 <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : (insight.type === 'network' ? (domainTab === 'addresses' ? 'network' : 'range') : insight.type)} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
-                                {insight.usage_count > 0 && (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600, color: 'var(--status-warn)', marginLeft: '8px', verticalAlign: 'middle' }}>
-                                    <Zap size={10} /> {insight.usage_count} Policies
-                                  </span>
-                                )}
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Check size={12} color="var(--status-green)" /> Swaps {insight.coverage_count} items for 1 object.
@@ -645,6 +656,16 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                         </div>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, width: '160px' }}>
+                          {insight.usage_count > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleOpenPolicyUsages(insight.target_name, domainTab === 'addresses' ? 'address' : (domainTab === 'services' ? 'service' : 'application'), insight.usage_count); }}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', backgroundColor: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.3)', padding: '6px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--status-warn)', cursor: 'pointer', width: '100%', transition: 'background-color 0.2s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,165,0,0.2)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,165,0,0.1)'}
+                            >
+                              <Zap size={12} /> {insight.usage_count} Policies
+                            </button>
+                          )}
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleApplyOptimization(insight); }}
                             className="btn-primary"
@@ -901,6 +922,68 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               <button onClick={handleExtractStrictGroup} className="btn-primary" style={{ padding: '8px 16px' }} disabled={isExtracting || !extractStrictGroupName.trim()}>
                 {isExtracting ? 'Extracting...' : 'Extract Group'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Policy Usages Modal */}
+      {policyUsagesModalData && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)',
+            borderRadius: '8px', width: '600px', maxHeight: '80vh',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-main)' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={18} color="var(--status-warn)" /> {policyUsagesModalData.usageCount} Policies Referencing {policyUsagesModalData.targetName}
+              </h3>
+              <button onClick={() => setPolicyUsagesModalData(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
+              {isLoadingUsages ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  Loading policies...
+                </div>
+              ) : policyUsages.length === 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No policies found.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--border-main)' }}>
+                    <div style={{ flex: 1 }}>Rule Name</div>
+                    <div style={{ width: '120px' }}>Type</div>
+                    <div style={{ width: '100px' }}>Direction</div>
+                  </div>
+                  {policyUsages.map((usage, idx) => (
+                    <div key={`${usage.rule_type}-${usage.id}-${idx}`} style={{ display: 'flex', padding: '8px 12px', fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '4px', border: '1px solid var(--border-main)' }}>
+                      <div style={{ flex: 1, color: 'var(--text-main)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {usage.rule_name}
+                      </div>
+                      <div style={{ width: '120px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                        {usage.rule_type}
+                      </div>
+                      <div style={{ width: '100px', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                        {usage.direction || '-'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid var(--border-main)' }}>
+              <button onClick={() => setPolicyUsagesModalData(null)} className="btn-secondary" style={{ padding: '8px 16px' }}>Close</button>
             </div>
           </div>
         </div>

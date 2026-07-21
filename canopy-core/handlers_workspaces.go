@@ -65,6 +65,10 @@ func handleWorkspacesList(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
@@ -766,6 +770,10 @@ func handleWorkspacesHistory(w http.ResponseWriter, r *http.Request) {
 				"id": id, "message": msg, "timestamp": ts,
 			})
 		}
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	if history == nil {

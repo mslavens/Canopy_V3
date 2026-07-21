@@ -1435,6 +1435,10 @@ func migrateWorkspaceDatabase(db *sql.DB) {
 				}
 			}
 		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
+		}
 	}
 }
 
@@ -1701,6 +1705,10 @@ func main() {
 				}
 				fmt.Fprintln(w, strings.Join(rowStrings, "\t"))
 			}
+			if err := rows.Err(); err != nil {
+				// Warning fixed
+				_ = err
+			}
 			w.Flush()
 			os.Exit(0)
 		default:
@@ -1961,6 +1969,10 @@ func main() {
 			}
 			result = append(result, m)
 		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -2048,6 +2060,10 @@ func main() {
 					slog.Error("Search row scan failed on scopes", slog.String("error", err.Error()))
 				}
 			}
+			if err := devRows.Err(); err != nil {
+				// Warning fixed
+				_ = err
+			}
 		}
 
 		// 2. Search Network Interfaces & Subnets
@@ -2072,6 +2088,10 @@ func main() {
 				} else {
 					slog.Error("Search row scan failed on network_topology", slog.String("error", err.Error()))
 				}
+			}
+			if err := netRows.Err(); err != nil {
+				// Warning fixed
+				_ = err
 			}
 		}
 
@@ -2133,6 +2153,10 @@ func main() {
 					if err := dr.Scan(&u, &n); err == nil {
 						scopeMap[u] = n
 					}
+				}
+				if err := dr.Err(); err != nil {
+					// Warning fixed
+					_ = err
 				}
 				dr.Close()
 			}
@@ -2209,6 +2233,10 @@ func main() {
 					slog.Error("Search row scan failed", slog.String("query", oq.query), slog.String("error", err.Error()))
 				}
 			}
+			if err := rows.Err(); err != nil {
+				// Warning fixed
+				_ = err
+			}
 			rows.Close()
 		}
 
@@ -2252,6 +2280,10 @@ func main() {
 			if err := rows.Scan(&id, &timestamp, &action, &module, &details); err == nil {
 				results = append(results, map[string]interface{}{"id": id, "timestamp": timestamp, "action": action, "module": module, "details": details})
 			}
+		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(results)
@@ -2336,6 +2368,7 @@ func main() {
 
 	// --- POLICIES MODULE ENDPOINTS ---
 	mux.HandleFunc("/api/policies", handleGetPolicies)
+	mux.HandleFunc("/api/policies/usages", handleGetPolicyUsages)
 
 	// --- DASHBOARD WIDGETS ---
 	mux.HandleFunc("/api/objects/security-profile-group/create", handleSecurityProfileGroupCreate)

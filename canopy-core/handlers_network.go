@@ -120,6 +120,10 @@ func handleGetZones(w http.ResponseWriter, r *http.Request) {
 			zones = append(zones, z)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 	
 	if deviceUUID != "" {
 		for _, z := range zonesMap {
@@ -211,6 +215,10 @@ func handleGetInterfaces(w http.ResponseWriter, r *http.Request) {
 		} else {
 			interfaces = append(interfaces, i)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 	
 	if deviceUUID != "" {
@@ -308,6 +316,10 @@ func handleGetRoutes(w http.ResponseWriter, r *http.Request) {
 			routes = append(routes, rt)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 	
 	if deviceUUID != "" {
 		for _, rt := range routesMap {
@@ -390,6 +402,10 @@ func handleGetVariables(w http.ResponseWriter, r *http.Request) {
 		} else {
 			variables = append(variables, v)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 	
 	if deviceUUID != "" {

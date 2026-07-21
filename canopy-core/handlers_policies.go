@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"canopy-core/engine"
 )
 
 // PolicyObjectRef represents a reference to a firewall object in a policy
@@ -281,6 +282,9 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			r.Stack = stack
 			r.StackOrder = stackOrder
 			batch = append(batch, r)
+		}
+		if err := rows.Err(); err != nil {
+			return err
 		}
 
 		// Sort the batch to respect hierarchy evaluation order
@@ -704,6 +708,9 @@ func handleGetPoliciesCounts(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		if err := rows.Err(); err != nil {
+			log.Printf("Failed to iterate counts for %s: %v", table, err)
+		}
 		rows.Close()
 
 		prefix := tableToPrefix[table]
@@ -714,4 +721,210 @@ func handleGetPoliciesCounts(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(counts)
+}
+
+type PolicyUsage struct {
+	ID        int    `json:"id"`
+	RuleName  string `json:"rule_name"`
+	RuleType  string `json:"rule_type"`
+	Direction string `json:"direction"`
+}
+
+func handleGetPolicyUsages(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	db, err := getActiveDBConn()
+	if err != nil {
+		http.Error(w, "Storage vault is locked", http.StatusLocked)
+		return
+	}
+
+	scopeID := r.URL.Query().Get("scope")
+	domain := r.URL.Query().Get("domain") // "address", "service", "application"
+	objectName := r.URL.Query().Get("object_name")
+
+	if scopeID == "" || domain == "" || objectName == "" {
+		http.Error(w, "scope, domain, and object_name are required", http.StatusBadRequest)
+		return
+	}
+
+	lineage := engine.GetPolicyScopeLineage(db, scopeID)
+	if len(lineage) == 0 {
+		lineage = append(lineage, "paloalto-panorama-global", "fortinet-global-adom", "cisco-global-domain")
+	}
+
+	placeholders := make([]string, len(lineage))
+	args := make([]interface{}, len(lineage))
+	for i, l := range lineage {
+		placeholders[i] = "?"
+		args[i] = l
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	var objQuery, grpQuery string
+	
+	switch domain {
+	case "address":
+		objQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, m.direction
+			FROM rule_address_mappings m
+			JOIN address_objects ao ON m.address_id = ao.id
+			WHERE ao.name = ? AND ao.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type, m.direction
+		`, inClause)
+		grpQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, m.direction
+			FROM rule_address_mappings m
+			JOIN address_groups ag ON m.group_id = ag.id
+			WHERE ag.name = ? AND ag.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type, m.direction
+		`, inClause)
+	case "service":
+		objQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, '' as direction
+			FROM rule_service_mappings m
+			JOIN service_objects so ON m.service_id = so.id
+			WHERE so.name = ? AND so.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type
+		`, inClause)
+		grpQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, '' as direction
+			FROM rule_service_mappings m
+			JOIN service_groups sg ON m.group_id = sg.id
+			WHERE sg.name = ? AND sg.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type
+		`, inClause)
+	case "application":
+		objQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, '' as direction
+			FROM rule_application_mappings m
+			JOIN application_objects ao ON m.application_id = ao.id
+			WHERE ao.name = ? AND ao.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type
+		`, inClause)
+		grpQuery = fmt.Sprintf(`
+			SELECT m.rule_id, m.rule_type, '' as direction
+			FROM rule_application_mappings m
+			JOIN application_groups ag ON m.group_id = ag.id
+			WHERE ag.name = ? AND ag.device_uuid IN (%s)
+			GROUP BY m.rule_id, m.rule_type
+		`, inClause)
+	default:
+		http.Error(w, "invalid domain", http.StatusBadRequest)
+		return
+	}
+
+	fullArgs := []interface{}{objectName}
+	fullArgs = append(fullArgs, args...)
+
+	type usageMatch struct {
+		RuleID    int
+		RuleType  string
+		Direction string
+	}
+	var matches []usageMatch
+	
+	// Query Objects
+	objRows, err := db.Query(objQuery, fullArgs...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer objRows.Close()
+
+	for objRows.Next() {
+		var m usageMatch
+		if err := objRows.Scan(&m.RuleID, &m.RuleType, &m.Direction); err == nil {
+			matches = append(matches, m)
+		}
+	}
+	if err := objRows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Query Groups
+	grpRows, err := db.Query(grpQuery, fullArgs...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer grpRows.Close()
+
+	for grpRows.Next() {
+		var m usageMatch
+		if err := grpRows.Scan(&m.RuleID, &m.RuleType, &m.Direction); err == nil {
+			matches = append(matches, m)
+		}
+	}
+	if err := grpRows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	usages := []PolicyUsage{}
+	
+	typeMap := make(map[string][]int)
+	for _, m := range matches {
+		typeMap[m.RuleType] = append(typeMap[m.RuleType], m.RuleID)
+	}
+	
+	nameMap := make(map[string]map[int]string)
+	
+	for rType, ids := range typeMap {
+		if len(ids) == 0 { continue }
+		idStrs := make([]string, len(ids))
+		idArgs := make([]interface{}, len(ids))
+		for i, id := range ids {
+			idStrs[i] = "?"
+			idArgs[i] = id
+		}
+		
+		validTables := map[string]bool{
+			"security": true, "nat": true, "qos": true, "pbf": true,
+			"decryption": true, "application_override": true,
+			"tunnel_inspection": true, "authentication": true, "dos": true,
+		}
+		
+		normalizedType := strings.ToLower(rType)
+		if validTables[normalizedType] {
+			tableName := normalizedType + "_rules"
+			rQuery := fmt.Sprintf("SELECT id, rule_name FROM %s WHERE id IN (%s)", tableName, strings.Join(idStrs, ","))
+			rRows, err := db.Query(rQuery, idArgs...)
+			if err == nil {
+				nameMap[rType] = make(map[int]string)
+				for rRows.Next() {
+					var id int
+					var name string
+					if err := rRows.Scan(&id, &name); err == nil {
+						nameMap[rType][id] = name
+					}
+				}
+				if err := rRows.Err(); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				rRows.Close()
+			}
+		}
+	}
+	
+	for _, m := range matches {
+		name := nameMap[m.RuleType][m.RuleID]
+		if name == "" {
+			name = "Unknown Rule"
+		}
+		usages = append(usages, PolicyUsage{
+			ID:        m.RuleID,
+			RuleName:  name,
+			RuleType:  m.RuleType,
+			Direction: m.Direction,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(usages)
 }

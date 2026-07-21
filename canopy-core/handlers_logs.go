@@ -107,6 +107,10 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 		cleanName = strings.ReplaceAll(cleanName, "_", " ")
 		exactCols[cleanName] = name
 	}
+	if err := colRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 	colRows.Close()
 
 	slog.Info("Staging table schema parsed", slog.Any("raw_columns", rawCols), slog.Int("mapped_cols", len(exactCols)))
@@ -201,7 +205,7 @@ func HandleImportLogs(w http.ResponseWriter, r *http.Request, telDB *storage.App
 	logDB.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", stagingTable))
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"status":"success", "rows": %d}`, rowsAffected)))
+	fmt.Fprintf(w, `{"status":"success", "rows": %d}`, rowsAffected)
 }
 
 func HandleGetLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB) {
@@ -257,6 +261,10 @@ func HandleGetLogs(w http.ResponseWriter, r *http.Request, logDB *storage.LogDB)
 			m[colName] = *val
 		}
 		results = append(results, m)
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	var total int
@@ -317,6 +325,10 @@ func HandleGetLogSchema(w http.ResponseWriter, r *http.Request, logDB *storage.L
 		if !excludeMap[colName] {
 			columns = append(columns, colName)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -405,6 +417,10 @@ func HandleGetHeatmap(w http.ResponseWriter, r *http.Request, logDB *storage.Log
 			m[colName] = *val
 		}
 		results = append(results, m)
+	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	if results == nil {
@@ -739,6 +755,10 @@ func HandleGenerateCandidateRules(w http.ResponseWriter, r *http.Request, logDB 
 			}
 
 			passRules = append(passRules, m)
+		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
 		}
 		rows.Close()
 

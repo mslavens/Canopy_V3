@@ -24,6 +24,9 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			rows.Scan(&r.uuid, &r.parentUUID)
 			allScopes = append(allScopes, r)
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 		rows.Close()
 	}
 
@@ -150,6 +153,9 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			groups = append(groups, g)
 		}
 	}
+	if err := grpRows.Err(); err != nil {
+		return err
+	}
 	grpRows.Close()
 
 	if len(groups) == 0 {
@@ -182,6 +188,9 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 				}
 			}
 		}
+		if err := tagRows.Err(); err != nil {
+			slog.Error("Failed to query tags in MaterializeDynamicGroups", slog.String("error", err.Error()))
+		}
 		tagRows.Close()
 	} else {
 		slog.Error("Failed to query tags in MaterializeDynamicGroups", slog.String("error", err.Error()))
@@ -203,6 +212,9 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			aoRows.Scan(&c.id, &c.scope)
 			candidates = append(candidates, c)
 		}
+		if err := aoRows.Err(); err != nil {
+			return err
+		}
 		aoRows.Close()
 	}
 
@@ -213,6 +225,9 @@ func MaterializeDynamicGroups(tx *sql.Tx, deviceUUID string) error {
 			c.eType = "address_group"
 			agRows.Scan(&c.id, &c.scope)
 			candidates = append(candidates, c)
+		}
+		if err := agRows.Err(); err != nil {
+			return err
 		}
 		agRows.Close()
 	}

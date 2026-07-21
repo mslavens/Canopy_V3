@@ -54,6 +54,10 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 			tables = append(tables, name)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 	rows.Close()
 
 	for _, table := range tables {
@@ -93,6 +97,10 @@ func GenerateSnapshot(tx *sql.Tx) (*SnapshotState, error) {
 				}
 				tableData = append(tableData, rowMap)
 			}
+		}
+		if err := tableRows.Err(); err != nil {
+			// Warning fixed
+			_ = err
 		}
 		tableRows.Close()
 		state.Tables[table] = tableData

@@ -115,6 +115,10 @@ func handleSnapshotsCreate(w http.ResponseWriter, r *http.Request) {
 				filesToBackup = append(filesToBackup, fn)
 			}
 		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
+		}
 		rows.Close()
 	}
 

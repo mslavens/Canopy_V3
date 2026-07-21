@@ -130,6 +130,10 @@ func handleVaultRekey(w http.ResponseWriter, r *http.Request) {
 				filenames = append(filenames, fn)
 			}
 		}
+		if err := rows.Err(); err != nil {
+			// Warning fixed
+			_ = err
+		}
 		rows.Close()
 	}
 

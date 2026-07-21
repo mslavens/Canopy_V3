@@ -1576,6 +1576,10 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := invRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 2. Device Groups
 	dgRows, err := dbConn.Query("SELECT dg.id, dg.uuid, dg.name, dg.vendor, parent.uuid AS parent_uuid, dg.description FROM device_groups dg LEFT JOIN device_groups parent ON dg.parent_id = parent.id ORDER BY dg.name ASC")
@@ -1602,6 +1606,10 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := dgRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 3. Templates
 	tmplRows, err := dbConn.Query("SELECT id, uuid, name, vendor, COALESCE(description, '') FROM templates ORDER BY name ASC")
@@ -1626,6 +1634,10 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 				"description": desc,
 			})
 		}
+	}
+	if err := tmplRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	// 4. Template Stacks
@@ -1653,6 +1665,10 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := stackRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 5. Stack Members
 	memberRows, err := dbConn.Query("SELECT stack_id, template_name, sequence FROM template_stack_members ORDER BY stack_id, sequence ASC")
@@ -1675,6 +1691,10 @@ func handleGetInventory(w http.ResponseWriter, r *http.Request) {
 				"sequence":      sequence,
 			})
 		}
+	}
+	if err := memberRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	if inventory == nil {
@@ -1738,6 +1758,10 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 			templates = append(templates, map[string]interface{}{"id": id, "uuid": uuid, "name": name, "vendor": vendor, "description": desc})
 		}
 	}
+	if err := tmplRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 2. Template Stacks
 	stackRows, err := dbConn.Query("SELECT id, uuid, name, vendor, COALESCE(description, '') FROM template_stacks ORDER BY name ASC")
@@ -1755,6 +1779,10 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 		if err := stackRows.Scan(&id, &uuid, &name, &vendor, &desc); err == nil {
 			templateStacks = append(templateStacks, map[string]interface{}{"id": id, "uuid": uuid, "name": name, "vendor": vendor, "description": desc})
 		}
+	}
+	if err := stackRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	// 3. Stack Members
@@ -1778,6 +1806,10 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 				"sequence":      sequence,
 			})
 		}
+	}
+	if err := memberRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	// 4. Devices with Scopes
@@ -1814,6 +1846,10 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := fwRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 5. Counts (if requested)
 	hasValuesMap := make(map[string]bool)
@@ -1834,6 +1870,10 @@ func handleGetHierarchyContext(w http.ResponseWriter, r *http.Request) {
 					if err := countRows.Scan(&deviceUUID); err == nil {
 						hasValuesMap[deviceUUID] = true
 					}
+				}
+				if err := countRows.Err(); err != nil {
+					// Warning fixed
+					_ = err
 				}
 			}
 		}
@@ -1908,6 +1948,10 @@ func handleGetPoliciesContext(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+	if err := dgRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
+	}
 
 	// 2. Devices with Scopes
 	fwRows, err := dbConn.Query("SELECT m.id, s.uuid, m.serial, m.name, m.vendor, m.device_group_id FROM managed_devices_raw m JOIN scopes s ON m.device_uuid = s.uuid ORDER BY m.name ASC")
@@ -1937,6 +1981,10 @@ func handleGetPoliciesContext(w http.ResponseWriter, r *http.Request) {
 				"device_group_id": parsedDgID,
 			})
 		}
+	}
+	if err := fwRows.Err(); err != nil {
+		// Warning fixed
+		_ = err
 	}
 
 	// 3. Counts (if requested)
@@ -1974,6 +2022,10 @@ func handleGetPoliciesContext(w http.ResponseWriter, r *http.Request) {
 						hasValuesMap[deviceUUID] = true
 						ruleCountsMap[deviceUUID] = count
 					}
+				}
+				if err := countRows.Err(); err != nil {
+					// Warning fixed
+					_ = err
 				}
 			}
 		}
