@@ -85,6 +85,7 @@ interface TokenizedFieldEditorProps {
   cidrThreshold?: number;
   domain?: 'address' | 'service' | 'application';
   insights?: any[];
+  onAddObject?: (value: string) => void;
 }
 
 export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ 
@@ -96,7 +97,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   groupTolerance = 0,
   cidrThreshold = 0,
   domain = 'address',
-  insights = []
+  insights = [],
+  onAddObject
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
@@ -753,6 +755,23 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </button>
                   );
                 }
+                if (!isGroup && onAddObject && matchingObjects.length === 0) {
+                  return (
+                    <button
+                      className="popover-trigger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddObject(val);
+                      }}
+                      style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--button-primary)'; }}
+                      title="Quick Add Object"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  );
+                }
 
                 return null;
               })()}
@@ -881,6 +900,18 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {matchingObjects.length === 0 && onAddObject && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No 1:1 match found for this value.</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAddObject(val); setPopoverToken(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <Plus size={12} /> Quick Add Object
+                      </button>
                     </div>
                   )}
 
@@ -1188,6 +1219,20 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 </>
               )}
             </div>
+            {onAddObject && replacingToken && (
+              <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+                <button
+                  onClick={() => {
+                    onAddObject(replacingToken);
+                    setDropdownOpen(false);
+                    setReplacingToken(null);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Plus size={14} /> Quick Add "{replacingToken}"
+                </button>
+              </div>
+            )}
           </div>,
           document.body
           )}

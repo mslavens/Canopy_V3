@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { SearchableScopeDropdown } from '../../components/SearchableScopeDropdown';
 import { useScopeHierarchy } from '../../hooks/useScopeHierarchy';
 import { TokenizedFieldEditor } from '../../components/TokenizedFieldEditor';
+import { GlobalObjectCrudModal } from '../../components/GlobalObjectCrudModal';
 
 const GlobalConfirmSwapModal = ({ insight, onConfirm, onCancel }: any) => {
   const [excluded, setExcluded] = useState(new Set<string>());
@@ -88,6 +89,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [extractStrictGroupName, setExtractStrictGroupName] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [confirmGlobalSwapInsight, setConfirmGlobalSwapInsight] = useState<any>(null);
+  
+  // Quick Add State
+  const [quickAddModalData, setQuickAddModalData] = useState<{ value: string } | null>(null);
 
   // Policy Usages Modal State
   const [policyUsagesModalData, setPolicyUsagesModalData] = useState<{ targetName: string; domain: string; usageCount: number } | null>(null);
@@ -495,6 +499,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               cidrThreshold={cidrThreshold}
               domain={domainTab === 'addresses' ? 'address' : (domainTab === 'services' ? 'service' : 'application')}
               insights={results}
+              onAddObject={(val) => setQuickAddModalData({ value: val })}
             />
           </div>
 
@@ -1054,6 +1059,22 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             </div>
           </div>
         </div>
+      )}
+      {quickAddModalData && (
+        <GlobalObjectCrudModal
+          isOpen={!!quickAddModalData}
+          onClose={() => setQuickAddModalData(null)}
+          onSuccess={() => {
+            setQuickAddModalData(null);
+          }}
+          mode="create"
+          objectType={domainTab === 'addresses' ? 'Address Objects' : (domainTab === 'services' ? 'Services' : 'Applications')}
+          defaultName={`host_${quickAddModalData.value}`}
+          defaultValue={quickAddModalData.value}
+          defaultScopeUuid={selectedScopeUuid}
+          apiClient={apiClient}
+          addToast={addToast as any}
+        />
       )}
       {confirmGlobalSwapInsight && createPortal(
         <GlobalConfirmSwapModal
