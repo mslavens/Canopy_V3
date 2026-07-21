@@ -583,7 +583,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
              return null;
           }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-          const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val)) : [];
+          const matchingObjectNames = new Set(matchingObjects.map(o => o.name));
+          const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
 
           const displayValue = opt?.value 
             ? opt.value 
@@ -777,7 +778,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       {exactMatchesOpen && matchingObjects.map(match => (
                         <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
+                            <span style={{ fontSize: '12px', color: match.value?.includes('/') ? '#38bdf8' : '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
                             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                               {domain === 'service' ? `${match.protocol?.toLowerCase()}/${match.destination_port}` : match.value}
                             </span>
