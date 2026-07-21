@@ -916,21 +916,28 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 	// Parse inputs
 	inputMap := make(map[string]bool)
 	var inputAddrs []netip.Addr
+	var inputCIDRs []netip.Prefix
 	
 	// inputLeafMap maps a leaf object name to the original user input that provided it
 	inputLeafMap := make(map[string]string)
 	// inputIPMap maps an IP to the original user input that provided it
 	inputIPMap := make(map[netip.Addr]string)
+	// inputCIDRMap maps a CIDR to the original user input that provided it
+	inputCIDRMap := make(map[netip.Prefix]string)
 
 	for _, in := range req.Inputs {
 		inputMap[in] = true
 		if addr, err := netip.ParseAddr(in); err == nil {
 			inputAddrs = append(inputAddrs, addr)
 			inputIPMap[addr] = in
+		} else if prefix, err := netip.ParsePrefix(in); err == nil {
+			inputCIDRs = append(inputCIDRs, prefix)
+			inputCIDRMap[prefix] = in
 		} else {
 			// If input is an object name
 			if obj, ok := addresses[in]; ok {
 				inputAddrs = append(inputAddrs, obj.IPs...)
+				inputCIDRs = append(inputCIDRs, obj.CIDRs...)
 				inputLeafMap[in] = in
 			}
 			// If input is a group name, map all its leaves back to this group input
@@ -939,6 +946,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					inputLeafMap[leaf] = in
 					if obj, isObj := addresses[leaf]; isObj {
 						inputAddrs = append(inputAddrs, obj.IPs...)
+						inputCIDRs = append(inputCIDRs, obj.CIDRs...)
 					}
 				}
 			}
@@ -969,29 +977,46 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		if len(obj.CIDRs) == 1 {
 			cidr := obj.CIDRs[0]
 			
-			totalCoveredIPs := 0
+			totalCoveredItems := 0
 			for _, inputIP := range inputAddrs {
 				if cidr.Contains(inputIP) {
-					totalCoveredIPs++
+					totalCoveredItems++
+				}
+			}
+			for _, inputCIDR := range inputCIDRs {
+				// A CIDR is covered if its base IP is in the broader CIDR, and its prefix is >= broader prefix length
+				if cidr.Contains(inputCIDR.Addr()) && cidr.Bits() <= inputCIDR.Bits() {
+					totalCoveredItems++
 				}
 			}
 			
-			if totalCoveredIPs >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+			if totalCoveredItems >= req.CIDRThreshold && req.CIDRThreshold > 0 {
 				var matched []string
 				
 				for _, in := range req.Inputs {
 					isFullyCovered := true
-					hasAnyIPs := false
+					hasAnyItems := false
 			
 					if addr, err := netip.ParseAddr(in); err == nil {
-						hasAnyIPs = true
+						hasAnyItems = true
 						if !cidr.Contains(addr) {
+							isFullyCovered = false
+						}
+					} else if prefix, err := netip.ParsePrefix(in); err == nil {
+						hasAnyItems = true
+						if !(cidr.Contains(prefix.Addr()) && cidr.Bits() <= prefix.Bits()) {
 							isFullyCovered = false
 						}
 					} else if inObj, ok := addresses[in]; ok {
 						for _, ip := range inObj.IPs {
-							hasAnyIPs = true
+							hasAnyItems = true
 							if !cidr.Contains(ip) {
+								isFullyCovered = false
+							}
+						}
+						for _, pref := range inObj.CIDRs {
+							hasAnyItems = true
+							if !(cidr.Contains(pref.Addr()) && cidr.Bits() <= pref.Bits()) {
 								isFullyCovered = false
 							}
 						}
@@ -999,8 +1024,14 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 						for leaf := range leaves {
 							if inObj, isObj := addresses[leaf]; isObj {
 								for _, ip := range inObj.IPs {
-									hasAnyIPs = true
+									hasAnyItems = true
 									if !cidr.Contains(ip) {
+										isFullyCovered = false
+									}
+								}
+								for _, pref := range inObj.CIDRs {
+									hasAnyItems = true
+									if !(cidr.Contains(pref.Addr()) && cidr.Bits() <= pref.Bits()) {
 										isFullyCovered = false
 									}
 								}
@@ -1008,7 +1039,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 						}
 					}
 			
-					if hasAnyIPs && isFullyCovered {
+					if hasAnyItems && isFullyCovered {
 						matched = append(matched, in)
 					}
 				}
@@ -1064,6 +1095,15 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					for _, inputIP := range inputAddrs {
 						if cidr.Contains(inputIP) {
 							if origInput, exists := inputIPMap[inputIP]; exists {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								leafCIDRHits++
+							}
+						}
+					}
+					for _, inputCIDR := range inputCIDRs {
+						if cidr.Contains(inputCIDR.Addr()) && cidr.Bits() <= inputCIDR.Bits() {
+							if origInput, exists := inputCIDRMap[inputCIDR]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
 								leafCIDRHits++

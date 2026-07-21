@@ -395,12 +395,18 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     const memberLeaves = getDeepMembers(memberName);
     const isCovered = memberLeaves.length > 0 && memberLeaves.every(l => isLeafCovered(l));
 
+    const displayValue = mOpt?.value 
+      ? mOpt.value 
+      : (domain === 'service' && mOpt?.protocol && mOpt?.destination_port) 
+        ? `${mOpt.protocol.toLowerCase()}/${mOpt.destination_port}` 
+        : null;
+
     return (
       <div key={memberName} style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
             {isGroup ? <Layers size={12} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} /> : <Package size={12} style={{ color: '#10b981', flexShrink: 0 }} />}
-            <span title={`${memberName}${mOpt && mOpt.value ? `\nValue: ${mOpt.value}` : ''}`} style={{ fontSize: '11px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{memberName}</span>
+            <span title={displayValue ? `${memberName}\nValue: ${displayValue}` : memberName} style={{ fontSize: '11px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{memberName}</span>
           </div>
           {isCovered 
             ? <span style={{ fontSize: '9px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 0', width: '28px', justifyContent: 'center', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>✓ C</span>
@@ -579,6 +585,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
           const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val)) : [];
 
+          const displayValue = opt?.value 
+            ? opt.value 
+            : (domain === 'service' && opt?.protocol && opt?.destination_port) 
+              ? `${opt.protocol.toLowerCase()}/${opt.destination_port}` 
+              : null;
+
           return (
             <div 
               key={val} 
@@ -607,7 +619,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
               <div 
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}
-                title={opt && opt.value ? `${val} [${opt.value}]` : val}
+                title={displayValue ? `${val}\nValue: ${displayValue}` : val}
               >
                 <span style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
                   {isGroup ? <Layers size={14} /> : isObject ? <Package size={14} /> : <Hash size={14} />}
@@ -617,9 +629,9 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   {val}
                 </span>
 
-                {opt && opt.value && (
+                {displayValue && (
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    [{opt.value}]
+                    [{displayValue}]
                   </span>
                 )}
               </div>

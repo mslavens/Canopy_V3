@@ -224,7 +224,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           <li key={idx} style={{ marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {node.type === 'group' ? <Layers size={14} color="var(--accent-blue)" /> : <Package size={14} color="var(--status-green)" />}
-              <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>
+              <span title={node.value ? `${node.name}\nValue: ${node.value}` : node.name} style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>
                 {node.name}
               </span>
               {node.value && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>[{node.value}]</span>}
