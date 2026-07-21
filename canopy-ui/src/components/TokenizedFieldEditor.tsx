@@ -431,7 +431,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     getDeepMembers(newVal).forEach(l => {
       groupCoverage.add(l);
       const opt = optionsMap.get(l);
-      if (opt && opt.value) groupCoverage.add(opt.value);
+      if (opt) {
+        if (opt.value) groupCoverage.add(opt.value);
+        if (domain === 'service' && opt.protocol && opt.destination_port) {
+          groupCoverage.add(`${opt.protocol.toLowerCase()}/${opt.destination_port}`);
+        }
+      }
     });
 
     const current = values.filter(v => v !== oldVal);
@@ -441,7 +446,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       const vIsRedundant = vLeaves.length > 0 && vLeaves.every(l => {
         if (groupCoverage.has(l)) return true;
         const opt = optionsMap.get(l);
-        if (opt && opt.value && groupCoverage.has(opt.value)) return true;
+        if (opt) {
+          if (opt.value && groupCoverage.has(opt.value)) return true;
+          if (domain === 'service' && opt.protocol && opt.destination_port && groupCoverage.has(`${opt.protocol.toLowerCase()}/${opt.destination_port}`)) return true;
+        }
         return false;
       });
 
