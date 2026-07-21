@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight } from 'lucide-react';
+import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight, Loader2 } from 'lucide-react';
 
 interface ObjectRef {
   id: number;
@@ -103,6 +103,33 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [popoverToken, setPopoverToken] = useState<string | null>(null);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   
+  const [workerResults, setWorkerResults] = useState<Record<string, { matchingObjects: any[], validParents: any[] }>>({});
+  const [isWorkerCalculating, setIsWorkerCalculating] = useState(false);
+  const workerRef = useRef<Worker | null>(null);
+
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../workers/optimization.worker.ts', import.meta.url), { type: 'module' });
+    workerRef.current.onmessage = (e) => {
+      setWorkerResults(e.data.results || {});
+      setIsWorkerCalculating(false);
+    };
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (workerRef.current) {
+      setIsWorkerCalculating(true);
+      workerRef.current.postMessage({
+        values,
+        options,
+        domain,
+        groupTolerance
+      });
+    }
+  }, [values, options, domain, groupTolerance]);
+
   // Pick List state
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
@@ -469,6 +496,33 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     }
   };
 
+  const flattenedAllInputs = useMemo(() => {
+    const set = new Set<string>();
+    const addToFlattened = (l: string) => {
+       set.add(l);
+       const o = optionsMap.get(l);
+       if (o) {
+         if (o.value) set.add(o.value);
+         if (domain === 'service' && o.protocol && o.destination_port) {
+           set.add(`${o.protocol.toLowerCase()}/${o.destination_port}`);
+         }
+       }
+    };
+    values.forEach(v => getDeepMembers(v).forEach(l => addToFlattened(l)));
+    return set;
+  }, [values, optionsMap, domain]);
+
+  const isLeafCoveredByInputs = (leafName: string): boolean => {
+     if (flattenedAllInputs.has(leafName)) return true;
+     const leafOpt = optionsMap.get(leafName);
+     if (!leafOpt) return false;
+     if (leafOpt.value && flattenedAllInputs.has(leafOpt.value)) return true;
+     if (domain === 'service' && leafOpt.protocol && leafOpt.destination_port) {
+       return flattenedAllInputs.has(`${leafOpt.protocol.toLowerCase()}/${leafOpt.destination_port}`);
+     }
+     return false;
+  };
+
   const isAllVisibleSelected = visibleValues.length > 0 && selectedTokens.size === visibleValues.length;
 
   return (
@@ -487,8 +541,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             onChange={(e) => setFilterQuery(e.target.value)}
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '12px', color: 'var(--text-main)', padding: 0 }}
             placeholder="Filter selected..."
+            spellCheck={false}
           />
         </div>
+
+        {isWorkerCalculating && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>
+            <Loader2 size={14} className="animate-spin" />
+            Analyzing...
+          </div>
+        )}
 
         {selectedTokens.size > 0 && (
           <button 
@@ -517,79 +579,15 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isRaw = opt === undefined;
           
           const valIp = opt?.value || val;
-          let matchingObjects = options.filter(o => {
-            if (o.member_list || o.name === val) return false;
-            if (domain === 'service') {
-              if (!o.protocol || !o.destination_port) return false;
-              return val.toLowerCase() === `${o.protocol.toLowerCase()}/${o.destination_port}`;
-            }
-            if (domain === 'application') {
-              return val.toLowerCase() === o.name.toLowerCase();
-            }
-            return o.value === valIp;
-          });
+          const workerData = workerResults[val] || { matchingObjects: [], validParents: [] };
+          let matchingObjects = workerData.matchingObjects;
+          const validParents = workerData.validParents;
           
           let iconColor = 'var(--text-muted)';
           if (isGroup) iconColor = '#60a5fa';
           else if (isObject) iconColor = '#10b981'; // Canopy 1.0 style green for object
 
           const isSelected = selectedTokens.has(val);
-
-          const flattenedAllInputs = new Set<string>();
-          const addToFlattened = (l: string, set: Set<string>) => {
-             set.add(l);
-             const o = optionsMap.get(l);
-             if (o) {
-               if (o.value) set.add(o.value);
-               if (domain === 'service' && o.protocol && o.destination_port) {
-                 set.add(`${o.protocol.toLowerCase()}/${o.destination_port}`);
-               }
-             }
-          };
-          values.forEach(v => getDeepMembers(v).forEach(l => addToFlattened(l, flattenedAllInputs)));
-          if (!values.includes(val)) getDeepMembers(val).forEach(l => addToFlattened(l, flattenedAllInputs));
-          
-          const valFlattened = new Set<string>();
-          getDeepMembers(val).forEach(l => addToFlattened(l, valFlattened));
-
-          const isLeafCoveredBy = (leafName: string, flattenedSet: Set<string>): boolean => {
-             if (flattenedSet.has(leafName)) return true;
-             const leafOpt = optionsMap.get(leafName);
-             if (!leafOpt) return false;
-             if (leafOpt.value && flattenedSet.has(leafOpt.value)) return true;
-             if (domain === 'service' && leafOpt.protocol && leafOpt.destination_port) {
-               return flattenedSet.has(`${leafOpt.protocol.toLowerCase()}/${leafOpt.destination_port}`);
-             }
-             return false;
-          };
-          
-          const isLeafCoveredByInputs = (leafName: string): boolean => isLeafCoveredBy(leafName, flattenedAllInputs);
-          
-          const allGroups = options.filter(o => o.member_list && o.name !== val);
-          const validParents = allGroups.map(parent => {
-             const leaves = getDeepMembers(parent.name);
-             if (leaves.length === 0) return null;
-             
-             let coveredWithVal = 0;
-             let tokenContributes = false;
-             leaves.forEach(l => {
-               if (isLeafCoveredBy(l, flattenedAllInputs)) coveredWithVal++;
-               if (isLeafCoveredBy(l, valFlattened)) tokenContributes = true;
-             });
-             
-             const toleranceRatio = coveredWithVal / leaves.length;
-             
-             if (toleranceRatio >= groupTolerance && tokenContributes) {
-                const pMembers = parent.member_list ? parent.member_list.split(',').map(m => m.trim()) : [];
-                let nestedGroupsCount = 0;
-                pMembers.forEach(m => {
-                   const mOpt = optionsMap.get(m);
-                   if (mOpt && mOpt.member_list) nestedGroupsCount++;
-                });
-                return { parent, pMembers, leaves, coveredLeavesCount: coveredWithVal, nestedGroupsCount, toleranceRatio };
-             }
-             return null;
-          }).filter((item): item is NonNullable<typeof item> => item !== null);
 
           const matchingObjectNames = new Set(matchingObjects.map(o => o.name));
           const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
@@ -767,7 +765,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                            </div>
                            {expandedParent === parent.name && (
                              <div style={{ marginLeft: '18px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px', backgroundColor: 'rgba(255,255,255,0.02)', maxHeight: '160px', overflowY: 'auto' }}>
-                                {pMembers.map(member => renderMemberTree(member, 0, isLeafCoveredByInputs))}
+                                {pMembers.map((member: string) => renderMemberTree(member, 0, isLeafCoveredByInputs))}
                              </div>
                            )}
                          </div>

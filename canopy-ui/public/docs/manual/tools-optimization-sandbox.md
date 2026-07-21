@@ -50,7 +50,13 @@ The right panel displays the results categorized by type (1:1 Replacements, Addr
 - Click the chevron `>` to expand an insight and view the **Nested Members Tree**.
 - **Green "Covered" Badges**: Indicates that the nested member was found in your input list.
 - **Purple "+ New" Badges**: (If Group Tolerance is < 100%) Indicates that swapping for this group will grant access to *new* IPs that were NOT in your original inputs.
+- **Policy Usages Badge**: Next to each matching group or object, you will see a badge indicating how many firewall policies currently reference it (e.g., "3 Policies"). Clicking this badge opens the **Policy Usages Modal** to display the specific rules (Security, NAT, etc.) and their direction (Source/Destination) that rely on this object.
 - **Swap Matches**: Clicking this button will automatically apply the bulk optimization to your left panel, replacing all of the matched individual tokens with the single summarized Group or CIDR.
+
+### Extracting Strict Groups
+When evaluating partial or "fuzzy" group matches (where Group Tolerance is < 100%), you might find a group that covers many of your inputs but also contains unwanted "+ New" IPs. 
+
+You can click the **Extract Strict** button on these partial group insights to automatically generate a brand-new, customized group. This new group will *strictly* contain only the members that overlapped with your inputs, perfectly tailored to your needs without exposing unnecessary access. You can customize the suggested name for the new strict group before finalizing the extraction.
 
 ### Visualizing Matches
 You can toggle between two view modes in the right panel:

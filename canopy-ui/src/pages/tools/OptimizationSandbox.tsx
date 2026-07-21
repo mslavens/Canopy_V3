@@ -409,7 +409,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', minHeight: 0, overflow: 'hidden' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <Package size={14} style={{ color: '#a78bfa' }} />
-              Source Inputs
+              Source Inputs {inputs.length > 0 && `(${inputs.length})`}
             </label>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
               {domainTab === 'addresses' 
