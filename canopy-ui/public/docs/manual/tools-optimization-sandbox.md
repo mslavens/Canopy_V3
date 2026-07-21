@@ -56,3 +56,63 @@ The right panel displays the results categorized by type (1:1 Replacements, Addr
 You can toggle between two view modes in the right panel:
 - **List View**: Displays detailed, hierarchical trees of matched groups, including their nested members and IPs.
 - **Matrix View**: A high-level table that plots your exact inputs against the matching groups to easily visualize overlap. You can use the local **Search Bar** to instantly filter results recursively across all nested members.
+
+---
+
+## 4. Optimizer Alignment Overview
+
+This overview summarizes the combinations of swaps evaluated by the Canopy Optimizer, ensuring complete logical alignment between the **Backend Matrix Engine** (API) and the **Frontend Inline Engine** (UI).
+
+### Address Domain
+
+- **Exact 1:1 Match**
+  - **Backend (Matrix Engine):** Parses raw IPs and checks against Single-IP Objects. Ignores CIDRs.
+  - **Frontend (Inline UI):** Evaluates exact value match. Filters out objects containing a `/`.
+
+- **Subnet Match (CIDR)**
+  - **Backend (Matrix Engine):** Evaluates raw IPs, raw CIDRs, Object IPs, and Object CIDRs against broader CIDR objects via exact mathematical containment based on `CIDRThreshold`.
+  - **Frontend (Inline UI):** Receives `Type: "network"` insights from backend and renders them under "Subnets". Deduplicates any exact CIDR matches.
+
+- **Group Match**
+  - **Backend (Matrix Engine):** Flattens all nested group inputs and Object/CIDR inputs down to base components. Evaluates coverage against all Group trees using `GroupTolerance`.
+  - **Frontend (Inline UI):** Receives `Type: "group"` insights from backend and renders them under "Group Memberships". Allows nested group inspection.
+
+- **Swap Execution**
+  - **Backend (Matrix Engine):** *(Read-only analysis)*
+  - **Frontend (Inline UI):** Dynamically flattens all inputs to base IPs/CIDRs and compares against the incoming target Group. Identifies any items mathematically contained for removal.
+
+
+### Service Domain
+
+- **Exact 1:1 Match**
+  - **Backend (Matrix Engine):** Parses raw ports (`tcp/80`) and checks against Single-Port Objects.
+  - **Frontend (Inline UI):** Dynamically constructs `protocol/destination_port` from object properties and evaluates against raw input.
+
+- **Range Match**
+  - **Backend (Matrix Engine):** Evaluates raw ports, raw port ranges, and Object Ports against broader Port Range Objects via mathematical containment based on `CIDRThreshold`.
+  - **Frontend (Inline UI):** Receives `Type: "network"` insights from backend and renders them under "Ranges". Deduplicates exact Port matches.
+
+- **Group Match**
+  - **Backend (Matrix Engine):** Flattens all nested group inputs and Object/Range inputs down to base definitions. Evaluates coverage against all Group trees using `GroupTolerance`.
+  - **Frontend (Inline UI):** Receives `Type: "group"` insights from backend and renders them under "Group Memberships". Allows nested group inspection.
+
+- **Swap Execution**
+  - **Backend (Matrix Engine):** *(Read-only analysis)*
+  - **Frontend (Inline UI):** Dynamically flattens all inputs to raw `protocol/destination_port`. Identifies items mathematically contained within the incoming Group for removal.
+
+
+### Application Domain
+
+- **Exact 1:1 Match**
+  - **Backend (Matrix Engine):** *(No native raw-to-object logic; apps are always objects)*
+  - **Frontend (Inline UI):** Performs case-insensitive matching of input name against object name.
+
+- **Group Match**
+  - **Backend (Matrix Engine):** Flattens all nested group inputs to base App names. Evaluates coverage against all Group trees using `GroupTolerance`.
+  - **Frontend (Inline UI):** Receives `Type: "group"` insights from backend and renders them under "Group Memberships". Allows nested group inspection.
+
+- **Swap Execution**
+  - **Backend (Matrix Engine):** *(Read-only analysis)*
+  - **Frontend (Inline UI):** Dynamically flattens all inputs to base Application names. Identifies items contained within the incoming target Group for removal.
+
+> Both the Frontend and Backend employ full recursive unpacking algorithms for Groups. Whether an item is nested 1 layer deep or 10 layers deep, both engines mathematically drill down to the foundational base values (IPs, CIDRs, Ports, App Names) to calculate deterministic overlapping coverage.
