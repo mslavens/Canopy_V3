@@ -150,37 +150,43 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     });
   };
 
+  const loadReferenceData = async () => {
+    if (!apiClient) return;
+    try {
+      const objData = await apiClient.getObjectsReference();
+      const allAddressObjects = [
+        ...(objData.addresses || []),
+        ...(objData.address_groups || [])
+      ];
+      setGlobalAddressObjects(allAddressObjects);
+
+      const allServiceObjects = [
+        ...(objData.services || []),
+        ...(objData.service_groups || [])
+      ];
+      setGlobalServiceObjects(allServiceObjects);
+
+      const allApplicationObjects = [
+        ...(objData.applications || []),
+        ...(objData.application_groups || [])
+      ];
+      setGlobalApplicationObjects(allApplicationObjects);
+    } catch (err) {
+      console.error('Failed to load objects reference data', err);
+    }
+  };
+
   // Load scope hierarchy and objects
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
       if (!apiClient) return;
       try {
-        const [scopeData, objData] = await Promise.all([
-          apiClient.getPoliciesContext('security_rules', 'device'),
-          apiClient.getObjectsReference()
-        ]);
+        const scopeData = await apiClient.getPoliciesContext('security_rules', 'device');
         if (isMounted) {
           setDeviceGroups(scopeData.device_groups || []);
           setDevices(scopeData.devices || []);
-          
-          const allAddressObjects = [
-            ...(objData.addresses || []),
-            ...(objData.address_groups || [])
-          ];
-          setGlobalAddressObjects(allAddressObjects);
-
-          const allServiceObjects = [
-            ...(objData.services || []),
-            ...(objData.service_groups || [])
-          ];
-          setGlobalServiceObjects(allServiceObjects);
-
-          const allApplicationObjects = [
-            ...(objData.applications || []),
-            ...(objData.application_groups || [])
-          ];
-          setGlobalApplicationObjects(allApplicationObjects);
+          await loadReferenceData();
         }
       } catch (err) {
         console.error('Failed to load sandbox data', err);
@@ -226,7 +232,15 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         cidr_threshold: cidrThreshold,
         group_tolerance: groupTolerance / 100
       });
-      setResults(res.insights || []);
+      const validInsights = (res.insights || []).filter((insight: any) => {
+        if ((insight.type === 'object' || insight.type === 'network') && insight.matched_items?.length === 1) {
+          if (insight.matched_items[0] === insight.target_name) {
+            return false;
+          }
+        }
+        return true;
+      });
+      setResults(validInsights);
     } catch (err: any) {
       setError(err.message || 'Failed to optimize objects');
     } finally {
@@ -1064,7 +1078,22 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         <GlobalObjectCrudModal
           isOpen={!!quickAddModalData}
           onClose={() => setQuickAddModalData(null)}
-          onSuccess={() => {
+          onSuccess={async (newObjectName?: string) => {
+            await loadReferenceData();
+            if (newObjectName && quickAddModalData) {
+              setInputs(prev => {
+                const newInputs = [...prev];
+                const index = newInputs.indexOf(quickAddModalData.value);
+                if (index !== -1) {
+                  newInputs[index] = newObjectName;
+                } else {
+                  if (!newInputs.includes(newObjectName)) {
+                    newInputs.push(newObjectName);
+                  }
+                }
+                return newInputs;
+              });
+            }
             setQuickAddModalData(null);
           }}
           mode="create"

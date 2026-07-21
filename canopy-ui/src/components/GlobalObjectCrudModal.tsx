@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 export interface GlobalObjectCrudModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newObjectName?: string) => void;
   mode: 'create' | 'edit';
   objectType: string;
   initialData?: any;
@@ -187,7 +187,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
       }
 
       addToast(`${internalObjectType} ${mode === 'create' ? 'created' : 'updated'} successfully.`, 'success');
-      onSuccess();
+      onSuccess(payload.name);
       onClose();
     } catch (err: any) {
       addToast(`Error saving object: ${err.message}`, 'error');
@@ -540,7 +540,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
       {/* Member Selector Modal */}
       {isSelectorModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', zIndex: 10050 }} onClick={() => setIsSelectorModalOpen(false)}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', zIndex: 10050 }} onMouseDown={() => setIsSelectorModalOpen(false)}>
           <div 
             style={{ 
               position: 'absolute',
@@ -556,6 +556,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
               overflow: 'hidden'
             }} 
+            onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
@@ -705,7 +706,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
       {/* Tag Selector Modal */}
       {isTagSelectorModalOpen && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', zIndex: 10050 }} onClick={() => setIsTagSelectorModalOpen(false)}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', zIndex: 10050 }} onMouseDown={() => setIsTagSelectorModalOpen(false)}>
           <div 
             style={{ 
               position: 'absolute',
@@ -721,6 +722,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
               overflow: 'hidden'
             }} 
+            onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>

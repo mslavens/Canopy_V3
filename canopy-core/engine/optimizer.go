@@ -1054,6 +1054,9 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 
 		for _, obj := range addressList {
 			if len(obj.IPs) == 1 && len(obj.CIDRs) == 0 && obj.IPs[0] == inputIP {
+				if origStr == obj.Name {
+					continue
+				}
 				insights = append(insights, OptimizationInsight{
 					Type:          "object",
 					MatchedItems:  []string{origStr},
@@ -1089,6 +1092,9 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 
 		for _, obj := range addressList {
 			if len(obj.CIDRs) == 1 && len(obj.IPs) == 0 && obj.CIDRs[0] == inputCIDR {
+				if origStr == obj.Name {
+					continue
+				}
 				insights = append(insights, OptimizationInsight{
 					Type:          "network",
 					MatchedItems:  []string{origStr},

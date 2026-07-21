@@ -755,7 +755,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </button>
                   );
                 }
-                if (!isGroup && onAddObject && matchingObjects.length === 0) {
+                if (isRaw && onAddObject && matchingObjects.length === 0) {
                   return (
                     <button
                       className="popover-trigger"
@@ -903,7 +903,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </div>
                   )}
 
-                  {matchingObjects.length === 0 && onAddObject && (
+                  {isRaw && matchingObjects.length === 0 && onAddObject && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No 1:1 match found for this value.</span>
                       <button
