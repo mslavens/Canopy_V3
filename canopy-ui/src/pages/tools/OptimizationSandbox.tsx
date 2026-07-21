@@ -20,7 +20,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   useLayoutEffect(() => {
     setInputs([]);
-  }, [selectedScopeUuid]);
+  }, [selectedScopeUuid, domainTab]);
   
   const [cidrThresholdRaw, setCidrThresholdRaw] = useState<string>('3');
   const [groupToleranceRaw, setGroupToleranceRaw] = useState<string>('10');
@@ -34,7 +34,9 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
-  const [globalObjects, setGlobalObjects] = useState<any[]>([]);
+  const [globalAddressObjects, setGlobalAddressObjects] = useState<any[]>([]);
+  const [globalServiceObjects, setGlobalServiceObjects] = useState<any[]>([]);
+  const [globalApplicationObjects, setGlobalApplicationObjects] = useState<any[]>([]);
   
   // Resizer state
   const [leftPaneWidth, setLeftPaneWidth] = useState(550);
@@ -95,7 +97,19 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             ...(objData.addresses || []),
             ...(objData.address_groups || [])
           ];
-          setGlobalObjects(allAddressObjects);
+          setGlobalAddressObjects(allAddressObjects);
+
+          const allServiceObjects = [
+            ...(objData.services || []),
+            ...(objData.service_groups || [])
+          ];
+          setGlobalServiceObjects(allServiceObjects);
+
+          const allApplicationObjects = [
+            ...(objData.applications || []),
+            ...(objData.application_groups || [])
+          ];
+          setGlobalApplicationObjects(allApplicationObjects);
         }
       } catch (err) {
         console.error('Failed to load sandbox data', err);
@@ -109,9 +123,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
   const validScopeUuids = useMemo(() => new Set(getVisibleScopes(selectedScopeUuid)), [getVisibleScopes, selectedScopeUuid]);
   
+  const currentGlobalObjects = domainTab === 'addresses' ? globalAddressObjects : (domainTab === 'services' ? globalServiceObjects : globalApplicationObjects);
+  
   const filteredObjects = useMemo(() => {
-    return globalObjects.filter(obj => validScopeUuids.has(obj.device_uuid));
-  }, [globalObjects, validScopeUuids]);
+    return currentGlobalObjects.filter(obj => validScopeUuids.has(obj.device_uuid));
+  }, [currentGlobalObjects, validScopeUuids]);
 
   const toggleSelectAll = () => {
     if (inputs.length > 0) setInputs([]);
@@ -135,9 +151,10 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     try {
       const res = await apiClient.optimizeObjects({
         scope_uuid: selectedScopeUuid,
+        domain: domainTab === 'addresses' ? 'address' : (domainTab === 'services' ? 'service' : 'application'),
         inputs: inputs,
         cidr_threshold: cidrThreshold,
-        group_tolerance: groupTolerance
+        group_tolerance: groupTolerance / 100
       });
       setResults(res.insights || []);
     } catch (err: any) {
@@ -253,7 +270,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}>
       <PageHeader 
         title="Optimization Sandbox" 
-        description="Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies." 
+        description={domainTab === 'addresses' 
+          ? "Paste IPs, CIDRs, or Object names to find aggregation opportunities. Validate grouping rules safely before applying them in policies."
+          : domainTab === 'services' 
+            ? "Paste raw ports, or Service Object names to find aggregation opportunities. Validate grouping rules safely before applying them."
+            : "Paste raw Application IDs or Application Group names to find aggregation opportunities. Validate grouping rules safely before applying them."}
       />
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-main)', padding: '0 32px' }}>
         <button
@@ -276,7 +297,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
         </button>
       </div>
 
-      {domainTab === 'addresses' ? (
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '32px 0 0 0' }}>
         {/* LEFT PANE: Inputs & Controls */}
         <div style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
@@ -303,7 +323,11 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               Source Inputs
             </label>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.4 }}>
-              Paste raw IPs, CIDRs, or Object names. The sandbox will identify aggregation opportunities without modifying existing policies.
+              {domainTab === 'addresses' 
+                ? "Paste raw IPs, CIDRs, or Object names. The sandbox will identify aggregation opportunities without modifying existing policies."
+                : domainTab === 'services'
+                  ? "Paste raw ports (e.g. tcp/80, udp/53), or Service Object names. The sandbox will identify aggregation opportunities without modifying existing policies."
+                  : "Paste raw Application IDs, or Application Object names. The sandbox will identify aggregation opportunities without modifying existing policies."}
             </div>
             <TokenizedFieldEditor
               values={inputs}
@@ -313,6 +337,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               scopeNameMap={scopeNameMap}
               groupTolerance={groupTolerance}
               cidrThreshold={cidrThreshold}
+              domain={domainTab === 'addresses' ? 'address' : (domainTab === 'services' ? 'service' : 'application')}
+              insights={results}
             />
           </div>
 
@@ -396,7 +422,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                 Optimization Insights {results.length > 0 && <span style={{ color: 'var(--text-muted)' }}>({results.length})</span>}
               </h2>
               {results.length > 0 && (
-                <SearchBar width="280px" historyKey="optimization-sandbox-history" value={searchQuery} onChange={setSearchQuery} placeholder="Search Groups, IPs, or Objects..." variant="local" />
+                <SearchBar width="280px" historyKey="optimization-sandbox-history" value={searchQuery} onChange={setSearchQuery} placeholder={domainTab === 'addresses' ? "Search Groups, IPs, or Objects..." : domainTab === 'services' ? "Search Groups, Ports, or Objects..." : "Search Groups or Applications..."} variant="local" />
               )}
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -413,8 +439,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                 {[
                   { id: 'all', label: 'All Results' },
                   { id: 'object', label: '1:1 Replacement' },
-                  { id: 'group', label: 'Address Groups' },
-                  { id: 'network', label: 'CIDRs' }
+                  { id: 'network', label: domainTab === 'addresses' ? 'CIDRs' : 'Ranges' },
+                  { id: 'group', label: 'Groups' }
                 ].map(tab => {
                   const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
                   if (count === 0 && tab.id !== 'all') return null;
@@ -530,7 +556,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                           ) : (
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : insight.type} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
+                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : (insight.type === 'network' ? (domainTab === 'addresses' ? 'network' : 'range') : insight.type)} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Check size={12} color="var(--status-green)" /> Swaps {insight.coverage_count} items for 1 object.
@@ -706,11 +732,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           </div>
         </div>
       </div>
-      ) : (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500 }}>
-          {domainTab === 'services' ? 'Service Optimization Sandbox (Coming Soon)' : 'Application Optimization Sandbox (Coming Soon)'}
-        </div>
-      )}
     </div>
   );
 };

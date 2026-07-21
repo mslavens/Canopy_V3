@@ -9,6 +9,8 @@ interface ObjectRef {
   type: string;
   value?: string;
   member_list?: string;
+  protocol?: string;
+  destination_port?: string;
 }
 
 const ipToInt = (ip: string) => {
@@ -81,6 +83,8 @@ interface TokenizedFieldEditorProps {
   scopeNameMap?: Record<string, string>;
   groupTolerance?: number;
   cidrThreshold?: number;
+  domain?: 'address' | 'service' | 'application';
+  insights?: any[];
 }
 
 export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ 
@@ -90,7 +94,9 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   addToast,
   scopeNameMap = {},
   groupTolerance = 0,
-  cidrThreshold = 0
+  cidrThreshold = 0,
+  domain = 'address',
+  insights = []
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
@@ -370,7 +376,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             if (leafOpt && !leafOpt.member_list && leafOpt.value) {
                if (leafOpt.value === targetIp) {
                   found = true;
-               } else if (leafOpt.value.includes('/') && !targetIp.includes('/') && isIpInCidr(targetIp, leafOpt.value)) {
+               } else if (domain === 'address' && leafOpt.value.includes('/') && !targetIp.includes('/') && isIpInCidr(targetIp, leafOpt.value)) {
                   found = true;
                }
             }
@@ -497,7 +503,17 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isRaw = opt === undefined;
           
           const valIp = opt?.value || val;
-          let matchingObjects = options.filter(o => !o.member_list && o.value === valIp && o.name !== val);
+          let matchingObjects = options.filter(o => {
+            if (o.member_list || o.name === val) return false;
+            if (domain === 'service') {
+              if (!o.protocol || !o.destination_port) return false;
+              return val.toLowerCase() === `${o.protocol.toLowerCase()}/${o.destination_port}`;
+            }
+            if (domain === 'application') {
+              return val.toLowerCase() === o.name.toLowerCase();
+            }
+            return o.value === valIp;
+          });
           
           let iconColor = 'var(--text-muted)';
           if (isGroup) iconColor = '#60a5fa';
@@ -509,7 +525,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const addToFlattened = (l: string, set: Set<string>) => {
              set.add(l);
              const o = optionsMap.get(l);
-             if (o && o.value) set.add(o.value);
+             if (o) {
+               if (o.value) set.add(o.value);
+               if (domain === 'service' && o.protocol && o.destination_port) {
+                 set.add(`${o.protocol.toLowerCase()}/${o.destination_port}`);
+               }
+             }
           };
           values.forEach(v => getDeepMembers(v).forEach(l => addToFlattened(l, flattenedAllInputs)));
           if (!values.includes(val)) getDeepMembers(val).forEach(l => addToFlattened(l, flattenedAllInputs));
@@ -520,12 +541,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isLeafCoveredBy = (leafName: string, flattenedSet: Set<string>): boolean => {
              if (flattenedSet.has(leafName)) return true;
              const leafOpt = optionsMap.get(leafName);
-             if (!leafOpt || !leafOpt.value) return false;
-             if (!leafOpt.value.includes('/')) {
-                return flattenedSet.has(leafOpt.value);
-             } else {
-                return flattenedSet.has(leafOpt.value);
+             if (!leafOpt) return false;
+             if (leafOpt.value && flattenedSet.has(leafOpt.value)) return true;
+             if (domain === 'service' && leafOpt.protocol && leafOpt.destination_port) {
+               return flattenedSet.has(`${leafOpt.protocol.toLowerCase()}/${leafOpt.destination_port}`);
              }
+             return false;
           };
           
           const isLeafCoveredByInputs = (leafName: string): boolean => isLeafCoveredBy(leafName, flattenedAllInputs);
@@ -555,6 +576,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
              }
              return null;
           }).filter((item): item is NonNullable<typeof item> => item !== null);
+
+          const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val)) : [];
 
           return (
             <div 
@@ -600,9 +623,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   </span>
                 )}
               </div>
-
               {(() => {
-                const totalInsights = validParents.length + matchingObjects.length;
+                const totalInsights = validParents.length + matchingObjects.length + matchedNetworks.length;
 
                 if (totalInsights > 0) {
                   return (
@@ -744,7 +766,9 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.value}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                              {domain === 'service' ? `${match.protocol?.toLowerCase()}/${match.destination_port}` : match.value}
+                            </span>
                           </div>
                           <button 
                             onClick={(e) => {
@@ -761,6 +785,39 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       ))}
                     </div>
                   )}
+
+                  {(() => {
+                    if (matchedNetworks.length === 0) return null;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                        <div 
+                          onClick={() => setSubnetsOpen(!subnetsOpen)}
+                          style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                        >
+                          <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {domain === 'service' ? 'Ranges' : 'Subnets'} ({matchedNetworks.length})
+                        </div>
+                        {subnetsOpen && matchedNetworks.map(match => (
+                          <div key={match.target_name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                              <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.target_name}</span>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.target_value}</span>
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSwapRawToken(val, match.target_name);
+                              }}
+                              style={{ padding: '4px 8px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                            >
+                              Swap
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                 </div>, document.body
               )}
@@ -789,7 +846,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               color: 'var(--text-main)',
               padding: '0 8px'
             }}
-            placeholder="Paste IPs, CIDRs, or Object names..."
+            placeholder={
+              domain === 'service'
+                ? "Paste Ports (e.g. tcp/80) or Object names..."
+                : domain === 'application'
+                ? "Paste Apps or Object names..."
+                : "Paste IPs, CIDRs, or Object names..."
+            }
             autoComplete="off"
         />
       </div>

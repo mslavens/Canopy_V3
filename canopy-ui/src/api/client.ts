@@ -356,6 +356,6 @@ export class CanopyApiClient {
     this.request<{commands: string[]}>('/api/cli/generate', { method: 'POST', body: JSON.stringify(payload) });
 
   // Optimization Engine
-  public optimizeObjects = (payload: { scope_uuid: string, inputs: string[], cidr_threshold: number, group_tolerance: number }) =>
+  public optimizeObjects = (payload: { scope_uuid: string, domain?: string, inputs: string[], cidr_threshold: number, group_tolerance: number }) =>
     this.request<{insights: any[]}>('/api/tools/optimize', { method: 'POST', body: JSON.stringify(payload) });
 }

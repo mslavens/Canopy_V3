@@ -6,10 +6,12 @@ import (
 	"strings"
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 type OptimizeRequest struct {
 	ScopeUUID      string   `json:"scope_uuid"`
+	Domain         string   `json:"domain"`
 	Inputs         []string `json:"inputs"`
 	CIDRThreshold  int      `json:"cidr_threshold"`
 	GroupTolerance float64  `json:"group_tolerance"`
@@ -79,6 +81,704 @@ func parseValueToNet(val string) ([]netip.Addr, []netip.Prefix) {
 }
 
 func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
+	switch req.Domain {
+	case "service":
+		return OptimizeServices(db, req)
+	case "application":
+		return OptimizeApplications(db, req)
+	default:
+		return OptimizeAddresses(db, req)
+	}
+}
+
+type PortRange struct {
+	Start int
+	End   int
+}
+
+type memService struct {
+	ID       int64
+	Name     string
+	Protocol string
+	RawPort  string
+	Ports    []PortRange
+}
+
+func parsePorts(portStr string) []PortRange {
+	var ranges []PortRange
+	parts := strings.Split(portStr, ",")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if strings.Contains(p, "-") {
+			sp := strings.Split(p, "-")
+			if len(sp) == 2 {
+				start, _ := strconv.Atoi(strings.TrimSpace(sp[0]))
+				end, _ := strconv.Atoi(strings.TrimSpace(sp[1]))
+				if start > 0 && end >= start {
+					ranges = append(ranges, PortRange{Start: start, End: end})
+				}
+			}
+		} else {
+			port, _ := strconv.Atoi(p)
+			if port > 0 {
+				ranges = append(ranges, PortRange{Start: port, End: port})
+			}
+		}
+	}
+	return ranges
+}
+
+func parseInputToService(in string) (protocol string, ports []PortRange, ok bool) {
+	if strings.Contains(in, "/") {
+		parts := strings.SplitN(in, "/", 2)
+		protocol = strings.ToLower(strings.TrimSpace(parts[0]))
+		ports = parsePorts(parts[1])
+		if len(ports) > 0 {
+			ok = true
+		}
+	}
+	return
+}
+
+func portRangeContains(r PortRange, port int) bool {
+	return port >= r.Start && port <= r.End
+}
+
+// flatten an array of PortRanges into single port ints (if small enough) for simpler intersection math
+func flattenPortRanges(ranges []PortRange) []int {
+	var ports []int
+	for _, r := range ranges {
+		// Prevent massive range expansions blowing up memory
+		if r.End - r.Start > 10000 {
+			continue
+		}
+		for i := r.Start; i <= r.End; i++ {
+			ports = append(ports, i)
+		}
+	}
+	return ports
+}
+
+func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
+	insights := []OptimizationInsight{}
+	
+	lineage := GetPolicyScopeLineage(db, req.ScopeUUID)
+	if len(lineage) == 0 {
+		lineage = append(lineage, "paloalto-panorama-global", "fortinet-global-adom", "cisco-global-domain")
+	}
+
+	placeholders := make([]string, len(lineage))
+	args := make([]interface{}, len(lineage))
+	orderCases := ""
+	for i, l := range lineage {
+		placeholders[i] = "?"
+		args[i] = l
+		orderCases += fmt.Sprintf("WHEN '%s' THEN %d ", l, i)
+	}
+	inClause := strings.Join(placeholders, ",")
+	orderClauseObj := fmt.Sprintf("CASE device_uuid %s END DESC", orderCases)
+	orderClauseGrp := fmt.Sprintf("CASE g.device_uuid %s END DESC", orderCases)
+
+	// Load service_objects
+	objQuery := fmt.Sprintf(`SELECT id, name, protocol, destination_port FROM service_objects WHERE device_uuid IN (%s) ORDER BY %s`, inClause, orderClauseObj)
+	rows, err := db.Query(objQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	services := make(map[string]*memService)
+	var serviceList []*memService
+	for rows.Next() {
+		var id int64
+		var name, protocol, portStr sql.NullString
+		if err := rows.Scan(&id, &name, &protocol, &portStr); err == nil {
+			if !name.Valid { continue }
+			p := "tcp"
+			if protocol.Valid && protocol.String != "" {
+				p = strings.ToLower(protocol.String)
+			}
+			rawPort := ""
+			if portStr.Valid {
+				rawPort = portStr.String
+			}
+			
+			svc := &memService{
+				ID: id,
+				Name: name.String,
+				Protocol: p,
+				RawPort: rawPort,
+				Ports: parsePorts(rawPort),
+			}
+			
+			// Override if exists
+			replaced := false
+			for i, existing := range serviceList {
+				if existing.Name == svc.Name {
+					serviceList[i] = svc
+					replaced = true
+					break
+				}
+			}
+			if !replaced {
+				serviceList = append(serviceList, svc)
+			}
+			services[svc.Name] = svc
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+
+	// Load service_groups
+	grpQuery := fmt.Sprintf(`
+		SELECT g.id, g.name, COALESCE(gm.member_name, so.name, nested.name) as member_name
+		FROM service_groups g 
+		LEFT JOIN service_group_members gm ON g.id = gm.group_id
+		LEFT JOIN service_objects so ON gm.member_service_id = so.id
+		LEFT JOIN service_groups nested ON gm.member_group_id = nested.id
+		WHERE g.device_uuid IN (%s) 
+		ORDER BY %s`, inClause, orderClauseGrp)
+	
+	gRows, err := db.Query(grpQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make(map[string]*memGroup)
+	for gRows.Next() {
+		var id int64
+		var name string
+		var member sql.NullString
+		if err := gRows.Scan(&id, &name, &member); err == nil {
+			grp, ok := groups[name]
+			if !ok || grp.ID != id {
+				grp = &memGroup{ID: id, Name: name, Members: make([]string, 0)}
+				groups[name] = grp
+			}
+			if member.Valid && member.String != "" {
+				grp.Members = append(grp.Members, member.String)
+			}
+		}
+	}
+	if err := gRows.Err(); err != nil {
+		return nil, err
+	}
+	gRows.Close()
+
+	// Recursively resolve group leaves
+	resolvedGroupLeaves := make(map[string]map[string]bool)
+	var resolveGroup func(name string, visited map[string]bool) map[string]bool
+	resolveGroup = func(name string, visited map[string]bool) map[string]bool {
+		if leaves, ok := resolvedGroupLeaves[name]; ok {
+			return leaves
+		}
+		if visited[name] {
+			return make(map[string]bool)
+		}
+		visited[name] = true
+		
+		leaves := make(map[string]bool)
+		
+		if grp, ok := groups[name]; ok {
+			for _, mName := range grp.Members {
+				if _, isObj := services[mName]; isObj {
+					leaves[mName] = true
+				} else if _, isGrp := groups[mName]; isGrp {
+					sub := resolveGroup(mName, visited)
+					for k := range sub {
+						leaves[k] = true
+					}
+				}
+			}
+		}
+		
+		resolvedGroupLeaves[name] = leaves
+		return leaves
+	}
+
+	for gName := range groups {
+		resolveGroup(gName, make(map[string]bool))
+	}
+
+	// Parse inputs
+	inputMap := make(map[string]bool)
+	inputLeafMap := make(map[string]string)
+	
+	// Map to track explicit raw ports inputted
+	type rawPortKey struct {
+		protocol string
+		port     int
+	}
+	inputPortMap := make(map[rawPortKey]string)
+	var rawPortInputs []rawPortKey
+	
+	// To perform CIDR-like threshold aggregations, we track ALL flattened ports
+	// We'll map them by protocol
+	allFlattenedPorts := make(map[string][]int)
+
+	for _, in := range req.Inputs {
+		inputMap[in] = true
+		
+		if prot, pRanges, ok := parseInputToService(in); ok {
+			flat := flattenPortRanges(pRanges)
+			allFlattenedPorts[prot] = append(allFlattenedPorts[prot], flat...)
+			
+			for _, p := range flat {
+				k := rawPortKey{protocol: prot, port: p}
+				rawPortInputs = append(rawPortInputs, k)
+				inputPortMap[k] = in
+			}
+		} else {
+			// If input is an object name
+			if obj, ok := services[in]; ok {
+				allFlattenedPorts[obj.Protocol] = append(allFlattenedPorts[obj.Protocol], flattenPortRanges(obj.Ports)...)
+				inputLeafMap[in] = in
+			}
+			// If input is a group name
+			if leaves, ok := resolvedGroupLeaves[in]; ok {
+				for leaf := range leaves {
+					inputLeafMap[leaf] = in
+					if obj, isObj := services[leaf]; isObj {
+						allFlattenedPorts[obj.Protocol] = append(allFlattenedPorts[obj.Protocol], flattenPortRanges(obj.Ports)...)
+					}
+				}
+			}
+		}
+	}
+
+	// 1. Port to Object (Exact Match / 1:1)
+	// We only swap EXPLICITLY provided raw ports
+	for key, origStr := range inputPortMap {
+		for _, obj := range serviceList {
+			// Exact match if object has 1 port and it matches
+			if len(obj.Ports) == 1 && obj.Ports[0].Start == obj.Ports[0].End && obj.Ports[0].Start == key.port && obj.Protocol == key.protocol {
+				if !inputMap[obj.Name] {
+					insights = append(insights, OptimizationInsight{
+						Type:          "object",
+						MatchedItems:  []string{origStr},
+						TargetName:    obj.Name,
+						TargetValue:   fmt.Sprintf("%s/%s", obj.Protocol, obj.RawPort),
+						MissingCount:  0,
+						CoverageCount: 1,
+					})
+				}
+			}
+		}
+	}
+
+	// 2. Port Ranges (CIDR equivalent)
+	// Suggest objects that contain multiple ports, IF the threshold is met
+	// And ONLY suggest swapping inputs that are fully covered by the object
+	portRangeMap := make(map[string]*OptimizationInsight)
+	for _, obj := range serviceList {
+		// Only consider objects that are ranges or multi-ports
+		if len(obj.Ports) > 1 || (len(obj.Ports) == 1 && obj.Ports[0].Start != obj.Ports[0].End) {
+			
+			totalCoveredPorts := 0
+			// Count how many of all flattened ports fall into this object
+			for _, p := range allFlattenedPorts[obj.Protocol] {
+				covered := false
+				for _, r := range obj.Ports {
+					if portRangeContains(r, p) {
+						covered = true
+						break
+					}
+				}
+				if covered {
+					totalCoveredPorts++
+				}
+			}
+			
+			// If we meet the math threshold (e.g. 3 ports)
+			if totalCoveredPorts >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+				var matched []string
+				
+				// Evaluate which explicit inputs are FULLY covered by this object
+				for _, in := range req.Inputs {
+					isFullyCovered := true
+					hasAnyPorts := false
+					
+					if prot, pRanges, ok := parseInputToService(in); ok {
+						if prot != obj.Protocol {
+							isFullyCovered = false
+						} else {
+							flat := flattenPortRanges(pRanges)
+							for _, p := range flat {
+								hasAnyPorts = true
+								covered := false
+								for _, r := range obj.Ports {
+									if portRangeContains(r, p) {
+										covered = true
+										break
+									}
+								}
+								if !covered {
+									isFullyCovered = false
+								}
+							}
+						}
+					} else if inObj, ok := services[in]; ok {
+						if inObj.Protocol != obj.Protocol {
+							isFullyCovered = false
+						} else {
+							flat := flattenPortRanges(inObj.Ports)
+							for _, p := range flat {
+								hasAnyPorts = true
+								covered := false
+								for _, r := range obj.Ports {
+									if portRangeContains(r, p) {
+										covered = true
+										break
+									}
+								}
+								if !covered {
+									isFullyCovered = false
+								}
+							}
+						}
+					} else if leaves, ok := resolvedGroupLeaves[in]; ok {
+						for leaf := range leaves {
+							if inObj, isObj := services[leaf]; isObj {
+								if inObj.Protocol != obj.Protocol {
+									isFullyCovered = false
+								} else {
+									flat := flattenPortRanges(inObj.Ports)
+									for _, p := range flat {
+										hasAnyPorts = true
+										covered := false
+										for _, r := range obj.Ports {
+											if portRangeContains(r, p) {
+												covered = true
+												break
+											}
+										}
+										if !covered {
+											isFullyCovered = false
+										}
+									}
+								}
+							}
+						}
+					}
+					
+					if hasAnyPorts && isFullyCovered {
+						matched = append(matched, in)
+					}
+				}
+				
+				if len(matched) > 0 {
+					portRangeMap[obj.Name] = &OptimizationInsight{
+						Type:          "network", // 'network' type renders with the hash icon
+						MatchedItems:  matched,
+						TargetName:    obj.Name,
+						TargetValue:   fmt.Sprintf("%s/%s", obj.Protocol, obj.RawPort),
+						MissingCount:  0,
+						CoverageCount: len(matched),
+					}
+				}
+			}
+		}
+	}
+	
+	for _, v := range portRangeMap {
+		insights = append(insights, *v)
+	}
+
+	// 3. Service Groups
+	for gName, leaves := range resolvedGroupLeaves {
+		if len(leaves) == 0 {
+			continue
+		}
+		
+		if inputMap[gName] {
+			continue
+		}
+
+		matchedInputSet := make(map[string]bool)
+		coveredLeavesMap := make(map[string]bool)
+		coverage := 0
+		
+		for leaf := range leaves {
+			matchedThisLeaf := false
+			
+			if origInput, exists := inputLeafMap[leaf]; exists {
+				matchedInputSet[origInput] = true
+				matchedThisLeaf = true
+			} else if obj, isObj := services[leaf]; isObj {
+				// Check if any provided input port matches this object's ports
+				for k, origInput := range inputPortMap {
+					if k.protocol == obj.Protocol {
+						for _, r := range obj.Ports {
+							if portRangeContains(r, k.port) {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								break
+							}
+						}
+					}
+				}
+			}
+			
+			if matchedThisLeaf {
+				coverage++
+				coveredLeavesMap[leaf] = true
+			}
+		}
+		
+		totalLeaves := len(leaves)
+		if coverage > 0 {
+			toleranceRatio := float64(coverage) / float64(totalLeaves)
+			fmt.Printf("Evaluating group: %s, coverage: %d, total: %d, ratio: %f, reqTolerance: %f\n", gName, coverage, totalLeaves, toleranceRatio, req.GroupTolerance)
+			if toleranceRatio >= req.GroupTolerance {
+				var matched []string
+				for m := range matchedInputSet {
+					matched = append(matched, m)
+				}
+				
+				var buildNested func(name string, visited map[string]bool) []NestedMemberNode
+				buildNested = func(name string, visited map[string]bool) []NestedMemberNode {
+					if visited[name] {
+						return nil
+					}
+					visited[name] = true
+					var nodes []NestedMemberNode
+					if grp, ok := groups[name]; ok {
+						for _, mName := range grp.Members {
+							node := NestedMemberNode{
+								Name: mName,
+							}
+							if _, isGrp := groups[mName]; isGrp {
+								node.Type = "group"
+								node.Children = buildNested(mName, visited)
+								allCovered := true
+								for _, child := range node.Children {
+									if !child.IsCovered {
+										allCovered = false
+										break
+									}
+								}
+								node.IsCovered = allCovered
+							} else {
+								node.Type = "object"
+								node.IsCovered = coveredLeavesMap[mName]
+								if svcObj, ok := services[mName]; ok {
+									node.Value = fmt.Sprintf("%s/%s", svcObj.Protocol, svcObj.RawPort)
+								}
+							}
+							nodes = append(nodes, node)
+						}
+					}
+					return nodes
+				}
+				
+				missingCount := totalLeaves - coverage
+				insights = append(insights, OptimizationInsight{
+					Type:          "group",
+					MatchedItems:  matched,
+					TargetName:    gName,
+					TargetValue:   fmt.Sprintf("%d members", len(groups[gName].Members)),
+					MissingCount:  missingCount,
+					CoverageCount: len(matched),
+					CoveredMembers: coverage,
+					TotalMembers:   totalLeaves,
+					NestedTree:    buildNested(gName, make(map[string]bool)),
+				})
+			}
+		}
+	}
+
+	return insights, nil
+}
+
+func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
+	insights := []OptimizationInsight{}
+	
+	lineage := GetPolicyScopeLineage(db, req.ScopeUUID)
+	if len(lineage) == 0 {
+		lineage = append(lineage, "paloalto-panorama-global", "fortinet-global-adom", "cisco-global-domain")
+	}
+
+	placeholders := make([]string, len(lineage))
+	args := make([]interface{}, len(lineage))
+	orderCases := ""
+	for i, l := range lineage {
+		placeholders[i] = "?"
+		args[i] = l
+		orderCases += fmt.Sprintf("WHEN '%s' THEN %d ", l, i)
+	}
+	inClause := strings.Join(placeholders, ",")
+	orderClauseGrp := fmt.Sprintf("CASE g.device_uuid %s END DESC", orderCases)
+
+	// We only need groups and members
+	grpQuery := fmt.Sprintf(`
+		SELECT g.id, g.name, COALESCE(gm.member_name, ao.name, nested.name) as member_name
+		FROM application_groups g 
+		LEFT JOIN application_group_members gm ON g.id = gm.group_id
+		LEFT JOIN application_objects ao ON gm.member_application_id = ao.id
+		LEFT JOIN application_groups nested ON gm.member_group_id = nested.id
+		WHERE g.device_uuid IN (%s) 
+		ORDER BY %s`, inClause, orderClauseGrp)
+	
+	gRows, err := db.Query(grpQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make(map[string]*memGroup)
+	for gRows.Next() {
+		var id int64
+		var name string
+		var member sql.NullString
+		if err := gRows.Scan(&id, &name, &member); err == nil {
+			grp, ok := groups[name]
+			if !ok || grp.ID != id {
+				grp = &memGroup{ID: id, Name: name, Members: make([]string, 0)}
+				groups[name] = grp
+			}
+			if member.Valid && member.String != "" {
+				grp.Members = append(grp.Members, member.String)
+			}
+		}
+	}
+	if err := gRows.Err(); err != nil {
+		return nil, err
+	}
+	gRows.Close()
+
+	resolvedGroupLeaves := make(map[string]map[string]bool)
+	var resolveGroup func(name string, visited map[string]bool) map[string]bool
+	resolveGroup = func(name string, visited map[string]bool) map[string]bool {
+		if leaves, ok := resolvedGroupLeaves[name]; ok {
+			return leaves
+		}
+		if visited[name] {
+			return make(map[string]bool)
+		}
+		visited[name] = true
+		
+		leaves := make(map[string]bool)
+		if grp, ok := groups[name]; ok {
+			for _, mName := range grp.Members {
+				if _, isGrp := groups[mName]; isGrp {
+					sub := resolveGroup(mName, visited)
+					for k := range sub {
+						leaves[k] = true
+					}
+				} else {
+					leaves[mName] = true
+				}
+			}
+		}
+		
+		resolvedGroupLeaves[name] = leaves
+		return leaves
+	}
+
+	for gName := range groups {
+		resolveGroup(gName, make(map[string]bool))
+	}
+
+	inputMap := make(map[string]bool)
+	inputLeafMap := make(map[string]string)
+	
+	for _, in := range req.Inputs {
+		inputMap[in] = true
+		if leaves, ok := resolvedGroupLeaves[in]; ok {
+			for leaf := range leaves {
+				inputLeafMap[leaf] = in
+			}
+		} else {
+			inputLeafMap[in] = in
+		}
+	}
+
+	for gName, leaves := range resolvedGroupLeaves {
+		if len(leaves) == 0 {
+			continue
+		}
+		
+		if inputMap[gName] {
+			continue
+		}
+
+		matchedInputSet := make(map[string]bool)
+		coveredLeavesMap := make(map[string]bool)
+		coverage := 0
+		
+		for leaf := range leaves {
+			if origInput, exists := inputLeafMap[leaf]; exists {
+				matchedInputSet[origInput] = true
+				coverage++
+				coveredLeavesMap[leaf] = true
+			}
+		}
+		
+		totalLeaves := len(leaves)
+		if coverage > 0 {
+			toleranceRatio := float64(coverage) / float64(totalLeaves)
+			if toleranceRatio >= req.GroupTolerance {
+				var matched []string
+				for m := range matchedInputSet {
+					matched = append(matched, m)
+				}
+				
+				var buildNested func(name string, visited map[string]bool) []NestedMemberNode
+				buildNested = func(name string, visited map[string]bool) []NestedMemberNode {
+					if visited[name] {
+						return nil
+					}
+					visited[name] = true
+					var nodes []NestedMemberNode
+					if grp, ok := groups[name]; ok {
+						for _, mName := range grp.Members {
+							node := NestedMemberNode{
+								Name: mName,
+							}
+							if _, isGrp := groups[mName]; isGrp {
+								node.Type = "group"
+								node.Children = buildNested(mName, visited)
+								allCovered := true
+								for _, child := range node.Children {
+									if !child.IsCovered {
+										allCovered = false
+										break
+									}
+								}
+								node.IsCovered = allCovered
+							} else {
+								node.Type = "object"
+								node.IsCovered = coveredLeavesMap[mName]
+							}
+							nodes = append(nodes, node)
+						}
+					}
+					return nodes
+				}
+				
+				missingCount := totalLeaves - coverage
+				insights = append(insights, OptimizationInsight{
+					Type:          "group",
+					MatchedItems:  matched,
+					TargetName:    gName,
+					TargetValue:   fmt.Sprintf("%d members", len(groups[gName].Members)),
+					MissingCount:  missingCount,
+					CoverageCount: len(matched),
+					CoveredMembers: coverage,
+					TotalMembers:   totalLeaves,
+					NestedTree:    buildNested(gName, make(map[string]bool)),
+				})
+			}
+		}
+	}
+
+	return insights, nil
+}
+
+func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 	insights := []OptimizationInsight{}
 	if len(req.Inputs) == 0 {
 		return insights, nil
@@ -134,6 +834,9 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	rows.Close()
 
 	grpQuery := fmt.Sprintf(`
@@ -166,6 +869,9 @@ func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
 				grp.Members = append(grp.Members, member.String)
 			}
 		}
+	}
+	if err := gRows.Err(); err != nil {
+		return nil, err
 	}
 	if err := gRows.Err(); err != nil {
 		return nil, err
