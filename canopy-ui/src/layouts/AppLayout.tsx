@@ -663,8 +663,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <button
                   onClick={() => setShowMoreNav(!showMoreNav)}
                   style={{
-                    background: 'none', border: 'none', borderBottom: '3px solid transparent',
-                    color: 'var(--text-main)', cursor: 'pointer', padding: '0 15px', fontWeight: 600, fontSize: '14px', height: '100%',
+                    background: 'none', border: 'none', 
+                    borderBottom: mainTabs.slice(visibleTabsCount).includes(activeMainTab) ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
+                    color: mainTabs.slice(visibleTabsCount).includes(activeMainTab) ? 'var(--text-main)' : 'var(--text-muted)', 
+                    cursor: 'pointer', padding: '0 15px', fontWeight: 600, fontSize: '14px', height: '100%',
                     flexShrink: 0, display: 'flex', alignItems: 'center', gap: '4px'
                   }}
                 >
@@ -686,13 +688,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                           setShowMoreNav(false);
                         }}
                         style={{
-                          background: 'none', border: 'none', padding: '10px 16px',
+                          background: activeMainTab === tab ? 'var(--bg-element)' : 'none',
+                          border: 'none',
+                          borderLeft: activeMainTab === tab ? `3px solid ${activeWorkspaceColor}` : '3px solid transparent',
+                          padding: '10px 16px',
                           color: activeMainTab === tab ? 'var(--text-main)' : 'var(--text-muted)',
                           fontWeight: activeMainTab === tab ? 600 : 400, fontSize: '13px',
                           cursor: 'pointer', textAlign: 'left', borderRadius: '4px'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-element)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        onMouseEnter={(e) => { if (activeMainTab !== tab) e.currentTarget.style.backgroundColor = 'var(--bg-element)'; }}
+                        onMouseLeave={(e) => { if (activeMainTab !== tab) e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         {tab}
                       </button>
