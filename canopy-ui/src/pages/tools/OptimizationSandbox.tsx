@@ -213,7 +213,6 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
     setIsOptimizing(true);
     setError(null);
-    setResults([]);
 
     try {
       const res = await apiClient.optimizeObjects({

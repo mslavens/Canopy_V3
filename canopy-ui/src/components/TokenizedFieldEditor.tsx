@@ -102,6 +102,9 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [filterQuery, setFilterQuery] = useState('');
   const [popoverToken, setPopoverToken] = useState<string | null>(null);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
+  const [editingToken, setEditingToken] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [replacingToken, setReplacingToken] = useState<string | null>(null);
   
   const [workerResults, setWorkerResults] = useState<Record<string, { matchingObjects: any[], validParents: any[] }>>({});
   const [isWorkerCalculating, setIsWorkerCalculating] = useState(false);
@@ -134,7 +137,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
   const [dropdownTab, setDropdownTab] = useState<'all' | 'objects' | 'groups'>('all');
-  const [dropdownPos, setDropdownPos] = useState({ bottom: 0, left: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number, bottom?: number, left: number }>({ bottom: 0, left: 0 });
   
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -159,14 +162,14 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   // Close popover and dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && popoverRef.current.contains(event.target as Node)) {
-        return;
-      }
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setPopoverToken(null);
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        if (!(event.target as Element).closest('.popover-trigger')) {
+          setPopoverToken(null);
+        }
       }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && !(event.target as Element).closest('.add-button-trigger')) {
         setDropdownOpen(false);
+        setReplacingToken(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -174,14 +177,28 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   }, []);
 
   useLayoutEffect(() => {
-    if (dropdownOpen && addButtonRef.current) {
-      const rect = addButtonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        bottom: window.innerHeight - rect.bottom,
-        left: rect.right + 12
-      });
+    if (dropdownOpen) {
+      if (replacingToken && rowRefs.current.get(replacingToken)) {
+        const rect = rowRefs.current.get(replacingToken)!.getBoundingClientRect();
+        let top = rect.top;
+        if (top + 400 > window.innerHeight - 50) {
+          top = Math.max(20, window.innerHeight - 450);
+        }
+        setDropdownPos({
+          top: top,
+          bottom: undefined,
+          left: rect.left + 32
+        });
+      } else if (addButtonRef.current) {
+        const rect = addButtonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: undefined,
+          bottom: window.innerHeight - rect.bottom,
+          left: rect.right + 12
+        });
+      }
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, replacingToken]);
 
   useLayoutEffect(() => {
     if (popoverToken) {
@@ -635,9 +652,57 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   {isGroup ? <Layers size={14} /> : isObject ? <Package size={14} /> : <Hash size={14} />}
                 </span>
                 
-                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                  {val}
-                </span>
+                {editingToken === val ? (
+                  <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => {
+                      if (editValue.trim() && editValue !== val) {
+                        const newValues = [...values];
+                        const idx = newValues.indexOf(val);
+                        if (idx !== -1) {
+                          newValues[idx] = editValue.trim();
+                          onChange(newValues);
+                        }
+                      }
+                      setEditingToken(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === 'Escape') {
+                        setEditingToken(null);
+                      }
+                    }}
+                    autoFocus
+                    style={{ 
+                      fontSize: '13px', 
+                      fontWeight: 500, 
+                      color: 'var(--text-main)', 
+                      backgroundColor: 'var(--bg-element)', 
+                      border: '1px solid var(--accent-blue)', 
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      outline: 'none',
+                      flex: 1
+                    }}
+                  />
+                ) : (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReplacingToken(val);
+                      setDropdownOpen(true);
+                      setDropdownSearch('');
+                    }}
+                    style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                    title="Click to replace object"
+                  >
+                    {val}
+                  </span>
+                )}
 
                 {displayValue && (
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -651,6 +716,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 if (totalInsights > 0) {
                   return (
                     <button
+                      className="popover-trigger"
                       onClick={(e) => {
                         e.stopPropagation();
                         setPopoverToken(popoverToken === val ? null : val);
@@ -668,6 +734,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 if (isGroup) {
                   return (
                     <button
+                      className="popover-trigger"
                       onClick={(e) => {
                         e.stopPropagation();
                         setPopoverToken(popoverToken === val ? null : val);
@@ -693,7 +760,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   position: 'fixed',
                   top: popoverPos.top,
                   left: popoverPos.left,
-                  width: '320px',
+                  width: '420px',
                   maxHeight: '400px',
                   overflowY: 'scroll',
                   backgroundColor: 'var(--bg-surface)',
@@ -913,8 +980,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             ref={addButtonRef}
             className="add-button-trigger"
             onClick={() => {
-              setDropdownOpen(!dropdownOpen);
-              setDropdownSearch('');
+              if (dropdownOpen && replacingToken) {
+                setReplacingToken(null);
+                setDropdownSearch('');
+              } else {
+                setDropdownOpen(!dropdownOpen);
+                setDropdownSearch('');
+              }
             }}
             style={{ 
               display: 'flex', 
@@ -941,9 +1013,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               ref={dropdownRef}
               style={{
                 position: 'fixed',
+                top: dropdownPos.top,
                 bottom: dropdownPos.bottom,
                 left: dropdownPos.left,
-                width: '320px',
+                width: '420px',
                 height: '400px',
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border-main)',
@@ -1037,7 +1110,14 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     <div 
                       key={opt.id}
                       onClick={() => {
-                        if (!isAlreadyAdded) {
+                        if (isAlreadyAdded && opt.name !== replacingToken) return;
+                        if (replacingToken) {
+                          if (opt.name !== replacingToken) {
+                            handleSwapRawToken(replacingToken, opt.name);
+                          }
+                          setDropdownOpen(false);
+                          setReplacingToken(null);
+                        } else {
                           addTokens(opt.name);
                         }
                       }}
