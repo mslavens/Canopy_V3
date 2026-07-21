@@ -214,7 +214,24 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   const renderTagsSection = (selectedTags: string[]) => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Tags</label>
+          <button 
+            type="button" 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              const modalEl = e.currentTarget.closest('[tabindex="-1"]');
+              const rect = modalEl ? modalEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
+              setTagDropdownPos({ top: rect.top, left: rect.right + 16, bottom: 'auto' });
+              setIsTagSelectorModalOpen(true); 
+            }} 
+            style={{ padding: '2px 8px', background: 'transparent', border: '1px dashed var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-main)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+          >
+            + Add Tag
+          </button>
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
           {selectedTags.map(tag => (
             <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-main)' }}>
@@ -231,21 +248,6 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               </button>
             </div>
           ))}
-          <button 
-            type="button" 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              const modalEl = e.currentTarget.closest('[tabindex="-1"]');
-              const rect = modalEl ? modalEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-              setTagDropdownPos({ top: rect.top, left: rect.right + 16, bottom: 'auto' });
-              setIsTagSelectorModalOpen(true); 
-            }} 
-            style={{ padding: '2px 8px', background: 'transparent', border: '1px dashed var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-muted)'; e.currentTarget.style.color = 'var(--text-main)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-main)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-          >
-            + Add Tag
-          </button>
         </div>
       </div>
     );
@@ -420,40 +422,50 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
         <form id="crud-object-form" onSubmit={handleSaveObject} style={{ display: 'flex', flexDirection: 'column', gap: '15px', height: internalObjectType === 'Group' ? '500px' : 'auto' }}>
           
           {/* Object / Group Segmented Control */}
-          <div style={{ display: 'flex', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px', padding: '2px', width: 'fit-content' }}>
+          <div style={{ display: 'flex', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '6px', padding: '4px', width: 'fit-content' }}>
             <button
               type="button"
               onClick={() => setInternalObjectType('Object')}
               style={{
-                padding: '4px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 16px',
                 fontSize: '12px',
-                fontWeight: 600,
-                backgroundColor: internalObjectType === 'Object' ? 'var(--button-primary)' : 'transparent',
+                fontWeight: 700,
+                backgroundColor: internalObjectType === 'Object' ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
                 color: internalObjectType === 'Object' ? 'white' : 'var(--text-muted)',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                boxShadow: internalObjectType === 'Object' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
               }}
             >
-              Object
+              <Package size={14} />
+              OBJECT
             </button>
             <button
               type="button"
               onClick={() => setInternalObjectType('Group')}
               style={{
-                padding: '4px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 16px',
                 fontSize: '12px',
-                fontWeight: 600,
-                backgroundColor: internalObjectType === 'Group' ? 'var(--button-primary)' : 'transparent',
+                fontWeight: 700,
+                backgroundColor: internalObjectType === 'Group' ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
                 color: internalObjectType === 'Group' ? 'white' : 'var(--text-muted)',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                boxShadow: internalObjectType === 'Group' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'
               }}
             >
-              Group
+              <Layers size={14} />
+              GROUP
             </button>
           </div>
 
@@ -623,10 +635,11 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                         gap: '12px', 
                         padding: '10px 12px', 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        cursor: 'pointer',
+                        cursor: isAlreadyAdded ? 'default' : 'pointer',
+                        opacity: isAlreadyAdded ? 0.4 : 1,
                         transition: 'background-color 0.1s'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                      onMouseEnter={e => { if (!isAlreadyAdded) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       {isAlreadyAdded ? (
@@ -780,10 +793,11 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                         gap: '12px', 
                         padding: '10px 12px', 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        cursor: 'pointer',
+                        cursor: isAlreadyAdded ? 'default' : 'pointer',
+                        opacity: isAlreadyAdded ? 0.4 : 1,
                         transition: 'background-color 0.1s'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                      onMouseEnter={e => { if (!isAlreadyAdded) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       {isAlreadyAdded ? (
