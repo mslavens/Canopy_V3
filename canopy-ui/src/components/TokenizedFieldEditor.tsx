@@ -760,7 +760,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                              </div>
                              <button 
                                onClick={(e) => { e.stopPropagation(); handleSwapGroup(val, parent.name); }}
-                               style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: '#a78bfa', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
+                               style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', backgroundColor: '#a78bfa', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, marginRight: '4px' }}
                              >
                                <Layers size={12} /> Swap
                              </button>
