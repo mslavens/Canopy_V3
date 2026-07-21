@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.33.7 - Optimization Sandbox UI Refinements & Engine Sorting
+**Date:** 2026-07-21
+
+### Changed
+- **Impact-Driven Insights**: Global insights panels and tabs are now completely driven by impactfulness. Both the Go engine and the React UI have been updated to evaluate, sort, and prioritize Groups, followed by 1:1 Replacements, and finally CIDRs. Items within those categories are strictly sorted descending by the total number of items they cover (CoverageCount).
+- **Inline Input Editing**: You can now double-click any Sandbox token to edit its text inline. The editor supports `Enter` to save, `Escape` to cancel, and automatically commits on blur.
+- **Unified Object Selector**: Tapping on a token now dynamically anchors and opens the standard "Select Object" dropdown directly under the item, allowing seamless replace-in-place operations using the same interface as adding an item.
+- **Select Object Dropdown Width**: Significantly widened the Select Object and Insights popovers from 320px to 420px to better accommodate verbose object labels (like complex Transit routes).
+- **UI Flicker Prevention**: Removed an aggressive visual clear state that was causing the sandbox panels to artificially flash empty for a fraction of a second while waiting for updated optimization API responses.
+
+### Fixed
+- **Insights Popover Un-Focus**: Fixed a bug where clicking off of the Insights popup window would fail to close it if you happened to click anywhere inside the editor boundary itself.
+- **Add Button Toggling**: Fixed a race condition where tapping the global `+ Add` button while already having the replace dropdown open for a specific object would incorrectly collapse the menu instead of transitioning it cleanly to "Add" mode.
+- **Orphaned Fallback Badges**: Removed a legacy blue fallback badge that was inappropriately rendering a useless, empty popover for completely raw IPs that had zero calculated insights.
+
 ## v0.33.6 - Optimization Sandbox Live Updates & Engine Fixes
 **Date:** 2026-07-18
 
