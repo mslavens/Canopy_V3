@@ -109,6 +109,7 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
   const [mappings, setMappings] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [runHealAfterImport, setRunHealAfterImport] = useState(true);
 
   const [staticValues, setStaticValues] = useState<Record<string, string>>({});
 
@@ -342,6 +343,13 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
       });
       
       if (resData.success) {
+        if (runHealAfterImport) {
+          try {
+            await apiClient.healWorkspace();
+          } catch (healErr) {
+            console.error('Workspace heal failed:', healErr);
+          }
+        }
         setIsProcessing(false);
         onSuccess(resData);
         onClose();
@@ -562,6 +570,11 @@ export const DataImportWizard: React.FC<DataImportWizardProps> = ({
                 {parsedData.length} records ready to import.
               </div>
             </div>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '12px' }}>
+              <input type="checkbox" checked={runHealAfterImport} onChange={(e) => setRunHealAfterImport(e.target.checked)} style={{ cursor: 'pointer' }} />
+              Run workspace health check after import (Recommended)
+            </label>
           </div>
         )}
 

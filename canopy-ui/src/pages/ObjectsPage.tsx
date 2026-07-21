@@ -233,6 +233,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
   // Drag and drop drop-zone applications CSV file state
   const [dragActive, setDragActive] = useState(false);
   const [csvUploading, setCsvUploading] = useState(false);
+  const [runHealAfterImport, setRunHealAfterImport] = useState(true);
 
   // Helper to get device group scope hierarchy (self -> parents -> global)
   const getScopeHierarchy = useCallback((scopeUuid: string): string[] => {
@@ -2151,6 +2152,18 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     try {
       const res = await apiClient.importApplicationCSV(formData);
       addToast(`App-ID Import Success! Ingested ${res.inserted} signatures, updated ${res.updated} signatures.`, 'success');
+      
+      if (runHealAfterImport) {
+        addToast('Running post-import database health check...', 'info');
+        try {
+          await apiClient.healWorkspace();
+          addToast('Workspace health check and heal complete!', 'success');
+        } catch (healErr: any) {
+          console.error('Heal Error:', healErr);
+          addToast('Health check failed: ' + healErr.message, 'error');
+        }
+      }
+
       fetchRecords();
     } catch (err: any) {
       console.error('CSV Ingest Error:', err);
@@ -3221,7 +3234,11 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                   </div>
                 </div>
               </div>
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', userSelect: 'none' }}>
+                  <input type="checkbox" checked={runHealAfterImport} onChange={(e) => setRunHealAfterImport(e.target.checked)} style={{ cursor: 'pointer' }} />
+                  Run workspace health check after import (Recommended)
+                </label>
                 <label
                   className={`btn-secondary btn-sm ${csvUploading ? 'disabled' : ''}`}
                   style={{ cursor: csvUploading ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
