@@ -62,6 +62,13 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   // Tag Selector State
   const [isTagSelectorModalOpen, setIsTagSelectorModalOpen] = useState(false);
   const [tagDropdownPos, setTagDropdownPos] = useState<any>({ top: 0, left: 0, bottom: 'auto' });
+  const [initialTagSortValues, setInitialTagSortValues] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isTagSelectorModalOpen) {
+      setInitialTagSortValues(formTags);
+    }
+  }, [isTagSelectorModalOpen]);
   const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [tagCheckedNames, setTagCheckedNames] = useState<string[]>([]);
   
@@ -211,6 +218,35 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
     return '';
   };
 
+  const handleTagModalMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = parseFloat(tagDropdownPos.left);
+    const startPosY = parseFloat(tagDropdownPos.top);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      setTagDropdownPos((prev: any) => ({
+        ...prev,
+        left: startPosX + dx,
+        top: startPosY + dy
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const renderTagsSection = (selectedTags: string[]) => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -222,7 +258,20 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               e.preventDefault(); 
               const modalEl = e.currentTarget.closest('[tabindex="-1"]');
               const rect = modalEl ? modalEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-              setTagDropdownPos({ top: rect.top, left: rect.right + 16, bottom: 'auto' });
+              
+              let left = rect.right + 16;
+              // The tag selector modal is 600px wide. If it goes off the right edge:
+              if (left + 600 > window.innerWidth) {
+                // Check if it fits on the left
+                if (rect.left > 600 + 16) {
+                  left = rect.left - 600 - 16; // Pop out to the left side
+                } else {
+                  // If it doesn't fit on either side, center it over the modal
+                  left = rect.left + (rect.width / 2) - 300;
+                }
+              }
+              
+              setTagDropdownPos({ top: rect.top, left, bottom: 'auto' });
               setIsTagSelectorModalOpen(true); 
             }} 
             style={{ padding: '2px 8px', background: 'transparent', border: '1px dashed var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
@@ -725,9 +774,12 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
+            <div 
+              onMouseDown={handleTagModalMouseDown}
+              style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', cursor: 'move' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Select Tag</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', userSelect: 'none' }}>Select Tag</span>
                 <button 
                   onClick={() => setIsTagSelectorModalOpen(false)}
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
@@ -738,7 +790,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '6px 8px', backgroundColor: 'var(--bg-surface)' }}>
+              <div 
+                onMouseDown={e => e.stopPropagation()} // Prevent dragging when clicking the search bar
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '6px 8px', backgroundColor: 'var(--bg-surface)', cursor: 'text' }}
+              >
                 <Search size={14} style={{ color: 'var(--text-muted)' }} />
                 <input
                   autoFocus
@@ -763,10 +818,18 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {(() => {
                 const q = tagSearchQuery.toLowerCase();
-                const filtered = allTags.filter(t => 
+                let filtered = allTags.filter(t => 
                   (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
                   t.name.toLowerCase().includes(q)
-                ).slice(0, 100);
+                );
+                
+                filtered = [...filtered].sort((a, b) => {
+                  const aAdded = initialTagSortValues.includes(a.name);
+                  const bAdded = initialTagSortValues.includes(b.name);
+                  if (aAdded && !bAdded) return 1;
+                  if (!aAdded && bAdded) return -1;
+                  return 0;
+                }).slice(0, 100);
                 
                 if (filtered.length === 0) {
                   return (
