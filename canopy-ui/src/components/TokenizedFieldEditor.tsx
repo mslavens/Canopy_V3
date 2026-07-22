@@ -155,6 +155,35 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [subnetsOpen, setSubnetsOpen] = useState(false);
   const [initialSortValues, setInitialSortValues] = useState<string[]>([]);
 
+  const handleDropdownMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = dropdownPos.left || 0;
+    const startPosY = dropdownPos.top || 0;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      setDropdownPos({
+        left: startPosX + dx,
+        top: startPosY + dy,
+        bottom: undefined
+      });
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   useEffect(() => {
     if (dropdownOpen) {
       setInitialSortValues(values);
@@ -200,7 +229,15 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         
         let left = rect.left + 32;
         if (containerRef.current) {
-          left = containerRef.current.getBoundingClientRect().right + 16;
+          const containerRect = containerRef.current.getBoundingClientRect();
+          left = containerRect.right + 16;
+          if (left + 600 > window.innerWidth) {
+            if (containerRect.left > 600 + 16) {
+              left = containerRect.left - 600 - 16;
+            } else {
+              left = Math.max(20, window.innerWidth - 620);
+            }
+          }
         }
 
         setDropdownPos({
@@ -210,11 +247,24 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         });
       } else if (addButtonRef.current && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
+        let top = rect.top;
+        if (top + 400 > window.innerHeight - 50) {
+          top = Math.max(20, window.innerHeight - 450);
+        }
+
+        let left = rect.right + 16;
+        if (left + 600 > window.innerWidth) {
+          if (rect.left > 600 + 16) {
+            left = rect.left - 600 - 16;
+          } else {
+            left = Math.max(20, window.innerWidth - 620);
+          }
+        }
 
         setDropdownPos({
-          top: rect.top, // Align with the top of the container
+          top: top,
           bottom: undefined,
-          left: rect.right + 16 // Exactly 16 points right of the edge of the tokenized field editor
+          left: left
         });
       }
     }
@@ -839,13 +889,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   top: popoverPos.top,
                   left: popoverPos.left,
                   width: '420px',
-                  maxHeight: '400px',
+                  maxHeight: 'calc(100vh - 40px)',
                   overflowY: 'scroll',
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-main)',
                   borderRadius: '6px',
                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
-                  zIndex: 100,
+                  zIndex: 100010,
                   padding: '12px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1108,19 +1158,23 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 left: dropdownPos.left,
                 width: '600px',
                 height: '400px',
+                maxHeight: 'calc(100vh - 40px)',
                 backgroundColor: 'var(--bg-surface)',
                 border: '1px solid var(--border-main)',
                 borderRadius: '8px',
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
-                zIndex: 100,
+                zIndex: 100010,
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden'
               }}
             >
-            <div style={{ padding: '12px 12px 0 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
+            <div 
+              onMouseDown={handleDropdownMouseDown}
+              style={{ padding: '12px 12px 0 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', cursor: 'move' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Select Object</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', userSelect: 'none' }}>Select Object</span>
                 <button 
                   onClick={() => setDropdownOpen(false)}
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
