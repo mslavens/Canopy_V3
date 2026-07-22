@@ -473,7 +473,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', padding: '32px 0 0 0' }}>
         {/* LEFT PANE: Inputs & Controls */}
-        <div style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
+        <div data-boundary="left-pane" style={{ width: leftPaneWidth, flexShrink: 0, padding: '24px', border: '1px solid var(--border-main)', borderRadius: '8px', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '24px', overflowY: 'auto' }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>

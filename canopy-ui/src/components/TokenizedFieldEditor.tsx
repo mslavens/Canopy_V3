@@ -196,12 +196,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           bottom: undefined,
           left: rect.left + 32
         });
-      } else if (addButtonRef.current) {
-        const rect = addButtonRef.current.getBoundingClientRect();
+      } else if (addButtonRef.current && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+
         setDropdownPos({
-          top: undefined,
-          bottom: window.innerHeight - rect.bottom,
-          left: rect.right + 12
+          top: `${rect.top}px`, // Align with the top of the container
+          bottom: 'auto',
+          left: `${rect.right + 16}px` // Exactly 16 points right of the edge of the tokenized field editor
         });
       }
     }

@@ -72,3 +72,5 @@
 ## Multi-Vendor Adaptability & Path Analysis
 - **Multi-Vendor Workspaces:** Workspaces must natively support mixed-vendor firewall estates (e.g., a mix of Palo Alto, Fortinet, and Cisco devices in the same workspace). Shared structures (like address objects, zones, routing tables) must be normalized so that cross-vendor pathing can be resolved.
 - **Heterogeneous Policy Generation:** When the Path Analysis Engine calculates traffic paths that transit multiple firewalls of different vendors, the engine must generate separate, vendor-specific policies for each transit node (e.g., generating PAN-OS CLI rules for the Palo Alto hop, and FortiOS CLI rules for the Fortinet hop).
+
+- **Dropdown Popups & Overlays:** Any context menu, dropdown, or popover must maintain a consistent 8px to 16px spatial gap from its trigger element (e.g., the button or input that spawned it) to avoid overlapping the trigger.
