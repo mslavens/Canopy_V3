@@ -402,7 +402,14 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   };
 
   const filteredResults = useMemo(() => {
-    let r = activeTab === 'all' ? results : results.filter(x => x.type === activeTab);
+    let r = results;
+    if (activeTab === 'object') {
+      r = r.filter(x => x.type === 'object' || (x.type === 'network' && x.matched_items?.length === 1));
+    } else if (activeTab === 'network') {
+      r = r.filter(x => x.type === 'network' && x.matched_items?.length > 1);
+    } else if (activeTab !== 'all') {
+      r = r.filter(x => x.type === activeTab);
+    }
     
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -521,7 +528,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  CIDR Threshold
+                  Subnet Threshold
                 </label>
                 <input
                   type="number"
@@ -615,9 +622,13 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                   { id: 'all', label: 'All Results' },
                   { id: 'group', label: 'Groups' },
                   { id: 'object', label: '1:1 Replacement' },
-                  { id: 'network', label: domainTab === 'addresses' ? 'CIDRs' : 'Ranges' }
+                  { id: 'network', label: domainTab === 'addresses' ? 'Subnets' : 'Ranges' }
                 ].map(tab => {
-                  const count = tab.id === 'all' ? results.length : results.filter(r => r.type === tab.id).length;
+                  const count = tab.id === 'all' ? results.length : results.filter(r => {
+                    if (tab.id === 'object') return r.type === 'object' || (r.type === 'network' && r.matched_items?.length === 1);
+                    if (tab.id === 'network') return r.type === 'network' && r.matched_items?.length > 1;
+                    return r.type === tab.id;
+                  }).length;
                   if (count === 0 && tab.id !== 'all') return null;
                   const isActive = activeTab === tab.id;
                   
