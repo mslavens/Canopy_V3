@@ -140,6 +140,12 @@ func parseInputToService(in string) (protocol string, ports []PortRange, ok bool
 		if len(ports) > 0 {
 			ok = true
 		}
+	} else {
+		protocol = "tcp"
+		ports = parsePorts(in)
+		if len(ports) > 0 {
+			ok = true
+		}
 	}
 	return
 }
