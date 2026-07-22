@@ -138,7 +138,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   // Pick List state
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
-  const [dropdownTab, setDropdownTab] = useState<'all' | 'objects' | 'groups'>('all');
+  const [dropdownTab, setDropdownTab] = useState<'all' | 'objects' | 'groups' | 'selected'>('all');
   const [dropdownPos, setDropdownPos] = useState<{ top?: number, bottom?: number, left: number }>({ bottom: 0, left: 0 });
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -263,6 +263,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       filtered = filtered.filter(o => o.member_list === undefined || o.member_list === null);
     } else if (dropdownTab === 'groups') {
       filtered = filtered.filter(o => o.member_list !== undefined && o.member_list !== null);
+    } else if (dropdownTab === 'selected') {
+      filtered = filtered.filter(o => values.includes(o.name));
     }
 
     if (dropdownSearch) {
@@ -583,12 +585,9 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'visible', minHeight: 0 }} ref={containerRef}>
       
       {/* TOOLBAR */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <button onClick={toggleSelectAll} style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-          {isAllVisibleSelected ? <CheckSquare size={16} style={{ color: 'var(--accent-blue)' }} /> : <Square size={16} />}
-        </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 12px 8px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
         
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-main)', borderRadius: '4px', padding: '4px 8px', backgroundColor: 'var(--bg-surface)' }}>
+        <div style={{ height: '32px', boxSizing: 'border-box', width: '100%', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '0 8px', backgroundColor: 'var(--bg-surface)', cursor: 'text' }}>
           <Search size={14} style={{ color: 'var(--text-muted)' }} />
           <input
             value={filterQuery}
@@ -609,23 +608,41 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           )}
         </div>
 
-        {isWorkerCalculating && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>
-            <Loader2 size={14} className="animate-spin" />
-            Analyzing...
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 0 0', minHeight: '28px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              onClick={toggleSelectAll} 
+              style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              {isAllVisibleSelected ? <CheckSquare size={16} style={{ color: 'var(--accent-blue)' }} /> : <Square size={16} />}
+            </button>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Select All Filtered</span>
           </div>
-        )}
 
-        {selectedTokens.size > 0 && (
-          <button 
-            onClick={bulkRemoveSelected} 
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'var(--status-red)', cursor: 'pointer', fontSize: '12px', padding: '4px 8px', borderRadius: '4px' }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Trash2 size={14} /> Remove ({selectedTokens.size})
-          </button>
-        )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isWorkerCalculating && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>
+                <Loader2 size={14} className="animate-spin" />
+                Analyzing...
+              </div>
+            )}
+
+            {selectedTokens.size > 0 ? (
+              <button 
+                onClick={bulkRemoveSelected} 
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'var(--status-red)', cursor: 'pointer', fontSize: '12px', padding: '4px 8px', borderRadius: '4px' }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <Trash2 size={14} /> Remove ({selectedTokens.size})
+              </button>
+            ) : (
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                {visibleValues.length} items
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* LIST VIEW */}
@@ -1152,13 +1169,21 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 >
                   Objects
                 </button>
-                  <button 
+                <button 
                   onClick={() => setDropdownTab('groups')} 
                   style={{ background: 'none', border: 'none', borderBottom: dropdownTab === 'groups' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: dropdownTab === 'groups' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
                   onMouseEnter={e => { if (dropdownTab !== 'groups') e.currentTarget.style.color = 'var(--text-main)'; }}
                   onMouseLeave={e => { if (dropdownTab !== 'groups') e.currentTarget.style.color = 'var(--text-muted)'; }}
                 >
                   Groups
+                </button>
+                <button 
+                  onClick={() => setDropdownTab('selected')} 
+                  style={{ background: 'none', border: 'none', borderBottom: dropdownTab === 'selected' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: dropdownTab === 'selected' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease', marginLeft: 'auto' }}
+                  onMouseEnter={e => { if (dropdownTab !== 'selected') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (dropdownTab !== 'selected') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  Selected ({values.length})
                 </button>
               </div>
 

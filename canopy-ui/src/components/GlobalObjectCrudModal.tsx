@@ -64,7 +64,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
   // Tag Selector State
   const [isTagSelectorModalOpen, setIsTagSelectorModalOpen] = useState(false);
-  const [tagDropdownPos, setTagDropdownPos] = useState<any>({ top: 0, left: 0, bottom: 'auto' });
+  const [tagDropdownPos, setTagDropdownPos] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
+  const [tagCheckedNames, setTagCheckedNames] = useState<string[]>([]);
+  const [tagSelectorTab, setTagSelectorTab] = useState<'all' | 'selected'>('all');
   const [initialTagSortValues, setInitialTagSortValues] = useState<string[]>([]);
 
   useEffect(() => {
@@ -72,9 +75,6 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
       setInitialTagSortValues(formTags);
     }
   }, [isTagSelectorModalOpen]);
-  const [tagSearchQuery, setTagSearchQuery] = useState('');
-  const [tagCheckedNames, setTagCheckedNames] = useState<string[]>([]);
-  
   // Create Tag Modal State
   const [isCreateTagModalOpen, setIsCreateTagModalOpen] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -89,6 +89,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   const [selectorSearchQuery, setSelectorSearchQuery] = useState('');
   const [selectorCheckedNames, setSelectorCheckedNames] = useState<string[]>([]);
   const [initialMemberSnapshot, setInitialMemberSnapshot] = useState<string[]>([]);
+  const [memberSelectorTab, setMemberSelectorTab] = useState<'all' | 'objects' | 'groups' | 'selected'>('all');
 
   useEffect(() => {
     if (isSelectorModalOpen) {
@@ -235,8 +236,8 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
     const startX = e.clientX;
     const startY = e.clientY;
-    const startPosX = parseFloat(tagDropdownPos.left);
-    const startPosY = parseFloat(tagDropdownPos.top);
+    const startPosX = tagDropdownPos.left;
+    const startPosY = tagDropdownPos.top;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
@@ -310,7 +311,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 }
               }
               
-              setTagDropdownPos({ top: rect.top, left, bottom: 'auto' });
+              setTagDropdownPos({ top: rect.top, left });
               setIsTagSelectorModalOpen(true); 
             }} 
             style={{ padding: '2px 8px', background: 'transparent', border: '1px dashed var(--border-main)', color: 'var(--text-muted)', fontSize: '11px', borderRadius: '4px', cursor: 'pointer' }}
@@ -507,7 +508,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                           title="Remove from group"
                         >
-                          <Trash2 size={14} />
+                          <X size={14} />
                         </button>
                       </td>
                     </tr>
@@ -732,6 +733,41 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
+              <div style={{ display: 'flex', gap: '16px', padding: '8px 0 0 0', borderBottom: '1px solid var(--border-main)' }}>
+                <button 
+                  onClick={() => setMemberSelectorTab('all')} 
+                  style={{ background: 'none', border: 'none', borderBottom: memberSelectorTab === 'all' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: memberSelectorTab === 'all' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseEnter={e => { if (memberSelectorTab !== 'all') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (memberSelectorTab !== 'all') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setMemberSelectorTab('objects')} 
+                  style={{ background: 'none', border: 'none', borderBottom: memberSelectorTab === 'objects' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: memberSelectorTab === 'objects' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseEnter={e => { if (memberSelectorTab !== 'objects') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (memberSelectorTab !== 'objects') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  Objects
+                </button>
+                <button 
+                  onClick={() => setMemberSelectorTab('groups')} 
+                  style={{ background: 'none', border: 'none', borderBottom: memberSelectorTab === 'groups' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: memberSelectorTab === 'groups' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseEnter={e => { if (memberSelectorTab !== 'groups') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (memberSelectorTab !== 'groups') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  Groups
+                </button>
+                <button 
+                  onClick={() => setMemberSelectorTab('selected')} 
+                  style={{ background: 'none', border: 'none', borderBottom: memberSelectorTab === 'selected' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: memberSelectorTab === 'selected' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease', marginLeft: 'auto' }}
+                  onMouseEnter={e => { if (memberSelectorTab !== 'selected') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (memberSelectorTab !== 'selected') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  Selected ({formMembers.length})
+                </button>
+              </div>
+
               <div style={{ padding: '8px 0 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
@@ -741,6 +777,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                       const q = selectorSearchQuery.toLowerCase();
                       const allAvailable = [...allAddresses, ...allAddressGroups];
                       const filtered = allAvailable.filter(o => {
+                        if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
+                        if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
+                        if (memberSelectorTab === 'selected' && !formMembers.includes(o.name)) return false;
                         const val = o.value || o.filter || '';
                         const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
                         const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
@@ -753,6 +792,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                       const q = selectorSearchQuery.toLowerCase();
                       const allAvailable = [...allAddresses, ...allAddressGroups];
                       const filtered = allAvailable.filter(o => {
+                        if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
+                        if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
+                        if (memberSelectorTab === 'selected' && !formMembers.includes(o.name)) return false;
                         const val = o.value || o.filter || '';
                         const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
                         const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
@@ -776,6 +818,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   const q = selectorSearchQuery.toLowerCase();
                   const allAvailable = [...allAddresses, ...allAddressGroups];
                   const filteredCount = allAvailable.filter(o => {
+                    if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
+                    if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
+                    if (memberSelectorTab === 'selected' && !formMembers.includes(o.name)) return false;
                     const val = o.value || o.filter || '';
                     const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
                     const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
@@ -795,6 +840,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 const q = selectorSearchQuery.toLowerCase();
                 const allAvailable = [...allAddresses, ...allAddressGroups];
                 const filtered = allAvailable.filter(o => {
+                  if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
+                  if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
+                  if (memberSelectorTab === 'selected' && !formMembers.includes(o.name)) return false;
                   const val = o.value || o.filter || '';
                   const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
                   const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
@@ -961,6 +1009,24 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
+              <div style={{ display: 'flex', gap: '16px', padding: '8px 0 0 0', borderBottom: '1px solid var(--border-main)' }}>
+                <button 
+                  onClick={() => setTagSelectorTab('all')} 
+                  style={{ background: 'none', border: 'none', borderBottom: tagSelectorTab === 'all' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: tagSelectorTab === 'all' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseEnter={e => { if (tagSelectorTab !== 'all') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (tagSelectorTab !== 'all') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  All
+                </button>
+                <button 
+                  onClick={() => setTagSelectorTab('selected')} 
+                  style={{ background: 'none', border: 'none', borderBottom: tagSelectorTab === 'selected' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: tagSelectorTab === 'selected' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease', marginLeft: 'auto' }}
+                  onMouseEnter={e => { if (tagSelectorTab !== 'selected') e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { if (tagSelectorTab !== 'selected') e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  Selected ({formTags.length})
+                </button>
+              </div>
               <div style={{ padding: '8px 0 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
@@ -968,19 +1034,21 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                     style={{ cursor: 'pointer' }}
                     checked={(() => {
                       const q = tagSearchQuery.toLowerCase();
-                      const filtered = allTags.filter(t => 
-                        (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
-                        t.name.toLowerCase().includes(q)
-                      ).slice(0, 100);
+                      const filtered = allTags.filter(t => {
+                        if (tagSelectorTab === 'selected' && !formTags.includes(t.name)) return false;
+                        return (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                               t.name.toLowerCase().includes(q);
+                      }).slice(0, 100);
                       return filtered.length > 0 && filtered.every(t => formTags.includes(t.name));
                     })()}
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       const q = tagSearchQuery.toLowerCase();
-                      const filtered = allTags.filter(t => 
-                        (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
-                        t.name.toLowerCase().includes(q)
-                      ).slice(0, 100);
+                      const filtered = allTags.filter(t => {
+                        if (tagSelectorTab === 'selected' && !formTags.includes(t.name)) return false;
+                        return (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                               t.name.toLowerCase().includes(q);
+                      }).slice(0, 100);
                       
                       if (isChecked) {
                         const toAdd = filtered.map(t => t.name).filter(n => !formTags.includes(n));
@@ -997,10 +1065,11 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 </div>
                 {(() => {
                   const q = tagSearchQuery.toLowerCase();
-                  const filteredCount = allTags.filter(t => 
-                    (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
-                    t.name.toLowerCase().includes(q)
-                  ).length;
+                  const filteredCount = allTags.filter(t => {
+                    if (tagSelectorTab === 'selected' && !formTags.includes(t.name)) return false;
+                    return (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                           t.name.toLowerCase().includes(q);
+                  }).length;
                   const visibleCount = Math.min(filteredCount, 100);
                   return (
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -1014,10 +1083,11 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {(() => {
                 const q = tagSearchQuery.toLowerCase();
-                let filtered = allTags.filter(t => 
-                  (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
-                  t.name.toLowerCase().includes(q)
-                );
+                let filtered = allTags.filter(t => {
+                  if (tagSelectorTab === 'selected' && !formTags.includes(t.name)) return false;
+                  return (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                         t.name.toLowerCase().includes(q);
+                });
                 
                 filtered = [...filtered].sort((a, b) => {
                   const aAdded = initialTagSortValues.includes(a.name);
