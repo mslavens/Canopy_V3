@@ -281,7 +281,24 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             + Add Tag
           </button>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <div 
+          className="custom-scrollbar"
+          style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '6px', 
+            height: '64px',
+            backgroundColor: 'var(--bg-main)',
+            border: '1px solid var(--border-main)',
+            padding: '8px',
+            borderRadius: '4px',
+            overflowY: 'auto',
+            alignContent: 'flex-start'
+          }}
+        >
+          {selectedTags.length === 0 && (
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', alignSelf: 'center' }}>No tags selected...</span>
+          )}
           {selectedTags.map(tag => (
             <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-main)' }}>
               <Tag size={10} style={{ color: 'var(--accent-blue)' }} />
