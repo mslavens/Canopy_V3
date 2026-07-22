@@ -84,8 +84,7 @@ interface TokenizedFieldEditorProps {
   groupTolerance?: number;
   cidrThreshold?: number;
   domain?: 'address' | 'service' | 'application';
-  insights?: any[];
-  onAddObject?: (value: string) => void;
+  onAddObject?: (value: string, type: 'Object' | 'Group') => void;
 }
 
 export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({ 
@@ -1248,20 +1247,20 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             </div>
             {onAddObject && (() => {
               const addValue = dropdownSearch.trim() || replacingToken || '';
-              if (!addValue || optionsMap.has(addValue)) return null;
+              if (addValue && optionsMap.has(addValue)) return null;
 
               return (
                 <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
                   <button
                     onClick={() => {
-                      onAddObject(addValue);
+                      onAddObject(addValue, dropdownTab === 'groups' ? 'Group' : 'Object');
                       setDropdownOpen(false);
                       setReplacingToken(null);
                       setDropdownSearch('');
                     }}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                   >
-                    <Plus size={14} /> Quick Add "{addValue}"
+                    <Plus size={14} /> Quick Add {addValue ? `"${addValue}"` : 'New Object'}
                   </button>
                 </div>
               );

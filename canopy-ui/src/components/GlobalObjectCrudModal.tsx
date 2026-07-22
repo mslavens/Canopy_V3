@@ -142,7 +142,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
         setFormMembers([]);
       }
     }
-  }, [isOpen, mode, initialData, defaultScopeUuid, defaultName, defaultValue, internalObjectType]);
+  }, [isOpen, mode, initialData, defaultScopeUuid, defaultName, defaultValue]);
 
   const handleSaveObject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,6 +232,35 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
       setTagDropdownPos((prev: any) => ({
+        ...prev,
+        left: startPosX + dx,
+        top: startPosY + dy
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMemberModalMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = parseFloat(memberDropdownPos.left);
+    const startPosY = parseFloat(memberDropdownPos.top);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      setMemberDropdownPos((prev: any) => ({
         ...prev,
         left: startPosX + dx,
         top: startPosY + dy
@@ -376,7 +405,20 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 e.preventDefault(); 
                 const modalEl = e.currentTarget.closest('[tabindex="-1"]');
                 const rect = modalEl ? modalEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-                setMemberDropdownPos({ top: rect.top, left: rect.right + 16, bottom: 'auto' });
+                
+                let left = rect.right + 16;
+                // The member selector modal is 600px wide. If it goes off the right edge:
+                if (left + 600 > window.innerWidth) {
+                  // Check if it fits on the left
+                  if (rect.left > 600 + 16) {
+                    left = rect.left - 600 - 16; // Pop out to the left side
+                  } else {
+                    // If it doesn't fit on either side, center it over the modal
+                    left = rect.left + (rect.width / 2) - 300;
+                  }
+                }
+                
+                setMemberDropdownPos({ top: rect.top, left, bottom: 'auto' });
                 setIsSelectorModalOpen(true); 
               }} 
               style={{ padding: '4px 8px', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -491,7 +533,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
           <div style={{ display: 'flex', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '6px', padding: '4px', width: 'fit-content' }}>
             <button
               type="button"
-              onClick={() => setInternalObjectType('Object')}
+              onClick={() => {
+                setInternalObjectType('Object');
+                if (formName.startsWith('group_')) setFormName('host_' + formName.slice(6));
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -513,7 +558,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setInternalObjectType('Group')}
+              onClick={() => {
+                setInternalObjectType('Group');
+                if (formName.startsWith('host_')) setFormName('group_' + formName.slice(5));
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -625,9 +673,12 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)' }}>
+            <div 
+              onMouseDown={handleMemberModalMouseDown}
+              style={{ padding: '12px 12px 12px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', cursor: 'move' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>Select Object</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', userSelect: 'none' }}>Select Object</span>
                 <button 
                   onClick={() => setIsSelectorModalOpen(false)}
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
@@ -638,7 +689,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '6px 8px', backgroundColor: 'var(--bg-surface)' }}>
+              <div 
+                onMouseDown={e => e.stopPropagation()} // Prevent dragging when clicking search bar
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '6px 8px', backgroundColor: 'var(--bg-surface)', cursor: 'text' }}
+              >
                 <Search size={14} style={{ color: 'var(--text-muted)' }} />
                 <input
                   autoFocus

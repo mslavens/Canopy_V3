@@ -91,7 +91,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
   const [confirmGlobalSwapInsight, setConfirmGlobalSwapInsight] = useState<any>(null);
   
   // Quick Add State
-  const [quickAddModalData, setQuickAddModalData] = useState<{ value: string } | null>(null);
+  const [quickAddModalData, setQuickAddModalData] = useState<{ value: string, type?: 'Object' | 'Group' } | null>(null);
 
   // Policy Usages Modal State
   const [policyUsagesModalData, setPolicyUsagesModalData] = useState<{ targetName: string; domain: string; usageCount: number } | null>(null);
@@ -513,7 +513,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
               cidrThreshold={cidrThreshold}
               domain={domainTab === 'addresses' ? 'address' : (domainTab === 'services' ? 'service' : 'application')}
               insights={results}
-              onAddObject={(val) => setQuickAddModalData({ value: val })}
+              onAddObject={(val, type) => setQuickAddModalData({ value: val, type })}
             />
           </div>
 
@@ -1097,8 +1097,8 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             setQuickAddModalData(null);
           }}
           mode="create"
-          objectType={domainTab === 'addresses' ? 'Address Objects' : (domainTab === 'services' ? 'Services' : 'Applications')}
-          defaultName={`host_${quickAddModalData.value}`}
+          objectType={quickAddModalData.type === 'Group' ? (domainTab === 'addresses' ? 'Address Groups' : (domainTab === 'services' ? 'Service Groups' : 'Application Groups')) : (domainTab === 'addresses' ? 'Address Objects' : (domainTab === 'services' ? 'Services' : 'Applications'))}
+          defaultName={quickAddModalData.type === 'Group' ? `group_${quickAddModalData.value}` : `host_${quickAddModalData.value}`}
           defaultValue={quickAddModalData.value}
           defaultScopeUuid={selectedScopeUuid}
           apiClient={apiClient}
