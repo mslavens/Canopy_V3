@@ -153,6 +153,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [groupMembershipsOpen, setGroupMembershipsOpen] = useState(true);
   const [exactMatchesOpen, setExactMatchesOpen] = useState(false);
   const [subnetsOpen, setSubnetsOpen] = useState(false);
+  const [initialSortValues, setInitialSortValues] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (dropdownOpen) {
+      setInitialSortValues(values);
+    }
+  }, [dropdownOpen]);
   
   const [confirmSwapDialog, setConfirmSwapDialog] = useState<{
     isOpen: boolean;
@@ -190,10 +197,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         if (top + 400 > window.innerHeight - 50) {
           top = Math.max(20, window.innerHeight - 450);
         }
+        
+        let left = rect.left + 32;
+        if (containerRef.current) {
+          left = containerRef.current.getBoundingClientRect().right + 16;
+        }
+
         setDropdownPos({
-          top: top,
-          bottom: undefined,
-          left: rect.left + 32
+          top: `${top}px`,
+          bottom: 'auto',
+          left: `${left}px`
         });
       } else if (addButtonRef.current && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -252,10 +265,24 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
       filtered = filtered.filter(o => o.member_list !== undefined && o.member_list !== null);
     }
 
-    if (!dropdownSearch) return filtered;
-    const q = dropdownSearch.toLowerCase();
-    return filtered.filter(o => o.name.toLowerCase().includes(q) || (o.value || '').toLowerCase().includes(q));
-  }, [options, dropdownSearch, dropdownTab]);
+    if (dropdownSearch) {
+      const q = dropdownSearch.toLowerCase();
+      filtered = filtered.filter(o => 
+        o.name.toLowerCase().includes(q) || 
+        (o.value && o.value.toLowerCase().includes(q))
+      );
+    }
+
+    filtered = [...filtered].sort((a, b) => {
+      const aAdded = initialSortValues.includes(a.name);
+      const bAdded = initialSortValues.includes(b.name);
+      if (aAdded && !bAdded) return 1;
+      if (!aAdded && bAdded) return -1;
+      return 0;
+    });
+    
+    return filtered;
+  }, [options, dropdownTab, dropdownSearch, initialSortValues]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
@@ -1219,22 +1246,26 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 </>
               )}
             </div>
-            {onAddObject && (
-              <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
-                <button
-                  onClick={() => {
-                    const addValue = replacingToken || dropdownSearch.trim() || '';
-                    onAddObject(addValue);
-                    setDropdownOpen(false);
-                    setReplacingToken(null);
-                    setDropdownSearch('');
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  <Plus size={14} /> Quick Add {replacingToken ? `"${replacingToken}"` : (dropdownSearch.trim() ? `"${dropdownSearch.trim()}"` : 'New Object')}
-                </button>
-              </div>
-            )}
+            {onAddObject && (() => {
+              const addValue = dropdownSearch.trim() || replacingToken || '';
+              if (!addValue || optionsMap.has(addValue)) return null;
+
+              return (
+                <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+                  <button
+                    onClick={() => {
+                      onAddObject(addValue);
+                      setDropdownOpen(false);
+                      setReplacingToken(null);
+                      setDropdownSearch('');
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    <Plus size={14} /> Quick Add "{addValue}"
+                  </button>
+                </div>
+              );
+            })()}
           </div>,
           document.body
           )}
