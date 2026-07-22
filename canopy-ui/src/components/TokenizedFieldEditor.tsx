@@ -84,6 +84,7 @@ interface TokenizedFieldEditorProps {
   groupTolerance?: number;
   cidrThreshold?: number;
   domain?: 'address' | 'service' | 'application';
+  insights?: any[];
   onAddObject?: (value: string, type: 'Object' | 'Group') => void;
 }
 
@@ -203,17 +204,17 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         }
 
         setDropdownPos({
-          top: `${top}px`,
-          bottom: 'auto',
-          left: `${left}px`
+          top: top,
+          bottom: undefined,
+          left: left
         });
       } else if (addButtonRef.current && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
 
         setDropdownPos({
-          top: `${rect.top}px`, // Align with the top of the container
-          bottom: 'auto',
-          left: `${rect.right + 16}px` // Exactly 16 points right of the edge of the tokenized field editor
+          top: rect.top, // Align with the top of the container
+          bottom: undefined,
+          left: rect.right + 16 // Exactly 16 points right of the edge of the tokenized field editor
         });
       }
     }
@@ -596,6 +597,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             placeholder="Filter selected..."
             spellCheck={false}
           />
+          {filterQuery && (
+            <button 
+              onClick={() => setFilterQuery('')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {isWorkerCalculating && (
@@ -643,7 +654,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isSelected = selectedTokens.has(val);
 
           const matchingObjectNames = new Set(matchingObjects.map(o => o.name));
-          const matchedNetworks = insights ? insights.filter(i => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
+          const matchedNetworks = insights ? insights.filter((i: any) => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
 
           const displayValue = opt?.value 
             ? opt.value 
@@ -787,7 +798,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       className="popover-trigger"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAddObject(val);
+                        onAddObject(val, 'Object');
                       }}
                       style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
                       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
@@ -933,7 +944,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No 1:1 match found for this value.</span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); onAddObject(val); setPopoverToken(null); }}
+                        onClick={(e) => { e.stopPropagation(); onAddObject(val, 'Object'); setPopoverToken(null); }}
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
                       >
                         <Plus size={12} /> Quick Add Object
@@ -951,7 +962,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         >
                           <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {domain === 'service' ? 'Ranges' : 'Subnets'} ({matchedNetworks.length})
                         </div>
-                        {subnetsOpen && matchedNetworks.map(match => (
+                        {subnetsOpen && matchedNetworks.map((match: any) => (
                           <div key={match.target_name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                               <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.target_name}</span>
@@ -1141,7 +1152,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 >
                   Objects
                 </button>
-                <button 
+                  <button 
                   onClick={() => setDropdownTab('groups')} 
                   style={{ background: 'none', border: 'none', borderBottom: dropdownTab === 'groups' ? '2px solid var(--accent-blue)' : '2px solid transparent', color: dropdownTab === 'groups' ? 'var(--text-main)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, padding: '4px 0', cursor: 'pointer', transition: 'all 0.2s ease' }}
                   onMouseEnter={e => { if (dropdownTab !== 'groups') e.currentTarget.style.color = 'var(--text-main)'; }}
@@ -1150,6 +1161,40 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   Groups
                 </button>
               </div>
+
+              {!replacingToken && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <input 
+                      type="checkbox"
+                      style={{ cursor: 'pointer' }}
+                      checked={dropdownOptions.length > 0 && dropdownOptions.every(opt => values.includes(opt.name))}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        if (isChecked) {
+                          const newValues = [...values];
+                          let changed = false;
+                          dropdownOptions.forEach(opt => {
+                            if (!newValues.includes(opt.name)) {
+                              newValues.push(opt.name);
+                              changed = true;
+                            }
+                          });
+                          if (changed) onChange(newValues);
+                        } else {
+                          const optionsNames = dropdownOptions.map(opt => opt.name);
+                          const newValues = values.filter(v => !optionsNames.includes(v));
+                          onChange(newValues);
+                        }
+                      }}
+                    />
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Select All Filtered</span>
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {Math.min(dropdownOptions.length, 100)} visible ({values.length} selected)
+                  </span>
+                </div>
+              )}
             </div>
             
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
@@ -1172,7 +1217,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     <div 
                       key={opt.id}
                       onClick={() => {
-                        if (isAlreadyAdded && opt.name !== replacingToken) return;
                         if (replacingToken) {
                           if (opt.name !== replacingToken) {
                             handleSwapRawToken(replacingToken, opt.name);
@@ -1180,7 +1224,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                           setDropdownOpen(false);
                           setReplacingToken(null);
                         } else {
-                          addTokens(opt.name);
+                          if (isAlreadyAdded) {
+                            onChange(values.filter(v => v !== opt.name));
+                          } else {
+                            addTokens(opt.name);
+                          }
                         }
                       }}
                       style={{ 
@@ -1189,22 +1237,20 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         gap: '12px', 
                         padding: '10px 12px', 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        cursor: isAlreadyAdded ? 'default' : 'pointer',
+                        cursor: 'pointer',
                         opacity: isAlreadyAdded ? 0.4 : 1,
                         transition: 'background-color 0.1s'
                       }}
                       onMouseEnter={e => { if (!isAlreadyAdded) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      {isAlreadyAdded ? (
-                        <div style={{ color: 'var(--accent-blue)', display: 'flex', alignItems: 'center' }}>
-                          <CheckSquare size={14} />
-                        </div>
-                      ) : (
-                        <div style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
-                          {isGroup ? <Layers size={14} /> : <Package size={14} />}
-                        </div>
+                      {!replacingToken && (
+                        <input type="checkbox" checked={isAlreadyAdded} onChange={() => {}} style={{ cursor: 'pointer', pointerEvents: 'none' }} onClick={e => e.stopPropagation()} />
                       )}
+                      
+                      <div style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
+                        {isGroup ? <Layers size={14} /> : <Package size={14} />}
+                      </div>
                       
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1245,26 +1291,54 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 </>
               )}
             </div>
-            {onAddObject && (() => {
-              const addValue = dropdownSearch.trim() || replacingToken || '';
-              if (addValue && optionsMap.has(addValue)) return null;
+            <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+              
+              {onAddObject ? (
+                <button
+                  onClick={() => {
+                    const addValue = dropdownSearch.trim() || replacingToken || '';
+                    if (addValue && optionsMap.has(addValue)) return;
+                    onAddObject(addValue, dropdownTab === 'groups' ? 'Group' : 'Object');
+                    setDropdownOpen(false);
+                    setReplacingToken(null);
+                    setDropdownSearch('');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--text-main)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: 1 }}
+                >
+                  <Plus size={14} /> Quick Add New Object
+                </button>
+              ) : (
+                <div />
+              )}
 
-              return (
-                <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
-                  <button
-                    onClick={() => {
-                      onAddObject(addValue, dropdownTab === 'groups' ? 'Group' : 'Object');
-                      setDropdownOpen(false);
-                      setReplacingToken(null);
-                      setDropdownSearch('');
-                    }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--button-primary)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    <Plus size={14} /> Quick Add {addValue ? `"${addValue}"` : 'New Object'}
-                  </button>
-                </div>
-              );
-            })()}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(initialSortValues);
+                    setDropdownOpen(false);
+                    setReplacingToken(null);
+                  }}
+                  style={{ padding: '8px 16px', backgroundColor: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-muted)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    setReplacingToken(null);
+                  }}
+                  style={{ padding: '8px 16px', backgroundColor: 'var(--accent-blue)', border: 'none', color: 'white', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                >
+                  Done
+                </button>
+              </div>
+            </div>
           </div>,
           document.body
           )}

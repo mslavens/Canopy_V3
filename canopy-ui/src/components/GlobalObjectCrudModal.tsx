@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from './Modal';
 import { Dropdown } from './Dropdown';
 import { Tag, Globe, Network, ShieldAlert, Layers, Search, Trash2, Plus, X, Package, CheckSquare } from 'lucide-react';
-import { EmptyState } from './EmptyState';
 import { createPortal } from 'react-dom';
+import { SearchableScopeDropdown } from './SearchableScopeDropdown';
 
 export interface GlobalObjectCrudModalProps {
   isOpen: boolean;
@@ -40,6 +40,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
   const [formScopeUuid, setFormScopeUuid] = useState(defaultScopeUuid || 'paloalto-panorama-global');
   const [formName, setFormName] = useState(defaultName || '');
+  const [confirmCancelDialog, setConfirmCancelDialog] = useState(false);
+  const [nestedCreateObject, setNestedCreateObject] = useState<{name: string, type: 'Object' | 'Group'} | null>(null);
+
   const [formDescription, setFormDescription] = useState('');
   const [formType, setFormType] = useState('ip-netmask');
   const [formValue, setFormValue] = useState(defaultValue || '');
@@ -85,6 +88,13 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   const [memberCheckedNames, setMemberCheckedNames] = useState<string[]>([]);
   const [selectorSearchQuery, setSelectorSearchQuery] = useState('');
   const [selectorCheckedNames, setSelectorCheckedNames] = useState<string[]>([]);
+  const [initialMemberSnapshot, setInitialMemberSnapshot] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isSelectorModalOpen) {
+      setInitialMemberSnapshot(formMembers);
+    }
+  }, [isSelectorModalOpen]);
 
   // Fetch reference data on mount if needed
   useEffect(() => {
@@ -587,12 +597,15 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Scope Location</label>
-                <Dropdown
+                <SearchableScopeDropdown
                   width="100%"
                   value={formScopeUuid}
                   onChange={setFormScopeUuid}
-                  options={deviceGroups.length > 0 ? Array.from(new Set(deviceGroups.map(dg => dg.uuid))) : [formScopeUuid]}
-                  renderOption={(opt) => scopeNameMap[opt] || opt}
+                  scopeNameMap={scopeNameMap}
+                  options={deviceGroups.length > 0 ? [
+                    { value: 'paloalto-panorama-global', label: 'Shared', type: 'global' as const, depth: 0 },
+                    ...deviceGroups.map(dg => ({ value: dg.uuid, label: dg.name, type: 'device-group' as const, depth: 0 }))
+                  ] : [{ value: formScopeUuid, label: scopeNameMap[formScopeUuid] || formScopeUuid, type: 'global' as const, depth: 0 }]}
                 />
               </div>
 
@@ -624,11 +637,18 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Address Type</label>
-                    <Dropdown width="100%" value={formType} onChange={setFormType} options={['ip-netmask', 'ip-range', 'fqdn']} />
+                    <Dropdown width="100%" value={formType} onChange={setFormType} options={['ip-netmask', 'ip-range', 'fqdn']} searchable={false} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Value</label>
-                    <input type="text" className="input-text" value={formValue} onChange={(e) => setFormValue(e.target.value)} required />
+                    <input 
+                      type="text" 
+                      className="input-text" 
+                      value={formValue} 
+                      onChange={(e) => setFormValue(e.target.value)} 
+                      placeholder={formType === 'ip-netmask' ? 'e.g. 10.0.0.1 or 10.0.0.0/24' : (formType === 'ip-range' ? 'e.g. 10.0.0.1-10.0.0.50' : 'e.g. www.google.com')}
+                      required 
+                    />
                   </div>
                 </>
               )}
@@ -712,15 +732,73 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
+              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-main)' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    style={{ cursor: 'pointer' }}
+                    checked={(() => {
+                      const q = selectorSearchQuery.toLowerCase();
+                      const allAvailable = [...allAddresses, ...allAddressGroups];
+                      const filtered = allAvailable.filter(o => {
+                        const val = o.value || o.filter || '';
+                        const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
+                        const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
+                        return matchesQuery && matchesScope;
+                      }).slice(0, 100);
+                      return filtered.length > 0 && filtered.every(o => formMembers.includes(o.name));
+                    })()}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      const q = selectorSearchQuery.toLowerCase();
+                      const allAvailable = [...allAddresses, ...allAddressGroups];
+                      const filtered = allAvailable.filter(o => {
+                        const val = o.value || o.filter || '';
+                        const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
+                        const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
+                        return matchesQuery && matchesScope;
+                      }).slice(0, 100);
+                      
+                      if (isChecked) {
+                        const toAdd = filtered.map(o => o.name).filter(n => !formMembers.includes(n));
+                        if (toAdd.length > 0) {
+                          setFormMembers(prev => [...prev, ...toAdd]);
+                        }
+                      } else {
+                        const toRemove = filtered.map(o => o.name);
+                        setFormMembers(prev => prev.filter(n => !toRemove.includes(n)));
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Select All Filtered</span>
+                </div>
+                {(() => {
+                  const q = selectorSearchQuery.toLowerCase();
+                  const allAvailable = [...allAddresses, ...allAddressGroups];
+                  const filteredCount = allAvailable.filter(o => {
+                    const val = o.value || o.filter || '';
+                    const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
+                    const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
+                    return matchesQuery && matchesScope;
+                  }).length;
+                  const visibleCount = Math.min(filteredCount, 100);
+                  return (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {visibleCount} visible ({formMembers.length} selected)
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
-            
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {(() => {
                 const q = selectorSearchQuery.toLowerCase();
                 const allAvailable = [...allAddresses, ...allAddressGroups];
                 const filtered = allAvailable.filter(o => {
                   const val = o.value || o.filter || '';
-                  return o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
+                  const matchesQuery = o.name.toLowerCase().includes(q) || val.toLowerCase().includes(q);
+                  const matchesScope = o.device_uuid === formScopeUuid || o.device_uuid === 'paloalto-panorama-global';
+                  return matchesQuery && matchesScope;
                 }).slice(0, 100);
                 
                 if (filtered.length === 0) {
@@ -753,71 +831,70 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                       style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '12px', 
+                        justifyContent: 'space-between',
                         padding: '10px 12px', 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        cursor: isAlreadyAdded ? 'default' : 'pointer',
+                        cursor: 'pointer',
                         opacity: isAlreadyAdded ? 0.4 : 1,
                         transition: 'background-color 0.1s'
                       }}
-                      onMouseEnter={e => { if (!isAlreadyAdded) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      {isAlreadyAdded ? (
-                        <div style={{ color: 'var(--accent-blue)', display: 'flex', alignItems: 'center' }}>
-                          <CheckSquare size={14} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                        <input type="checkbox" checked={isAlreadyAdded} onChange={() => {}} style={{ cursor: 'pointer', pointerEvents: 'none' }} onClick={e => e.stopPropagation()} />
+                        {isGroup ? <Layers size={14} color={iconColor} /> : <Package size={14} color={iconColor} />}
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.name}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.value || opt.filter || '--'}</span>
                         </div>
-                      ) : (
-                        <div style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
-                          {isGroup ? <Layers size={14} /> : <Package size={14} />}
-                        </div>
-                      )}
-                      
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {opt.name}
-                        </span>
-                        {(opt.value || opt.filter) && (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {opt.value || (opt.filter ? `Filter: ${opt.filter}` : '')}
-                          </span>
-                        )}
                       </div>
-                      
-                      {scopeName && (
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          border: `1px solid ${isShared ? 'rgba(249, 115, 22, 0.3)' : 'var(--border-main)'}`,
-                          color: isShared ? '#f97316' : 'var(--text-muted)',
-                          backgroundColor: isShared ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
-                          fontSize: '10px',
-                          fontWeight: 500
-                        }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <div style={{ fontSize: '11px', color: isShared ? '#f97316' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${isShared ? 'rgba(249, 115, 22, 0.3)' : 'var(--border-main)'}`, backgroundColor: isShared ? 'rgba(249, 115, 22, 0.1)' : 'transparent', fontWeight: 500 }}>
                           {isShared && <Globe size={10} />}
                           {scopeName}
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 });
               })()}
             </div>
 
-            <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+            <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
               <button
+                type="button"
                 onClick={() => {
-                  setNewTagName(selectorSearchQuery.trim());
-                  // No-op for now unless we add an object creator
+                  setNestedCreateObject({ name: selectorSearchQuery.trim(), type: 'Object' });
                 }}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--text-muted)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'not-allowed', opacity: 0.5 }}
-                title="Use the Optimization Sandbox token inputs to quick-add objects"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'transparent', color: 'var(--text-main)', border: '1px dashed var(--border-main)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: 1 }}
+                title="Create a new object to add as a member"
               >
                 <Plus size={14} /> Quick Add Object
               </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormMembers(initialMemberSnapshot);
+                    setIsSelectorModalOpen(false);
+                  }}
+                  style={{ padding: '8px 16px', backgroundColor: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-muted)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSelectorModalOpen(false)}
+                  style={{ padding: '8px 16px', backgroundColor: 'var(--accent-blue)', border: 'none', color: 'white', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>,
@@ -884,6 +961,54 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
+              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-main)' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    style={{ cursor: 'pointer' }}
+                    checked={(() => {
+                      const q = tagSearchQuery.toLowerCase();
+                      const filtered = allTags.filter(t => 
+                        (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                        t.name.toLowerCase().includes(q)
+                      ).slice(0, 100);
+                      return filtered.length > 0 && filtered.every(t => formTags.includes(t.name));
+                    })()}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      const q = tagSearchQuery.toLowerCase();
+                      const filtered = allTags.filter(t => 
+                        (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                        t.name.toLowerCase().includes(q)
+                      ).slice(0, 100);
+                      
+                      if (isChecked) {
+                        const toAdd = filtered.map(t => t.name).filter(n => !formTags.includes(n));
+                        if (toAdd.length > 0) {
+                          setFormTags(prev => [...prev, ...toAdd]);
+                        }
+                      } else {
+                        const toRemove = filtered.map(t => t.name);
+                        setFormTags(prev => prev.filter(n => !toRemove.includes(n)));
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Select All Filtered</span>
+                </div>
+                {(() => {
+                  const q = tagSearchQuery.toLowerCase();
+                  const filteredCount = allTags.filter(t => 
+                    (t.device_uuid === formScopeUuid || t.device_uuid === 'paloalto-panorama-global') &&
+                    t.name.toLowerCase().includes(q)
+                  ).length;
+                  const visibleCount = Math.min(filteredCount, 100);
+                  return (
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {visibleCount} visible ({formTags.length} selected)
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
             
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
@@ -912,6 +1037,8 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 
                 return filtered.map(tag => {
                   const isAlreadyAdded = formTags.includes(tag.name);
+                  const scopeName = scopeNameMap[tag.device_uuid] || 'Shared';
+                  const isShared = scopeName.toLowerCase().includes('shared');
                   
                   return (
                     <div 
@@ -926,30 +1053,26 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                       style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '12px', 
+                        justifyContent: 'space-between',
                         padding: '10px 12px', 
                         borderBottom: '1px solid rgba(255,255,255,0.02)',
-                        cursor: isAlreadyAdded ? 'default' : 'pointer',
+                        cursor: 'pointer',
                         opacity: isAlreadyAdded ? 0.4 : 1,
                         transition: 'background-color 0.1s'
                       }}
-                      onMouseEnter={e => { if (!isAlreadyAdded) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      {isAlreadyAdded ? (
-                        <div style={{ color: 'var(--accent-blue)', display: 'flex', alignItems: 'center' }}>
-                          <CheckSquare size={14} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <input type="checkbox" checked={isAlreadyAdded} onChange={() => {}} style={{ cursor: 'pointer', pointerEvents: 'none' }} onClick={e => e.stopPropagation()} />
+                        <Tag size={14} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+                        <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tag.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <div style={{ fontSize: '11px', color: isShared ? '#f97316' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '4px', border: `1px solid ${isShared ? 'rgba(249, 115, 22, 0.3)' : 'var(--border-main)'}`, backgroundColor: isShared ? 'rgba(249, 115, 22, 0.1)' : 'transparent', fontWeight: 500 }}>
+                          {isShared && <Globe size={10} />}
+                          {scopeName}
                         </div>
-                      ) : (
-                        <div style={{ color: 'var(--accent-blue)', display: 'flex', alignItems: 'center' }}>
-                          <Tag size={14} />
-                        </div>
-                      )}
-                      
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {tag.name}
-                        </span>
                       </div>
                     </div>
                   );
@@ -957,7 +1080,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               })()}
             </div>
 
-            <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+            <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
               <button
                 onClick={() => {
                   setNewTagName(tagSearchQuery.trim());
@@ -969,6 +1092,29 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
               >
                 <Plus size={14} /> Quick Add New Tag
               </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormTags(initialTagSortValues);
+                    setIsTagSelectorModalOpen(false);
+                  }}
+                  style={{ padding: '8px 16px', backgroundColor: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-muted)', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTagSelectorModalOpen(false)}
+                  style={{ padding: '8px 16px', backgroundColor: 'var(--accent-blue)', border: 'none', color: 'white', borderRadius: '4px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>,
@@ -1057,6 +1203,34 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
         </div>
       </Modal>
 
+      {/* Nested Object Creator */}
+      {nestedCreateObject && (
+        <GlobalObjectCrudModal
+          isOpen={true}
+          onClose={() => setNestedCreateObject(null)}
+          mode="create"
+          objectType={nestedCreateObject.type === 'Group' ? 'Address Groups' : 'Address Objects'}
+          apiClient={apiClient}
+          addToast={addToast}
+          referenceData={{
+            deviceGroups,
+            scopeNameMap,
+            allAddresses,
+            allAddressGroups,
+            allServices,
+            allServiceGroups,
+            allApplications,
+            allApplicationGroups,
+            allTags
+          }}
+          defaultName={nestedCreateObject.name}
+          defaultValue=""
+          onSuccess={(name) => {
+            if (name) setFormMembers(prev => [...prev, name]);
+            setNestedCreateObject(null);
+          }}
+        />
+      )}
     </>
   );
 };
