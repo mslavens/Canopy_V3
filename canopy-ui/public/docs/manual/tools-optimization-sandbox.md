@@ -12,7 +12,10 @@ The left panel is your workspace. You can paste a massive list of raw IP address
 
 ### Managing Your Inputs
 - **Paste & Add**: Paste comma, semicolon, or newline-separated values into the box and click **Add**. The tool will automatically format and validate them as "tokens" in the list above.
-- **Bulk Selection**: Use the checkboxes next to each token to select multiple items, and click the **Remove** button to clear them out in bulk.
+- **Select Object Dropdown**: Click inside the input box to open the dropdown. Here you can search through existing objects and groups, filter by type, and use the **Select All Filtered** checkbox for rapid bulk addition. The dropdown automatically honors your selected Administrative Scope hierarchy to ensure you only see valid objects.
+- **Quick Add & Creation**: If you don't find what you need in the dropdown, click **+ Quick Add New Object** at the bottom. This spawns a nested creator allowing you to instantly build a new Object or Group on the fly. It will automatically save and inject the new object directly into your inputs!
+- **Filtering & Bulk Actions**: Use the "Filter selected..." search box above the tokens to instantly filter your current list. You can use the master checkbox to select all visible tokens and click the **Remove** button to clear them out in bulk.
+- **Inline Swapping**: Click directly on any token pill to reopen the object dropdown. Selecting a different object will instantly swap the token in place.
 - **Set Any**: The **Set Any** button acts as a quick clear-all override, useful when you want to quickly test a rule that allows all traffic.
 
 ### Understanding the Input Badges
