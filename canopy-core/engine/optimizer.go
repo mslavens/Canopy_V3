@@ -396,7 +396,7 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 			
 			// If we meet the math threshold (e.g. 3 ports)
 			if totalCoveredPorts >= req.CIDRThreshold && req.CIDRThreshold > 0 {
-				var matched []string
+				matched := []string{}
 				
 				// Evaluate which explicit inputs are FULLY covered by this object
 				for _, in := range req.Inputs {
@@ -535,9 +535,24 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 			toleranceRatio := float64(coverage) / float64(totalLeaves)
 			fmt.Printf("Evaluating group: %s, coverage: %d, total: %d, ratio: %f, reqTolerance: %f\n", gName, coverage, totalLeaves, toleranceRatio, req.GroupTolerance)
 			if toleranceRatio >= req.GroupTolerance {
-				var matched []string
+				// Filter matchedInputSet to ensure inputted groups are fully covered
+				for m := range matchedInputSet {
+					if origLeaves, ok := resolvedGroupLeaves[m]; ok {
+						for l := range origLeaves {
+							if !coveredLeavesMap[l] {
+								delete(matchedInputSet, m)
+								break
+							}
+						}
+					}
+				}
+
+				matched := []string{}
 				for m := range matchedInputSet {
 					matched = append(matched, m)
+				}
+				if len(matched) == 0 {
+					continue
 				}
 				
 				var buildNested func(name string, visited map[string]bool) []NestedMemberNode
@@ -735,9 +750,24 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 		if coverage > 0 {
 			toleranceRatio := float64(coverage) / float64(totalLeaves)
 			if toleranceRatio >= req.GroupTolerance {
-				var matched []string
+				// Filter matchedInputSet to ensure inputted groups are fully covered
+				for m := range matchedInputSet {
+					if origLeaves, ok := resolvedGroupLeaves[m]; ok {
+						for l := range origLeaves {
+							if !coveredLeavesMap[l] {
+								delete(matchedInputSet, m)
+								break
+							}
+						}
+					}
+				}
+
+				matched := []string{}
 				for m := range matchedInputSet {
 					matched = append(matched, m)
+				}
+				if len(matched) == 0 {
+					continue
 				}
 				
 				var buildNested func(name string, visited map[string]bool) []NestedMemberNode
@@ -1052,6 +1082,10 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 			}
 		}
 
+		if origStr == "" {
+			continue
+		}
+
 		for _, obj := range addressList {
 			if len(obj.IPs) == 1 && len(obj.CIDRs) == 0 && obj.IPs[0] == inputIP {
 				if origStr == obj.Name {
@@ -1088,6 +1122,10 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					break
 				}
 			}
+		}
+
+		if origStr == "" {
+			continue
 		}
 
 		for _, obj := range addressList {
@@ -1127,7 +1165,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 			}
 			
 			if totalCoveredItems >= req.CIDRThreshold && req.CIDRThreshold > 0 {
-				var matched []string
+				matched := []string{}
 				
 				for _, in := range req.Inputs {
 					isFullyCovered := true
@@ -1178,6 +1216,10 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					if hasAnyItems && isFullyCovered {
 						matched = append(matched, in)
 					}
+				}
+
+				if len(matched) == 0 {
+					continue
 				}
 
 				cidrMap[obj.Name] = &OptimizationInsight{
@@ -1269,9 +1311,24 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		if coverage > 0 {
 			toleranceRatio := float64(coverage) / float64(totalLeaves)
 			if toleranceRatio >= req.GroupTolerance {
-				var matched []string
+				// Filter matchedInputSet to ensure inputted groups are fully covered
+				for m := range matchedInputSet {
+					if origLeaves, ok := resolvedGroupLeaves[m]; ok {
+						for l := range origLeaves {
+							if !coveredLeavesMap[l] {
+								delete(matchedInputSet, m)
+								break
+							}
+						}
+					}
+				}
+
+				matched := []string{}
 				for m := range matchedInputSet {
 					matched = append(matched, m)
+				}
+				if len(matched) == 0 {
+					continue
 				}
 				
 				// Optional: coverageCount could be the number of items replaced in the UI, 

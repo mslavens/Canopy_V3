@@ -97,7 +97,19 @@ self.onmessage = (e: MessageEvent) => {
         
         const toleranceRatio = coveredWithVal / leaves.length;
         
-        if (toleranceRatio >= groupTolerance && tokenContributes) {
+        // Ensure the parent fully covers the current token `val`
+        const parentFlattened = new Set<string>();
+        leaves.forEach(l => addToFlattened(l, parentFlattened));
+        let parentCoversVal = true;
+        const valLeaves = getDeepMembers(val);
+        for (const l of valLeaves) {
+          if (!isLeafCoveredBy(l, parentFlattened)) {
+            parentCoversVal = false;
+            break;
+          }
+        }
+
+        if (toleranceRatio >= groupTolerance && tokenContributes && parentCoversVal) {
            const pMembers = parent.member_list ? parent.member_list.split(',').map((m: string) => m.trim()) : [];
            let nestedGroupsCount = 0;
            pMembers.forEach((m: string) => {
