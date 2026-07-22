@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from './Modal';
 import { Dropdown } from './Dropdown';
-import { Tag, Globe, Network, ShieldAlert, Layers, Search, Trash2, Plus, X, Package, CheckSquare } from 'lucide-react';
+import { Tag, Globe, Network, ShieldAlert, Layers, Search, Trash2, Plus, X, Package, CheckSquare, Square } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SearchableScopeDropdown } from './SearchableScopeDropdown';
 import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
@@ -48,6 +48,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   const [formDescription, setFormDescription] = useState('');
   const [formType, setFormType] = useState('ip-netmask');
   const [formValue, setFormValue] = useState(defaultValue || '');
+  const [formProtocol, setFormProtocol] = useState('tcp');
+  const [formSourcePort, setFormSourcePort] = useState('');
+  const [formDestPort, setFormDestPort] = useState('');
   const [formTags, setFormTags] = useState<string[]>([]);
   const [formMembers, setFormMembers] = useState<string[]>([]);
 
@@ -94,6 +97,12 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
   const [selectorCheckedNames, setSelectorCheckedNames] = useState<string[]>([]);
   const [initialMemberSnapshot, setInitialMemberSnapshot] = useState<string[]>([]);
   const [memberSelectorTab, setMemberSelectorTab] = useState<'all' | 'objects' | 'groups' | 'selected'>('all');
+
+  const allAvailableForType = useMemo(() => {
+    if (objectType.includes('Service')) return [...allServices, ...allServiceGroups];
+    if (objectType.includes('Application')) return [...allApplications, ...allApplicationGroups];
+    return [...allAddresses, ...allAddressGroups];
+  }, [objectType, allAddresses, allAddressGroups, allServices, allServiceGroups, allApplications, allApplicationGroups]);
 
   useEffect(() => {
     if (isSelectorModalOpen) {
@@ -145,6 +154,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
         } else {
            setFormType(initialData.type || 'ip-netmask');
            setFormValue(initialData.value || '');
+           setFormProtocol(initialData.protocol || 'tcp');
+           setFormSourcePort(initialData.source_port || '');
+           setFormDestPort(initialData.destination_port || '');
         }
       } else {
         setFormScopeUuid(defaultScopeUuid || 'paloalto-panorama-global');
@@ -152,11 +164,28 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
         setFormDescription('');
         setFormType('ip-netmask');
         setFormValue(defaultValue || '');
+        setFormProtocol('tcp');
+        setFormSourcePort('');
+        
+        let initPort = defaultValue || '';
+        if (initPort.includes('/')) {
+          initPort = initPort.split('/').pop() || '';
+        }
+        setFormDestPort(objectType.includes('Service') ? initPort : '');
         setFormTags([]);
         setFormMembers([]);
       }
     }
-  }, [isOpen, mode, initialData, defaultScopeUuid, defaultName, defaultValue]);
+  }, [isOpen, mode, initialData, defaultScopeUuid, defaultName, defaultValue, objectType]);
+
+  // Auto-generate Service name if not in edit mode
+  useEffect(() => {
+    if (isOpen && mode === 'create' && objectType.includes('Service') && internalObjectType === 'Object') {
+      const prefix = formProtocol.toUpperCase();
+      const portVal = formDestPort ? `_${formDestPort.replace(/[^0-9-]/g, '')}` : '';
+      setFormName(`${prefix}${portVal}`);
+    }
+  }, [formProtocol, formDestPort, isOpen, mode, objectType, internalObjectType]);
 
   const handleSaveObject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +231,20 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
           if (mode === 'create') await apiClient.createAddressGroup(payload);
           else await apiClient.updateAddressGroup(payload);
         }
+      } else if (objectType.includes('Service') && internalObjectType === 'Group') {
+        payload.members = formMembers;
+        if (mode === 'create') await apiClient.createServiceGroup(payload);
+        else await apiClient.updateServiceGroup(payload);
+      } else if (objectType.includes('Service') && internalObjectType === 'Object') {
+        payload.protocol = formProtocol;
+        payload.source_port = formSourcePort.trim();
+        payload.destination_port = formDestPort.trim();
+        if (mode === 'create') await apiClient.createServiceObject(payload);
+        else await apiClient.updateServiceObject(payload);
+      } else if (objectType.includes('Application') && internalObjectType === 'Group') {
+        payload.members = formMembers;
+        if (mode === 'create') await apiClient.createApplicationGroup(payload);
+        else await apiClient.updateApplicationGroup(payload);
       } else {
         addToast(`Creating ${objectType} is not fully implemented in Quick Add yet.`, 'error');
         return;
@@ -400,19 +443,12 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
     const isAllChecked = filteredSelected.length > 0 && filteredSelected.every(name => memberCheckedNames.includes(name));
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Group Members ({selectedNames.length})</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {memberCheckedNames.length > 0 && (
-              <button 
-                type="button" 
-                onClick={handleRemoveSelected}
-                style={{ padding: '4px 8px', backgroundColor: 'var(--accent-red)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Trash2 size={12} /> Remove ({memberCheckedNames.length})
-              </button>
-            )}
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', border: '1px solid var(--border-main)', borderRadius: '6px', backgroundColor: 'var(--bg-app)', overflow: 'hidden', flex: 1, marginTop: '5px' }}>
+        
+        {/* TOOLBAR */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 12px 8px 12px', borderBottom: '1px solid var(--border-main)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Selected Members ({selectedNames.length})</span>
             <button 
               type="button" 
               onClick={(e) => { 
@@ -421,13 +457,10 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 const rect = modalEl ? modalEl.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
                 
                 let left = rect.right + 16;
-                // The member selector modal is 600px wide. If it goes off the right edge:
                 if (left + 600 > window.innerWidth) {
-                  // Check if it fits on the left
                   if (rect.left > 600 + 16) {
-                    left = rect.left - 600 - 16; // Pop out to the left side
+                    left = rect.left - 600 - 16;
                   } else {
-                    // If it doesn't fit on either side, center it over the modal
                     left = rect.left + (rect.width / 2) - 300;
                   }
                 }
@@ -435,97 +468,177 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 setMemberDropdownPos({ top: rect.top, left, bottom: 'auto' });
                 setIsSelectorModalOpen(true); 
               }} 
-              style={{ padding: '4px 8px', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              style={{ padding: '3px 8px', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', border: '1px solid var(--border-main)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', height: '24px' }}
             >
               <Plus size={12} /> Add Members
             </button>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              className="input-text" 
-              placeholder="Filter members..." 
-              value={memberSearchQuery} 
-              onChange={e => setMemberSearchQuery(e.target.value)}
-              style={{ width: '100%', paddingLeft: '28px', paddingRight: '28px' }}
+          <div style={{ height: '32px', boxSizing: 'border-box', width: '100%', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', padding: '0 8px', backgroundColor: 'var(--bg-surface)', cursor: 'text' }}>
+            <Search size={14} style={{ color: 'var(--text-muted)' }} />
+            <input
+              value={memberSearchQuery}
+              onChange={(e) => setMemberSearchQuery(e.target.value)}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '12px', color: 'var(--text-main)', padding: 0 }}
+              placeholder="Filter members..."
+              spellCheck={false}
             />
             {memberSearchQuery && (
               <button 
                 type="button"
                 onClick={() => setMemberSearchQuery('')}
-                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
               >
                 <X size={14} />
               </button>
             )}
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0 0 0', minHeight: '28px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button 
+                type="button"
+                onClick={handleSelectAll} 
+                style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                {isAllChecked ? <CheckSquare size={16} style={{ color: 'var(--accent-blue)' }} /> : <Square size={16} />}
+              </button>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>Select All Filtered</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {memberCheckedNames.length > 0 ? (
+                <button 
+                  type="button"
+                  onClick={handleRemoveSelected} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: 'none', color: 'var(--status-red)', cursor: 'pointer', fontSize: '12px', padding: '4px 8px', borderRadius: '4px' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Trash2 size={14} /> Remove ({memberCheckedNames.length})
+                </button>
+              ) : (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {filteredSelected.length} items
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="table-container" style={{ flex: 1, minHeight: '150px' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '32px' }}>
-                  <input type="checkbox" checked={isAllChecked} onChange={handleSelectAll} disabled={filteredSelected.length === 0} />
-                </th>
-                <th>Name</th>
-                <th>Value</th>
-                <th style={{ width: '40px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSelected.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
-                    {selectedNames.length === 0 ? "No members added yet." : "No members match your search."}
-                  </td>
-                </tr>
-              ) : (
-                filteredSelected.map(name => {
-                  const isChecked = memberCheckedNames.includes(name);
-                  const isGroup = name.includes('Group') || allAddressGroups.some(g => g.name === name);
-                  const objVal = getObjDetails(name);
+        {/* Scrollable Members List */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="custom-scrollbar">
+          {selectedNames.length === 0 ? (
+            <div style={{ padding: '30px 20px', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
+                <Layers size={24} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>No members selected</span>
+                  <span style={{ fontSize: '12px' }}>Click '+ Add Members' to select config objects.</span>
+                </div>
+              </div>
+            </div>
+          ) : filteredSelected.length === 0 ? (
+            <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
+                <Search size={24} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)' }}>No members match search query</span>
+                  <span style={{ fontSize: '12px' }}>Try a different term.</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            filteredSelected.map(name => {
+              const isChecked = memberCheckedNames.includes(name);
+              const isGroup = name.includes('Group') || (referenceData?.allAddressGroups || []).some(g => g.name === name);
+              const objVal = getObjDetails(name);
+
+              return (
+                <div
+                  key={name}
+                  onClick={() => handleToggleCheck(name)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer',
+                    backgroundColor: isChecked ? 'rgba(56, 189, 248, 0.05)' : 'transparent',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)' }}
+                  onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.backgroundColor = 'transparent' }}
+                >
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleCheck(name);
+                    }}
+                    style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    {isChecked ? <CheckSquare size={16} style={{ color: 'var(--accent-blue)' }} /> : <Square size={16} />}
+                  </button>
                   
-                  return (
-                    <tr key={name} className={isChecked ? 'selected-row' : ''} onClick={() => handleToggleCheck(name)} style={{ cursor: 'pointer' }}>
-                      <td>
-                        <input type="checkbox" checked={isChecked} onChange={() => handleToggleCheck(name)} onClick={e => e.stopPropagation()} />
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {isGroup ? <Layers size={14} style={{ color: '#60a5fa' }} /> : <Package size={14} style={{ color: '#10b981' }} />}
-                          <span style={{ fontWeight: 500, color: 'var(--text-main)' }}>{name}</span>
-                        </div>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '11px' }}>
-                        {objVal || '--'}
-                      </td>
-                      <td>
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); onRemove(name); }}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
-                          title="Remove from group"
-                        >
-                          <X size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}>
+                    <span style={{ color: isGroup ? '#60a5fa' : '#10b981', display: 'flex', alignItems: 'center' }}>
+                      {isGroup ? <Layers size={14} /> : <Package size={14} />}
+                    </span>
+                    
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {name}
+                      </span>
+                      {objVal && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {objVal}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onRemove(name); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    title="Remove from group"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     );
   };
 
-  const activeTitle = mode === 'create' ? `Create New ${internalObjectType}` : `Modify ${internalObjectType}`;
+  const getDomainPrefix = () => {
+    const t = objectType.toLowerCase();
+    if (t.includes('address')) return 'Address ';
+    if (t.includes('service')) return 'Service ';
+    if (t.includes('application') || t.includes('app')) return 'Application ';
+    return '';
+  };
+
+  const activeTitle = mode === 'create' ? `Create New ${getDomainPrefix()}${internalObjectType}` : `Modify ${getDomainPrefix()}${internalObjectType}`;
 
   return (
     <>
@@ -598,7 +711,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
           </div>
 
           <div style={{ display: 'flex', gap: '16px', flex: 1, minHeight: 0 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', paddingRight: '8px', minWidth: 0 }} className="custom-scrollbar">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Scope Location</label>
                 <SearchableScopeDropdown
@@ -634,7 +747,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 </div>
               </div>
 
-              {internalObjectType === 'Object' && (
+              {internalObjectType === 'Object' && objectType.includes('Address') && (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Address Type</label>
@@ -653,6 +766,35 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </div>
                 </>
               )}
+              {internalObjectType === 'Object' && objectType.includes('Service') && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Protocol</label>
+                    <Dropdown width="100%" value={formProtocol} onChange={setFormProtocol} options={['tcp', 'udp']} searchable={false} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Destination Port</label>
+                    <input 
+                      type="text" 
+                      className="input-text" 
+                      value={formDestPort} 
+                      onChange={(e) => setFormDestPort(e.target.value)} 
+                      placeholder="e.g. 443, 80-8080"
+                      required 
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Source Ports (Optional)</label>
+                    <input 
+                      type="text" 
+                      className="input-text" 
+                      value={formSourcePort} 
+                      onChange={(e) => setFormSourcePort(e.target.value)} 
+                      placeholder="e.g. 1024-65535"
+                    />
+                  </div>
+                </>
+              )}
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>Description (Optional)</label>
@@ -663,7 +805,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             </div>
 
             {internalObjectType === 'Group' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
                 {renderGroupMembersSection(formMembers, (name) => {
                   setFormMembers(prev => prev.filter(n => n !== name));
                 })}
@@ -775,7 +917,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                     style={{ cursor: 'pointer' }}
                     checked={(() => {
                       const q = selectorSearchQuery.toLowerCase();
-                      const allAvailable = [...allAddresses, ...allAddressGroups];
+                      const allAvailable = allAvailableForType;
                       const filtered = allAvailable.filter(o => {
                         if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
                         if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
@@ -790,7 +932,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       const q = selectorSearchQuery.toLowerCase();
-                      const allAvailable = [...allAddresses, ...allAddressGroups];
+                      const allAvailable = allAvailableForType;
                       const filtered = allAvailable.filter(o => {
                         if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
                         if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
@@ -816,7 +958,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 </div>
                 {(() => {
                   const q = selectorSearchQuery.toLowerCase();
-                  const allAvailable = [...allAddresses, ...allAddressGroups];
+                  const allAvailable = allAvailableForType;
                   const filteredCount = allAvailable.filter(o => {
                     if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
                     if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;
@@ -838,7 +980,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {(() => {
                 const q = selectorSearchQuery.toLowerCase();
-                const allAvailable = [...allAddresses, ...allAddressGroups];
+                const allAvailable = allAvailableForType;
                 const filtered = allAvailable.filter(o => {
                   if (memberSelectorTab === 'objects' && o.member_list !== undefined) return false;
                   if (memberSelectorTab === 'groups' && o.member_list === undefined) return false;

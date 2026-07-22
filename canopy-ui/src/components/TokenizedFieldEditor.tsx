@@ -763,63 +763,65 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   {isGroup ? <Layers size={14} /> : isObject ? <Package size={14} /> : <Hash size={14} />}
                 </span>
                 
-                {editingToken === val ? (
-                  <input
-                    type="text"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={() => {
-                      if (editValue.trim() && editValue !== val) {
-                        const newValues = [...values];
-                        const idx = newValues.indexOf(val);
-                        if (idx !== -1) {
-                          newValues[idx] = editValue.trim();
-                          onChange(newValues);
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                  {editingToken === val ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => {
+                        if (editValue.trim() && editValue !== val) {
+                          const newValues = [...values];
+                          const idx = newValues.indexOf(val);
+                          if (idx !== -1) {
+                            newValues[idx] = editValue.trim();
+                            onChange(newValues);
+                          }
                         }
-                      }
-                      setEditingToken(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                      } else if (e.key === 'Escape') {
                         setEditingToken(null);
-                      }
-                    }}
-                    autoFocus
-                    style={{ 
-                      fontSize: '13px', 
-                      fontWeight: 500, 
-                      color: 'var(--text-main)', 
-                      backgroundColor: 'var(--bg-element)', 
-                      border: '1px solid var(--accent-blue)', 
-                      borderRadius: '4px',
-                      padding: '2px 6px',
-                      outline: 'none',
-                      flex: 1
-                    }}
-                  />
-                ) : (
-                  <span 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setReplacingToken(val);
-                      setDropdownOpen(true);
-                      setDropdownSearch('');
-                    }}
-                    style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                    title="Click to replace object"
-                  >
-                    {val}
-                  </span>
-                )}
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        } else if (e.key === 'Escape') {
+                          setEditingToken(null);
+                        }
+                      }}
+                      autoFocus
+                      style={{ 
+                        fontSize: '13px', 
+                        fontWeight: 500, 
+                        color: 'var(--text-main)', 
+                        backgroundColor: 'var(--bg-element)', 
+                        border: '1px solid var(--accent-blue)', 
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                        outline: 'none',
+                        width: '100%'
+                      }}
+                    />
+                  ) : (
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReplacingToken(val);
+                        setDropdownOpen(true);
+                        setDropdownSearch('');
+                      }}
+                      style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                      title="Click to replace object"
+                    >
+                      {val}
+                    </span>
+                  )}
 
-                {displayValue && (
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    [{displayValue}]
-                  </span>
-                )}
+                  {displayValue && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {displayValue}
+                    </span>
+                  )}
+                </div>
               </div>
               {(() => {
                 const totalInsights = validParents.length + matchingObjects.length + matchedNetworks.length;
