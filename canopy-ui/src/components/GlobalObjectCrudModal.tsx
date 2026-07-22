@@ -4,6 +4,7 @@ import { Dropdown } from './Dropdown';
 import { Tag, Globe, Network, ShieldAlert, Layers, Search, Trash2, Plus, X, Package, CheckSquare } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SearchableScopeDropdown } from './SearchableScopeDropdown';
+import { useScopeHierarchy } from '../hooks/useScopeHierarchy';
 
 export interface GlobalObjectCrudModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export interface GlobalObjectCrudModalProps {
   addToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   referenceData?: {
     deviceGroups?: any[];
+    devices?: any[];
     scopeNameMap?: Record<string, string>;
     allAddresses?: any[];
     allAddressGroups?: any[];
@@ -51,7 +53,9 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
   // Minimal reference data
   const [deviceGroups, setDeviceGroups] = useState<any[]>(referenceData?.deviceGroups || []);
-  const [scopeNameMap, setScopeNameMap] = useState<Record<string, string>>(referenceData?.scopeNameMap || {});
+  const [devices, setDevices] = useState<any[]>(referenceData?.devices || []);
+  
+  const { hierarchyOptions, scopeNameMap } = useScopeHierarchy(deviceGroups, devices, { includeShowAll: false, firewallValueKey: 'uuid' });
   
   // Extended reference data for selectors
   const [allAddresses, setAllAddresses] = useState<any[]>(referenceData?.allAddresses || []);
@@ -102,13 +106,12 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
     if (isOpen) {
       const fetchRef = async () => {
         try {
-          if (!referenceData?.deviceGroups) {
-            const dgResp = await (apiClient.getDevicesInventory ? apiClient.getDevicesInventory() : apiClient.request('/api/devices/inventory'));
+          if (!referenceData?.deviceGroups || !referenceData?.devices) {
+            const dgResp = await (apiClient.getPoliciesContext ? apiClient.getPoliciesContext('security_rules', 'device') : apiClient.request('/api/system/policies-context?count_table=security_rules&rulebase=device'));
             const dgs = dgResp.device_groups || [];
+            const devs = dgResp.devices || [];
             setDeviceGroups(dgs);
-            const map: Record<string, string> = { 'paloalto-panorama-global': 'Shared' };
-            dgs.forEach((g: any) => { map[g.uuid] = g.name; });
-            setScopeNameMap(map);
+            setDevices(devs);
           }
 
           if (!referenceData?.allAddresses) {
@@ -603,10 +606,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   value={formScopeUuid}
                   onChange={setFormScopeUuid}
                   scopeNameMap={scopeNameMap}
-                  options={deviceGroups.length > 0 ? [
-                    { value: 'paloalto-panorama-global', label: 'Shared', type: 'global' as const, depth: 0 },
-                    ...deviceGroups.map(dg => ({ value: dg.uuid, label: dg.name, type: 'device-group' as const, depth: 0 }))
-                  ] : [{ value: formScopeUuid, label: scopeNameMap[formScopeUuid] || formScopeUuid, type: 'global' as const, depth: 0 }]}
+                  options={hierarchyOptions}
                 />
               </div>
 
