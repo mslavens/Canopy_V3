@@ -732,7 +732,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
-              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-main)' }}>
+              <div style={{ padding: '8px 0 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
                     type="checkbox"
@@ -961,7 +961,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   </button>
                 )}
               </div>
-              <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-main)' }}>
+              <div style={{ padding: '8px 0 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input
                     type="checkbox"

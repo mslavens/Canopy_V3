@@ -1163,7 +1163,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               </div>
 
               {!replacingToken && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '0 0 8px 0' }}>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <input 
                       type="checkbox"
