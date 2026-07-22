@@ -171,9 +171,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
       const isOutsidePopover = !popoverRef.current || !popoverRef.current.contains(target);
       const isOutsideDropdown = !dropdownRef.current || !dropdownRef.current.contains(target);
-      const isOutsideContainer = !containerRef.current || !containerRef.current.contains(target);
 
-      if (isOutsidePopover && isOutsideDropdown && isOutsideContainer) {
+      if (isOutsidePopover && isOutsideDropdown) {
         setPopoverToken(null);
         setDropdownOpen(false);
         setReplacingToken(null);
