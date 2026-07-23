@@ -48,6 +48,12 @@ You control how strict the optimization engine is using the two inputs at the bo
 - **Network Threshold**: How many individual items must fall within a broader network before the engine suggests combining them into a single CIDR block or Range? *(Default: 3. Delete to set to 0, which disables network collapsing).*
 - **Group Tolerance (%)**: What percentage of a group's members must be present in your inputs before the engine suggests swapping for that group? *(Default: 100%, which requires a perfect match. Lower this to see fuzzy "partial" group matches).*
 
+### Understanding Threshold Counting
+> [!NOTE]
+> The engine counts the number of **Input Tokens** (the items you pasted), NOT the individual IPs hidden inside those items. 
+> For example, if you paste an IP Range like `10.0.0.1-10.0.0.10`, it counts as **1 item**. The engine checks if the entire boundary of the range fits inside a broader network. We do not explode ranges or CIDRs into individual IPs because a single `/16` CIDR would instantly trigger the threshold and break the semantic meaning of "swapping items".
+
+
 ### Understanding Global Insights
 The right panel displays the results categorized by type (1:1 Replacements, Address Groups, CIDRs). 
 - Click the chevron `>` to expand an insight and view the **Nested Members Tree**.

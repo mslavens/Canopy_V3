@@ -378,10 +378,12 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
           <li key={idx} style={{ marginTop: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {node.type === 'group' ? <Layers size={14} color="var(--accent-blue)" /> : <Package size={14} color="var(--status-green)" />}
-              <span title={node.value ? `${node.name}\nValue: ${node.value}` : node.name} style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>
-                {node.name}
-              </span>
-              {node.value && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>[{node.value}]</span>}
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span title={node.value ? `${node.name}\nValue: ${node.value}` : node.name} style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: node.type === 'group' ? 600 : 400 }}>
+                  {node.name}
+                </span>
+                {node.value && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{node.value}</span>}
+              </div>
               {node.type !== 'group' && (
                 node.is_covered ? (
                   <span style={{ marginLeft: 'auto', fontSize: '10px', backgroundColor: 'rgba(52, 211, 153, 0.1)', color: 'var(--status-green)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid rgba(52, 211, 153, 0.2)' }}>

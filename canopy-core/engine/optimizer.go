@@ -370,7 +370,7 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 
 	// Parse inputs
 	inputMap := make(map[string]bool)
-	inputLeafMap := make(map[string]string)
+	inputLeafMap := make(map[string][]string)
 	
 	// Map to track explicit raw ports inputted
 	type rawPortKey struct {
@@ -400,12 +400,12 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 			// If input is an object name
 			if obj, ok := services[in]; ok {
 				allFlattenedPorts[obj.Protocol] = append(allFlattenedPorts[obj.Protocol], flattenPortRanges(obj.Ports)...)
-				inputLeafMap[in] = in
+				inputLeafMap[in] = append(inputLeafMap[in], in)
 			}
 			// If input is a group name
 			if leaves, ok := resolvedGroupLeaves[in]; ok {
 				for leaf := range leaves {
-					inputLeafMap[leaf] = in
+					inputLeafMap[leaf] = append(inputLeafMap[leaf], in)
 					if obj, isObj := services[leaf]; isObj {
 						allFlattenedPorts[obj.Protocol] = append(allFlattenedPorts[obj.Protocol], flattenPortRanges(obj.Ports)...)
 					}
@@ -557,10 +557,6 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 		if len(leaves) == 0 {
 			continue
 		}
-		
-		if inputMap[gName] {
-			continue
-		}
 
 		matchedInputSet := make(map[string]bool)
 		coveredLeavesMap := make(map[string]bool)
@@ -569,8 +565,10 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 		for leaf := range leaves {
 			matchedThisLeaf := false
 			
-			if origInput, exists := inputLeafMap[leaf]; exists {
-				matchedInputSet[origInput] = true
+			if origInputs, exists := inputLeafMap[leaf]; exists {
+				for _, origInput := range origInputs {
+					matchedInputSet[origInput] = true
+				}
 				matchedThisLeaf = true
 			} else if obj, isObj := services[leaf]; isObj {
 				// Check if any provided input port matches this object's ports
@@ -615,6 +613,9 @@ func OptimizeServices(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, e
 					matched = append(matched, m)
 				}
 				if len(matched) == 0 {
+					continue
+				}
+				if len(matched) == 1 && matched[0] == gName {
 					continue
 				}
 				
@@ -775,25 +776,21 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 	}
 
 	inputMap := make(map[string]bool)
-	inputLeafMap := make(map[string]string)
+	inputLeafMap := make(map[string][]string)
 	
 	for _, in := range req.Inputs {
 		inputMap[in] = true
 		if leaves, ok := resolvedGroupLeaves[in]; ok {
 			for leaf := range leaves {
-				inputLeafMap[leaf] = in
+				inputLeafMap[leaf] = append(inputLeafMap[leaf], in)
 			}
 		} else {
-			inputLeafMap[in] = in
+			inputLeafMap[in] = append(inputLeafMap[in], in)
 		}
 	}
 
 	for gName, leaves := range resolvedGroupLeaves {
 		if len(leaves) == 0 {
-			continue
-		}
-		
-		if inputMap[gName] {
 			continue
 		}
 
@@ -802,8 +799,10 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 		coverage := 0
 		
 		for leaf := range leaves {
-			if origInput, exists := inputLeafMap[leaf]; exists {
-				matchedInputSet[origInput] = true
+			if origInputs, exists := inputLeafMap[leaf]; exists {
+				for _, origInput := range origInputs {
+					matchedInputSet[origInput] = true
+				}
 				coverage++
 				coveredLeavesMap[leaf] = true
 			}
@@ -830,6 +829,9 @@ func OptimizeApplications(db *sql.DB, req OptimizeRequest) ([]OptimizationInsigh
 					matched = append(matched, m)
 				}
 				if len(matched) == 0 {
+					continue
+				}
+				if len(matched) == 1 && matched[0] == gName {
 					continue
 				}
 				
@@ -1091,7 +1093,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 	var inputRanges []IPRange
 	
 	// inputLeafMap maps a leaf object name to the original user input that provided it
-	inputLeafMap := make(map[string]string)
+	inputLeafMap := make(map[string][]string)
 	// inputIPMap maps an IP to the original user input that provided it
 	inputIPMap := make(map[netip.Addr]string)
 	// inputCIDRMap maps a CIDR to the original user input that provided it
@@ -1116,12 +1118,12 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 				inputAddrs = append(inputAddrs, obj.IPs...)
 				inputCIDRs = append(inputCIDRs, obj.CIDRs...)
 				inputRanges = append(inputRanges, obj.IPRanges...)
-				inputLeafMap[in] = in
+				inputLeafMap[in] = append(inputLeafMap[in], in)
 			}
 			// If input is a group name, map all its leaves back to this group input
 			if leaves, ok := resolvedGroupLeaves[in]; ok {
 				for leaf := range leaves {
-					inputLeafMap[leaf] = in
+					inputLeafMap[leaf] = append(inputLeafMap[leaf], in)
 					if obj, isObj := addresses[leaf]; isObj {
 						inputAddrs = append(inputAddrs, obj.IPs...)
 						inputCIDRs = append(inputCIDRs, obj.CIDRs...)
@@ -1482,11 +1484,6 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		if len(leaves) == 0 {
 			continue
 		}
-		
-		// If the user already provided this exact group, don't suggest it
-		if inputMap[gName] {
-			continue
-		}
 
 		matchedInputSet := make(map[string]bool)
 		coveredLeavesMap := make(map[string]bool)
@@ -1496,8 +1493,10 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		for leaf := range leaves {
 			matchedThisLeaf := false
 			
-			if origInput, exists := inputLeafMap[leaf]; exists {
-				matchedInputSet[origInput] = true
+			if origInputs, exists := inputLeafMap[leaf]; exists {
+				for _, origInput := range origInputs {
+					matchedInputSet[origInput] = true
+				}
 				matchedThisLeaf = true
 			} else if obj, isObj := addresses[leaf]; isObj {
 				// Check exact IPs
@@ -1613,6 +1612,9 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					matched = append(matched, m)
 				}
 				if len(matched) == 0 {
+					continue
+				}
+				if len(matched) == 1 && matched[0] == gName {
 					continue
 				}
 				
