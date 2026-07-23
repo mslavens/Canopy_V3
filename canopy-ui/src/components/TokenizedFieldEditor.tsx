@@ -1,6 +1,8 @@
 import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight, Loader2, Edit2, Copy } from 'lucide-react';
+
+import { ContextMenuItem, ContextMenuDivider } from './ContextMenu';
 
 interface ObjectRef {
   id: number;
@@ -154,6 +156,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [exactMatchesOpen, setExactMatchesOpen] = useState(false);
   const [subnetsOpen, setSubnetsOpen] = useState(false);
   const [initialSortValues, setInitialSortValues] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; val: string } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const handleDropdownMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
@@ -207,11 +211,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
       const isOutsidePopover = !popoverRef.current || !popoverRef.current.contains(target);
       const isOutsideDropdown = !dropdownRef.current || !dropdownRef.current.contains(target);
+      const isOutsideContextMenu = !contextMenuRef.current || !contextMenuRef.current.contains(target);
 
-      if (isOutsidePopover && isOutsideDropdown) {
+      if (isOutsidePopover && isOutsideDropdown && isOutsideContextMenu) {
         setPopoverToken(null);
         setDropdownOpen(false);
         setReplacingToken(null);
+        setContextMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -535,10 +541,12 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
     return (
       <div key={memberName} style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
+        <div 
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, val: memberName }); }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `4px 8px 4px ${8 + indent * 16}px`, borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
             {isGroup ? <Layers size={12} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} /> : <Package size={12} style={{ color: '#10b981', flexShrink: 0 }} />}
-            <span title={displayValue ? `${memberName}\nValue: ${displayValue}` : memberName} style={{ fontSize: '11px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{memberName}</span>
+            <span title={displayValue ? `Name: ${memberName}\nValue: ${displayValue}` : `Name: ${memberName}`} style={{ fontSize: '11px', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{memberName}</span>
           </div>
           {isCovered 
             ? <span style={{ fontSize: '9px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '2px 0', width: '28px', justifyContent: 'center', borderRadius: '4px', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0, display: 'inline-flex' }}>✓ C</span>
@@ -745,6 +753,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 if (el) rowRefs.current.set(val, el);
                 else rowRefs.current.delete(val);
               }}
+
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -753,6 +762,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                 backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.05)' : 'transparent',
                 position: 'relative'
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, val });
               }}
               onMouseEnter={e => e.currentTarget.style.backgroundColor = isSelected ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.03)'}
               onMouseLeave={e => e.currentTarget.style.backgroundColor = isSelected ? 'rgba(56, 189, 248, 0.05)' : 'transparent'}
@@ -766,7 +779,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
               <div 
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}
-                title={displayValue ? `${val}\nValue: ${displayValue}` : val}
+                title={displayValue ? `Name: ${val}\nValue: ${displayValue}` : `Name: ${val}`}
               >
                 <span style={{ color: iconColor, display: 'flex', alignItems: 'center' }}>
                   {isGroup ? <Layers size={14} /> : isObject ? <Package size={14} /> : <Hash size={14} />}
@@ -819,7 +832,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         setDropdownSearch('');
                       }}
                       style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
-                      title="Click to replace object"
+                      title={isRaw ? "Click to replace, Right-click for options" : "Click to replace object, Right-click for options"}
                     >
                       {val}
                     </span>
@@ -887,12 +900,153 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </button>
                   );
                 }
-
                 return null;
               })()}
+            </div>
+          );
+        })}
 
-              {/* EXPANSION POPOVER */}
-              {popoverToken === val && createPortal(
+        {contextMenu && createPortal(
+          <div
+            ref={contextMenuRef}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+            style={{
+              position: 'fixed',
+              ...(contextMenu.y > window.innerHeight - 350 
+                ? { bottom: `${window.innerHeight - contextMenu.y}px` } 
+                : { top: `${contextMenu.y}px` }),
+              ...(contextMenu.x > window.innerWidth - 260 
+                ? { right: `${window.innerWidth - contextMenu.x}px` } 
+                : { left: `${contextMenu.x}px` }),
+              minWidth: '180px',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-main)',
+              borderRadius: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              zIndex: 100050,
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '6px',
+              gap: '4px'
+            }}
+          >
+            {(() => {
+              const val = contextMenu.val;
+              const opt = optionsMap.get(val);
+              const isGroup = opt?.member_list !== undefined && opt.member_list !== null;
+              const isRaw = opt === undefined;
+              const workerData = workerResults[val] || { matchingObjects: [], validParents: [] };
+              const matchingObjectNames = new Set(workerData.matchingObjects.map(o => o.name));
+              const matchedNetworks = insights ? insights.filter((i: any) => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
+              const totalInsights = workerData.validParents.length + workerData.matchingObjects.length + matchedNetworks.length;
+
+              return (
+                <>
+                  <div style={{ padding: '4px 10px 8px 10px', fontSize: '11px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-main)', marginBottom: '4px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {val}
+                  </div>
+                  <ContextMenuItem
+                    icon={<Copy size={13} />}
+                    label="Copy Name"
+                    onClick={() => {
+                      navigator.clipboard.writeText(val);
+                      setContextMenu(null);
+                    }}
+                  />
+                  {opt?.value && (
+                    <ContextMenuItem
+                      icon={<Copy size={13} />}
+                      label="Copy Value"
+                      onClick={() => {
+                        navigator.clipboard.writeText(opt.value || '');
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                  <ContextMenuItem
+                    icon={<Search size={13} />}
+                    label="Global Search"
+                    onClick={() => {
+                      const text = opt?.value ? String(opt.value) : val;
+                      if (text) {
+                        document.dispatchEvent(new CustomEvent('open-global-search', { detail: text }));
+                      }
+                      setContextMenu(null);
+                    }}
+                  />
+                  <ContextMenuDivider />
+                  {isRaw && (
+                    <ContextMenuItem
+                      icon={<Edit2 size={13} />}
+                      label="Edit Input"
+                      onClick={() => {
+                        setEditingToken(val);
+                        setEditValue(val);
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                  {isRaw && onAddObject && workerData.matchingObjects.length === 0 && (
+                    <ContextMenuItem
+                      icon={<Plus size={13} />}
+                      label="Quick Add Object"
+                      onClick={() => {
+                        onAddObject(val, 'Object');
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                  <ContextMenuItem
+                    icon={<RotateCcw size={13} />}
+                    label="Replace Object"
+                    onClick={() => {
+                      setReplacingToken(val);
+                      setDropdownOpen(true);
+                      setDropdownSearch('');
+                      setContextMenu(null);
+                    }}
+                  />
+                  {isGroup && (
+                    <ContextMenuItem
+                      icon={<Layers size={13} />}
+                      label="Inspect Group"
+                      onClick={() => {
+                        setPopoverToken(val);
+                        setInspectGroupOpen(true);
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                  {totalInsights > 0 && (
+                    <ContextMenuItem
+                      icon={<Zap size={13} />}
+                      label={`View Insights (${totalInsights})`}
+                      onClick={() => {
+                        setPopoverToken(val);
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                  <ContextMenuDivider />
+                  {values.includes(val) && (
+                    <ContextMenuItem
+                      icon={<Trash2 size={13} />}
+                      label="Remove"
+                      danger
+                      onClick={() => {
+                        onChange(values.filter(v => v !== val));
+                        setContextMenu(null);
+                      }}
+                    />
+                  )}
+                </>
+              );
+            })()}
+          </div>, document.body
+        )}
+
+      {/* EXPANSION POPOVER */}
+      {popoverToken && createPortal(
                 <div 
                   ref={popoverRef}
                   style={{
@@ -912,14 +1066,29 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   flexDirection: 'column',
                   gap: '12px'
                 }} className="custom-scrollbar">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {isRaw ? val : `Options for ${val}:`}
-                    </span>
-                    <button onClick={() => setPopoverToken(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={14} /></button>
-                  </div>
-                  
-                  {isGroup && opt && (() => {
+                  {(() => {
+                    const val = popoverToken;
+                    const opt = optionsMap.get(val);
+                    const isGroup = opt?.member_list !== undefined && opt.member_list !== null;
+                    const isObject = opt !== undefined && !isGroup;
+                    const isRaw = opt === undefined;
+                    
+                    const workerData = workerResults[val] || { matchingObjects: [], validParents: [] };
+                    const validParents = workerData.validParents;
+                    const matchingObjects = workerData.matchingObjects;
+                    const matchingObjectNames = new Set(workerData.matchingObjects.map((o: any) => o.name));
+                    const matchedNetworks = insights ? insights.filter((i: any) => i.type === 'network' && i.matched_items?.includes(val) && !matchingObjectNames.has(i.target_name)) : [];
+
+                    return (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-main)', paddingBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {isRaw ? val : `Options for ${val}:`}
+                          </span>
+                          <button onClick={() => setPopoverToken(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={14} /></button>
+                        </div>
+                        
+                        {isGroup && opt && (() => {
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div 
@@ -995,7 +1164,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         <ChevronRight size={12} style={{ transform: exactMatchesOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> Exact 1:1 Matches ({matchingObjects.length})
                       </div>
                       {exactMatchesOpen && matchingObjects.map(match => (
-                        <div key={match.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                        <div 
+                          key={match.name} 
+                          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, val: match.name }); }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <span style={{ fontSize: '12px', color: match.value?.includes('/') ? '#38bdf8' : '#10b981', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.name}</span>
                             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
@@ -1041,7 +1213,10 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                           <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {domain === 'service' ? 'Ranges' : 'Networks'} ({matchedNetworks.length})
                         </div>
                         {subnetsOpen && matchedNetworks.map((match: any) => (
-                          <div key={match.target_name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
+                          <div 
+                            key={match.target_name} 
+                            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, val: match.target_name }); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                               <span style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.target_name}</span>
                               <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{match.target_value}</span>
@@ -1062,12 +1237,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       </div>
                     );
                   })()}
-
-                </div>, document.body
-              )}
-            </div>
-          );
-        })}
+                  </>
+                );
+              })()}
+            </div>, document.body
+          )}
       </div>
 
       {/* INPUT ROW */}
@@ -1304,25 +1478,27 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     const isAlreadyAdded = values.includes(opt.name);
 
                     return (
-                    <div 
-                      key={opt.id}
-                      onClick={() => {
-                        if (replacingToken) {
-                          if (opt.name !== replacingToken) {
-                            handleSwapRawToken(replacingToken, opt.name);
-                          }
-                          setDropdownOpen(false);
-                          setReplacingToken(null);
-                        } else {
-                          if (isAlreadyAdded) {
-                            onChange(values.filter(v => v !== opt.name));
+                      <div 
+                        key={opt.id}
+                        title={`Name: ${opt.name}\nValue: ${opt.value || opt.member_list || 'N/A'}`}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, val: opt.name }); }}
+                        onClick={() => {
+                          if (replacingToken) {
+                            if (opt.name !== replacingToken) {
+                              handleSwapRawToken(replacingToken, opt.name);
+                            }
+                            setDropdownOpen(false);
+                            setReplacingToken(null);
                           } else {
-                            addTokens(opt.name);
+                            if (isAlreadyAdded) {
+                              onChange(values.filter(v => v !== opt.name));
+                            } else {
+                              addTokens(opt.name);
+                            }
                           }
-                        }
-                      }}
-                      style={{ 
-                        display: 'flex', 
+                        }}
+                        style={{ 
+                          display: 'flex', 
                         alignItems: 'center', 
                         gap: '12px', 
                         padding: '10px 12px', 
@@ -1386,8 +1562,14 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
               {onAddObject ? (
                 <button
                   onClick={() => {
-                    const addValue = dropdownSearch.trim() || replacingToken || '';
+                    const isRawToken = replacingToken && !optionsMap.has(replacingToken);
+                    const addValue = dropdownSearch.trim() || (isRawToken ? replacingToken : '');
                     if (addValue && optionsMap.has(addValue)) return;
+                    
+                    if (replacingToken && addValue && addValue !== replacingToken) {
+                      handleSwapRawToken(replacingToken, addValue);
+                    }
+                    
                     onAddObject(addValue, dropdownTab === 'groups' ? 'Group' : 'Object');
                     setDropdownOpen(false);
                     setReplacingToken(null);
@@ -1439,14 +1621,14 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           dialogData={confirmSwapDialog}
           onCancel={() => setConfirmSwapDialog(null)}
           onConfirm={(excluded: Set<string>) => {
-            const current = values.filter(v => v !== confirmSwapDialog.oldVal);
-            const finalCleaned = current.filter(v => !confirmSwapDialog.redundantItems.includes(v) || excluded.has(v));
-            if (!finalCleaned.includes(confirmSwapDialog.newVal)) finalCleaned.push(confirmSwapDialog.newVal);
+            const current = values.filter(v => v !== confirmSwapDialog!.oldVal);
+            const finalCleaned = current.filter(v => !confirmSwapDialog!.redundantItems.includes(v) || excluded.has(v));
+            if (!finalCleaned.includes(confirmSwapDialog!.newVal)) finalCleaned.push(confirmSwapDialog!.newVal);
             onChange(finalCleaned);
             setConfirmSwapDialog(null);
             if (addToast) {
-              const removedCount = confirmSwapDialog.redundantItems.length - excluded.size;
-              addToast(`Swapped ${confirmSwapDialog.oldVal} for ${confirmSwapDialog.newVal}${removedCount > 0 ? ` and removed ${removedCount} redundant items` : ''}`, 'success');
+              const removedCount = confirmSwapDialog!.redundantItems.length - excluded.size;
+              addToast(`Swapped ${confirmSwapDialog!.oldVal} for ${confirmSwapDialog!.newVal}${removedCount > 0 ? ` and removed ${removedCount} redundant items` : ''}`, 'success');
             }
           }}
         />, document.body
