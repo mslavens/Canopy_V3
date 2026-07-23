@@ -296,13 +296,14 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
       color9: '#f97316', color10: '#64748b', color11: '#22c55e', color12: '#a855f7',
       color13: '#e11d48', color14: '#d97706', color15: '#2563eb', color16: '#059669',
     };
-    return allTags.map(t => ({
+    const allowedScopes = getScopeHierarchy(formScopeUuid);
+    return allTags.filter(t => allowedScopes.includes(t.device_uuid)).map(t => ({
       name: t.name,
       type: 'tag',
       value: '',
       icon: <Tag size={12} style={{ color: colorMap[t.color] || 'inherit' }} />
     }));
-  }, [allTags]);
+  }, [allTags, formScopeUuid, getScopeHierarchy]);
 
   // Dual List available items for group CRUD editors
   const addressGroupAvailableItems = useMemo(() => {
@@ -2036,9 +2037,13 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
   };
 
   // --- CLONING AND MOVING OPERATIONS WITH DEPENDENCY RESOLUTION ---
-  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState<boolean>(false);
+  const [targetScopeUuid, setTargetScopeUuid] = useState<string>('paloalto-panorama-global');
   const [targetActionType, setTargetActionType] = useState<'clone' | 'move'>('clone');
-  const [targetScopeUuid, setTargetScopeUuid] = useState('paloalto-panorama-global');
+
+  const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState<boolean>(false);
+  const [bulkTagSearchQuery, setBulkTagSearchQuery] = useState<string>('');
+  const [bulkTagCheckedNames, setBulkTagCheckedNames] = useState<string[]>([]);
 
   const dataSources = useMemo<ObjectDataSources>(() => ({
     addresses: allAddresses,
@@ -2107,6 +2112,100 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
     Object.keys(byScope).forEach(scopeUuid => {
       move(byScope[scopeUuid], getActiveObjectType(), scopeUuid, 'clone');
     });
+  };
+
+  const isSameContext = selectedRows.length > 0 && new Set(selectedRows.map(r => r.device_uuid)).size === 1;
+
+  const handleBulkAddTags = async () => {
+    if (!apiClient || bulkTagCheckedNames.length === 0 || !isSameContext) return;
+    setLoading(true);
+    let successCount = 0;
+    
+    try {
+      for (const row of selectedRows) {
+        const payload: Record<string, any> = {
+          id: row.id,
+          device_uuid: row.device_uuid,
+          scope: row.scope || 'shared',
+          name: row.name,
+          description: row.description || ''
+        };
+        
+        const entityType = activeSubTab === 'Address Objects' ? 'address_object' : 
+                           activeSubTab === 'Address Groups' ? 'address_group' : 'unknown';
+        const mappings = allTagMappings.filter(m => String(m.entity_id) === String(row.id) && m.entity_type === entityType);
+        
+        const existingTags: string[] = [];
+        mappings.forEach(m => {
+          const tagObj = allTags.find(t => t.id === m.tag_id);
+          if (tagObj) existingTags.push(tagObj.name);
+        });
+
+        const newTags = Array.from(new Set([...existingTags, ...bulkTagCheckedNames]));
+        payload.tags = newTags;
+
+        let result: any;
+        if (activeSubTab === 'Address Objects') {
+          payload.type = row.type;
+          payload.value = row.value || '';
+          result = await apiClient.updateAddressObject(payload);
+        } else if (activeSubTab === 'Address Groups') {
+          payload.type = row.type;
+          payload.filter = row.filter || '';
+          payload.members = row.members || [];
+          result = await apiClient.updateAddressGroup(payload);
+        } else if (activeSubTab === 'Services') {
+          payload.protocol = row.protocol || 'tcp';
+          payload.source_port = row.source_port || '';
+          payload.destination_port = row.destination_port || '';
+          result = await apiClient.updateServiceObject(payload);
+        } else if (activeSubTab === 'Service Groups') {
+          payload.members = row.members || [];
+          result = await apiClient.updateServiceGroup(payload);
+        } else if (activeSubTab === 'Applications') {
+          payload.category = row.category || '';
+          payload.subcategory = row.subcategory || '';
+          payload.technology = row.technology || '';
+          payload.risk = row.risk || 1;
+          payload.ports = row.ports || '';
+          result = await apiClient.updateApplicationObject(payload);
+        } else if (activeSubTab === 'Application Groups') {
+          payload.members = row.members || [];
+          result = await apiClient.updateApplicationGroup(payload);
+        } else if (activeSubTab === 'Tags') {
+          payload.color = row.color || 'color1';
+          result = await apiClient.updateTag(payload);
+        } else if (activeSubTab === 'Log Forwarding Profiles') {
+          result = await apiClient.updateLogForwardingProfile(payload);
+        } else if (['Antivirus', 'Anti-Spyware', 'Vulnerability Protection', 'URL Filtering', 'File Blocking', 'WildFire Analysis'].includes(activeSubTab)) {
+          payload.type = row.type || activeSubTab.toLowerCase().replace(/ /g, '-');
+          result = await apiClient.updateSecurityProfile(payload);
+        } else if (activeSubTab === 'Security Profile Groups') {
+          payload.antivirus = row.antivirus || null;
+          payload.spyware = row.spyware || null;
+          payload.vulnerability = row.vulnerability || null;
+          payload.url_filtering = row.url_filtering || null;
+          payload.file_blocking = row.file_blocking || null;
+          payload.wildfire_analysis = row.wildfire_analysis || null;
+          payload.dns_security = row.dns_security || null;
+          result = await apiClient.updateSecurityProfileGroup(payload);
+        }
+        
+        if (result?.success) {
+          successCount++;
+        }
+      }
+      addToast(`Successfully added tags to ${successCount} objects.`, 'success');
+      setIsBulkTagModalOpen(false);
+      setBulkTagCheckedNames([]);
+      setBulkTagSearchQuery('');
+      setSelectedRows([]);
+      fetchRecords();
+    } catch (e: any) {
+      addToast(`Failed to bulk add tags: ${e.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Drag and Drop Application CSV Ingestor
@@ -3365,6 +3464,22 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                         handleMoveToGroup();
                       }}
                     />
+                    <ContextMenuItem
+                      icon={<Tag size={13} />}
+                      label={selectedRows.length > 1 && selectedRows.includes(row) ? `Add Tag(s) to Selected (${selectedRows.length})` : "Add Tag(s)..."}
+                      onClick={() => {
+                        closeMenu();
+                        const targetRows = selectedRows.includes(row) ? selectedRows : [row];
+                        if (!selectedRows.includes(row)) setSelectedRows(targetRows);
+                        
+                        const isSame = new Set(targetRows.map(r => r.device_uuid)).size === 1;
+                        if (!isSame) {
+                          addToast("All selected objects must be from the same scope context to bulk tag.", "error");
+                          return;
+                        }
+                        setIsBulkTagModalOpen(true);
+                      }}
+                    />
                     <ContextMenuDivider />
                     <ContextMenuItem
                       icon={<Code size={13} />}
@@ -3442,6 +3557,16 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           title={selectedRows.length > 50 ? "Bulk operations limited to 50 items" : "Move objects to another group"}
                         >
                           <ArrowRight size={13} /> Move to Group...
+                        </button>
+
+                        <button
+                          onClick={() => { setShowActionsMenu(false); setIsBulkTagModalOpen(true); }}
+                          className="btn-secondary btn-sm"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', border: 'none', justifyContent: 'flex-start' }}
+                          disabled={!isSameContext}
+                          title={isSameContext ? "Add tags to selected objects" : "All selected objects must be from the same scope context"}
+                        >
+                          <Tag size={13} /> Add Tag(s)...
                         </button>
 
                         <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }} />
@@ -3978,36 +4103,42 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                           >Done</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
-                          {allTags.filter(t => t.name.toLowerCase().includes(filterTagSearch.toLowerCase())).map(tag => (
-                            <div
-                              key={tag.id}
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                              onClick={() => {
-                                const tagText = `'${tag.name}'`;
-                                let newFilter = formFilter.trim();
-                                if (newFilter) {
-                                  const lower = newFilter.toLowerCase();
-                                  const endsWithOp = lower.endsWith('(') || lower.endsWith('not') || lower.endsWith('and') || lower.endsWith('or');
-                                  if (!endsWithOp) {
-                                    newFilter += ` ${filterLogic} `;
-                                  } else {
-                                    newFilter += ' ';
+                          {(() => {
+                            const allowedScopes = getScopeHierarchy(formScopeUuid);
+                            const filteredTags = allTags.filter(t => allowedScopes.includes(t.device_uuid) && t.name.toLowerCase().includes(filterTagSearch.toLowerCase()));
+                            if (filteredTags.length === 0) {
+                              return (
+                                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                  No matching tags found
+                                </div>
+                              );
+                            }
+                            return filteredTags.map(tag => (
+                              <div
+                                key={tag.id}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '4px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                onClick={() => {
+                                  const tagText = `'${tag.name}'`;
+                                  let newFilter = formFilter.trim();
+                                  if (newFilter) {
+                                    const lower = newFilter.toLowerCase();
+                                    const endsWithOp = lower.endsWith('(') || lower.endsWith('not') || lower.endsWith('and') || lower.endsWith('or');
+                                    if (!endsWithOp) {
+                                      newFilter += ` ${filterLogic} `;
+                                    } else {
+                                      newFilter += ' ';
+                                    }
                                   }
-                                }
-                                newFilter += tagText;
-                                setFormFilter(newFilter);
-                              }}
-                            >
-                              <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{tag.name}</span>
-                            </div>
-                          ))}
-                          {allTags.filter(t => t.name.toLowerCase().includes(filterTagSearch.toLowerCase())).length === 0 && (
-                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
-                              No matching tags found
-                            </div>
-                          )}
+                                  newFilter += tagText;
+                                  setFormFilter(newFilter);
+                                }}
+                              >
+                                <span style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 500 }}>{tag.name}</span>
+                              </div>
+                            ));
+                          })()}
                         </div>
                       </div>
                     )}
@@ -4414,11 +4545,86 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
         </div>
       </Modal>
 
+      {/* 7. Bulk Tag Modal */}
+      <Modal
+        isOpen={isBulkTagModalOpen}
+        onClose={() => setIsBulkTagModalOpen(false)}
+        title="Add Tags"
+        size="md"
+        footer={
+          <>
+            <button className="btn-secondary btn-sm" onClick={() => setIsBulkTagModalOpen(false)}>Cancel</button>
+            <button className="btn-primary btn-sm" disabled={bulkTagCheckedNames.length === 0} onClick={handleBulkAddTags}>
+              Add Tags ({bulkTagCheckedNames.length})
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            Select tags to append to the {selectedRows.length} selected objects.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Search tags..."
+                value={bulkTagSearchQuery}
+                onChange={(e) => setBulkTagSearchQuery(e.target.value)}
+                style={{ paddingLeft: '32px', width: '100%' }}
+              />
+            </div>
+            
+            <div className="custom-scrollbar" style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border-main)', borderRadius: '4px', backgroundColor: 'var(--bg-card)' }}>
+              {(() => {
+                const allowedBulkScopes = selectedRows.length > 0 ? getScopeHierarchy(selectedRows[0].device_uuid) : getScopeHierarchy(currentScope);
+                const filteredTags = allTags.filter(t => allowedBulkScopes.includes(t.device_uuid) && t.name.toLowerCase().includes(bulkTagSearchQuery.toLowerCase()));
+                
+                if (filteredTags.length === 0) {
+                  return (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      No tags available in this context.
+                    </div>
+                  );
+                }
+
+                return filteredTags.map(tag => {
+                  const colorMap: Record<string, string> = {
+                    'color1': '#F54032', 'color2': '#5EBB32', 'color3': '#1A67B6', 'color4': '#9378C6',
+                    'color5': '#D46323', 'color6': '#ECAB26', 'color7': '#A7B92A', 'color8': '#289871',
+                    'color9': '#27989C', 'color10': '#296BB6', 'color11': '#623E95', 'color12': '#C83A7F',
+                    'color13': '#A82531', 'color14': '#3D8525', 'color15': '#164F8F', 'color16': '#66538A'
+                  };
+                  const isChecked = bulkTagCheckedNames.includes(tag.name);
+                  const hex = colorMap[tag.color || 'color1'] || 'var(--text-muted)';
+                  return (
+                    <label key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.02)', cursor: 'pointer', backgroundColor: isChecked ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) setBulkTagCheckedNames([...bulkTagCheckedNames, tag.name]);
+                          else setBulkTagCheckedNames(bulkTagCheckedNames.filter(n => n !== tag.name));
+                        }}
+                      />
+                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: hex }} />
+                      <span style={{ fontSize: '13px', color: 'var(--text-main)', flex: 1 }}>{tag.name}</span>
+                    </label>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={moveConfirmDialog.isOpen}
         onClose={() => setMoveConfirmDialog(prev => ({ ...prev, isOpen: false }))}
         title={moveConfirmDialog.title}
-        size={moveConfirmDialog.initialWidth && moveConfirmDialog.initialWidth > 600 ? 'lg' : 'md'}
+        size={(moveConfirmDialog.initialWidth || 0) > 600 ? 'lg' : 'md'}
         footer={
           <>
             <button
