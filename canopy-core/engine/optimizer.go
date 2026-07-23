@@ -46,8 +46,9 @@ type memAddress struct {
 	Name  string
 	Value string
 	Type  string
-	IPs   []netip.Addr
-	CIDRs []netip.Prefix
+	IPs      []netip.Addr
+	CIDRs    []netip.Prefix
+	IPRanges []IPRange
 }
 
 type memGroup struct {
@@ -56,9 +57,63 @@ type memGroup struct {
 	Members []string // names of objects or groups
 }
 
-func parseValueToNet(val string) ([]netip.Addr, []netip.Prefix) {
+type IPRange struct {
+	Start netip.Addr
+	End   netip.Addr
+}
+
+func (r IPRange) Contains(ip netip.Addr) bool {
+	return r.Start.Compare(ip) <= 0 && r.End.Compare(ip) >= 0
+}
+
+func cidrBounds(p netip.Prefix) (netip.Addr, netip.Addr) {
+	p = p.Masked()
+	b := p.Addr().As16()
+	bits := p.Bits()
+	
+	if p.Addr().Is4() {
+		for i := bits; i < 32; i++ {
+			idx := 12 + (i / 8)
+			b[idx] |= 1 << (7 - (i % 8))
+		}
+		return p.Addr(), netip.AddrFrom16(b).Unmap()
+	} else {
+		for i := bits; i < 128; i++ {
+			b[i/8] |= 1 << (7 - (i % 8))
+		}
+		return p.Addr(), netip.AddrFrom16(b)
+	}
+}
+
+func (r IPRange) ContainsCIDR(p netip.Prefix) bool {
+	first, last := cidrBounds(p)
+	return r.Contains(first) && r.Contains(last)
+}
+
+func (r IPRange) ContainsRange(other IPRange) bool {
+	return r.Contains(other.Start) && r.Contains(other.End)
+}
+
+func cidrContainsRange(c netip.Prefix, r IPRange) bool {
+	return c.Contains(r.Start) && c.Contains(r.End)
+}
+
+func parseIPRange(val string) (IPRange, bool) {
+	parts := strings.SplitN(val, "-", 2)
+	if len(parts) == 2 {
+		start, err1 := netip.ParseAddr(strings.TrimSpace(parts[0]))
+		end, err2 := netip.ParseAddr(strings.TrimSpace(parts[1]))
+		if err1 == nil && err2 == nil {
+			return IPRange{Start: start, End: end}, true
+		}
+	}
+	return IPRange{}, false
+}
+
+func parseValueToNet(val string) ([]netip.Addr, []netip.Prefix, []IPRange) {
 	var ips []netip.Addr
 	var cidrs []netip.Prefix
+	var ranges []IPRange
 	
 	parts := strings.Split(val, ",")
 	for _, p := range parts {
@@ -71,14 +126,16 @@ func parseValueToNet(val string) ([]netip.Addr, []netip.Prefix) {
 				cidrs = append(cidrs, prefix)
 			}
 		} else if strings.Contains(p, "-") {
-			// Range - skip for now or implement range logic
+			if r, ok := parseIPRange(p); ok {
+				ranges = append(ranges, r)
+			}
 		} else {
 			if addr, err := netip.ParseAddr(p); err == nil {
 				ips = append(ips, addr)
 			}
 		}
 	}
-	return ips, cidrs
+	return ips, cidrs, ranges
 }
 
 func Optimize(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, error) {
@@ -929,8 +986,8 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		var id int64
 		var name, typ, val string
 		if err := rows.Scan(&id, &name, &typ, &val); err == nil {
-			ips, cidrs := parseValueToNet(val)
-			obj := &memAddress{ID: id, Name: name, Value: val, Type: typ, IPs: ips, CIDRs: cidrs}
+			ips, cidrs, ranges := parseValueToNet(val)
+			obj := &memAddress{ID: id, Name: name, Value: val, Type: typ, IPs: ips, CIDRs: cidrs, IPRanges: ranges}
 			// If it already exists, replace it in the list (inheritance override)
 			if _, exists := addresses[name]; exists {
 				for i, a := range addressList {
@@ -1031,6 +1088,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 	inputMap := make(map[string]bool)
 	var inputAddrs []netip.Addr
 	var inputCIDRs []netip.Prefix
+	var inputRanges []IPRange
 	
 	// inputLeafMap maps a leaf object name to the original user input that provided it
 	inputLeafMap := make(map[string]string)
@@ -1038,6 +1096,8 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 	inputIPMap := make(map[netip.Addr]string)
 	// inputCIDRMap maps a CIDR to the original user input that provided it
 	inputCIDRMap := make(map[netip.Prefix]string)
+	// inputRangeMap maps a Range to the original user input that provided it
+	inputRangeMap := make(map[IPRange]string)
 
 	for _, in := range req.Inputs {
 		inputMap[in] = true
@@ -1047,11 +1107,15 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		} else if prefix, err := netip.ParsePrefix(in); err == nil {
 			inputCIDRs = append(inputCIDRs, prefix)
 			inputCIDRMap[prefix] = in
+		} else if r, ok := parseIPRange(in); ok {
+			inputRanges = append(inputRanges, r)
+			inputRangeMap[r] = in
 		} else {
 			// If input is an object name
 			if obj, ok := addresses[in]; ok {
 				inputAddrs = append(inputAddrs, obj.IPs...)
 				inputCIDRs = append(inputCIDRs, obj.CIDRs...)
+				inputRanges = append(inputRanges, obj.IPRanges...)
 				inputLeafMap[in] = in
 			}
 			// If input is a group name, map all its leaves back to this group input
@@ -1061,6 +1125,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					if obj, isObj := addresses[leaf]; isObj {
 						inputAddrs = append(inputAddrs, obj.IPs...)
 						inputCIDRs = append(inputCIDRs, obj.CIDRs...)
+						inputRanges = append(inputRanges, obj.IPRanges...)
 					}
 				}
 			}
@@ -1135,7 +1200,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		}
 
 		for _, obj := range addressList {
-			if len(obj.CIDRs) == 1 && len(obj.IPs) == 0 && obj.CIDRs[0] == inputCIDR {
+			if len(obj.CIDRs) == 1 && len(obj.IPs) == 0 && len(obj.IPRanges) == 0 && obj.CIDRs[0] == inputCIDR {
 				if origStr == obj.Name {
 					continue
 				}
@@ -1151,9 +1216,53 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 		}
 	}
 
-	// 2. IP to CIDR
-	cidrMap := make(map[string]*OptimizationInsight)
+	// 1c. IP Range to Object (Exact Match)
+	for _, inputRange := range inputRanges {
+		var origStr string
+		if s, ok := inputRangeMap[inputRange]; ok {
+			origStr = s
+		} else {
+			for name, obj := range addresses {
+				if inputMap[name] && len(obj.IPRanges) > 0 {
+					for _, r := range obj.IPRanges {
+						if r.Start == inputRange.Start && r.End == inputRange.End {
+							origStr = name
+							break
+						}
+					}
+				}
+				if origStr != "" {
+					break
+				}
+			}
+		}
+
+		if origStr == "" {
+			continue
+		}
+
+		for _, obj := range addressList {
+			if len(obj.IPRanges) == 1 && len(obj.IPs) == 0 && len(obj.CIDRs) == 0 && obj.IPRanges[0].Start == inputRange.Start && obj.IPRanges[0].End == inputRange.End {
+				if origStr == obj.Name {
+					continue
+				}
+				insights = append(insights, OptimizationInsight{
+					Type:          "network",
+					MatchedItems:  []string{origStr},
+					TargetName:    obj.Name,
+					TargetValue:   obj.Value,
+					MissingCount:  0,
+					CoverageCount: 1,
+				})
+			}
+		}
+	}
+
+	// 2. Subnet/Range Aggregation
+	networkMap := make(map[string]*OptimizationInsight)
+	
 	for _, obj := range addressList {
+		// a. Target is a CIDR
 		if len(obj.CIDRs) == 1 {
 			cidr := obj.CIDRs[0]
 			
@@ -1166,6 +1275,11 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 			for _, inputCIDR := range inputCIDRs {
 				// A CIDR is covered if its base IP is in the broader CIDR, and its prefix is >= broader prefix length
 				if cidr.Contains(inputCIDR.Addr()) && cidr.Bits() <= inputCIDR.Bits() {
+					totalCoveredItems++
+				}
+			}
+			for _, inputR := range inputRanges {
+				if cidrContainsRange(cidr, inputR) {
 					totalCoveredItems++
 				}
 			}
@@ -1187,6 +1301,11 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 						if !(cidr.Contains(prefix.Addr()) && cidr.Bits() <= prefix.Bits()) {
 							isFullyCovered = false
 						}
+					} else if r, ok := parseIPRange(in); ok {
+						hasAnyItems = true
+						if !cidrContainsRange(cidr, r) {
+							isFullyCovered = false
+						}
 					} else if inObj, ok := addresses[in]; ok {
 						for _, ip := range inObj.IPs {
 							hasAnyItems = true
@@ -1197,6 +1316,12 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 						for _, pref := range inObj.CIDRs {
 							hasAnyItems = true
 							if !(cidr.Contains(pref.Addr()) && cidr.Bits() <= pref.Bits()) {
+								isFullyCovered = false
+							}
+						}
+						for _, r := range inObj.IPRanges {
+							hasAnyItems = true
+							if !cidrContainsRange(cidr, r) {
 								isFullyCovered = false
 							}
 						}
@@ -1215,6 +1340,12 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 										isFullyCovered = false
 									}
 								}
+								for _, r := range inObj.IPRanges {
+									hasAnyItems = true
+									if !cidrContainsRange(cidr, r) {
+										isFullyCovered = false
+									}
+								}
 							}
 						}
 					}
@@ -1224,22 +1355,125 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					}
 				}
 
-				if len(matched) == 0 {
-					continue
+				if len(matched) > 0 {
+					networkMap[obj.Name] = &OptimizationInsight{
+						Type:          "network",
+						MatchedItems:  matched,
+						TargetName:    obj.Name,
+						TargetValue:   obj.Value,
+						MissingCount:  0,
+						CoverageCount: len(matched),
+					}
+				}
+			}
+		}
+
+		// b. Target is an IPRange
+		if len(obj.IPRanges) == 1 {
+			targetR := obj.IPRanges[0]
+			
+			totalCoveredItems := 0
+			for _, inputIP := range inputAddrs {
+				if targetR.Contains(inputIP) {
+					totalCoveredItems++
+				}
+			}
+			for _, inputCIDR := range inputCIDRs {
+				if targetR.ContainsCIDR(inputCIDR) {
+					totalCoveredItems++
+				}
+			}
+			for _, inputR := range inputRanges {
+				if targetR.ContainsRange(inputR) {
+					totalCoveredItems++
+				}
+			}
+			
+			if totalCoveredItems >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+				matched := []string{}
+				
+				for _, in := range req.Inputs {
+					isFullyCovered := true
+					hasAnyItems := false
+			
+					if addr, err := netip.ParseAddr(in); err == nil {
+						hasAnyItems = true
+						if !targetR.Contains(addr) {
+							isFullyCovered = false
+						}
+					} else if prefix, err := netip.ParsePrefix(in); err == nil {
+						hasAnyItems = true
+						if !targetR.ContainsCIDR(prefix) {
+							isFullyCovered = false
+						}
+					} else if r, ok := parseIPRange(in); ok {
+						hasAnyItems = true
+						if !targetR.ContainsRange(r) {
+							isFullyCovered = false
+						}
+					} else if inObj, ok := addresses[in]; ok {
+						for _, ip := range inObj.IPs {
+							hasAnyItems = true
+							if !targetR.Contains(ip) {
+								isFullyCovered = false
+							}
+						}
+						for _, pref := range inObj.CIDRs {
+							hasAnyItems = true
+							if !targetR.ContainsCIDR(pref) {
+								isFullyCovered = false
+							}
+						}
+						for _, r := range inObj.IPRanges {
+							hasAnyItems = true
+							if !targetR.ContainsRange(r) {
+								isFullyCovered = false
+							}
+						}
+					} else if leaves, ok := resolvedGroupLeaves[in]; ok {
+						for leaf := range leaves {
+							if inObj, isObj := addresses[leaf]; isObj {
+								for _, ip := range inObj.IPs {
+									hasAnyItems = true
+									if !targetR.Contains(ip) {
+										isFullyCovered = false
+									}
+								}
+								for _, pref := range inObj.CIDRs {
+									hasAnyItems = true
+									if !targetR.ContainsCIDR(pref) {
+										isFullyCovered = false
+									}
+								}
+								for _, r := range inObj.IPRanges {
+									hasAnyItems = true
+									if !targetR.ContainsRange(r) {
+										isFullyCovered = false
+									}
+								}
+							}
+						}
+					}
+			
+					if hasAnyItems && isFullyCovered {
+						matched = append(matched, in)
+					}
 				}
 
-				cidrMap[obj.Name] = &OptimizationInsight{
-					Type:          "network",
-					MatchedItems:  matched,
-					TargetName:    obj.Name,
-					TargetValue:   obj.Value,
-					MissingCount:  0,
-					CoverageCount: len(matched),
+				if len(matched) > 0 {
+					networkMap[obj.Name] = &OptimizationInsight{
+						Type:          "network",
+						MatchedItems:  matched,
+						TargetName:    obj.Name,
+						TargetValue:   obj.Value,
+						MissingCount:  0,
+						CoverageCount: len(matched),
+					}
 				}
 			}
 		}
 	}
-	for _, v := range cidrMap {
+	for _, v := range networkMap {
 		insights = append(insights, *v)
 	}
 
@@ -1294,12 +1528,57 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 							}
 						}
 					}
+					for _, inputR := range inputRanges {
+						if cidrContainsRange(cidr, inputR) {
+							if origInput, exists := inputRangeMap[inputR]; exists {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								leafCIDRHits++
+							}
+						}
+					}
 					// If the CIDR threshold is met, this leaf is validly covered
 					if leafCIDRHits >= req.CIDRThreshold && req.CIDRThreshold > 0 {
 						ipHitsForCIDRs += leafCIDRHits
 					} else if leafCIDRHits > 0 {
 						// It matched IPs, but not enough to meet the threshold for this CIDR object!
 						// We should probably NOT count it as matched for the group either to be consistent.
+						matchedThisLeaf = false
+					}
+				}
+				// Check Ranges
+				for _, r := range obj.IPRanges {
+					leafRangeHits := 0
+					for _, inputIP := range inputAddrs {
+						if r.Contains(inputIP) {
+							if origInput, exists := inputIPMap[inputIP]; exists {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								leafRangeHits++
+							}
+						}
+					}
+					for _, inputCIDR := range inputCIDRs {
+						if r.ContainsCIDR(inputCIDR) {
+							if origInput, exists := inputCIDRMap[inputCIDR]; exists {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								leafRangeHits++
+							}
+						}
+					}
+					for _, inputR := range inputRanges {
+						if r.ContainsRange(inputR) {
+							if origInput, exists := inputRangeMap[inputR]; exists {
+								matchedInputSet[origInput] = true
+								matchedThisLeaf = true
+								leafRangeHits++
+							}
+						}
+					}
+					if leafRangeHits >= req.CIDRThreshold && req.CIDRThreshold > 0 {
+						ipHitsForCIDRs += leafRangeHits
+					} else if leafRangeHits > 0 {
 						matchedThisLeaf = false
 					}
 				}

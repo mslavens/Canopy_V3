@@ -1038,7 +1038,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                           onClick={() => setSubnetsOpen(!subnetsOpen)}
                           style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                         >
-                          <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {domain === 'service' ? 'Ranges' : 'Subnets'} ({matchedNetworks.length})
+                          <ChevronRight size={12} style={{ transform: subnetsOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} /> {domain === 'service' ? 'Ranges' : 'Networks'} ({matchedNetworks.length})
                         </div>
                         {subnetsOpen && matchedNetworks.map((match: any) => (
                           <div key={match.target_name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-main)', borderRadius: '4px' }}>

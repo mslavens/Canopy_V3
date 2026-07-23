@@ -528,7 +528,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Subnet Threshold
+                  Network Threshold
                 </label>
                 <input
                   type="number"
@@ -622,7 +622,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                   { id: 'all', label: 'All Results' },
                   { id: 'group', label: 'Groups' },
                   { id: 'object', label: '1:1 Replacement' },
-                  { id: 'network', label: domainTab === 'addresses' ? 'Subnets' : 'Ranges' }
+                  { id: 'network', label: domainTab === 'addresses' ? 'Networks' : 'Ranges' }
                 ].map(tab => {
                   const count = tab.id === 'all' ? results.length : results.filter(r => {
                     if (tab.id === 'object') return r.type === 'object' || (r.type === 'network' && r.matched_items?.length === 1);
@@ -742,7 +742,7 @@ export const OptimizationSandbox: React.FC<OptimizationSandboxProps> = ({ apiCli
                           ) : (
                             <>
                               <span style={{ fontSize: '14px', color: 'var(--text-main)' }}>
-                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : (insight.type === 'network' ? (domainTab === 'addresses' ? 'network' : 'range') : insight.type)} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>.
+                                <strong style={{ color: 'var(--text-main)' }}>{insight.coverage_count}</strong> items in <strong>your inputs</strong> can be swapped for the broader {insight.type === 'object' ? 'object' : (insight.type === 'network' ? (domainTab === 'addresses' ? 'network' : 'range') : insight.type)} <strong style={{ color: getTypeColor(insight.type) }}>{insight.target_name}</strong>{insight.target_value ? <span style={{ color: 'var(--text-muted)', fontSize: '13px', marginLeft: '4px', fontWeight: 500 }}>({insight.target_value})</span> : ''}.
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Check size={12} color="var(--status-green)" /> Swaps {insight.coverage_count} items for 1 object.

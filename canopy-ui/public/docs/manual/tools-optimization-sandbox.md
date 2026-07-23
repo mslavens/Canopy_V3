@@ -45,7 +45,7 @@ When you click **Run Optimization**, the engine pools all of your input tokens t
 
 ### Threshold Settings
 You control how strict the optimization engine is using the two inputs at the bottom left:
-- **CIDR Threshold**: How many individual IPs must fall within a subnet before the engine suggests combining them into a single CIDR block? *(Default: 3. Delete to set to 0, which disables CIDR collapsing).*
+- **Network Threshold**: How many individual items must fall within a broader network before the engine suggests combining them into a single CIDR block or Range? *(Default: 3. Delete to set to 0, which disables network collapsing).*
 - **Group Tolerance (%)**: What percentage of a group's members must be present in your inputs before the engine suggests swapping for that group? *(Default: 100%, which requires a perfect match. Lower this to see fuzzy "partial" group matches).*
 
 ### Understanding Global Insights
@@ -80,7 +80,7 @@ This overview summarizes the combinations of swaps evaluated by the Canopy Optim
 
 - **Subnet Match (CIDR)**
   - **Backend (Matrix Engine):** Evaluates raw IPs, raw CIDRs, Object IPs, and Object CIDRs against broader CIDR objects via exact mathematical containment based on `CIDRThreshold`.
-  - **Frontend (Inline UI):** Receives `Type: "network"` insights from backend and renders them under "Subnets". Deduplicates any exact CIDR matches.
+  - **Frontend (Inline UI):** Receives `Type: "network"` insights from backend and renders them under "Networks". Deduplicates any exact CIDR matches.
 
 - **Group Match**
   - **Backend (Matrix Engine):** Flattens all nested group inputs and Object/CIDR inputs down to base components. Evaluates coverage against all Group trees using `GroupTolerance`.
