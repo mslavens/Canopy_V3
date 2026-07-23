@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -218,7 +218,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useLayoutEffect(() => {
+  const updatePositions = useCallback(() => {
     if (dropdownOpen) {
       if (replacingToken && rowRefs.current.get(replacingToken)) {
         const rect = rowRefs.current.get(replacingToken)!.getBoundingClientRect();
@@ -240,11 +240,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           }
         }
 
-        setDropdownPos({
-          top: top,
-          bottom: undefined,
-          left: left
-        });
+        setDropdownPos(prev => ({ ...prev, top, left, bottom: undefined }));
       } else if (addButtonRef.current && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         let top = rect.top;
@@ -261,23 +257,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           }
         }
 
-        setDropdownPos({
-          top: top,
-          bottom: undefined,
-          left: left
-        });
+        setDropdownPos(prev => ({ ...prev, top, left, bottom: undefined }));
       }
     }
-  }, [dropdownOpen, replacingToken]);
 
-  useLayoutEffect(() => {
     if (popoverToken) {
-      const isRaw = optionsMap.get(popoverToken) === undefined;
-      setInspectGroupOpen(false);
-      setGroupMembershipsOpen(!isRaw);
-      setExactMatchesOpen(isRaw);
-      setSubnetsOpen(false);
-
       const rowEl = rowRefs.current.get(popoverToken);
       if (rowEl) {
         const rect = rowEl.getBoundingClientRect();
@@ -285,14 +269,29 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         if (top + 400 > window.innerHeight - 100) {
           top = Math.max(20, window.innerHeight - 500);
         }
-        setPopoverPos({
-          top,
-          left: rect.right + 12
-        });
+        
+        let left = rect.right + 12;
+        if (left + 420 > window.innerWidth) {
+          if (rect.left > 420 + 12) {
+            left = rect.left - 420 - 12;
+          } else {
+            left = Math.max(20, window.innerWidth - 440);
+          }
+        }
+        setPopoverPos({ top, left });
       }
     }
-  }, [popoverToken]);
-  
+  }, [dropdownOpen, replacingToken, popoverToken]);
+
+  useLayoutEffect(() => {
+    updatePositions();
+  }, [updatePositions]);
+
+  useEffect(() => {
+    window.addEventListener('resize', updatePositions);
+    return () => window.removeEventListener('resize', updatePositions);
+  }, [updatePositions]);
+
   const optionsMap = useMemo(() => {
     const map = new Map<string, ObjectRef>();
     options.forEach(o => {
@@ -300,6 +299,16 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
     });
     return map;
   }, [options]);
+
+  useEffect(() => {
+    if (popoverToken) {
+      const isRaw = optionsMap.get(popoverToken) === undefined;
+      setInspectGroupOpen(false);
+      setGroupMembershipsOpen(!isRaw);
+      setExactMatchesOpen(isRaw);
+      setSubnetsOpen(false);
+    }
+  }, [popoverToken, optionsMap]);
 
   const visibleValues = useMemo(() => {
     if (!filterQuery) return values;
