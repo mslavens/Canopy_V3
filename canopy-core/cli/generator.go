@@ -145,7 +145,7 @@ func (g *Generator) getTags(entityType string, entityId int, scopePrefix string)
 			c = color.String
 		}
 		tagCommands = append(tagCommands, fmt.Sprintf("%s tag %s color %s", scopePrefix, name.String, c))
-		tagNames = append(tagNames, fmt.Sprintf(`"%s"`, name.String))
+		tagNames = append(tagNames, quoteIfHasSpace(name.String))
 	}
 
 	tagString := ""

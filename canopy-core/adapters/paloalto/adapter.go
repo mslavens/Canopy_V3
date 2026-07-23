@@ -32,7 +32,7 @@ func (p *Plugin) GenerateAddressObjectCLI(scopePrefix, name, addrType, value, de
 		tagStr = fmt.Sprintf(" tag [ %s ]", strings.Join(tags, " "))
 	}
 
-	cmds = append(cmds, fmt.Sprintf("%s address %s %s %s%s", scopePrefix, name, addrType, value, tagStr))
+	cmds = append(cmds, fmt.Sprintf("%s address %s%s %s %s", scopePrefix, name, tagStr, addrType, value))
 	if description != "" {
 		cmds = append(cmds, fmt.Sprintf(`%s address %s description "%s"`, scopePrefix, name, description))
 	}
@@ -50,12 +50,12 @@ func (p *Plugin) GenerateAddressGroupCLI(scopePrefix, name, grpType, filter stri
 	}
 
 	if grpType == "static" {
-		cmds = append(cmds, fmt.Sprintf("%s address-group %s static [ %s ]%s", scopePrefix, name, strings.Join(members, " "), tagStr))
+		cmds = append(cmds, fmt.Sprintf("%s address-group %s%s static [ %s ]", scopePrefix, name, tagStr, strings.Join(members, " ")))
 		if description != "" {
 			cmds = append(cmds, fmt.Sprintf(`%s address-group %s description "%s"`, scopePrefix, name, description))
 		}
 	} else {
-		cmds = append(cmds, fmt.Sprintf(`%s address-group %s dynamic filter "%s"%s`, scopePrefix, name, filter, tagStr))
+		cmds = append(cmds, fmt.Sprintf(`%s address-group %s%s dynamic filter "%s"`, scopePrefix, name, tagStr, filter))
 		if description != "" {
 			cmds = append(cmds, fmt.Sprintf(`%s address-group %s description "%s"`, scopePrefix, name, description))
 		}
