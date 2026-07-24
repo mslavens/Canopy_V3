@@ -471,7 +471,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   // Scroll to top when filters or search query changes
   useEffect(() => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo(0, 0);
+      scrollContainerRef.current.scrollTop = 0;
     }
   }, [columnFilters, searchQuery]);
   

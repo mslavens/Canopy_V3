@@ -147,6 +147,9 @@ func (g *Generator) getTags(entityType string, entityId int, scopePrefix string)
 		tagCommands = append(tagCommands, fmt.Sprintf("%s tag %s color %s", scopePrefix, name.String, c))
 		tagNames = append(tagNames, quoteIfHasSpace(name.String))
 	}
+	if err := rows.Err(); err != nil {
+		return nil, "", nil, err
+	}
 
 	tagString := ""
 	if len(tagNames) > 0 {
@@ -218,6 +221,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 					members = append(members, memberName.String)
 				}
 			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
 			rows.Close()
 		} else {
 			// If not nesting, we still need the member names for static group syntax
@@ -238,6 +244,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 					} else if memberName.Valid {
 						members = append(members, memberName.String)
 					}
+				}
+				if err := rows.Err(); err != nil {
+					return nil, err
 				}
 				rows.Close()
 			}
@@ -311,6 +320,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 					members = append(members, memberName.String)
 				}
 			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
 			rows.Close()
 		} else {
 			rows, _ := g.DB.Query("SELECT member_service_id, member_group_id, member_name FROM service_group_members WHERE group_id = ?", id)
@@ -329,6 +341,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 				} else if memberName.Valid {
 					members = append(members, memberName.String)
 				}
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
 			}
 			rows.Close()
 		}
@@ -402,6 +417,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 					members = append(members, memberName.String)
 				}
 			}
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
 			rows.Close()
 		} else {
 			rows, _ := g.DB.Query("SELECT member_application_id, member_group_id, member_name FROM application_group_members WHERE group_id = ?", id)
@@ -420,6 +438,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 				} else if memberName.Valid {
 					members = append(members, memberName.String)
 				}
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
 			}
 			rows.Close()
 		}
@@ -623,6 +644,9 @@ func (g *Generator) generateRecursive(entityType string, id int, visited map[str
 				if err := rows.Scan(&tName); err == nil {
 					members = append(members, quoteIfHasSpace(tName))
 				}
+			}
+			if err := rows.Err(); err != nil {
+				return nil, err
 			}
 			rows.Close()
 			if len(members) > 0 {
