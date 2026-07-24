@@ -1611,7 +1611,7 @@ func main() {
 			fmt.Println("\nRun without arguments to start the background web daemon.")
 			os.Exit(0)
 		case "version", "--version", "-v":
-			fmt.Println("Canopy Core Engine v0.30.0")
+			fmt.Println("Canopy Core Engine v0.33.9")
 			os.Exit(0)
 		case "db-query":
 			if len(os.Args) < 3 {

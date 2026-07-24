@@ -1,5 +1,20 @@
 # Canopy Framework Changelog
 
+## v0.33.9 - Global Search Limits, Object Scope Lookups & UI Fixes
+**Date:** 2026-07-24
+
+### Added
+- **Dynamic DB Scope Lookups**: The parsing engine now dynamically looks up inherited objects using the device group hierarchy via the database if they are missing from the local parser scope. This resolves issues where inherited tags and objects appeared incorrectly as overridden or missing.
+
+### Changed
+- **Global Search Exact Match & Limits**: Removed the hardcoded database `LIMIT 5` limits on the global search omnibox, allowing comprehensive searches across all policies and objects. Additionally, the backend engine now sorts results to strictly prioritize exact string matches over partial wildcard hits.
+- **Policy Tag Badges**: The tags on the Policies Page now perform a real-time lookup against the full reference list to pull and render their native color assignments, achieving 1:1 visual parity with the Objects Page.
+
+### Fixed
+- **Context/Scope Crosshair Pointer**: Fixed an issue where the context badge on the Policies and Objects pages would incorrectly render a crosshair instead of a standard pointer cursor.
+- **Token Editor Save Race Condition**: Fixed a bug where editing an inline token and immediately clicking away or hitting the Add button would prematurely dismiss the field editor before the state could reliably flush to the parent.
+- **Token Editor Insight Icons**: Refactored the token editor's flex container logic to concurrently display the `Add`, `Edit`, `Inspect`, and `Insights` action buttons side-by-side, fixing an issue where the edit pencil disappeared when insights were present.
+
 ## v0.33.8 - CSV Ingestion Engine Fixes
 **Date:** 2026-07-21
 
