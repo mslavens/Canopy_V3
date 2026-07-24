@@ -2025,7 +2025,7 @@ func main() {
 		searchTerm := "%" + query + "%"
 
 		// 1. Search Scopes/Devices
-		devRows, err := dbConn.Query("SELECT uuid, name, type FROM scopes WHERE name LIKE ? OR type LIKE ? LIMIT 5", searchTerm, searchTerm)
+		devRows, err := dbConn.Query("SELECT uuid, name, type FROM scopes WHERE name LIKE ? OR type LIKE ?", searchTerm, searchTerm)
 		if err != nil {
 			slog.Error("Search query failed on scopes", slog.String("error", err.Error()))
 		} else {
@@ -2067,7 +2067,7 @@ func main() {
 		}
 
 		// 2. Search Network Interfaces & Subnets
-		netRows, err := dbConn.Query("SELECT device_uuid, interface_name, network_cidr, zone_name FROM network_topology WHERE interface_name LIKE ? OR network_cidr LIKE ? OR zone_name LIKE ? LIMIT 10", searchTerm, searchTerm, searchTerm)
+		netRows, err := dbConn.Query("SELECT device_uuid, interface_name, network_cidr, zone_name FROM network_topology WHERE interface_name LIKE ? OR network_cidr LIKE ? OR zone_name LIKE ?", searchTerm, searchTerm, searchTerm)
 		if err != nil {
 			slog.Error("Search query failed on network_topology", slog.String("error", err.Error()))
 		} else {
@@ -2171,15 +2171,15 @@ func main() {
 			submodule string
 			labelFmt  string
 		}{
-			{"SELECT id, name, value, device_uuid FROM address_objects WHERE name LIKE ? OR value LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_object' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm, searchTerm}, "object", "Objects", "Address Objects", "%s (Address: %s)"},
-			{"SELECT id, name, type, device_uuid FROM address_groups WHERE name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_group' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Address Groups", "%s (Address Group: %s)"},
-			{"SELECT id, name, destination_port, device_uuid FROM service_objects WHERE name LIKE ? OR destination_port LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Services", "%s (Service: %s)"},
-			{"SELECT id, name, 'group', device_uuid FROM service_groups WHERE name LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Service Groups", "%s (Service Group)"},
-			{"SELECT id, name, category, device_uuid FROM application_objects WHERE name LIKE ? OR category LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "object", "Objects", "Applications", "%s (App: %s)"},
-			{"SELECT id, name, 'group', device_uuid FROM application_groups WHERE name LIKE ? OR description LIKE ? LIMIT 5", []interface{}{searchTerm, searchTerm}, "object", "Objects", "Application Groups", "%s (App Group)"},
-			{"SELECT id, name, 'tag', device_uuid FROM tags WHERE name LIKE ? LIMIT 5", []interface{}{searchTerm}, "object", "Objects", "Tags", "%s (Tag)"},
-			{"SELECT id, rule_name, action, device_uuid FROM security_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'security_rule' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "policy", "Policies", "Security - Device Rules", "%s (Security Rule: %s)"},
-			{"SELECT id, rule_name, 'nat', device_uuid FROM nat_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'nat_rule' AND t.name LIKE ?) LIMIT 5", []interface{}{searchTerm, searchTerm, searchTerm}, "policy", "Policies", "NAT - Device Rules", "%s (NAT Rule)"},
+			{"SELECT id, name, value, device_uuid FROM address_objects WHERE name LIKE ? OR value LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_object' AND t.name LIKE ?) ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, searchTerm, searchTerm, query}, "object", "Objects", "Address Objects", "%s (Address: %s)"},
+			{"SELECT id, name, type, device_uuid FROM address_groups WHERE name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'address_group' AND t.name LIKE ?) ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, searchTerm, query}, "object", "Objects", "Address Groups", "%s (Address Group: %s)"},
+			{"SELECT id, name, destination_port, device_uuid FROM service_objects WHERE name LIKE ? OR destination_port LIKE ? OR description LIKE ? ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, searchTerm, query}, "object", "Objects", "Services", "%s (Service: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM service_groups WHERE name LIKE ? OR description LIKE ? ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, query}, "object", "Objects", "Service Groups", "%s (Service Group)"},
+			{"SELECT id, name, category, device_uuid FROM application_objects WHERE name LIKE ? OR category LIKE ? OR description LIKE ? ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, searchTerm, query}, "object", "Objects", "Applications", "%s (App: %s)"},
+			{"SELECT id, name, 'group', device_uuid FROM application_groups WHERE name LIKE ? OR description LIKE ? ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, searchTerm, query}, "object", "Objects", "Application Groups", "%s (App Group)"},
+			{"SELECT id, name, 'tag', device_uuid FROM tags WHERE name LIKE ? ORDER BY CASE WHEN name = ? THEN 0 ELSE 1 END, name ASC", []interface{}{searchTerm, query}, "object", "Objects", "Tags", "%s (Tag)"},
+			{"SELECT id, rule_name, action, device_uuid FROM security_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'security_rule' AND t.name LIKE ?) ORDER BY CASE WHEN rule_name = ? THEN 0 ELSE 1 END, rule_name ASC", []interface{}{searchTerm, searchTerm, searchTerm, query}, "policy", "Policies", "Security - Device Rules", "%s (Security Rule: %s)"},
+			{"SELECT id, rule_name, 'nat', device_uuid FROM nat_rules WHERE rule_name LIKE ? OR description LIKE ? OR id IN (SELECT entity_id FROM entity_tag_mappings etm JOIN tags t ON etm.tag_id = t.id WHERE etm.entity_type = 'nat_rule' AND t.name LIKE ?) ORDER BY CASE WHEN rule_name = ? THEN 0 ELSE 1 END, rule_name ASC", []interface{}{searchTerm, searchTerm, searchTerm, query}, "policy", "Policies", "NAT - Device Rules", "%s (NAT Rule)"},
 		}
 
 		for _, oq := range objQueries {
