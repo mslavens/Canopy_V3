@@ -1116,8 +1116,17 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 			// If input is an object name
 			if obj, ok := addresses[in]; ok {
 				inputAddrs = append(inputAddrs, obj.IPs...)
+				for _, ip := range obj.IPs {
+					inputIPMap[ip] = in
+				}
 				inputCIDRs = append(inputCIDRs, obj.CIDRs...)
+				for _, cidr := range obj.CIDRs {
+					inputCIDRMap[cidr] = in
+				}
 				inputRanges = append(inputRanges, obj.IPRanges...)
+				for _, r := range obj.IPRanges {
+					inputRangeMap[r] = in
+				}
 				inputLeafMap[in] = append(inputLeafMap[in], in)
 			}
 			// If input is a group name, map all its leaves back to this group input
@@ -1126,8 +1135,17 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 					inputLeafMap[leaf] = append(inputLeafMap[leaf], in)
 					if obj, isObj := addresses[leaf]; isObj {
 						inputAddrs = append(inputAddrs, obj.IPs...)
+						for _, ip := range obj.IPs {
+							inputIPMap[ip] = in
+						}
 						inputCIDRs = append(inputCIDRs, obj.CIDRs...)
+						for _, cidr := range obj.CIDRs {
+							inputCIDRMap[cidr] = in
+						}
 						inputRanges = append(inputRanges, obj.IPRanges...)
+						for _, r := range obj.IPRanges {
+							inputRangeMap[r] = in
+						}
 					}
 				}
 			}
@@ -1508,13 +1526,14 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 				}
 				// Check CIDRs
 				for _, cidr := range obj.CIDRs {
-					leafCIDRHits := 0
+					leafIPHits := 0
+					leafNetworkHits := 0
 					for _, inputIP := range inputAddrs {
 						if cidr.Contains(inputIP) {
 							if origInput, exists := inputIPMap[inputIP]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafCIDRHits++
+								leafIPHits++
 							}
 						}
 					}
@@ -1523,7 +1542,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 							if origInput, exists := inputCIDRMap[inputCIDR]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafCIDRHits++
+								leafNetworkHits++
 							}
 						}
 					}
@@ -1532,28 +1551,27 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 							if origInput, exists := inputRangeMap[inputR]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafCIDRHits++
+								leafNetworkHits++
 							}
 						}
 					}
-					// If the CIDR threshold is met, this leaf is validly covered
-					if leafCIDRHits >= req.CIDRThreshold && req.CIDRThreshold > 0 {
-						ipHitsForCIDRs += leafCIDRHits
-					} else if leafCIDRHits > 0 {
-						// It matched IPs, but not enough to meet the threshold for this CIDR object!
-						// We should probably NOT count it as matched for the group either to be consistent.
+					// If the CIDR threshold is met by IPs, OR there are network hits, this leaf is validly covered
+					if leafNetworkHits > 0 || (leafIPHits >= req.CIDRThreshold && req.CIDRThreshold > 0) {
+						ipHitsForCIDRs += leafIPHits
+					} else if leafIPHits > 0 {
 						matchedThisLeaf = false
 					}
 				}
 				// Check Ranges
 				for _, r := range obj.IPRanges {
-					leafRangeHits := 0
+					leafIPHits := 0
+					leafNetworkHits := 0
 					for _, inputIP := range inputAddrs {
 						if r.Contains(inputIP) {
 							if origInput, exists := inputIPMap[inputIP]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafRangeHits++
+								leafIPHits++
 							}
 						}
 					}
@@ -1562,7 +1580,7 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 							if origInput, exists := inputCIDRMap[inputCIDR]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafRangeHits++
+								leafNetworkHits++
 							}
 						}
 					}
@@ -1571,13 +1589,13 @@ func OptimizeAddresses(db *sql.DB, req OptimizeRequest) ([]OptimizationInsight, 
 							if origInput, exists := inputRangeMap[inputR]; exists {
 								matchedInputSet[origInput] = true
 								matchedThisLeaf = true
-								leafRangeHits++
+								leafNetworkHits++
 							}
 						}
 					}
-					if leafRangeHits >= req.CIDRThreshold && req.CIDRThreshold > 0 {
-						ipHitsForCIDRs += leafRangeHits
-					} else if leafRangeHits > 0 {
+					if leafNetworkHits > 0 || (leafIPHits >= req.CIDRThreshold && req.CIDRThreshold > 0) {
+						ipHitsForCIDRs += leafIPHits
+					} else if leafIPHits > 0 {
 						matchedThisLeaf = false
 					}
 				}

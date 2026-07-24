@@ -837,6 +837,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         setDropdownOpen(true);
                         setDropdownSearch('');
                       }}
+                      className="dropdown-trigger"
                       style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
                       title={isRaw ? "Click to replace, Right-click for options" : "Click to replace object, Right-click for options"}
                     >
@@ -1091,7 +1092,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'
-                }} className="custom-scrollbar">
+                }} className="popover-container custom-scrollbar">
                   {(() => {
                     const val = popoverToken;
                     const opt = optionsMap.get(val);
@@ -1329,7 +1330,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
         <div style={{ position: 'relative' }}>
           <button 
             ref={addButtonRef}
-            className="add-button-trigger"
+            className="dropdown-trigger add-button-trigger"
             onClick={() => {
               if (dropdownOpen && replacingToken) {
                 setReplacingToken(null);
@@ -1362,6 +1363,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           {dropdownOpen && createPortal(
             <div 
               ref={dropdownRef}
+              className="dropdown-container"
               style={{
                 position: 'fixed',
                 top: dropdownPos.top,
