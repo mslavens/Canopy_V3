@@ -1351,7 +1351,16 @@ func buildDGInheritance(deviceGroups []XMLDeviceGroup, config *PaloAltoConfig) m
 
 func getScopesForDG(dgName string, parentMap map[string]string) []string {
 	scopes := []string{dgName}
+	
 	curr := dgName
+	if strings.HasSuffix(curr, ":pre") {
+		curr = strings.TrimSuffix(curr, ":pre")
+		scopes = append(scopes, curr)
+	} else if strings.HasSuffix(curr, ":post") {
+		curr = strings.TrimSuffix(curr, ":post")
+		scopes = append(scopes, curr)
+	}
+
 	for {
 		parent, exists := parentMap[curr]
 		if !exists || parent == "" {
@@ -1415,7 +1424,7 @@ func insertAddressObjects(tx *sql.Tx, deviceUUID, scope string, entries []XMLAdd
 		if err == nil {
 			reg.registerAddress(scope, entry.Name, id)
 			if len(entry.Tag) > 0 {
-				insertRuleTags(tx, "address_object", id, entry.Tag, scopes, reg)
+				insertRuleTags(tx, deviceUUID, scope, "address_object", id, entry.Tag, scopes, reg)
 			}
 		}
 	}
@@ -1454,7 +1463,7 @@ func insertAddressGroupsPass1(tx *sql.Tx, deviceUUID, scope string, entries []XM
 		if err == nil {
 			reg.registerAddressGroup(scope, entry.Name, id)
 			if len(entry.Tag) > 0 {
-				insertRuleTags(tx, "address_group", id, entry.Tag, scopes, reg)
+				insertRuleTags(tx, deviceUUID, scope, "address_group", id, entry.Tag, scopes, reg)
 			}
 		}
 	}
@@ -1947,7 +1956,7 @@ func insertRuleZones(tx *sql.Tx, ruleType string, ruleID int64, direction string
 	return nil
 }
 
-func insertRuleAddresses(tx *sql.Tx, ruleType string, ruleID int64, direction string, addresses []string, scopes []string, reg *registry) error {
+func insertRuleAddresses(tx *sql.Tx, deviceUUID, ruleType string, ruleID int64, direction string, addresses []string, scopes []string, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO rule_address_mappings (rule_type, rule_id, direction, address_id, group_id, ad_hoc_value)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -1962,6 +1971,16 @@ func insertRuleAddresses(tx *sql.Tx, ruleType string, ruleID int64, direction st
 			continue
 		}
 		addrID, grpID, found := reg.resolveAddress(scopes, addr)
+		if !found {
+			addrID, grpID, found = resolveAddressFromDB(tx, deviceUUID, addr)
+			if found {
+				if addrID > 0 {
+					reg.registerAddress(scopes[0], addr, addrID)
+				} else {
+					reg.registerAddressGroup(scopes[0], addr, grpID)
+				}
+			}
+		}
 		if found {
 			if addrID > 0 {
 				if _, err := stmt.Exec(ruleType, ruleID, direction, addrID, nil, nil); err != nil {
@@ -1981,7 +2000,7 @@ func insertRuleAddresses(tx *sql.Tx, ruleType string, ruleID int64, direction st
 	return nil
 }
 
-func insertRuleServices(tx *sql.Tx, ruleType string, ruleID int64, services []string, scopes []string, reg *registry) error {
+func insertRuleServices(tx *sql.Tx, deviceUUID, ruleType string, ruleID int64, services []string, scopes []string, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO rule_service_mappings (rule_type, rule_id, service_id, group_id, ad_hoc_value)
 		VALUES (?, ?, ?, ?, ?)
@@ -1996,6 +2015,16 @@ func insertRuleServices(tx *sql.Tx, ruleType string, ruleID int64, services []st
 			continue
 		}
 		srvID, grpID, found := reg.resolveService(scopes, srv)
+		if !found {
+			srvID, grpID, found = resolveServiceFromDB(tx, deviceUUID, srv)
+			if found {
+				if srvID > 0 {
+					reg.registerService(scopes[0], srv, srvID)
+				} else {
+					reg.registerServiceGroup(scopes[0], srv, grpID)
+				}
+			}
+		}
 		if found {
 			if srvID > 0 {
 				if _, err := stmt.Exec(ruleType, ruleID, srvID, nil, nil); err != nil {
@@ -2015,7 +2044,7 @@ func insertRuleServices(tx *sql.Tx, ruleType string, ruleID int64, services []st
 	return nil
 }
 
-func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applications []string, scopes []string, reg *registry) error {
+func insertRuleApplications(tx *sql.Tx, deviceUUID, ruleType string, ruleID int64, applications []string, scopes []string, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO rule_application_mappings (rule_type, rule_id, custom_app_id, group_id, predefined_app_name)
 		VALUES (?, ?, ?, ?, ?)
@@ -2030,6 +2059,16 @@ func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applicati
 			continue
 		}
 		appID, grpID, found := reg.resolveApplicationOrGroup(scopes, app)
+		if !found {
+			appID, grpID, found = resolveApplicationFromDB(tx, deviceUUID, app)
+			if found {
+				if appID > 0 {
+					reg.registerApplication(scopes[0], app, appID)
+				} else {
+					reg.registerApplicationGroup(scopes[0], app, grpID)
+				}
+			}
+		}
 		if found {
 			if appID > 0 {
 				if _, err := stmt.Exec(ruleType, ruleID, appID, nil, nil); err != nil {
@@ -2049,7 +2088,7 @@ func insertRuleApplications(tx *sql.Tx, ruleType string, ruleID int64, applicati
 	return nil
 }
 
-func insertRuleTags(tx *sql.Tx, entityType string, entityID int64, tags []string, scopes []string, reg *registry) error {
+func insertRuleTags(tx *sql.Tx, deviceUUID, scope, entityType string, entityID int64, tags []string, scopes []string, reg *registry) error {
 	stmt, err := tx.Prepare(`
 		INSERT INTO entity_tag_mappings (entity_type, entity_id, tag_id)
 		VALUES (?, ?, ?)
@@ -2063,7 +2102,22 @@ func insertRuleTags(tx *sql.Tx, entityType string, entityID int64, tags []string
 		if tag == "" {
 			continue
 		}
-		if tagID, found := reg.resolveTag(scopes, tag); found {
+		tagID, found := reg.resolveTag(scopes, tag)
+		if !found {
+			tagID, found = resolveTagFromDB(tx, deviceUUID, tag)
+			if found {
+				reg.registerTag(scope, tag, tagID)
+			}
+		}
+		if !found {
+			res, err := tx.Exec("INSERT INTO tags (device_uuid, scope, name, color, description) VALUES (?, ?, ?, ?, ?)", deviceUUID, scope, tag, "", "")
+			if err == nil {
+				tagID, _ = res.LastInsertId()
+				reg.registerTag(scope, tag, tagID)
+				found = true
+			}
+		}
+		if found {
 			if _, err := stmt.Exec(entityType, entityID, tagID); err != nil {
 				return err
 			}
@@ -2140,11 +2194,11 @@ func insertSecurityRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLSecu
 
 		insertRuleZones(tx, "security", ruleID, "from", entry.From)
 		insertRuleZones(tx, "security", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "security", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "security", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "security", ruleID, entry.Service, scopes, reg)
-		insertRuleApplications(tx, "security", ruleID, entry.Application, scopes, reg)
-		insertRuleTags(tx, "security_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "security", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "security", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "security", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, deviceUUID, "security", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "security_rule", ruleID, entry.Tag, scopes, reg)
 		
 		if len(entry.Category) > 0 {
 			for _, cat := range entry.Category {
@@ -2253,9 +2307,9 @@ func insertNATRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLNATRuleEn
 		}
 
 		insertRuleZones(tx, "nat", ruleID, "from", entry.From)
-		insertRuleAddresses(tx, "nat", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "nat", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleTags(tx, "nat_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "nat", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "nat", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "nat_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2309,11 +2363,11 @@ func insertQoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLQoSRuleEn
 
 		insertRuleZones(tx, "qos", ruleID, "from", entry.From)
 		insertRuleZones(tx, "qos", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "qos", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "qos", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "qos", ruleID, entry.Service, scopes, reg)
-		insertRuleApplications(tx, "qos", ruleID, entry.Application, scopes, reg)
-		insertRuleTags(tx, "qos_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "qos", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "qos", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "qos", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, deviceUUID, "qos", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "qos_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2368,11 +2422,11 @@ func insertPBFRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLPBFRuleEn
 		}
 
 		insertRuleZones(tx, "pbf", ruleID, "from", entry.From)
-		insertRuleAddresses(tx, "pbf", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "pbf", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "pbf", ruleID, entry.Service, scopes, reg)
-		insertRuleApplications(tx, "pbf", ruleID, entry.Application, scopes, reg)
-		insertRuleTags(tx, "pbf_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "pbf", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "pbf", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "pbf", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, deviceUUID, "pbf", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "pbf_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2427,10 +2481,10 @@ func insertDecryptionRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDe
 
 		insertRuleZones(tx, "decryption", ruleID, "from", entry.From)
 		insertRuleZones(tx, "decryption", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "decryption", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "decryption", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "decryption", ruleID, entry.Service, scopes, reg)
-		insertRuleTags(tx, "decryption_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "decryption", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "decryption", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "decryption", ruleID, entry.Service, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "decryption_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2489,9 +2543,9 @@ func insertAppOverrideRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLA
 
 		insertRuleZones(tx, "app_override", ruleID, "from", entry.From)
 		insertRuleZones(tx, "app_override", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "app_override", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "app_override", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleTags(tx, "app_override_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "app_override", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "app_override", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "app_override_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2538,9 +2592,9 @@ func insertTunnelInspectionRules(tx *sql.Tx, deviceUUID, scope string, entries [
 
 		insertRuleZones(tx, "tunnel_inspection", ruleID, "from", entry.From)
 		insertRuleZones(tx, "tunnel_inspection", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleTags(tx, "tunnel_inspection_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "tunnel_inspection", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "tunnel_inspection", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "tunnel_inspection_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2595,11 +2649,11 @@ func insertAuthenticationRules(tx *sql.Tx, deviceUUID, scope string, entries []X
 
 		insertRuleZones(tx, "authentication", ruleID, "from", entry.From)
 		insertRuleZones(tx, "authentication", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "authentication", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "authentication", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "authentication", ruleID, entry.Service, scopes, reg)
-		insertRuleApplications(tx, "authentication", ruleID, entry.Application, scopes, reg)
-		insertRuleTags(tx, "authentication_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "authentication", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "authentication", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "authentication", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, deviceUUID, "authentication", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "authentication_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2654,11 +2708,11 @@ func insertDoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDoSRuleEn
 
 		insertRuleZones(tx, "dos", ruleID, "from", entry.From)
 		insertRuleZones(tx, "dos", ruleID, "to", entry.To)
-		insertRuleAddresses(tx, "dos", ruleID, "source", entry.Source, scopes, reg)
-		insertRuleAddresses(tx, "dos", ruleID, "destination", entry.Destination, scopes, reg)
-		insertRuleServices(tx, "dos", ruleID, entry.Service, scopes, reg)
-		insertRuleApplications(tx, "dos", ruleID, entry.Application, scopes, reg)
-		insertRuleTags(tx, "dos_rule", ruleID, entry.Tag, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "dos", ruleID, "source", entry.Source, scopes, reg)
+		insertRuleAddresses(tx, deviceUUID, "dos", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleServices(tx, deviceUUID, "dos", ruleID, entry.Service, scopes, reg)
+		insertRuleApplications(tx, deviceUUID, "dos", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, deviceUUID, scope, "dos_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -3716,6 +3770,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 						preservedVars = append(preservedVars, v)
 					}
 				}
+				if err := rows.Err(); err != nil {
+					// handle or ignore error
+				}
 				rows.Close()
 			}
 
@@ -4031,6 +4088,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				missingDGs = append(missingDGs, m)
 			}
 		}
+		if err := dgRows.Err(); err != nil {
+			return 0, 0, err
+		}
 		dgRows.Close()
 
 		for _, dg := range missingDGs {
@@ -4067,6 +4127,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				missingTmpls = append(missingTmpls, m)
 			}
 		}
+		if err := tmplRows.Err(); err != nil {
+			return 0, 0, err
+		}
 		tmplRows.Close()
 
 		for _, t := range missingTmpls {
@@ -4100,6 +4163,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 				missingStacks = append(missingStacks, m)
 			}
 		}
+		if err := stackRows.Err(); err != nil {
+			return 0, 0, err
+		}
 		stackRows.Close()
 
 		for _, s := range missingStacks {
@@ -4132,6 +4198,9 @@ func (a *Adapter) ParseAndStore(xmlData []byte, filename string, onProgress func
 			if err := fwRows.Scan(&m.UUID, &m.Name); err == nil {
 				missingFWs = append(missingFWs, m)
 			}
+		}
+		if err := fwRows.Err(); err != nil {
+			return 0, 0, err
 		}
 		fwRows.Close()
 
@@ -4225,6 +4294,9 @@ func (a *Adapter) compareAddressObjects(deviceUUID, scope string, entries []XMLA
 		val.Description = desc.String
 		existing[name] = val
 	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, 0, err
+	}
 
 	for _, entry := range entries {
 		addrType := ""
@@ -4286,6 +4358,9 @@ func (a *Adapter) compareServiceObjects(deviceUUID, scope string, entries []XMLS
 		val.Description = desc.String
 		existing[name] = val
 	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, 0, err
+	}
 
 	for _, entry := range entries {
 		var proto, srcPort, destPort string
@@ -4342,6 +4417,9 @@ func (a *Adapter) compareAddressGroups(deviceUUID, scope string, entries []XMLAd
 		val.Description = desc.String
 		groupMap[name] = val
 	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, 0, err
+	}
 
 	memberRows, err := a.store.DB().Query(`
 		SELECT ag.name, COALESCE(ao.name, COALESCE(ag2.name, agm.member_name)) AS member_name
@@ -4363,6 +4441,9 @@ func (a *Adapter) compareAddressGroups(deviceUUID, scope string, entries []XMLAd
 			return 0, 0, 0, err
 		}
 		groupMembers[groupName] = append(groupMembers[groupName], memberName)
+	}
+	if err := memberRows.Err(); err != nil {
+		return 0, 0, 0, err
 	}
 
 	for _, entry := range entries {
@@ -4431,6 +4512,9 @@ func (a *Adapter) compareServiceGroups(deviceUUID, scope string, entries []XMLSe
 		val.Description = desc.String
 		groupMap[name] = val
 	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, 0, err
+	}
 
 	memberRows, err := a.store.DB().Query(`
 		SELECT sg.name, COALESCE(so.name, COALESCE(sg2.name, sgm.member_name)) AS member_name
@@ -4452,6 +4536,9 @@ func (a *Adapter) compareServiceGroups(deviceUUID, scope string, entries []XMLSe
 			return 0, 0, 0, err
 		}
 		groupMembers[groupName] = append(groupMembers[groupName], memberName)
+	}
+	if err := memberRows.Err(); err != nil {
+		return 0, 0, 0, err
 	}
 
 	for _, entry := range entries {
@@ -4525,6 +4612,9 @@ func (a *Adapter) compareApplicationObjects(deviceUUID, scope string, entries []
 		val.Ports = ports.String
 		val.Description = desc.String
 		existing[name] = val
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, 0, err
 	}
 
 	for _, entry := range entries {

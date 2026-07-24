@@ -18,6 +18,13 @@ type PolicyObjectRef struct {
 	ObjectType string `json:"object_type"`
 }
 
+// PolicyTagRef represents a tag attached to a policy
+type PolicyTagRef struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
 // PolicyRule represents a fully hydrated security rule ready for the UI
 type PolicyRule struct {
 	ID                 int      `json:"id"`
@@ -38,7 +45,7 @@ type PolicyRule struct {
 	DestinationAddress []PolicyObjectRef `json:"destination_address"`
 	Service            []PolicyObjectRef `json:"service"`
 	Application        []PolicyObjectRef `json:"application"`
-	Tags               []string          `json:"tags"`
+	Tags               []PolicyTagRef    `json:"tags"`
 
 	// Security specific
 	ProfileType        *string  `json:"profile_type"`
@@ -398,7 +405,7 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			ruleMap[rules[i].ID].DestinationZone = []string{}
 			ruleMap[rules[i].ID].Service = []PolicyObjectRef{}
 			ruleMap[rules[i].ID].Application = []PolicyObjectRef{}
-			ruleMap[rules[i].ID].Tags = []string{}
+			ruleMap[rules[i].ID].Tags = []PolicyTagRef{}
 		}
 		inClause := strings.Join(ruleIDs, ",")
 
@@ -437,15 +444,16 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 
 		// Tags
 		err = hydrate(fmt.Sprintf(`
-			SELECT m.entity_id, t.name 
+			SELECT m.entity_id, t.id, t.name, COALESCE(t.color, '')
 			FROM entity_tag_mappings m 
 			JOIN tags t ON m.tag_id = t.id 
 			WHERE m.entity_type = '%s' AND m.entity_id IN (%s)
 		`, entityType, inClause), func(rows *sql.Rows) error {
 			var rid int
-			var tname string
-			if err := rows.Scan(&rid, &tname); err != nil { return err }
-			if r, ok := ruleMap[rid]; ok { r.Tags = append(r.Tags, tname) }
+			var tid int
+			var tname, tcolor string
+			if err := rows.Scan(&rid, &tid, &tname, &tcolor); err != nil { return err }
+			if r, ok := ruleMap[rid]; ok { r.Tags = append(r.Tags, PolicyTagRef{ID: tid, Name: tname, Color: tcolor}) }
 			return nil
 		})
 		if err != nil { log.Printf("Error hydrating tags: %v", err) }

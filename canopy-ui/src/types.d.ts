@@ -4,6 +4,7 @@ export interface PolicyObjectRef {
   id?: number;
   name: string;
   object_type: string;
+  color?: string;
 }
 
 declare global {
@@ -40,7 +41,7 @@ declare global {
     destination_address: PolicyObjectRef[];
     service: PolicyObjectRef[];
     application: PolicyObjectRef[];
-    tags: string[];
+    tags: { id: number; name: string; color: string }[];
 
     // Security specific
     profile_type?: string;

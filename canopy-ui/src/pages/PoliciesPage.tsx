@@ -461,22 +461,43 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         key: 'tags',
         label: 'Tags',
         width: '180px',
-        renderCell: (val: any, row: any) => (
-          <ExpandableBadgeList
-            items={row.tags || []}
-            limit={5}
-            renderItem={(t: string) => (
-              <span key={t} style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-main)', wordBreak: 'break-all' }}>{t}</span>
-            )}
-          />
-        ),
+        renderCell: (val: any, row: any) => {
+          const colorMap: Record<string, string> = {
+            color1: '#ef4444', color2: '#3b82f6', color3: '#10b981', color4: '#f59e0b', color5: '#ec4899',
+            color6: '#8b5cf6', color7: '#06b6d4', color8: '#14b8a6', color9: '#f97316', color10: '#64748b',
+            color11: '#22c55e', color12: '#a855f7', color13: '#e11d48', color14: '#d97706', color15: '#2563eb',
+            color16: '#be123c', color17: '#1d4ed8', color18: '#047857', color19: '#4338ca', color20: '#b45309',
+            color21: '#be185d', color22: '#7e22ce', color23: '#0f766e', color24: '#c2410c', color25: '#334155',
+            color26: '#15803d', color27: '#6d28d9', color28: '#9f1239', color29: '#b45309', color30: '#1e3a8a',
+            color31: '#064e3b', color32: '#4c1d95',
+          };
+          
+          return (
+            <ExpandableBadgeList
+              items={row.tags || []}
+              limit={5}
+              renderItem={(t: any) => {
+                const name = typeof t === 'string' ? t : t.name;
+                const bg = t.color && colorMap[t.color] ? colorMap[t.color] : 'var(--bg-app)';
+                const txt = t.color && colorMap[t.color] ? 'white' : 'var(--text-main)';
+                const border = t.color && colorMap[t.color] ? 'none' : '1px solid var(--border-main)';
+                
+                return (
+                  <span key={name} style={{ fontSize: '10px', padding: '2px 6px', background: bg, color: txt, borderRadius: '4px', border: border, wordBreak: 'break-all' }}>
+                    {name}
+                  </span>
+                );
+              }}
+            />
+          );
+        },
         getFilterValues: (r: any) => {
           if (!r.tags) return [''];
           if (Array.isArray(r.tags)) {
-            return r.tags.length > 0 ? r.tags.map(String) : [''];
+            return r.tags.length > 0 ? r.tags.map((t: any) => typeof t === 'string' ? t : t.name) : [''];
           }
           if (typeof r.tags === 'string') {
-            const split = r.tags.split(',').map(s => s.trim()).filter(Boolean);
+            const split = r.tags.split(',').map((s: string) => s.trim()).filter(Boolean);
             return split.length > 0 ? split : [''];
           }
           return [''];
