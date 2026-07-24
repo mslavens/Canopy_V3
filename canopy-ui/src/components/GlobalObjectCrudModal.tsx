@@ -864,16 +864,23 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '12px', color: 'var(--text-main)', padding: 0 }}
                   placeholder="Search objects..."
                 />
-                {selectorSearchQuery && (
-                  <button 
-                    onClick={() => setSelectorSearchQuery('')}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
+                <button 
+                  onClick={() => setSelectorSearchQuery('')}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    color: 'var(--text-muted)', 
+                    cursor: 'pointer', 
+                    padding: '2px', 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    visibility: selectorSearchQuery ? 'visible' : 'hidden'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <X size={14} />
+                </button>
               </div>
               <div style={{ display: 'flex', gap: '16px', padding: '8px 0 0 0', borderBottom: '1px solid var(--border-main)' }}>
                 <button 

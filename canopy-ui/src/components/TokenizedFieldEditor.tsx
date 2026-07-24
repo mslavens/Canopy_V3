@@ -818,7 +818,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                         backgroundColor: 'var(--bg-element)', 
                         border: '1px solid var(--accent-blue)', 
                         borderRadius: '4px',
-                        padding: '2px 6px',
+                        padding: '1px 6px',
+                        margin: '-2px -7px',
                         outline: 'none',
                         width: '100%'
                       }}
@@ -883,21 +884,42 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     </button>
                   );
                 }
-                if (isRaw && onAddObject && matchingObjects.length === 0) {
+                if (isRaw) {
                   return (
-                    <button
-                      className="popover-trigger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAddObject(val, 'Object');
-                      }}
-                      style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--button-primary)'; }}
-                      title="Quick Add Object"
-                    >
-                      <Plus size={12} /> Add
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        className="popover-trigger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingToken(val);
+                          setEditValue(val);
+                          setReplacingToken(null);
+                          setDropdownOpen(false);
+                        }}
+                        style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-element)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        title="Edit Item"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      
+                      {onAddObject && matchingObjects.length === 0 && (
+                        <button
+                          className="popover-trigger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddObject(val, 'Object');
+                          }}
+                          style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--button-primary)'; }}
+                          title="Quick Add Object"
+                        >
+                          <Plus size={12} /> Add
+                        </button>
+                      )}
+                    </div>
                   );
                 }
                 return null;
@@ -982,6 +1004,8 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       onClick={() => {
                         setEditingToken(val);
                         setEditValue(val);
+                        setReplacingToken(null);
+                        setDropdownOpen(false);
                         setContextMenu(null);
                       }}
                     />
@@ -1379,16 +1403,23 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '12px', color: 'var(--text-main)', padding: 0 }}
                   placeholder="Search objects..."
                 />
-                {dropdownSearch && (
-                  <button 
-                    onClick={() => setDropdownSearch('')}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
+                <button 
+                  onClick={() => setDropdownSearch('')}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    color: 'var(--text-muted)', 
+                    cursor: 'pointer', 
+                    padding: '2px', 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    visibility: dropdownSearch ? 'visible' : 'hidden'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <X size={14} />
+                </button>
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
