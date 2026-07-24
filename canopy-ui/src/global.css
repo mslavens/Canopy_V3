@@ -290,7 +290,7 @@ input[type="file"]:disabled::file-selector-button {
 /* Badge Hover & Interaction */
 .badge {
   transition: all 0.15s ease;
-  cursor: crosshair; /* Indicates it can be targeted for copy/search */
+  cursor: pointer; /* Indicates it can be targeted for copy/search */
 }
 .badge:hover {
   filter: brightness(1.25);
