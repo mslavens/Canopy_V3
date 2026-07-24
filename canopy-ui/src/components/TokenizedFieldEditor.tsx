@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useLayoutEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Layers, Package, Hash, Tag, RotateCcw, Trash2, Search, CheckSquare, Square, Globe, Zap, ChevronRight, Loader2, Edit2, Copy } from 'lucide-react';
 
@@ -107,6 +107,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   const [popoverToken, setPopoverToken] = useState<string | null>(null);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   const [editingToken, setEditingToken] = useState<string | null>(null);
+  const editorId = useId();
   const [editValue, setEditValue] = useState<string>('');
   const [replacingToken, setReplacingToken] = useState<string | null>(null);
   
@@ -205,24 +206,28 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (target.closest('.add-button-trigger') || target.closest('.popover-trigger')) {
-         return;
+      const isPopover = !!target.closest('.popover-container');
+      const isTrigger = !!target.closest('.popover-trigger');
+      const isDropdown = !!target.closest('.dropdown-container');
+      const isDropdownTrigger = !!target.closest('.dropdown-trigger');
+      
+      if (!isPopover && !isTrigger) {
+        setPopoverToken(null);
+      }
+      
+      if (!isDropdown && !isDropdownTrigger && !isPopover && !isTrigger) {
+        setReplacingToken(null);
+        setDropdownOpen(false);
       }
 
-      const isOutsidePopover = !popoverRef.current || !popoverRef.current.contains(target);
-      const isOutsideDropdown = !dropdownRef.current || !dropdownRef.current.contains(target);
       const isOutsideContextMenu = !contextMenuRef.current || !contextMenuRef.current.contains(target);
-
-      if (isOutsidePopover && isOutsideDropdown && isOutsideContextMenu) {
-        setPopoverToken(null);
-        setDropdownOpen(false);
-        setReplacingToken(null);
+      if (isOutsideContextMenu) {
         setContextMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [editorId]);
 
   const updatePositions = useCallback(() => {
     if (dropdownOpen) {
@@ -726,7 +731,6 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
           const isObject = opt !== undefined && !isGroup;
           const isRaw = opt === undefined;
           
-          const valIp = opt?.value || val;
           const workerData = workerResults[val] || { matchingObjects: [], validParents: [] };
           let matchingObjects = workerData.matchingObjects;
           const validParents = workerData.validParents;
@@ -791,12 +795,13 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={() => {
-                        if (editValue.trim() && editValue !== val) {
+                      onBlur={(e) => {
+                        const currentValue = e.target.value;
+                        if (currentValue.trim() && currentValue !== val) {
                           const newValues = [...values];
                           const idx = newValues.indexOf(val);
                           if (idx !== -1) {
-                            newValues[idx] = editValue.trim();
+                            newValues[idx] = currentValue.trim();
                             onChange(newValues);
                           }
                         }
@@ -846,83 +851,80 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                   )}
                 </div>
               </div>
+              
               {(() => {
                 const totalInsights = validParents.length + matchingObjects.length + matchedNetworks.length;
 
-                if (totalInsights > 0) {
-                  return (
-                    <button
-                      className="popover-trigger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPopoverToken(popoverToken === val ? null : val);
-                      }}
-                      style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 8px', color: '#fbbf24', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.25)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
-                      title="View Insights"
-                    >
-                      <Zap size={12} fill="currentColor" /> {totalInsights} Insight{totalInsights > 1 ? 's' : ''}
-                    </button>
-                  );
-                }
-
-                if (isGroup) {
-                  return (
-                    <button
-                      className="popover-trigger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPopoverToken(popoverToken === val ? null : val);
-                      }}
-                      style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                      title="Inspect Group"
-                    >
-                      <Layers size={14} />
-                    </button>
-                  );
-                }
-                if (isRaw) {
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {totalInsights > 0 && (
                       <button
                         className="popover-trigger"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingToken(val);
-                          setEditValue(val);
-                          setReplacingToken(null);
-                          setDropdownOpen(false);
+                          setPopoverToken(popoverToken === val ? null : val);
                         }}
-                        style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-element)'; e.currentTarget.style.color = 'var(--text-main)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                        title="Edit Item"
+                        style={{ background: 'rgba(251, 191, 36, 0.15)', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '2px 8px', color: '#fbbf24', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.25)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(251, 191, 36, 0.15)'}
+                        title="View Insights"
                       >
-                        <Edit2 size={13} />
+                        <Zap size={12} fill="currentColor" /> {totalInsights} Insight{totalInsights > 1 ? 's' : ''}
                       </button>
-                      
-                      {onAddObject && matchingObjects.length === 0 && (
+                    )}
+
+                    {isGroup && (
+                      <button
+                        className="popover-trigger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPopoverToken(popoverToken === val ? null : val);
+                        }}
+                        style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--accent-blue)', cursor: 'pointer', borderRadius: '4px' }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(56, 189, 248, 0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        title="Inspect Group"
+                      >
+                        <Layers size={14} />
+                      </button>
+                    )}
+
+                    {isRaw && (
+                      <>
                         <button
-                          className="popover-trigger"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onAddObject(val, 'Object');
+                            setEditingToken(val);
+                            setEditValue(val);
+                            setReplacingToken(null);
+                            setDropdownOpen(false);
                           }}
-                          style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--button-primary)'; }}
-                          title="Quick Add Object"
+                          style={{ background: 'transparent', border: 'none', padding: '4px', color: 'var(--text-muted)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-element)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                          title="Edit Item"
                         >
-                          <Plus size={12} /> Add
+                          <Edit2 size={13} />
                         </button>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
+                        
+                        {onAddObject && matchingObjects.length === 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddObject(val, 'Object');
+                            }}
+                            style={{ background: 'transparent', border: '1px solid var(--button-primary)', padding: '2px 8px', color: 'var(--button-primary)', cursor: 'pointer', borderRadius: '12px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--button-primary)'; e.currentTarget.style.color = 'white'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--button-primary)'; }}
+                            title="Add Object to Reference Data"
+                          >
+                            <Plus size={12} /> Add
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
               })()}
             </div>
           );

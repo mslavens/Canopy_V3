@@ -2406,7 +2406,7 @@ export const ObjectsPage: React.FC<ObjectsPageProps> = ({
                       title={`Switch active scope to ${displayName}`}
                     >
                       {isLast ? (
-                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
+                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block', cursor: 'pointer' }}>
                           <HighlightedText text={displayName} highlight={query || ''} />
                         </span>
                       ) : (

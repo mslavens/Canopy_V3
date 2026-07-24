@@ -28,6 +28,10 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
   const [devices, setDevices] = useState<any[]>([]);
   const [ruleCounts, setRuleCounts] = useState<Record<string, number>>({});
 
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  const [allTags, setAllTags] = useState<any[]>([]);
+
   const [localScope, setLocalScope] = useState<string>('paloalto-panorama-global');
   const selectedScopeUuid = globalScopeUuid || localScope;
   const setSelectedScopeUuid = setGlobalScopeUuid || setLocalScope;
@@ -141,11 +145,13 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
         if (!validTables.includes(tableName)) tableName = 'security_rules';
 
         const data = await apiClient.getPoliciesContext(tableName, rulebase || '');
+        const refData = await apiClient.getObjectsReference();
 
         if (isMounted) {
           setDeviceGroups(data.device_groups || []);
           setDevices(data.devices || []);
           setRuleCounts(data.rule_counts_map || {});
+          setAllTags(refData.tags || []);
         }
       } catch (err) {
         console.error("Failed to load scopes", err);
@@ -397,7 +403,7 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
                       title={`Switch active scope to ${displayName}`}
                     >
                       {isLast ? (
-                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block' }}>
+                        <span className="badge badge-info" style={{ fontWeight: 600, padding: '2px 6px', fontSize: '10px', display: 'inline-block', cursor: 'pointer' }}>
                           <HighlightedText text={displayName} highlight={query || ''} />
                         </span>
                       ) : (
@@ -478,9 +484,14 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
               limit={5}
               renderItem={(t: any) => {
                 const name = typeof t === 'string' ? t : t.name;
-                const bg = t.color && colorMap[t.color] ? colorMap[t.color] : 'var(--bg-app)';
-                const txt = t.color && colorMap[t.color] ? 'white' : 'var(--text-main)';
-                const border = t.color && colorMap[t.color] ? 'none' : '1px solid var(--border-main)';
+                
+                // If it's a string from Policies API, look it up in allTags
+                let matchedTag = typeof t === 'object' ? t : allTags.find((tag: any) => tag.name === name);
+                
+                const colorValue = matchedTag?.color;
+                const bg = colorValue && colorMap[colorValue] ? colorMap[colorValue] : 'var(--bg-app)';
+                const txt = colorValue && colorMap[colorValue] ? 'white' : 'var(--text-main)';
+                const border = colorValue && colorMap[colorValue] ? 'none' : '1px solid var(--border-main)';
                 
                 return (
                   <span key={name} style={{ fontSize: '10px', padding: '2px 6px', background: bg, color: txt, borderRadius: '4px', border: border, wordBreak: 'break-all' }}>
