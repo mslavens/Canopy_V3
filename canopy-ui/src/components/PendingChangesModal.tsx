@@ -114,7 +114,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Added ${dName} to ${categoryName}`,
         details: item,
-        dbId: item.id,
+        dbId: item.entity_id || item.group_id || item.id,
         timestamp: item.updated_at || item.created_at
       });
     });
@@ -133,7 +133,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Modified ${dName} in ${categoryName}`,
         details: item,
-        dbId: item.id?.new || item.id || item.id?.old,
+        dbId: item.entity_id?.new || item.entity_id || item.group_id?.new || item.group_id || item.id?.new || item.id || item.id?.old,
         timestamp: item.updated_at?.new || item.updated_at || item.created_at?.new || item.created_at
       });
     });
@@ -152,7 +152,7 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
         name: dName,
         description: `Deleted ${dName} from ${categoryName}`,
         details: item,
-        dbId: item.id,
+        dbId: item.entity_id || item.group_id || item.id,
         timestamp: item.updated_at || item.created_at
       });
     });
@@ -168,12 +168,15 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
     if (diffData.services) processCategory('services', diffData.services);
     if (diffData.tags) processCategory('tags', diffData.tags);
   }
-
   return list.sort((a, b) => {
-    if (!a.timestamp && !b.timestamp) return 0;
-    if (!a.timestamp) return 1;
-    if (!b.timestamp) return -1;
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    if (timeA !== timeB) {
+      return timeB - timeA; // Descending chronological order
+    }
+    // If timestamps are identical, revert dependencies (mappings/members) first
+    const getPriority = (table: string) => (table.includes('mapping') || table.includes('member')) ? 1 : 2;
+    return getPriority(a.table) - getPriority(b.table);
   });
 }, [diffData, globalScopeVendor]);
 
@@ -207,7 +210,14 @@ export const PendingChangesModal: React.FC<CommitDetailsModalProps> = ({ onClose
       isDestructive: true,
       onConfirm: async () => {
         try {
-          for (const row of selectedRows) {
+          const sortedRows = [...selectedRows].sort((a, b) => {
+            const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            if (timeA !== timeB) return timeB - timeA;
+            const getPriority = (table: string) => (table.includes('mapping') || table.includes('member')) ? 1 : 2;
+            return getPriority(a.table) - getPriority(b.table);
+          });
+          for (const row of sortedRows) {
             await onRevert(row.table, String(row.dbId || row.name));
           }
           setSelectedRows([]);
