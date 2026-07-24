@@ -28,6 +28,8 @@ type PolicyRule struct {
 	Disabled           int      `json:"disabled"`
 	Action             *string  `json:"action"`
 	ScheduleID         *int     `json:"schedule_id"`
+	CreatedAt          *string  `json:"created_at"`
+	UpdatedAt          *string  `json:"updated_at"`
 
 	// Shared Arrays
 	SourceZone         []string          `json:"source_zone"`
@@ -192,23 +194,23 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		var cols string
 		switch policyType {
 		case "security":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, profile_type, profile_group, log_setting, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, profile_type, profile_group, log_setting, schedule_id, created_at, updated_at"
 		case "nat":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, to_zone, service_id, service_group_id, service_ad_hoc, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, to_zone, service_id, service_group_id, service_ad_hoc, source_translation_type, source_translation_address, destination_translation_address, destination_translation_port, created_at, updated_at"
 		case "qos":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, qos_class, dscp_tos_marking, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, qos_class, dscp_tos_marking, schedule_id, created_at, updated_at"
 		case "pbf":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, forward_interface, forward_next_hop, monitor_profile, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, forward_interface, forward_next_hop, monitor_profile, schedule_id, created_at, updated_at"
 		case "decryption":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, decryption_type, decryption_profile, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, decryption_type, decryption_profile, schedule_id, created_at, updated_at"
 		case "application_override":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, protocol, port, custom_app_id, predefined_app_name"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, protocol, port, custom_app_id, predefined_app_name, created_at, updated_at"
 		case "tunnel_inspection":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, protocols, action_profile"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, protocols, action_profile, created_at, updated_at"
 		case "authentication":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, authentication_profile, log_setting, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, authentication_profile, log_setting, schedule_id, created_at, updated_at"
 		case "dos":
-			cols = "id, device_uuid, scope, rule_name, description, disabled, action, aggregate_profile, classified_profile, schedule_id"
+			cols = "id, device_uuid, scope, rule_name, description, disabled, action, aggregate_profile, classified_profile, schedule_id, created_at, updated_at"
 		}
 
 		if scopeType == "show-all" {
@@ -251,23 +253,23 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 			var errScan error
 			switch policyType {
 			case "security":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ProfileType, &r.ProfileGroup, &r.LogSetting, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ProfileType, &r.ProfileGroup, &r.LogSetting, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			case "nat":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.ToZone, &r.ServiceID, &r.ServiceGroupID, &r.ServiceAdHoc, &r.SourceTranslationType, &r.SourceTranslationAddress, &r.DestinationTranslationAddress, &r.DestinationTranslationPort)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.ToZone, &r.ServiceID, &r.ServiceGroupID, &r.ServiceAdHoc, &r.SourceTranslationType, &r.SourceTranslationAddress, &r.DestinationTranslationAddress, &r.DestinationTranslationPort, &r.CreatedAt, &r.UpdatedAt)
 			case "qos":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.QoSClass, &r.DSCPTOS, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.QoSClass, &r.DSCPTOS, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			case "pbf":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ForwardInterface, &r.ForwardNextHop, &r.MonitorProfile, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.ForwardInterface, &r.ForwardNextHop, &r.MonitorProfile, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			case "decryption":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.DecryptionType, &r.DecryptionProfile, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.DecryptionType, &r.DecryptionProfile, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			case "application_override":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocol, &r.Port, &r.CustomAppID, &r.PredefinedApp)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocol, &r.Port, &r.CustomAppID, &r.PredefinedApp, &r.CreatedAt, &r.UpdatedAt)
 			case "tunnel_inspection":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocols, &r.ActionProfile)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Protocols, &r.ActionProfile, &r.CreatedAt, &r.UpdatedAt)
 			case "authentication":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AuthenticationProfile, &r.LogSetting, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AuthenticationProfile, &r.LogSetting, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			case "dos":
-				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AggregateProfile, &r.ClassifiedProfile, &r.ScheduleID)
+				errScan = rows.Scan(&r.ID, &r.DeviceUUID, &r.Scope, &r.RuleName, &r.Description, &r.Disabled, &r.Action, &r.AggregateProfile, &r.ClassifiedProfile, &r.ScheduleID, &r.CreatedAt, &r.UpdatedAt)
 			}
 			if errScan != nil {
 				return errScan
@@ -427,13 +429,19 @@ func handleGetPolicies(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil { log.Printf("Error hydrating zones: %v", err) }
 
+		// Determine the correct singular entity type for tags
+		entityType := policyType + "_rule"
+		if policyType == "application_override" {
+			entityType = "app_override_rule"
+		}
+
 		// Tags
 		err = hydrate(fmt.Sprintf(`
 			SELECT m.entity_id, t.name 
 			FROM entity_tag_mappings m 
 			JOIN tags t ON m.tag_id = t.id 
 			WHERE m.entity_type = '%s' AND m.entity_id IN (%s)
-		`, tableName, inClause), func(rows *sql.Rows) error {
+		`, entityType, inClause), func(rows *sql.Rows) error {
 			var rid int
 			var tname string
 			if err := rows.Scan(&rid, &tname); err != nil { return err }

@@ -31,7 +31,8 @@ declare global {
     disabled: number;
     action?: string;
     schedule_id?: number;
-
+    created_at?: string;
+    updated_at?: string;
     // Shared Arrays
     source_zone: string[];
     destination_zone: string[];

@@ -470,7 +470,17 @@ export const PoliciesPage: React.FC<PoliciesPageProps> = ({
             )}
           />
         ),
-        getFilterValues: (r: any) => r.tags && r.tags.length > 0 ? r.tags : ['']
+        getFilterValues: (r: any) => {
+          if (!r.tags) return [''];
+          if (Array.isArray(r.tags)) {
+            return r.tags.length > 0 ? r.tags.map(String) : [''];
+          }
+          if (typeof r.tags === 'string') {
+            const split = r.tags.split(',').map(s => s.trim()).filter(Boolean);
+            return split.length > 0 ? split : [''];
+          }
+          return [''];
+        }
       },
       {
         key: 'created_at',

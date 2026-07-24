@@ -258,6 +258,7 @@ type XMLNATRuleEntry struct {
 	Service     string   `xml:"service"`
 	Disabled    string   `xml:"disabled"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 
 	SourceTranslation struct {
 		DynamicIPPort *struct {
@@ -286,6 +287,7 @@ type XMLQoSRuleEntry struct {
 	DSCPTOS     string   `xml:"dscp-tos"`
 	Disabled    string   `xml:"disabled"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 	Schedule    string   `xml:"schedule"`
 }
 
@@ -304,6 +306,7 @@ type XMLPBFRuleEntry struct {
 	} `xml:"forward"`
 	Disabled    string `xml:"disabled"`
 	Description string `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 	Schedule    string `xml:"schedule"`
 }
 
@@ -319,6 +322,7 @@ type XMLDecryptionRuleEntry struct {
 	Profile     string   `xml:"profile"`
 	Disabled    string   `xml:"disabled"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 	Schedule    string   `xml:"schedule"`
 }
 
@@ -333,6 +337,7 @@ type XMLAppOverrideRuleEntry struct {
 	Application string   `xml:"application"`
 	Disabled    string   `xml:"disabled"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 }
 
 type XMLTunnelInspectionRuleEntry struct {
@@ -345,6 +350,7 @@ type XMLTunnelInspectionRuleEntry struct {
 	Action      string   `xml:"action"`
 	Disabled    string   `xml:"disabled"`
 	Description string   `xml:"description"`
+	Tag         []string `xml:"tag>member"`
 }
 
 type XMLAuthenticationRuleEntry struct {
@@ -2249,6 +2255,7 @@ func insertNATRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLNATRuleEn
 		insertRuleZones(tx, "nat", ruleID, "from", entry.From)
 		insertRuleAddresses(tx, "nat", ruleID, "source", entry.Source, scopes, reg)
 		insertRuleAddresses(tx, "nat", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, "nat_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2306,6 +2313,7 @@ func insertQoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLQoSRuleEn
 		insertRuleAddresses(tx, "qos", ruleID, "destination", entry.Destination, scopes, reg)
 		insertRuleServices(tx, "qos", ruleID, entry.Service, scopes, reg)
 		insertRuleApplications(tx, "qos", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, "qos_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2364,6 +2372,7 @@ func insertPBFRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLPBFRuleEn
 		insertRuleAddresses(tx, "pbf", ruleID, "destination", entry.Destination, scopes, reg)
 		insertRuleServices(tx, "pbf", ruleID, entry.Service, scopes, reg)
 		insertRuleApplications(tx, "pbf", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, "pbf_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2421,6 +2430,7 @@ func insertDecryptionRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDe
 		insertRuleAddresses(tx, "decryption", ruleID, "source", entry.Source, scopes, reg)
 		insertRuleAddresses(tx, "decryption", ruleID, "destination", entry.Destination, scopes, reg)
 		insertRuleServices(tx, "decryption", ruleID, entry.Service, scopes, reg)
+		insertRuleTags(tx, "decryption_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2481,6 +2491,7 @@ func insertAppOverrideRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLA
 		insertRuleZones(tx, "app_override", ruleID, "to", entry.To)
 		insertRuleAddresses(tx, "app_override", ruleID, "source", entry.Source, scopes, reg)
 		insertRuleAddresses(tx, "app_override", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, "app_override_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2529,6 +2540,7 @@ func insertTunnelInspectionRules(tx *sql.Tx, deviceUUID, scope string, entries [
 		insertRuleZones(tx, "tunnel_inspection", ruleID, "to", entry.To)
 		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "source", entry.Source, scopes, reg)
 		insertRuleAddresses(tx, "tunnel_inspection", ruleID, "destination", entry.Destination, scopes, reg)
+		insertRuleTags(tx, "tunnel_inspection_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2587,6 +2599,7 @@ func insertAuthenticationRules(tx *sql.Tx, deviceUUID, scope string, entries []X
 		insertRuleAddresses(tx, "authentication", ruleID, "destination", entry.Destination, scopes, reg)
 		insertRuleServices(tx, "authentication", ruleID, entry.Service, scopes, reg)
 		insertRuleApplications(tx, "authentication", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, "authentication_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
@@ -2645,6 +2658,7 @@ func insertDoSRules(tx *sql.Tx, deviceUUID, scope string, entries []XMLDoSRuleEn
 		insertRuleAddresses(tx, "dos", ruleID, "destination", entry.Destination, scopes, reg)
 		insertRuleServices(tx, "dos", ruleID, entry.Service, scopes, reg)
 		insertRuleApplications(tx, "dos", ruleID, entry.Application, scopes, reg)
+		insertRuleTags(tx, "dos_rule", ruleID, entry.Tag, scopes, reg)
 	}
 	return nil
 }
