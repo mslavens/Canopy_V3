@@ -993,7 +993,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
                 
                 if (filtered.length === 0) {
                   return (
-                    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    <div key="empty-state" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
                       No objects found matching "{selectorSearchQuery}"
                     </div>
                   );
@@ -1010,7 +1010,7 @@ export const GlobalObjectCrudModal: React.FC<GlobalObjectCrudModalProps> = ({
 
                   return (
                     <div 
-                      key={opt.id}
+                      key={opt.name}
                       onClick={() => {
                         if (!isAlreadyAdded) {
                           setFormMembers(prev => [...prev, opt.name]);

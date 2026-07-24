@@ -1463,11 +1463,11 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
             
             <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {dropdownOptions.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                <div key="empty-state" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
                   No objects found matching "{dropdownSearch}"
                 </div>
               ) : (
-                <>
+                <React.Fragment key="options-list">
                   {dropdownOptions.slice(0, 100).map(opt => {
                     const isGroup = opt.member_list !== undefined && opt.member_list !== null;
                     let iconColor = '#10b981'; // Green
@@ -1479,7 +1479,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
 
                     return (
                       <div 
-                        key={opt.id}
+                        key={opt.name}
                         title={`Name: ${opt.name}\nValue: ${opt.value || opt.member_list || 'N/A'}`}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, val: opt.name }); }}
                         onClick={() => {
@@ -1554,7 +1554,7 @@ export const TokenizedFieldEditor: React.FC<TokenizedFieldEditorProps> = ({
                     + {(dropdownOptions.length - 100).toLocaleString()} more items. Please use search.
                   </div>
                 )}
-                </>
+                </React.Fragment>
               )}
             </div>
             <div style={{ padding: '12px', borderTop: '1px solid var(--border-main)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
